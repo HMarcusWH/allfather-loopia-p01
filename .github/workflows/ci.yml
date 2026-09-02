@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  foundation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show PHP runtime
+        run: php -v
+
+      - name: Validate JSON
+        run: php -r "json_decode(file_get_contents('upstream.lock.json'), true, 512, JSON_THROW_ON_ERROR);"
+
+      - name: PHP syntax
+        run: |
+          find app public worker ops tests -name '*.php' -print0 2>/dev/null | xargs -0 -r -n1 php -l
+
+      - name: Foundation invariants
+        run: php tests/run.php
