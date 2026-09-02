@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "projection_id": "LOOPIA_P01",
+  "canonical_repository": "HMarcusWH/Allfatherbusinessintelligence",
+  "registry_declared_head": null,
+  "historical_base": null,
+  "live_head_at_pin": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+  "projection_pinned_head": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+  "alignment_status": "PINNED_PENDING_CONFORMANCE_IMPLEMENTATION",
+  "module": "P01",
+  "action_classes": ["A", "B", "C"],
+  "runtime": {
+    "language": "PHP",
+    "database": "MariaDB",
+    "target_host": "Loopia",
+    "target_surface": "platform.allfatherbi.com"
+  },
+  "claim_boundary": {
+    "road_test_001_executed": false,
+    "customer_visible_output_authorized": false,
+    "external_action_authorized": false
+  }
+}
