@@ -1,0 +1,22 @@
+{
+  "name": "hmarcuswh/allfather-loopia-p01",
+  "description": "Governed Loopia deployment projection of Allfather BI P01.",
+  "type": "project",
+  "private": true,
+  "require": {
+    "php": ">=8.2"
+  },
+  "autoload": {
+    "psr-4": {
+      "Allfather\\LoopiaP01\\": "app/"
+    }
+  },
+  "scripts": {
+    "lint": "find app public worker ops tests -name '*.php' -print0 | xargs -0 -n1 php -l",
+    "test": "php tests/run.php",
+    "check": [
+      "@lint",
+      "@test"
+    ]
+  }
+}
