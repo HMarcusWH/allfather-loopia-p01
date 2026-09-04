@@ -100,72 +100,62 @@ if ($server === false) {
     $name = stream_socket_get_name($server, false);
     $port = (int) substr($name, (int) strrpos($name, ':') + 1);
 
-    // A hostname that must NOT resolve anywhere. If the pin is ignored, cURL resolves this and
-    // fails; if the pin works, the connection lands on the loopback listener above.
+    // A hostname that must NOT resolve anywhere. RFC 2606 reserves .invalid precisely so it never
+    // will. If the pin is ignored, cURL resolves this and fails with COULDNT_RESOLVE_HOST; if the
+    // pin works, the connection lands on the loopback listener above.
     $host = 'pinned-target.invalid';
 
-    $probeFile = sys_get_temp_dir() . '/allfather-pin-probe-' . bin2hex(random_bytes(4)) . '.txt';
-
-    $pid = pcntl_fork();
-    if ($pid === 0) {
-        // Child: accept one connection and record THAT IT ARRIVED, plus its first bytes.
-        //
-        // The client speaks TLS, so the first bytes are a ClientHello, not an HTTP request line.
-        // What is being measured is not the request — it is WHERE THE SOCKET WENT. A connection
-        // arriving here at all is the proof, because the hostname cannot be resolved.
-        $client = @stream_socket_accept($server, 5, $peer);
-        $record = ['connected' => false, 'peer' => null, 'first_bytes_hex' => null];
-        if ($client !== false) {
-            $record['connected'] = true;
-            $record['peer'] = $peer;
-            stream_set_timeout($client, 2);
-            $first = @fread($client, 8);
-            $record['first_bytes_hex'] = $first === false ? null : bin2hex($first);
-            @fclose($client);
-        }
-        file_put_contents($probeFile, json_encode($record));
-        exit(0);
-    }
-
-    // Parent: drive the transport at the unresolvable hostname, pinned to the listener.
+    // THE TRANSPORT ITSELF is driven here — not a hand-built cURL handle. An earlier version of
+    // this test constructed its own handle with CURLOPT_RESOLVE and therefore proved only that
+    // cURL supports pinning, passing even with the pin removed from the transport. Mutation
+    // testing caught it. What must be proved is that CurlHttpsTransport uses it.
+    //
+    // `send()` blocks, so the listener is not polled concurrently. It does not need to be: the
+    // kernel completes the TCP handshake and QUEUES the connection in the listen backlog, and the
+    // ClientHello bytes are buffered with it. Accepting afterwards reads exactly what arrived.
     $transportError = null;
     try {
-        $transport->send(new FetchRequest('GET', "https://{$host}:{$port}/probe", 3000, '127.0.0.1'));
+        $transport->send(new FetchRequest('GET', "https://{$host}:{$port}/probe", 2000, '127.0.0.1'));
     } catch (\Throwable $thrown) {
-        // A TLS failure is EXPECTED: the listener does not present a certificate. Irrelevant to
-        // what this test measures, and notably NOT a resolution failure.
+        // A TLS failure is EXPECTED — the listener presents no certificate. Irrelevant to what is
+        // being measured, and notably NOT a resolution failure.
         $transportError = $thrown;
     }
 
-    pcntl_waitpid($pid, $status);
+    stream_set_blocking($server, false);
+    $client = @stream_socket_accept($server, 0);
+    $connected = $client !== false;
+    $firstBytes = '';
+    if ($client !== false) {
+        stream_set_blocking($client, false);
+        $bytes = @fread($client, 8);
+        $firstBytes = $bytes === false ? '' : $bytes;
+        @fclose($client);
+    }
     fclose($server);
 
-    $record = is_file($probeFile)
-        ? json_decode((string) file_get_contents($probeFile), true, 512, JSON_THROW_ON_ERROR)
-        : ['connected' => false];
-    @unlink($probeFile);
-
-    // THE decisive assertion. `pinned-target.invalid` has no DNS record by construction
-    // (RFC 2606 reserves .invalid), so a socket arriving on this loopback listener can ONLY have
-    // come from CURLOPT_RESOLVE. If cURL had re-resolved the hostname, it would have failed with
+    // THE decisive assertion. `pinned-target.invalid` has no DNS record by construction, so a
+    // socket arriving on this loopback listener can ONLY have come from CURLOPT_RESOLVE inside the
+    // transport. Had the transport let cURL resolve the hostname, it would have failed with
     // CURLE_COULDNT_RESOLVE_HOST and nothing would have arrived.
     Assert::same(
         true,
-        $record['connected'] ?? false,
-        'the pinned connection REACHED the listener for a hostname that cannot be resolved — '
-        . 'CURLOPT_RESOLVE is the only route, so the resolve-connect pin is real',
+        $connected,
+        'CurlHttpsTransport REACHED the listener for a hostname that cannot be resolved — '
+        . 'CURLOPT_RESOLVE is the only route, so the transport really does pin the vetted address',
     );
 
     Assert::true(
-        ($record['first_bytes_hex'] ?? '') !== '' && str_starts_with((string) ($record['first_bytes_hex'] ?? ''), '16'),
-        'and the client spoke TLS on arrival (record type 0x16 = handshake) — the pin does not downgrade the connection',
+        $firstBytes !== '' && bin2hex($firstBytes[0]) === '16',
+        'and the transport spoke TLS on arrival (record type 0x16 = handshake) — the pin does not '
+        . 'downgrade the connection to plaintext',
     );
 
-    // The failure the transport reported must be a TLS/connection failure, never a resolution one:
-    // a resolution failure would mean cURL had ignored the pin and looked the name up itself.
+    // The failure must be a TLS failure, never a resolution one: a resolution failure would mean
+    // the transport had ignored its own pin.
     Assert::true(
-        $transportError === null
-        || !str_contains($transportError->getMessage(), 'HTTPS_TRANSPORT_ERROR_' . CURLE_COULDNT_RESOLVE_HOST),
+        $transportError !== null
+        && !str_contains($transportError->getMessage(), 'HTTPS_TRANSPORT_ERROR_' . CURLE_COULDNT_RESOLVE_HOST),
         'the transport did NOT fall back to resolving the hostname itself',
     );
 }
