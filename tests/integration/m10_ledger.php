@@ -122,22 +122,61 @@ Assert::same([], $verified['failures'], 'with no failures');
 // --- tamper detection -----------------------------------------------------------------------------------------
 // The payload digest commits to the record fields AND its reference set, so both kinds of tamper
 // surface. This is why the digest is not merely over the record's own columns.
+//
+// `decision_records` and `decision_input_references` are fully immutable at storage level
+// (INV-013), so the honest path cannot produce a tamper at all — which is the point. The tamper is
+// therefore applied the way an attacker WITH database privileges would: by removing the trigger.
+// Each trigger's exact definition is captured first and restored afterwards, so this suite cannot
+// leave the schema weaker than production's for the suites that follow it.
+
+/** @return array<string, string> trigger name => body */
+$captureTriggers = static function (array $tables) use ($db): array {
+    $placeholders = implode(', ', array_fill(0, count($tables), '?'));
+    $rows = $db->all(
+        "SELECT trigger_name, action_timing, event_manipulation, event_object_table, action_statement
+         FROM information_schema.triggers
+         WHERE trigger_schema = DATABASE() AND event_object_table IN ({$placeholders})",
+        $tables
+    );
+    $out = [];
+    foreach ($rows as $row) {
+        $out[(string) $row['trigger_name']] = sprintf(
+            'CREATE TRIGGER %s %s %s ON %s FOR EACH ROW %s',
+            $row['trigger_name'],
+            $row['action_timing'],
+            $row['event_manipulation'],
+            $row['event_object_table'],
+            $row['action_statement'],
+        );
+    }
+
+    return $out;
+};
+
+$savedTriggers = $captureTriggers(['decision_records', 'decision_input_references']);
+Assert::true(
+    isset($savedTriggers['trg_decision_records_no_update']),
+    'decision_records is immutable at storage level (INV-013), not merely by convention',
+);
+Assert::true(
+    isset($savedTriggers['trg_decision_records_no_delete']),
+    'and cannot be deleted either',
+);
 
 $victim = (string) $db->scalar(
     'SELECT decision_record_id FROM decision_records WHERE ledger_stream_id = ? AND record_sequence_number = 3',
     [$streamId]
 );
 
-// `decision_records` deliberately carries only a no-DELETE trigger, not a no-UPDATE one:
-// supersession must be able to change `current_reliance_status` in place. That makes the payload
-// digest the thing standing between a database-level field edit and an undetected forgery, which
-// is exactly what this asserts.
+$db->pdo()->exec('DROP TRIGGER IF EXISTS trg_decision_records_no_update');
 $db->run('UPDATE decision_records SET safe_decision_summary = ? WHERE decision_record_id = ?', ['TAMPERED', $victim]);
 
 $afterTamper = $ledger->verifyStream($streamId);
 Assert::same('FAIL', $afterTamper['status'], 'a tampered field breaks verification');
-$reasons = array_column($afterTamper['failures'], 'reason_code');
-Assert::true(in_array('LEDGER_PAYLOAD_DIGEST_MISMATCH', $reasons, true), 'and is reported as a payload digest mismatch');
+Assert::true(
+    in_array('LEDGER_PAYLOAD_DIGEST_MISMATCH', array_column($afterTamper['failures'], 'reason_code'), true),
+    'and is reported as a payload digest mismatch',
+);
 
 $db->run('UPDATE decision_records SET safe_decision_summary = ? WHERE decision_record_id = ?', ['held 1', $victim]);
 Assert::same('PASS', $ledger->verifyStream($streamId)['status'], 'restoring the field restores verification');
@@ -158,21 +197,30 @@ Assert::true(
     in_array('LEDGER_PAYLOAD_DIGEST_MISMATCH', array_column($afterRefTamper['failures'], 'reason_code'), true),
     'because the digest commits to the reference set, not only to the record columns',
 );
-
-// Restore both the reference and the triggers: a test that leaves the schema mutated would make
-// every later suite in this process run against a weaker database than production has.
 $db->run(
     'UPDATE decision_input_references SET input_object_id = ? WHERE decision_record_id = ?',
     [$originalRefId, $victim]
 );
 Assert::same('PASS', $ledger->verifyStream($streamId)['status'], 'restoring the reference restores verification');
 
-$db->pdo()->exec(
-    "CREATE TRIGGER trg_decision_input_references_no_update BEFORE UPDATE ON decision_input_references FOR EACH ROW
-     BEGIN
-       SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'decision_input_references is append-only';
-     END"
+// Restore every trigger EXACTLY as it was captured, then prove the restoration actually took —
+// an unverified restore is how a suite silently weakens the database for every suite after it.
+foreach ($savedTriggers as $name => $definition) {
+    $db->pdo()->exec('DROP TRIGGER IF EXISTS ' . $name);
+    $db->pdo()->exec($definition);
+}
+$restored = $captureTriggers(['decision_records', 'decision_input_references']);
+Assert::same(
+    count($savedTriggers),
+    count($restored),
+    'every dropped trigger is restored — this suite leaves the schema exactly as it found it',
 );
+try {
+    $db->run('UPDATE decision_records SET safe_decision_summary = ? WHERE decision_record_id = ?', ['x', $victim]);
+    Assert::fail('the restored immutability trigger should reject UPDATE');
+} catch (\PDOException) {
+    Assert::pass();
+}
 
 // --- supersession: withdraw reliance, delete NOTHING ------------------------------------------------------------
 
