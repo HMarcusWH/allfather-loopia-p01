@@ -16,6 +16,7 @@ declare(strict_types=1);
 require __DIR__ . '/../app/autoload.php';
 require __DIR__ . '/support/Assert.php';
 require __DIR__ . '/support/Harness.php';
+require __DIR__ . '/support/Seed.php';
 
 use Allfather\Loopia\Tests\Assert;
 use Allfather\Loopia\Tests\Harness;
