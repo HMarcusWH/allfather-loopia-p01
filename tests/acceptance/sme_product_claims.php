@@ -123,7 +123,8 @@ if ($catalogueTerms !== null) {
 }
 $claimKindCheck = (string) $db->scalar(
     "SELECT CHECK_CLAUSE FROM information_schema.CHECK_CONSTRAINTS
-     WHERE CONSTRAINT_SCHEMA = DATABASE() AND CHECK_CLAUSE LIKE '%REASON_TO_INVESTIGATE%' LIMIT 1"
+     WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'fit_hypotheses'
+       AND CHECK_CLAUSE LIKE '%claim_kind%'"
 );
 foreach (['INTENT', 'READY_TO_BUY', 'QUALIFIED_LEAD'] as $overclaim) {
     Assert::false(
@@ -136,15 +137,23 @@ foreach (['INTENT', 'READY_TO_BUY', 'QUALIFIED_LEAD'] as $overclaim) {
 
 // Proved structurally, across two planes. The role table can hold a ROLE and nothing narrower, and
 // the acknowledgement table has no column a score could live in.
-Assert::same(
-    'ROLE_CLASS',
-    (string) $db->scalar(
-        "SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(CHECK_CLAUSE, '''', 2), '''', -1)
-         FROM information_schema.CHECK_CONSTRAINTS
-         WHERE CONSTRAINT_SCHEMA = DATABASE() AND CHECK_CLAUSE LIKE '%subject_kind%' LIMIT 1"
-    ),
-    'a stakeholder observation can name a ROLE CLASS and nothing narrower',
+// Scoped to the TABLE, because more than one table carries a `subject_kind` constraint and an
+// unordered LIMIT 1 over information_schema returns whichever the server feels like — which is a
+// test that passes or fails by luck rather than by fact.
+$subjectKindClause = (string) $db->scalar(
+    "SELECT CHECK_CLAUSE FROM information_schema.CHECK_CONSTRAINTS
+     WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'stakeholder_role_observations'
+       AND CHECK_CLAUSE LIKE '%subject_kind%'"
 );
+// An EQUALITY, not a one-member IN list. The column cannot hold anything but a role class, and
+// widening it would take a migration rather than an edit.
+Assert::contains('ROLE_CLASS', $subjectKindClause, 'a stakeholder observation names a ROLE CLASS');
+foreach (['INDIVIDUAL', 'PERSON', 'EMPLOYEE', 'CONTACT'] as $narrower) {
+    Assert::false(
+        str_contains($subjectKindClause, $narrower),
+        "and nothing narrower — the constraint admits no {$narrower} subject",
+    );
+}
 
 // And the entity twin refuses the same thing through the real product path, with a named reason
 // for each kind of overreach — because the remedies differ, and an operator needs to know which.
@@ -187,7 +196,8 @@ foreach ([
 // contacts anybody, and the tables say so. The outreach vocabulary tops out at APPROVAL_REQUIRED.
 $outreachStatuses = (string) $db->scalar(
     "SELECT CHECK_CLAUSE FROM information_schema.CHECK_CONSTRAINTS
-     WHERE CONSTRAINT_SCHEMA = DATABASE() AND CHECK_CLAUSE LIKE '%APPROVAL_REQUIRED%' LIMIT 1"
+     WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'outreach_execution_proposals'
+       AND CHECK_CLAUSE LIKE '%proposal_status%'"
 );
 foreach (['SENT', 'DELIVERED', 'DISPATCHED'] as $forbidden) {
     Assert::false(
@@ -204,8 +214,8 @@ Assert::same(
 // The marketing plane makes the same promise about publication.
 $assetStatuses = (string) $db->scalar(
     "SELECT CHECK_CLAUSE FROM information_schema.CHECK_CONSTRAINTS
-     WHERE CONSTRAINT_SCHEMA = DATABASE() AND CHECK_CLAUSE LIKE '%RELEASED_INTERNAL%'
-       AND CHECK_CLAUSE LIKE '%asset_status%' LIMIT 1"
+     WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'marketing_asset_drafts'
+       AND CHECK_CLAUSE LIKE '%asset_status%'"
 );
 Assert::false(
     str_contains($assetStatuses, 'PUBLISHED'),

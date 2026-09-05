@@ -101,8 +101,8 @@ $submitInput = [
 // APPROVAL_REQUIRED; there is no SENT, DISPATCHED or DELIVERED member to reach.
 $statusCheck = (string) $db->scalar(
     "SELECT CHECK_CLAUSE FROM information_schema.CHECK_CONSTRAINTS
-     WHERE CONSTRAINT_SCHEMA = DATABASE() AND CHECK_CLAUSE LIKE '%proposal_status%'
-       AND CHECK_CLAUSE LIKE '%APPROVAL_REQUIRED%' LIMIT 1"
+     WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'outreach_execution_proposals'
+       AND CHECK_CLAUSE LIKE '%proposal_status%'"
 );
 foreach (['SENT', 'DISPATCHED', 'DELIVERED', 'EXECUTED'] as $forbidden) {
     Assert::false(

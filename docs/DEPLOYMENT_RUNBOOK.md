@@ -50,7 +50,7 @@ hand; do not re-run and hope.
 
     php tests/run.php --strict
 
-Expect 1948 passing, 0 failing, 0 skipped. Under `--strict` a skip is a non-zero exit, so an
+Expect 1952 passing, 0 failing, 0 skipped. Under `--strict` a skip is a non-zero exit, so an
 unreachable database cannot be mistaken for a green run.
 
 ### 4.2 CHECK constraints are ENFORCED

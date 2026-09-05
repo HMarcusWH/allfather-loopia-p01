@@ -18,10 +18,10 @@ is not.
 | unit | 1 | 107 | PASS |
 | integration | 23 | 1041 | PASS |
 | conformance | 1 | 27 | PASS |
-| acceptance | 1 | 28 | PASS |
+| acceptance | 1 | 32 | PASS |
 | security | 10 | 656 | PASS |
 | rollback | 1 | 27 | PASS |
-| **TOTAL** | **39** | **1948** | **PASS, 0 failing, 0 skipped** |
+| **TOTAL** | **39** | **1952** | **PASS, 0 failing, 0 skipped** |
 
 Run with `php tests/run.php --strict`. Under `--strict` a skip is a non-zero exit, so an
 unreachable database cannot be mistaken for a green suite.

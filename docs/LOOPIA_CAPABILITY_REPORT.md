@@ -43,7 +43,7 @@ nowhere else. M15 governed ingestion is present with the guarded egress path.
 **Storage** — 15 migrations, MariaDB 10.11, with the invariants held as CHECK constraints and
 append-only triggers rather than as application conventions.
 
-**Tests** — 1948 assertions across seven layers, all executed against MariaDB. See
+**Tests** — 1952 assertions across seven layers, all executed against MariaDB. See
 `CONFORMANCE_MATRIX.md` §1 for the breakdown and for what has NOT been verified.
 
 ## 2. What it deliberately cannot do

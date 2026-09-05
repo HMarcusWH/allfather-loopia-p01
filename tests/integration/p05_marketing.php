@@ -79,7 +79,8 @@ $composeInput = [
 // publish path; what makes this hold is that the vocabulary has no such member.
 $statusCheck = (string) $db->scalar(
     "SELECT CHECK_CLAUSE FROM information_schema.CHECK_CONSTRAINTS
-     WHERE CONSTRAINT_SCHEMA = DATABASE() AND CHECK_CLAUSE LIKE '%asset_status%' LIMIT 1"
+     WHERE CONSTRAINT_SCHEMA = DATABASE() AND TABLE_NAME = 'marketing_asset_drafts'
+       AND CHECK_CLAUSE LIKE '%asset_status%'"
 );
 foreach (['PUBLISHED', 'SENT', 'DISPATCHED', 'SCHEDULED'] as $forbidden) {
     Assert::false(
