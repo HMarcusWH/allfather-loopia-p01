@@ -31,10 +31,25 @@ use Allfather\Loopia\Substrate\M04\Proposals;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
 use Allfather\Loopia\Substrate\M11\Assurance;
 use Allfather\Loopia\Substrate\M12\Console;
-use Allfather\Loopia\Support\Env;
+use Allfather\Loopia\Support\Bootstrap;
 
 $root = dirname(__DIR__);
-$env = Env::load(is_file($root . '/.env') ? $root . '/.env' : $root . '/.env.testing');
+
+try {
+    $boot = Bootstrap::load($root);
+} catch (\RuntimeException $error) {
+    // A deployment that may not start says so, and says it ONCE, before anything else runs. The
+    // message names missing configuration KEYS — which are public, they are in `.env.example` —
+    // and never a value, a path fragment or a driver detail.
+    http_response_code(503);
+    header('Content-Type: application/json; charset=utf-8', true);
+    header('Cache-Control: no-store, private', true);
+    echo json_encode(['status' => 'MISCONFIGURED', 'detail' => $error->getMessage()], JSON_THROW_ON_ERROR);
+
+    return;
+}
+$env = $boot['env'];
+Bootstrap::applyErrorPosture($boot['strict']);
 
 try {
     $db = Database::connect(

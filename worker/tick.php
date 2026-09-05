@@ -27,10 +27,18 @@ use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Jobs\JobMachine;
 use Allfather\Loopia\Jobs\SchedulerRunner;
-use Allfather\Loopia\Support\Env;
+use Allfather\Loopia\Support\Bootstrap;
 
 $root = dirname(__DIR__);
-$env = Env::load(is_file($root . '/.env') ? $root . '/.env' : $root . '/.env.testing');
+
+try {
+    $boot = Bootstrap::load($root);
+} catch (\RuntimeException $error) {
+    fwrite(STDERR, 'scheduler: ' . $error->getMessage() . "\n");
+    exit(2);
+}
+$env = $boot['env'];
+Bootstrap::applyErrorPosture($boot['strict']);
 
 try {
     $db = Database::connect(

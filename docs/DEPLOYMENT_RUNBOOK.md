@@ -21,7 +21,8 @@ configured.
 | PHP 8.2 or later | the code uses readonly promoted properties, enums, and `WeakMap` |
 | extensions: `pdo_mysql`, `curl`, `openssl`, `mbstring`, `json` | `openssl` for credential encryption; `curl` with `CURLOPT_RESOLVE` for the pinned-address egress guard |
 | MariaDB 10.5 or later | CHECK constraints must be ENFORCED, not parsed and ignored |
-| `APP_MASTER_KEY` in server-private configuration | provider-credential encryption; never in the repository, never in the database |
+| `APP_MASTER_KEY` in server-private configuration | provider-credential encryption; never in the repository, never in the database. **Required at boot** in staging and production — a deployment without it refuses to start rather than failing at the first credential it seals |
+| `APP_ENV` set correctly | a value outside `development`/`testing`/`staging`/`production` — including unset, empty or misspelled — resolves to **production**. Getting it wrong makes the deployment stricter, never looser |
 | DB credentials via environment | `DB_HOST`/`DB_PORT` or `DB_SOCKET`, plus `DB_NAME`, `DB_USER`, `DB_PASSWORD` |
 
 **Verify `CURLOPT_RESOLVE` exists before deploying.** Without it the egress guard cannot pin a
@@ -68,7 +69,26 @@ Verify the boundary after deploying. Each of these must NOT return the file:
 403 or 404 are both correct answers. A 200 means the layout is wrong — fix the layout, not the
 `.htaccess`.
 
-### 3.2 Install
+### 3.2 Configuration fails closed
+
+`.env` is production's file and `.env.testing` is a development convenience. A staging or
+production deployment configured from the test file **refuses to start**, so a host whose `.env` is
+missing or unreadable cannot silently run on test credentials. So does a deployment with no
+configuration file at all — an empty configuration would answer every default as though somebody
+had chosen it.
+
+Staging and production additionally require `DB_NAME`, `DB_USER` and an `APP_MASTER_KEY` that
+decodes to 32 bytes, all checked at boot. A refusal names the missing keys and nothing else; the
+key names are public (they are in `.env.example`) and their values never travel with them.
+
+`DB_PASSWORD` is deliberately not required: a socket-authenticated MariaDB user legitimately has
+none.
+
+A refusal looks like this, and is the only thing the deployment will say until it is fixed:
+
+    {"status":"MISCONFIGURED","detail":"refusing to start in production: required configuration missing: APP_MASTER_KEY"}
+
+### 3.3 Install
 
     git clone <repo> && cd allfather-loopia-p01
     cp .env.example .env && edit .env          # DB_*, APP_MASTER_KEY, SCHEDULER_TOKEN_HASH

@@ -27,7 +27,7 @@ use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Jobs\JobMachine;
 use Allfather\Loopia\Jobs\SchedulerAuth;
 use Allfather\Loopia\Jobs\SchedulerRunner;
-use Allfather\Loopia\Support\Env;
+use Allfather\Loopia\Support\Bootstrap;
 
 /** Every response from this endpoint. No HTML, no template, no session. */
 $respond = static function (int $status, array $payload): void {
@@ -49,7 +49,19 @@ if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
 }
 
 $root = dirname(__DIR__);
-$env = Env::load(is_file($root . '/.env') ? $root . '/.env' : $root . '/.env.testing');
+
+try {
+    $boot = Bootstrap::load($root);
+} catch (\RuntimeException $error) {
+    // BEFORE the credential check, deliberately. A deployment that may not start must not first
+    // decide whether the caller is the scheduler: the answer would depend on configuration this
+    // has just established cannot be trusted. The message names only configuration keys.
+    $respond(503, ['status' => 'MISCONFIGURED', 'detail' => $error->getMessage()]);
+
+    return;
+}
+$env = $boot['env'];
+Bootstrap::applyErrorPosture($boot['strict']);
 
 $auth = SchedulerAuth::verify($env, (string) ($_SERVER[SchedulerAuth::SERVER_KEY] ?? ''));
 if (!$auth['authorized']) {

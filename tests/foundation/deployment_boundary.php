@@ -111,3 +111,25 @@ Assert::true(
     'and refuses BEFORE it loads the application — a bootstrap that ran first would have already '
     . 'read .env by the time the check happened',
 );
+
+// ============================================================ no entry point loads config itself
+
+// The fail-open expression this repository used to carry, in four places:
+//
+//     Env::load(is_file($root . '/.env') ? $root . '/.env' : $root . '/.env.testing');
+//
+// Every entry point now goes through `Bootstrap::load`, which refuses rather than falling back. A
+// fifth entry point added later would be the way that comes back, so the absence is asserted
+// rather than assumed.
+foreach (['/public/index.php', '/public/scheduler.php', '/worker/tick.php', '/ops/migrate.php'] as $entry) {
+    $body = (string) file_get_contents($root . $entry);
+    Assert::contains(
+        'Bootstrap::',
+        $body,
+        "{$entry} resolves its configuration through the fail-closed bootstrap",
+    );
+    Assert::false(
+        str_contains($body, "'/.env' : ") || str_contains($body, "'/.env.testing')"),
+        "{$entry} carries no inline fallback from .env to the test file beside it",
+    );
+}

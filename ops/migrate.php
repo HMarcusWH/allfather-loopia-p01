@@ -16,6 +16,7 @@ require __DIR__ . '/../app/autoload.php';
 
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Db\Migrator;
+use Allfather\Loopia\Support\Bootstrap;
 use Allfather\Loopia\Support\Env;
 
 $argvCopy = $argv;
@@ -33,8 +34,43 @@ foreach ($argvCopy as $arg) {
 }
 
 $root = dirname(__DIR__);
-$envPath ??= (is_file($root . '/.env') ? $root . '/.env' : $root . '/.env.testing');
-$env = Env::load($envPath);
+
+// An EXPLICIT --env is honoured as given: the operator naming a file has said which deployment
+// they mean, and second-guessing that would make the flag useless. Everything else goes through
+// the same fail-closed rules as the web entry points — including the one that matters most here,
+// that a strict environment may not have been configured from the test file. Migrations run
+// against whatever database this configuration names, so a silent fallback would mean applying a
+// schema change to the wrong one.
+if ($envPath !== null) {
+    if (!is_file($envPath)) {
+        fwrite(STDERR, "no such configuration file: {$envPath}" . PHP_EOL);
+        exit(2);
+    }
+    $env = Env::load($envPath);
+    $environment = Bootstrap::resolveEnvironment($env->get('APP_ENV'));
+} else {
+    try {
+        $boot = Bootstrap::load($root);
+    } catch (\RuntimeException $error) {
+        fwrite(STDERR, 'migrate: ' . $error->getMessage() . PHP_EOL);
+        exit(2);
+    }
+    $env = $boot['env'];
+    $environment = $boot['environment'];
+    $envPath = $boot['source'];
+}
+
+if (!$quiet) {
+    // Which deployment is about to be changed, before it is changed. A migrator that ran silently
+    // against an unnamed target is how a schema change reaches the wrong database.
+    fwrite(STDERR, sprintf(
+        "migrate: %s using %s (APP_ENV=%s)%s",
+        $command,
+        basename((string) $envPath),
+        $environment,
+        PHP_EOL,
+    ));
+}
 
 try {
     $db = Database::connect(
