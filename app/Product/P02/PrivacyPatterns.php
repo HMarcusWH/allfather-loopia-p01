@@ -117,6 +117,24 @@ final class PrivacyPatterns
     private const ISO_DATE_SHAPE = '/^\d{4}[-. ]\d{2}[-. ]\d{2}( \d{1,2})?$/';
 
     /**
+     * A UUID is NOT an identifier of a PERSON, and it must not read as one.
+     *
+     * This exclusion is shaped differently from the date one, because the failure is. A UUID's
+     * digit-and-hyphen FRAGMENTS look exactly like phone runs — `c9c3faaf-d20e-4ec7-9573-282b7492`
+     * yields the run `7-9573-282` — so testing the captured run against a UUID shape cannot work:
+     * the run is never a whole UUID. The token has to be removed BEFORE the scan instead.
+     *
+     * The cost of not doing this is not theoretical. Roughly a QUARTER of random UUIDs produce a
+     * phone-like fragment, so any safe-reference text quoting a record id would trip the detector
+     * about a quarter of the time — opening spurious high-severity incidents and, far worse,
+     * teaching operators that this audit cries wolf.
+     *
+     * Removing the token cannot weaken phone detection: a phone number is never 8-4-4-4-12 hex, and
+     * a real number sitting NEXT to a UUID survives the removal intact.
+     */
+    private const UUID_TOKEN = '/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i';
+
+    /**
      * Does a field key match any pattern in a list?
      *
      * @param list<string> $patterns
@@ -154,7 +172,10 @@ final class PrivacyPatterns
      */
     private static function containsPhoneLikeRun(string $text): bool
     {
-        if (preg_match_all(self::PHONE_LIKE_RUN, $text, $matches) === false) {
+        // UUID tokens are removed first — see UUID_TOKEN. Their fragments would otherwise read as
+        // phone runs, and no test of the captured run could tell the difference.
+        $scannable = preg_replace(self::UUID_TOKEN, ' ', $text) ?? $text;
+        if (preg_match_all(self::PHONE_LIKE_RUN, $scannable, $matches) === false) {
             return false;
         }
         foreach ($matches[0] as $run) {

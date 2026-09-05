@@ -173,6 +173,34 @@ Assert::false(
     'and ordinary business content with a date is not flagged',
 );
 
+// A UUID IS NOT A PHONE NUMBER, and every governed object reference is one. A UUID's digit-and-
+// hyphen fragments read exactly like phone runs — about a QUARTER of random ids produce one — so
+// without the exclusion any safe-reference text quoting a record id would trip this detector a
+// quarter of the time. That is not a small annoyance: it opens spurious high-severity incidents,
+// and it teaches operators that the PII audit cries wolf.
+$uuidTexts = 0;
+foreach ([
+    'c9c3faaf-d20e-4ec7-9573-282b74929769',
+    '8930b375-6380-4f21-98a7-fc1a099383a3',
+    '94f48019-8640-4630-80a9-19a56384c4c5',
+    '3d8dec54-7444-4465-9290-ebbd6da72b2b',
+    '09bc88ce-9596-4628-9331-8deb3adb8e72',
+] as $uuid) {
+    Assert::false(
+        PiiFirewall::containsRawPii('Consent state at proposal: OPTED_IN; cites M10 release ' . $uuid . '.'),
+        "a record reference quoting {$uuid} is not an individual identifier",
+    );
+    $uuidTexts++;
+}
+Assert::same(5, $uuidTexts, 'each of the five phone-run-shaped UUIDs is proved on its own');
+
+// And the exclusion is NARROW: a real number sitting next to a UUID still flags, so removing the
+// token cannot be used to smuggle one past.
+Assert::true(
+    PiiFirewall::containsRawPii('release c9c3faaf-d20e-4ec7-9573-282b74929769, call +46 70 123 45 67'),
+    'a real phone number adjacent to a UUID still flags — the exclusion removes the token, not the scan',
+);
+
 // ============================================================ consent fails closed
 
 $consentKey = [
