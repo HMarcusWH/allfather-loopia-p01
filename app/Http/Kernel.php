@@ -15,7 +15,8 @@ use Allfather\Loopia\Db\Database;
  *
  *   1. the session is resolved from the cookie — or not, and the route decides whether that matters;
  *   2. CSRF is verified on every non-safe method, by METHOD rather than by route list, because a
- *      route list is something a future change can forget to update;
+ *      route list is something a future change can forget to update — INCLUDING the sign-in POST,
+ *      which has no session yet and is checked against its pre-auth cookie instead;
  *   3. the route is dispatched;
  *   4. security headers are set by the Response constructor rather than by whoever remembers.
  *
@@ -53,8 +54,17 @@ final class Kernel
         // CSRF FIRST, before routing. A state-changing request with no valid token should not reach
         // a handler at all — not even one that would have refused it for another reason.
         if (Csrf::required($request->method)) {
-            $storedDigest = $session === null ? '' : (string) $session['csrf_token_hash'];
-            if (!Csrf::verify($request->input('csrf_token'), $storedDigest)) {
+            // The expected digest comes from the SESSION when there is one, and only from the
+            // pre-auth cookie when there is not. That ordering matters: an authenticated request
+            // must never be verifiable by a cookie the caller chose, or the weaker sign-in posture
+            // would silently become the posture for everything.
+            $expectedDigest = $session !== null
+                ? (string) $session['csrf_token_hash']
+                : Csrf::digest($request->cookie(Csrf::COOKIE_NAME) ?? '');
+
+            // The FORM only. A token accepted from the query string would end up in access logs,
+            // in Referer headers, and in any link a caller could be talked into following.
+            if (!Csrf::verify($request->form['csrf_token'] ?? '', $expectedDigest)) {
                 return $this->error(403, 'This request could not be verified. Reload and try again.', $session);
             }
         }
@@ -82,8 +92,21 @@ final class Kernel
             return null;
         }
         $resolved = $this->auth->resolveSession($token);
+        if (!$resolved->isOk()) {
+            return null;
+        }
+        $session = $resolved->value();
 
-        return $resolved->isOk() ? $resolved->value() : null;
+        // The plaintext CSRF token is never stored, so the only place it can come from is the
+        // caller's own cookie — and it is exposed to templates ONLY once its digest matches the
+        // session's. A form rendered from an unverified cookie would embed a token that cannot
+        // pass the check on submit, which reads to an operator as the console being broken.
+        $cookieToken = $request->cookie(Csrf::COOKIE_NAME) ?? '';
+        if (Csrf::verify($cookieToken, (string) $session['csrf_token_hash'])) {
+            $session['csrf_token'] = $cookieToken;
+        }
+
+        return $session;
     }
 
     /** @param array<string, mixed>|null $session */

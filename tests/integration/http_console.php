@@ -22,6 +22,7 @@ use Allfather\Loopia\Auth\Authenticator;
 use Allfather\Loopia\Http\Controllers\ConsoleController;
 use Allfather\Loopia\Http\Controllers\SessionController;
 use Allfather\Loopia\Http\Controllers\SurfaceController;
+use Allfather\Loopia\Http\Csrf;
 use Allfather\Loopia\Http\Kernel;
 use Allfather\Loopia\Http\Request;
 use Allfather\Loopia\Http\View;
@@ -103,7 +104,7 @@ Assert::contains('no-store', $headers['Cache-Control'], 'and a governance page i
 // No script at all. A surface that cannot execute script has one fewer way to lie about what it shows.
 Assert::false(str_contains($headers['Content-Security-Policy'], 'script-src'), 'no script source is permitted at all');
 
-// ============================================================ CSRF, by method
+// ============================================================ CSRF, by method — sign-in included
 
 // A POST with no token is refused BEFORE routing — the handler is never reached.
 Assert::same(
@@ -112,13 +113,113 @@ Assert::same(
     'a state-changing request with no CSRF token is refused before it reaches a handler',
 );
 
+// SIGN-IN IS NOT EXEMPT — and it is not unreachable either, which is the harder half. There is no
+// session to bind a token to yet, so the login page mints one, carries it in a __Host- cookie and
+// embeds the same value in the form; the POST is checked against that pair.
+$loginPage = $kernel->handle($request('GET', '/login'));
+$preAuthCookie = $loginPage->cookies[0] ?? '';
+Assert::contains(Csrf::COOKIE_NAME . '=', $preAuthCookie, 'the sign-in page issues a pre-auth CSRF cookie');
+Assert::contains('HttpOnly', $preAuthCookie, 'unreadable by script');
+Assert::contains('SameSite=Strict', $preAuthCookie, 'and never sent on a cross-site request at all');
+Assert::contains('Secure', $preAuthCookie, 'over TLS only');
+// The __Host- prefix is only honoured with Path=/ and NO Domain — and that pair is exactly what
+// stops a sibling subdomain from planting the cookie the sign-in POST is checked against.
+Assert::contains('Path=/', $preAuthCookie, 'anchored at the root path');
+Assert::false(str_contains($preAuthCookie, 'Domain='), 'and carrying no Domain, as the __Host- prefix requires');
+
+preg_match('/' . preg_quote(Csrf::COOKIE_NAME, '/') . '=([^;]+)/', $preAuthCookie, $cookieMatch);
+$preAuthToken = $cookieMatch[1] ?? '';
+Assert::true(strlen($preAuthToken) >= 32, 'the token is a real token, not a placeholder');
+Assert::contains(
+    'name="csrf_token" value="' . $preAuthToken . '"',
+    $loginPage->body,
+    'and the form carries the same value the cookie does',
+);
+
+$credentials = ['email' => 'x@y.z', 'password' => 'p'];
+// NEITHER HALF ALONE. A form token without the cookie is a token an attacker could have read from
+// a page they induced; a cookie without the form token is what every cross-site POST already sends.
+Assert::same(
+    403,
+    $kernel->handle($request('POST', '/login', [...$credentials, 'csrf_token' => $preAuthToken]))->status,
+    'the form token alone does not verify a sign-in — the matching cookie must be present',
+);
+Assert::same(
+    403,
+    $kernel->handle($request('POST', '/login', $credentials, [Csrf::COOKIE_NAME => $preAuthToken]))->status,
+    'and the cookie alone does not either',
+);
+Assert::same(
+    403,
+    $kernel->handle($request(
+        'POST',
+        '/login',
+        [...$credentials, 'csrf_token' => Csrf::issue()],
+        [Csrf::COOKIE_NAME => $preAuthToken],
+    ))->status,
+    'a well-formed token that is not THIS cookie\'s token is refused',
+);
+
+// A token in the QUERY STRING is not a token. Accepting one would put it in access logs, in
+// Referer headers, and in any link a caller could be talked into following.
+Assert::same(
+    403,
+    $kernel->handle($request(
+        'POST',
+        '/login',
+        $credentials,
+        [Csrf::COOKIE_NAME => $preAuthToken],
+        ['csrf_token' => $preAuthToken],
+    ))->status,
+    'and a token presented in the query string is not accepted at all',
+);
+
 // ============================================================ sign in
 
 $user = Seed::platformUser($db, $clock, $scope['tenant_id'], $scope['operator_id']);
-$authenticated = $auth->authenticate($user['email'], $user['password'], '203.0.113.10');
-Assert::true($authenticated->isOk(), 'the operator authenticates');
-$cookie = ['af_session' => (string) $authenticated->value()['session_token']];
-$sessionId = (string) $authenticated->value()['session_id'];
+
+// THROUGH THE FRONT DOOR. Everything below rides the cookies this POST returns, so the console is
+// exercised the way a browser reaches it rather than by handing it a session the test constructed.
+$freshLogin = $kernel->handle($request('GET', '/login'));
+preg_match('/' . preg_quote(Csrf::COOKIE_NAME, '/') . '=([^;]+)/', $freshLogin->cookies[0], $signInMatch);
+$signInToken = $signInMatch[1];
+
+$signedIn = $kernel->handle($request(
+    'POST',
+    '/login',
+    ['csrf_token' => $signInToken, 'email' => $user['email'], 'password' => $user['password']],
+    [Csrf::COOKIE_NAME => $signInToken],
+));
+Assert::same(303, $signedIn->status, 'a sign-in carrying its page\'s own token succeeds');
+Assert::same('/console', $signedIn->headers['Location'], 'and lands on the console');
+Assert::contains('af_session=', $signedIn->headers['Set-Cookie'], 'setting the session cookie');
+
+// THE TOKEN ROTATES AT THE BOUNDARY. The pre-auth token protected one POST and is then gone: a
+// value an unauthenticated caller could have influenced must not become the authenticated one.
+$rotatedCookie = $signedIn->cookies[0] ?? '';
+Assert::contains(Csrf::COOKIE_NAME . '=', $rotatedCookie, 'and rotating the CSRF cookie');
+Assert::false(
+    str_contains($rotatedCookie, $signInToken),
+    'the pre-auth token does NOT survive sign-in — it is replaced by the session\'s own',
+);
+
+preg_match('/af_session=([^;]+)/', $signedIn->headers['Set-Cookie'], $sessionMatch);
+preg_match('/' . preg_quote(Csrf::COOKIE_NAME, '/') . '=([^;]+)/', $rotatedCookie, $csrfMatch);
+$cookie = ['af_session' => $sessionMatch[1], Csrf::COOKIE_NAME => $csrfMatch[1]];
+$sessionCsrf = $csrfMatch[1];
+
+// The session's digest is what the rotated cookie is checked against from here on — and only the
+// digest was ever stored, so a database read yields nothing presentable.
+$sessionId = (string) $db->scalar(
+    'SELECT session_id FROM platform_sessions WHERE token_hash = ?',
+    [Authenticator::digest($sessionMatch[1])]
+);
+Assert::true($sessionId !== '', 'the session row exists');
+Assert::same(
+    Csrf::digest($sessionCsrf),
+    (string) $db->scalar('SELECT csrf_token_hash FROM platform_sessions WHERE session_id = ?', [$sessionId]),
+    'and the stored CSRF value is a DIGEST of the cookie token, never the token',
+);
 
 // An active workspace requires a MEMBERSHIP, re-checked at the point a workspace id in a form field
 // becomes session state. Without one the session cannot select a workspace at all.
@@ -234,10 +335,37 @@ foreach ([
 
 // ============================================================ sign out
 
-$csrf = (string) $authenticated->value()['csrf_token'];
-$loggedOut = $kernel->handle($request('POST', '/logout', ['csrf_token' => $csrf], $cookie));
+// The RENDERED page is where the token has to appear, or every authenticated form in the console
+// submits an empty one and the operator meets a 403 they cannot explain. The console never stores
+// the token, so the only place it can come from is the caller's own verified cookie.
+$navPage = $kernel->handle($request('GET', '/console', [], $cookie));
+Assert::contains(
+    'name="csrf_token" value="' . $sessionCsrf . '"',
+    $navPage->body,
+    'an authenticated page renders the session\'s own CSRF token into its forms',
+);
+
+// An authenticated POST is checked against the SESSION's digest, not against the cookie pair — so
+// a caller who plants a cookie of their own choosing still cannot verify one.
+Assert::same(
+    403,
+    $kernel->handle($request(
+        'POST',
+        '/logout',
+        ['csrf_token' => $signInToken],
+        [...$cookie, Csrf::COOKIE_NAME => $signInToken],
+    ))->status,
+    'a matching cookie pair does NOT verify an authenticated POST — the session is the authority',
+);
+
+$loggedOut = $kernel->handle($request('POST', '/logout', ['csrf_token' => $sessionCsrf], $cookie));
 Assert::same(303, $loggedOut->status, 'sign-out redirects');
 Assert::contains('Max-Age=0', $loggedOut->headers['Set-Cookie'], 'clearing the session cookie');
+Assert::contains(
+    Csrf::COOKIE_NAME . '=;',
+    $loggedOut->cookies[0] ?? '',
+    'and clearing the CSRF cookie too — one that outlived its session would break the next sign-in',
+);
 Assert::same(
     303,
     $kernel->handle($request('GET', '/console', [], $cookie))->status,

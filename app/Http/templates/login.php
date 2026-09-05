@@ -1,5 +1,6 @@
 <?php
 /** @var ?string $error */
+/** @var string $csrf_token */
 use Allfather\Loopia\Http\View;
 ?>
 <div class="login">
@@ -20,6 +21,12 @@ use Allfather\Loopia\Http\View;
     <?php endif; ?>
 
     <form class="form" method="post" action="/login">
+      <!--
+        The sign-in POST is CSRF-checked like every other state-changing request. There is no
+        session to bind the token to yet, so the check is against the matching __Host- cookie this
+        page set — and the token is replaced by the session's own the moment sign-in succeeds.
+      -->
+      <input type="hidden" name="csrf_token" value="<?= View::e($csrf_token ?? '') ?>">
       <div class="field">
         <label for="email">Email</label>
         <input id="email" name="email" type="email" autocomplete="username" required>

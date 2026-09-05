@@ -64,10 +64,10 @@ comparison format:
 | Layer | Location | Runs against | Proves |
 | --- | --- | --- | --- |
 | Pure unit | `tests/unit/` | no DB | digest/canonicalization, IP classification, fit + ICP scoring, reason-code mapping, redaction, visibility/reliance predicates |
-| MariaDB integration | `tests/integration/` | real MariaDB | migrations, CHECKs, FKs, triggers, transactions, tenant/workspace isolation, idempotency, job leases |
+| MariaDB integration | `tests/integration/` | real MariaDB | migrations, CHECKs, FKs, triggers, transactions, tenant/workspace isolation, idempotency, job leases, the HTTP console end to end (sign-in, CSRF, escaping, per-surface denial) |
 | Conformance | `tests/conformance/` | real MariaDB | normalized transcripts vs the canonical expectations |
 | Acceptance | `tests/acceptance/` | real MariaDB | full SF-P01…SF-P07-A verticals end to end |
-| Security | `tests/security/` | real MariaDB + fake transport | CSRF, auth, scope, SSRF, secret handling, source policy, cross-tenant/workspace |
+| Security | `tests/security/` | real MariaDB + fake transport | auth, scope, SSRF, secret handling, source policy, cross-tenant/workspace, privacy admission |
 | Rollback | `tests/rollback/` | real MariaDB | per-product stand-down + whole-deployment stand-down |
 
 **MariaDB parity rule:** integration, conformance, acceptance, security and rollback layers must

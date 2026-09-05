@@ -14,12 +14,24 @@ namespace Allfather\Loopia\Http;
  */
 final class Response
 {
-    /** @param array<string, string> $headers */
+    /**
+     * @param array<string, string> $headers
+     * @param list<string> $cookies Set-Cookie values, kept OUT of `$headers` because a header map
+     *                              can hold one value per name and a response may set several
+     *                              cookies at once — a login rotates two.
+     */
     private function __construct(
         public readonly int $status,
         public readonly string $body,
         public readonly array $headers,
+        public readonly array $cookies = [],
     ) {
+    }
+
+    /** The same response, additionally setting one cookie. */
+    public function withCookie(string $setCookieValue): self
+    {
+        return new self($this->status, $this->body, $this->headers, [...$this->cookies, $setCookieValue]);
     }
 
     /** @param array<string, string> $extra */
@@ -56,6 +68,10 @@ final class Response
         http_response_code($this->status);
         foreach ($this->headers as $name => $value) {
             header($name . ': ' . $value, true);
+        }
+        // Appended, never replaced: a response that rotates two cookies must emit both.
+        foreach ($this->cookies as $cookie) {
+            header('Set-Cookie: ' . $cookie, false);
         }
         echo $this->body;
     }
