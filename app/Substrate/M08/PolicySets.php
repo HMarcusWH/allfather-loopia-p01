@@ -112,6 +112,83 @@ final class PolicySets
         ],
     ];
 
+    /**
+     * The P03 prospect-admission policy set.
+     *
+     * It governs BOTH lead-qualification paths, and the difference between them is the whole point:
+     *
+     *   FIT_HYPOTHESIS               the Watch List. "There is a reason to look at this."
+     *   PRIORITY_OUTREACH_QUEUE_ADMISSION  the Call Now list. "There is a timely reason to act."
+     *
+     * The buyer-intent rule fires on the SECOND only. A Watch-List entry never asserts buyer
+     * intent, so a rule that fired on it would be refusing a claim nobody made. A queue admission
+     * DOES assert timeliness, and must cite a buying TRIGGER signal that was directly OBSERVED —
+     * absent that, it BLOCKS as an overclaim and opens an incident.
+     *
+     * That rule is non-overridable by design: it is the highest-priority ordinary rule in the set,
+     * so no more permissive rule below it can reach an allow once it has fired.
+     */
+    public const P03_PROSPECT_ADMISSION = [
+        'policy_key' => 'P03_PROSPECT_ADMISSION',
+        'policy_version' => 'v1',
+        'display_name' => 'P03 prospect admission policy',
+        'purpose_summary' => 'Lead-qualification admissibility for FIT_HYPOTHESIS and PRIORITY_OUTREACH_QUEUE_ADMISSION.',
+        'applicable_proposal_types' => ['FIT_HYPOTHESIS', 'PRIORITY_OUTREACH_QUEUE_ADMISSION'],
+        'applicable_requested_action_classes' => ['ANALYZE', 'RELEASE_INTELLIGENCE'],
+        'available_verdicts' => [
+            'ALLOW_INFORMATIONAL_RELEASE', 'REQUIRE_MORE_EVIDENCE', 'REQUIRE_REVISION',
+            'HOLD', 'BLOCK', 'QUARANTINE', 'REQUIRE_INCIDENT_EVALUATION',
+        ],
+        'default_fail_closed_verdict' => 'HOLD',
+        'rules' => [
+            [
+                'rule_key' => 'p03_buyer_intent_trigger',
+                'rule_category' => 'P03_PROSPECT_ADMISSION',
+                'rule_summary' => 'A queue admission must cite a buying-trigger signal that was directly observed; otherwise it is a buyer-intent overclaim.',
+                'check_type' => 'PASS_FAIL',
+                // BLOCK, not HOLD. An overclaim about a person\'s intent is not something to revise
+                // — the claim itself was never available to make.
+                'failure_effect' => 'BLOCK',
+                'incident_evaluation_if_failed' => 1,
+                // The HIGHEST priority in the set, so no more permissive rule below can reach an
+                // allow once this one has fired.
+                'priority' => 90,
+            ],
+            [
+                'rule_key' => 'p03_icp_excluded_segment',
+                'rule_category' => 'P03_PROSPECT_ADMISSION',
+                'rule_summary' => 'A prospect matching a tenant-declared excluded segment is not admissible.',
+                'check_type' => 'PASS_FAIL',
+                'failure_effect' => 'BLOCK',
+                'priority' => 80,
+            ],
+            [
+                'rule_key' => 'p03_admission_fit_present',
+                'rule_category' => 'P03_PROSPECT_ADMISSION',
+                'rule_summary' => 'An UNFIT pairing is never a reason to investigate.',
+                'check_type' => 'ENUM_STATUS',
+                'failure_effect' => 'REQUIRE_MORE_EVIDENCE',
+                'priority' => 50,
+            ],
+            [
+                'rule_key' => 'p03_admission_catalogue_active',
+                'rule_category' => 'P03_PROSPECT_ADMISSION',
+                'rule_summary' => 'The catalogue behind the cited product must still be ACTIVE.',
+                'check_type' => 'ENUM_STATUS',
+                'failure_effect' => 'HOLD',
+                'priority' => 40,
+            ],
+            [
+                'rule_key' => 'p03_admission_signal_released',
+                'rule_category' => 'P03_PROSPECT_ADMISSION',
+                'rule_summary' => 'The cited company signal must still be RELEASED.',
+                'check_type' => 'ENUM_STATUS',
+                'failure_effect' => 'HOLD',
+                'priority' => 30,
+            ],
+        ],
+    ];
+
     public function __construct(
         private readonly Database $db,
         private readonly Clock $clock,
