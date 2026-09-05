@@ -26,6 +26,7 @@ use Allfather\Loopia\Http\View;
     <div class="rail__group">
       <p class="rail__label">Governance</p>
       <a class="rail__link" href="/console"<?= ($nav['current'] ?? '') === 'console' ? ' aria-current="page"' : '' ?>>Workspace</a>
+      <a class="rail__link" href="/console/workspaces"<?= ($nav['current'] ?? '') === 'workspaces' ? ' aria-current="page"' : '' ?>>Choose workspace</a>
       <a class="rail__link" href="/console/decisions"<?= ($nav['current'] ?? '') === 'decisions' ? ' aria-current="page"' : '' ?>>Decision ledger</a>
     </div>
 

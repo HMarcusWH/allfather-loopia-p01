@@ -19,9 +19,11 @@ declare(strict_types=1);
  */
 
 use Allfather\Loopia\Auth\Authenticator;
+use Allfather\Loopia\Core\Ids;
 use Allfather\Loopia\Http\Controllers\ConsoleController;
 use Allfather\Loopia\Http\Controllers\SessionController;
 use Allfather\Loopia\Http\Controllers\SurfaceController;
+use Allfather\Loopia\Http\Controllers\WorkspaceController;
 use Allfather\Loopia\Http\Csrf;
 use Allfather\Loopia\Http\Kernel;
 use Allfather\Loopia\Http\Request;
@@ -61,6 +63,10 @@ $sessions = new SessionController($auth, $view);
 $kernel->route('GET', '/login', $sessions->showLogin(...));
 $kernel->route('POST', '/login', $sessions->login(...));
 $kernel->route('POST', '/logout', $sessions->logout(...));
+
+$workspaces = new WorkspaceController($db, $auth, $view);
+$kernel->route('GET', '/console/workspaces', $workspaces->choose(...));
+$kernel->route('POST', '/console/workspace', $workspaces->select(...));
 
 $console = new ConsoleController(
     $db, $clock, $access, new Console($db, $clock, $access, $ledger, $assurance),
@@ -221,25 +227,131 @@ Assert::same(
     'and the stored CSRF value is a DIGEST of the cookie token, never the token',
 );
 
+// ============================================================ choosing a workspace
+
 // An active workspace requires a MEMBERSHIP, re-checked at the point a workspace id in a form field
 // becomes session state. Without one the session cannot select a workspace at all.
-Assert::true(
-    $auth->setActiveWorkspace($sessionId, $scope['workspace_id'])->isRefusal(),
-    'a workspace cannot be selected without a membership in it',
-);
 Assert::same(
     409,
     $kernel->handle($request('GET', '/console', [], $cookie))->status,
-    'and a session with no active workspace says so rather than guessing one',
+    'a session with no active workspace says so rather than guessing one',
+);
+
+// And it is not a dead end: the chooser is a real route. Before this existed, a signed-in operator
+// holding a membership had no way to reach their own workspace — every console page answered 409
+// and the only thing that could set one was a method no route called.
+$emptyChooser = $kernel->handle($request('GET', '/console/workspaces', [], $cookie));
+Assert::same(200, $emptyChooser->status, 'the chooser renders for a signed-in operator');
+Assert::contains(
+    'You hold no active membership',
+    $emptyChooser->body,
+    'and with no membership it says so plainly rather than listing the tenant\'s workspaces',
+);
+Assert::false(
+    str_contains($emptyChooser->body, (string) $scope['workspace_id']),
+    'a workspace the operator is not a member of is not named — the chooser is not an enumeration surface',
+);
+
+// The POST refuses for the same reason, and names it. It does NOT consult the list: a chooser that
+// rendered nothing is not what stops the selection — the membership re-check is.
+$deniedSelect = $kernel->handle($request(
+    'POST',
+    '/console/workspace',
+    ['csrf_token' => $sessionCsrf, 'workspace_id' => $scope['workspace_id']],
+    $cookie,
+));
+Assert::same(403, $deniedSelect->status, 'selecting a workspace without a membership is refused');
+Assert::contains(
+    'WORKSPACE_MEMBERSHIP_REQUIRED',
+    $deniedSelect->body,
+    'and the specific reason is named — a revoked membership and a closed workspace need different people',
+);
+Assert::same(
+    null,
+    $db->scalar('SELECT active_workspace_id FROM platform_sessions WHERE session_id = ?', [$sessionId]),
+    'and the session\'s active workspace is unchanged',
+);
+
+// ANOTHER TENANT'S workspace is NOT_FOUND, not FORBIDDEN. The distinction is the whole point: a
+// FORBIDDEN would confirm the id names something real, which turns the form into a probe.
+$otherTenant = Seed::tenantWorkspace($db, $clock, 'rival');
+$crossTenant = $kernel->handle($request(
+    'POST',
+    '/console/workspace',
+    ['csrf_token' => $sessionCsrf, 'workspace_id' => $otherTenant['workspace_id']],
+    $cookie,
+));
+Assert::same(403, $crossTenant->status, 'a cross-tenant workspace id is refused');
+Assert::contains(
+    'WORKSPACE_NOT_FOUND_IN_SCOPE',
+    $crossTenant->body,
+    'as NOT_FOUND rather than FORBIDDEN — the response cannot be used to enumerate another tenant',
 );
 
 // Grant a membership carrying ONE permission that no surface below needs. The operator now has
 // identity AND a role — and still no authority for any of them, which is the case worth testing.
 $unrelated = Seed::role($db, $clock, 'console_visitor', ['workspace.read']);
 Seed::membership($db, $clock, $scope['tenant_id'], $scope['workspace_id'], $scope['operator_id'], $unrelated['role_id']);
-Assert::true(
-    $auth->setActiveWorkspace($sessionId, $scope['workspace_id'])->isOk(),
-    'with a membership, the workspace is selected',
+
+// A SECOND WORKSPACE IN THE SAME TENANT, with no membership in it. This is the enumeration case a
+// tenant-scoped query would leak and a cross-tenant test would never catch: same tenant, ACTIVE,
+// and still none of this operator's business.
+$siblingWorkspaceId = Ids::new();
+$db->insert('workspaces', [
+    'workspace_id' => $siblingWorkspaceId,
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_key' => 'ws-sibling',
+    'schema_version' => '1',
+    'display_name' => 'Sibling workspace',
+    'workspace_type' => 'TEST',
+    'environment_class' => 'TEST',
+    'external_side_effects_allowed' => 0,
+    'active_v1_capability_ceiling' => 'RELEASE_INTELLIGENCE',
+    'status' => 'ACTIVE',
+    'created_at' => $clock->now(),
+]);
+
+$chooser = $kernel->handle($request('GET', '/console/workspaces', [], $cookie));
+Assert::contains(
+    (string) $scope['workspace_id'],
+    $chooser->body,
+    'with a membership the workspace appears in the chooser',
+);
+Assert::false(
+    str_contains($chooser->body, $siblingWorkspaceId),
+    'a workspace in the SAME tenant with no membership does not — the list is memberships, not the tenant',
+);
+Assert::false(
+    str_contains($chooser->body, 'Sibling workspace'),
+    'not by name either',
+);
+Assert::false(
+    str_contains($chooser->body, (string) $otherTenant['workspace_id']),
+    'and another tenant\'s workspace still does not, membership or no membership',
+);
+Assert::same(
+    403,
+    $kernel->handle($request(
+        'POST',
+        '/console/workspace',
+        ['csrf_token' => $sessionCsrf, 'workspace_id' => $siblingWorkspaceId],
+        $cookie,
+    ))->status,
+    'and it cannot be selected by id either — the POST re-checks membership, it does not trust the list',
+);
+
+$selected = $kernel->handle($request(
+    'POST',
+    '/console/workspace',
+    ['csrf_token' => $sessionCsrf, 'workspace_id' => $scope['workspace_id']],
+    $cookie,
+));
+Assert::same(303, $selected->status, 'with a membership, the workspace is selected');
+Assert::same('/console', $selected->headers['Location'], 'and the session lands on the console');
+Assert::same(
+    $scope['workspace_id'],
+    (string) $db->scalar('SELECT active_workspace_id FROM platform_sessions WHERE session_id = ?', [$sessionId]),
+    'the selection is SESSION state, held server-side — the browser never supplies the workspace id again',
 );
 
 // ============================================================ identity is not authority

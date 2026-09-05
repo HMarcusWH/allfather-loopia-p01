@@ -17,6 +17,7 @@ use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Http\Controllers\ConsoleController;
 use Allfather\Loopia\Http\Controllers\SessionController;
 use Allfather\Loopia\Http\Controllers\SurfaceController;
+use Allfather\Loopia\Http\Controllers\WorkspaceController;
 use Allfather\Loopia\Http\Kernel;
 use Allfather\Loopia\Http\Request;
 use Allfather\Loopia\Http\Response;
@@ -65,6 +66,12 @@ $session = new SessionController($auth, $view);
 $kernel->route('GET', '/login', $session->showLogin(...));
 $kernel->route('POST', '/login', $session->login(...));
 $kernel->route('POST', '/logout', $session->logout(...));
+
+// Which workspace the session acts in. Without this route a signed-in operator holding a
+// membership had no way to reach their own workspace at all.
+$workspaces = new WorkspaceController($db, $auth, $view);
+$kernel->route('GET', '/console/workspaces', $workspaces->choose(...));
+$kernel->route('POST', '/console/workspace', $workspaces->select(...));
 
 $console = new ConsoleController(
     $db, $clock, $access, new Console($db, $clock, $access, $ledger, new Assurance($db, $clock, $ledger)),

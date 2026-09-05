@@ -149,7 +149,7 @@ final class ConsoleController
             'session' => $session,
             'nav' => ['current' => 'console'],
             'heading' => 'Workspace',
-            'lede' => 'No active workspace is selected for this session.',
+            'lede' => 'No active workspace is selected for this session. Choose one at /console/workspaces.',
             'columns' => [],
             'roleNote' => null,
             'result' => [
