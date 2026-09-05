@@ -71,25 +71,33 @@ The Loopia projection mirrors these in `upstream.lock.json.claim_boundary` and e
 ## 3. Product modules — object-level port scope
 
 Legend — **Plane**: Core = runtime law / governed execution object; Src = index/registry/authority
-description; Ops = implementation/deployment/validation.
+description; Ops = implementation/deployment/validation. **Port**: ✅ ported · ⚠️ partial, with what
+is and is not there named in the Notes · ❌ not ported.
+
+> **These tables were written as a PLAN and were corrected against the code on 2026-09-05.** Roughly
+> a third of the rows carried a ✅ and a filename that was never created — some because the behaviour
+> landed in a differently-named or merged file, and some because it was not ported at all. The
+> filenames and the marks below now name what exists. Nothing was BUILT to make this table true:
+> where the port is smaller than the plan, the table says so, because a Sources document that
+> overstates the runtime is worse than one that admits a gap. The gaps are collected in §3.7.
 
 ### P01 — Competition Monitoring & Company Briefings
 
 | Upstream object | Plane | Upstream path | Upstream status | Port | Loopia path | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| Competitor registry + status transitions | Core | `src/p01/competitors.ts` | promoted | ✅ | `app/Product/P01/CompetitorRegistry.php` | Forward-only lifecycle; `ARCHIVED` terminal |
+| Competitor registry + status transitions | Core | `src/p01/competitors.ts` | promoted | ✅ | `app/Product/P01/Registry.php` | Forward-only lifecycle; `ARCHIVED` terminal. Merged with monitored sources: one registry, two subjects |
 | Source license cards | Core | `src/p01/source-cards.ts` | promoted | ✅ | `app/Product/P01/SourceCards.php` | robots/terms/licence/expiry gates |
-| Monitored sources | Core | `src/p01/monitored-sources.ts` | promoted | ✅ | `app/Product/P01/MonitoredSources.php` | approved-card + ACTIVE_FOR_CAPTURE fail-closed |
-| Governed source capture | Core | `src/p01/capture-source.ts` | promoted | ✅ | `app/Product/P01/CaptureSource.php` | drives M15 egress guard |
+| Monitored sources | Core | `src/p01/monitored-sources.ts` | promoted | ✅ | `app/Product/P01/Registry.php` | approved-card + ACTIVE_FOR_CAPTURE fail-closed |
+| Governed source capture | Core | `src/p01/capture-source.ts` | promoted | ✅ | `app/Product/P01/Capture.php` | drives the egress guard; compiles the source policy with NO connector (§4.3) |
 | Change detection / diffs | Core | `src/p01/change-detection.ts` | promoted | ✅ | `app/Product/P01/ChangeDetection.php` | deterministic; never LLM |
 | CompanySignal | Core | `src/p01/company-signals.ts` | promoted | ✅ | `app/Product/P01/CompanySignals.php` | FACT_OBSERVED vs HYPOTHESIS |
 | Battlecard briefs | Core | `src/p01/battlecards.ts` | promoted | ✅ | `app/Product/P01/Battlecards.php` | evidence-cited |
 | M10 release | Core | `src/p01/release.ts` | promoted | ✅ | `app/Product/P01/Release.php` | post-verdict source re-check |
 | Entitlements / tiers | Core | `src/p01/entitlements.ts` | promoted | ✅ | `app/Product/P01/Entitlements.php` | recording only |
 | Surfacing (M12) | Core | `src/p01/surfacing.ts` | promoted | ✅ | `app/Product/P01/Surfacing.php` | three-gate default-deny |
-| Usage metering | Core | `src/p01/billing.ts` | promoted | ✅ | `app/Product/P01/Billing.php` | `no_external_charge_executed` pinned |
+| Usage metering | Core | `src/p01/billing.ts` | promoted | ❌ | — | **NOT PORTED.** The `usage_metering_records` table and its `no_external_charge_executed` CHECK exist in the schema; no PHP writes them. A tier is checked at every gate, so entitlement is enforced — what is missing is the RECORDING of usage, which nothing in the selected graph reads |
 | M11 assurance profiles | Core | `src/p01/assurance.ts` | promoted | ✅ | `app/Product/P01/Assurance.php` | freshness / diff-integrity audits |
-| Registration | Src | `src/p01/registration.ts` | promoted | ✅ | `app/Product/P01/Registration.php` | Valkyrie + contract + policy seed |
+| Registration | Src | `src/p01/registration.ts` | promoted | ✅ | `app/Product/P01/Registration.php` | `registerCompetitionMonitor` — Valkyrie, contract, tool, M08 policy set, M16 profiles, tiers. **The only registration in the port**: P02–P07-A have none |
 | `p01/fetch-guard.ts` | — | re-export shim | superseded | ❌ | — | **do not resurrect**; real guard is `ingestion/egress-guard.ts` |
 
 ### P02 — Entity / Company Twin (bounded to the promoted scope)
@@ -97,30 +105,30 @@ description; Ops = implementation/deployment/validation.
 | Upstream object | Plane | Upstream path | Upstream status | Port | Loopia path | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | Entity twins + versions | Core | `src/p02/entity-twins.ts` | promoted | ✅ | `app/Product/P02/EntityTwins.php` | own company = `OWN_COMPANY` first-party boundary |
-| Twin state-change proposals | Core | `src/p02/twin-state-change.ts` | promoted | ✅ | `app/Product/P02/TwinStateChange.php` | M04 → M07 → M08 |
-| Twin admission | Core | `src/p02/twin-admission.ts` | promoted | ✅ | `app/Product/P02/TwinAdmission.php` | `P02_TWIN_STATE_ADMISSION` |
-| Entity relationships | Core | `src/p02/entity-relationships.ts` | promoted | ✅ | `app/Product/P02/EntityRelationships.php` | evidence/confidence/freshness required |
-| Relationship admission | Core | `src/p02/relationship-admission.ts` | promoted | ✅ | `app/Product/P02/RelationshipAdmission.php` | `P02_RELATIONSHIP_STATE_ADMISSION` |
-| Twin release + M10 binding floor | Core | `src/p02/twin-release.ts`, `m10-binding-floor.ts` | promoted | ✅ | `app/Product/P02/TwinRelease.php` | `decision_record_id NOT NULL` |
-| Stakeholder roles (minimized) | Core | `src/p02/stakeholder-roles.ts` | promoted | ✅ | `app/Product/P02/StakeholderRoles.php` | no psych/emotion/loyalty/productivity |
-| Twin assurance (12 M11 audits) | Core | `src/p02/twin-assurance.ts` | promoted | ✅ | `app/Product/P02/TwinAssurance.php` | |
-| Registration | Src | `src/p02/registration.ts` | promoted | ✅ | `app/Product/P02/Registration.php` | |
+| Twin state-change proposals | Core | `src/p02/twin-state-change.ts` | promoted | ❌ | — | **NOT PORTED.** No P02 function drives an M04 proposal for a twin state change |
+| Twin admission | Core | `src/p02/twin-admission.ts` | promoted | ⚠️ | `app/Substrate/M08/Verdicts.php` | The `P02_TWIN_STATE_ADMISSION` RULES are ported and evaluable; no P02 product function submits to them |
+| Entity relationships | Core | `src/p02/entity-relationships.ts` | promoted | ✅ | `app/Product/P02/RelationshipTwins.php` | evidence/confidence/freshness required |
+| Relationship admission | Core | `src/p02/relationship-admission.ts` | promoted | ⚠️ | `app/Substrate/M08/Verdicts.php` | Rules ported and evaluable; no P02 product function submits to them |
+| Twin release + M10 binding floor | Core | `src/p02/twin-release.ts`, `m10-binding-floor.ts` | promoted | ❌ | — | **NOT PORTED.** The binding floor itself holds — `decision_record_id NOT NULL` is a storage constraint — but no P02 release path exists |
+| Stakeholder roles (minimized) | Core | `src/p02/stakeholder-roles.ts` | promoted | ✅ | `app/Product/P04/StakeholderRoles.php` | Ported under **P04**, where the distribution path consumes it. One implementation, not two |
+| Twin assurance (12 M11 audits) | Core | `src/p02/twin-assurance.ts` | promoted | ❌ | — | **NOT PORTED.** No P02 audit profile exists; P01, P04, P05 and P07-A have theirs |
+| Registration | Src | `src/p02/registration.ts` | promoted | ❌ | — | **NOT PORTED.** P01's registration is the only one |
 | **Offering twins** | Core | `src/p02/offering-twins.ts` | **NOT PROMOTED** (V1-GAP-097) | ❌ | — | **EXCLUDED by current gate.** P03 catalogue is the MVP products/offers authority |
 
 ### P03 — Lead Qualification & Product Matching
 
 | Upstream object | Plane | Upstream path | Upstream status | Port | Loopia path | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| Customer catalogue authority | Core | `src/p03/customer-catalogue.ts` | promoted | ✅ | `app/Product/P03/CustomerCatalogue.php` | tenant-owned source card |
-| Governed catalogue capture | Core | `src/p03/catalogue-capture.ts` | promoted | ✅ | `app/Product/P03/CatalogueCapture.php` | |
-| Fit hypotheses | Core | `src/p03/fit-hypothesis.ts` | promoted | ✅ | `app/Product/P03/FitHypothesis.php` | deterministic scoring; **never buyer intent** |
+| Customer catalogue authority | Core | `src/p03/customer-catalogue.ts` | promoted | ✅ | `app/Product/P03/Catalogue.php` | tenant-owned source card |
+| Governed catalogue capture | Core | `src/p03/catalogue-capture.ts` | promoted | ✅ | `app/Product/P03/Catalogue.php` | `addProduct`, gated on the reference still being ACTIVE_FOR_CAPTURE |
+| Fit hypotheses | Core | `src/p03/fit-hypothesis.ts` | promoted | ✅ | `app/Product/P03/FitHypotheses.php`, `FitScoring.php` | deterministic scoring; **never buyer intent** |
 | ICP profiles + versions | Core | `src/p03/icp.ts` | promoted (ICP-D5) | ✅ | `app/Product/P03/Icp.php` | excluded-segment BLOCK |
-| Prospect admission | Core | `src/p03/prospect-admission.ts` | promoted | ✅ | `app/Product/P03/ProspectAdmission.php` | `P03_PROSPECT_ADMISSION` |
+| Prospect admission | Core | `src/p03/prospect-admission.ts` | promoted | ✅ | `app/Product/P03/ProspectQueue.php` | `submitForAdmission` / `admit`, against `P03_PROSPECT_ADMISSION` |
 | Priority outreach queue | Core | `src/p03/prospect-queue.ts` | promoted | ✅ | `app/Product/P03/ProspectQueue.php` | buyer-intent gate |
-| Prospect battlecard briefs | Core | `src/p03/release.ts` | promoted | ✅ | `app/Product/P03/Release.php` | D5 separate table |
-| M11 audit profiles | Core | `src/p03/assurance.ts` | promoted | ✅ | `app/Product/P03/Assurance.php` | |
-| Console panels | Core | `src/p03/console-panels.ts` | promoted | ✅ | `app/Product/P03/ConsolePanels.php` | M12 authorized surfaces |
-| Registration | Src | `src/p03/registration.ts` | promoted | ✅ | `app/Product/P03/Registration.php` | |
+| Prospect battlecard briefs | Core | `src/p03/release.ts` | promoted | ❌ | — | **NOT PORTED.** P03 stops at an admitted, queued prospect; no P03 release path exists |
+| M11 audit profiles | Core | `src/p03/assurance.ts` | promoted | ❌ | — | **NOT PORTED.** |
+| Console panels | Core | `src/p03/console-panels.ts` | promoted | ❌ | — | **NOT PORTED.** The console surfaces P01, P04 and P05 output; P03 has no panel |
+| Registration | Src | `src/p03/registration.ts` | promoted | ❌ | — | **NOT PORTED.** |
 
 ### P04 — Intelligence Distribution (internal only)
 
@@ -131,17 +139,17 @@ description; Ops = implementation/deployment/validation.
 | Release + three-gate visibility + ack | Core | `src/p04/release.ts` | promoted | ✅ | `app/Product/P04/Release.php` | delivery-assurance-only ack |
 | Stakeholder ROLE_CLASS observation | Core | `src/p04/stakeholder-roles.ts` | promoted | ✅ | `app/Product/P04/StakeholderRoles.php` | `subject_kind` storage-pinned `ROLE_CLASS` |
 | M11 audits incl. no-covert-telemetry | Core | `src/p04/assurance.ts` | promoted | ✅ | `app/Product/P04/Assurance.php` | |
-| Registration | Src | `src/p04/registration.ts` | promoted | ✅ | `app/Product/P04/Registration.php` | |
+| Registration | Src | `src/p04/registration.ts` | promoted | ❌ | — | **NOT PORTED.** |
 
 ### P05 — Marketing Customization (internal drafts only)
 
 | Upstream object | Plane | Upstream path | Upstream status | Port | Loopia path | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| Marketing asset drafts + variants | Core | `src/p05/marketing-asset.ts` | promoted | ✅ | `app/Product/P05/MarketingAsset.php` | **no `PUBLISHED` status exists** |
+| Marketing asset drafts + variants | Core | `src/p05/marketing-asset.ts` | promoted | ✅ | `app/Product/P05/MarketingAssets.php` | **no `PUBLISHED` status exists** |
 | Admission | Core | `src/p05/marketing-admission.ts` | promoted | ✅ | `app/Product/P05/MarketingAdmission.php` | uncited-claim + forbidden-pattern BLOCK |
-| Internal release + surfacing | Core | `src/p05/marketing-release.ts` | promoted | ✅ | `app/Product/P05/MarketingRelease.php` | |
+| Internal release + surfacing | Core | `src/p05/marketing-release.ts` | promoted | ✅ | `app/Product/P05/Release.php` | |
 | M11 assurance | Core | `src/p05/assurance.ts` | promoted | ✅ | `app/Product/P05/Assurance.php` | |
-| Registration | Src | `src/p05/registration.ts` | promoted | ✅ | `app/Product/P05/Registration.php` | |
+| Registration | Src | `src/p05/registration.ts` | promoted | ❌ | — | **NOT PORTED.** |
 
 ### P07-A — Synthetic outreach preparation (NO live send)
 
@@ -151,10 +159,31 @@ description; Ops = implementation/deployment/validation.
 | PII firewall + pseudonymization | Core | `src/p07/pii-firewall.ts` | promoted (P07-A) | ✅ | `app/Product/P07A/PiiFirewall.php` | erasure = retention downgrade |
 | Frozen outreach artifacts | Core | `src/p07/outreach-artifacts.ts` | promoted (P07-A) | ✅ | `app/Product/P07A/OutreachArtifacts.php` | digest-bound |
 | Outreach admission | Core | `src/p07/outreach-admission.ts` | promoted (P07-A) | ✅ | `app/Product/P07A/OutreachAdmission.php` | non-overridable consent rule |
-| Synthetic dispatch | Core | `src/p07/outreach-delivery.ts` | promoted (P07-A) | ✅ (inert) | `app/Product/P07A/SyntheticDispatch.php` | **synthetic only, no network** |
-| Channel binding | Core | `src/p07/channel-binding.ts` | promoted (P07-A) | ✅ (inert) | `app/Product/P07A/ChannelBinding.php` | external-effect column CHECK-pinned 0 |
+| Synthetic dispatch | Core | `src/p07/outreach-delivery.ts` | promoted (P07-A) | ✅ (inert) | `app/Product/P07A/SyntheticDelivery.php` | **synthetic only, no network** |
+| Channel binding | Core | `src/p07/channel-binding.ts` | promoted (P07-A) | ❌ | — | **DELIBERATELY NOT PORTED**, and this is stronger than porting it inert. Upstream labels the file its own P07-B checkpoint; no P07-A module reads `outreach_channel_bindings`, so the port ships NO PRODUCER for that table — no row can exist for a CHECK to constrain |
 | M11 audits | Core | `src/p07/assurance.ts` | promoted (P07-A) | ✅ | `app/Product/P07A/Assurance.php` | |
 | **P07-B live send** | — | `p07b_promotion_record.md` | **NOT GRANTED** | ❌ | — | **HARD EXCLUSION.** No SMTP/SMS/CRM/webhook adapter exists in this repo |
+
+### 3.7 What the product port does NOT contain
+
+Collected from the tables above so it can be read in one place, because a gap named only in a
+row of a long table is a gap somebody will miss.
+
+| Missing | Consequence | Consequence it does NOT have |
+| --- | --- | --- |
+| P01 usage metering | usage is not recorded | entitlement is still enforced — every gate checks the tier; what is missing is the record, which nothing in the selected graph reads |
+| P02 twin state-change, twin release, twin assurance, registration | a twin can be registered and versioned, and goes no further | the ADMISSION rules for both twin and relationship state are ported and evaluable in M08; what is absent is a P02 caller for them |
+| P03 release, assurance, console panels, registration | P03 stops at an admitted, queued prospect | the buyer-intent gate, the ICP block and the fit scoring are all present and tested — the qualification law is ported, its downstream is not |
+| P02–P07-A registration | only P01 can be provisioned end to end | the other modules' tables, policy sets and admission rules exist; there is no one-call tenant setup for them |
+| P07-A channel binding | no `outreach_channel_bindings` row can exist | this is DELIBERATE and stronger than the alternative — the port ships no producer, so there is nothing for the table's CHECK constraints to constrain |
+
+**None of these is a hidden capability.** Every one is an absence: no code path, no surface, no
+row. The one that is a deliberate exclusion rather than an unfinished port — the channel binding —
+is marked as such, and the P07-B hard exclusion below is separate from it and unaffected.
+
+Where this matters for a reader: the port is a **vertical slice**, deepest at P01 and P04/P05, and
+progressively shallower through P02 and P03. It is not a uniform port of five modules, and the
+tables above no longer suggest that it is.
 
 ---
 

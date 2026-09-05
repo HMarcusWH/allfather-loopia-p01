@@ -38,6 +38,12 @@ pinning and conformance evidence.
 Every inclusion is bound to a recorded upstream owner gate. See
 [`docs/PORT_SCOPE_MATRIX.md`](./docs/PORT_SCOPE_MATRIX.md).
 
+**Inclusion is not uniform depth.** This is a vertical slice: deepest at P01, P04 and P05, and
+progressively shallower through P02 and P03 — P02 stops after twins and versions, P03 after an
+admitted prospect, and neither has a release path or an audit profile. What is present and what is
+absent per object is in [`PORT_SCOPE_MATRIX.md`](./docs/PORT_SCOPE_MATRIX.md) §3, with the gaps
+collected in §3.7.
+
 ## Documentation
 
 | Document | What it records |
@@ -50,7 +56,7 @@ Every inclusion is bound to a recorded upstream owner gate. See
 | [`docs/CONFORMANCE_PLAN.md`](./docs/CONFORMANCE_PLAN.md) | fixture format, layers, required refusal cases |
 | [`docs/CONFORMANCE_MATRIX.md`](./docs/CONFORMANCE_MATRIX.md) | fixture-by-fixture results |
 | [`docs/SECURITY_BOUNDARY.md`](./docs/SECURITY_BOUNDARY.md) | egress, auth, isolation, secrets, evidence |
-| [`docs/LOOPIA_CAPABILITY_REPORT.md`](./docs/LOOPIA_CAPABILITY_REPORT.md) | host capability probe results |
+| [`docs/LOOPIA_CAPABILITY_REPORT.md`](./docs/LOOPIA_CAPABILITY_REPORT.md) | what this projection can and cannot do, and what is left before launch |
 | [`docs/DEPLOYMENT_RUNBOOK.md`](./docs/DEPLOYMENT_RUNBOOK.md) | staging/production procedure, rollback, restore |
 | [`docs/CLAIM_CEILING.md`](./docs/CLAIM_CEILING.md) | what may and may not be claimed |
 

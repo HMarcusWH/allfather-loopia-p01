@@ -25,6 +25,12 @@ document records how the MariaDB schema was derived and which upstream tables ar
 
 **Result: 192 of 225 canonical tables mechanically reachable; 188 included after policy exclusion.**
 
+7. **Add the host tables.** Eight tables have NO upstream counterpart and could not be derived by
+   the steps above, because upstream has no equivalent problem to solve: it assumes a process
+   manager, a session layer and a secret store that Loopia does not provide. They are listed in
+   §2.1 and are marked as what they are — a deployment projection's own furniture, carrying no
+   canonical law. **196 tables total.**
+
 ---
 
 ## 2. Included tables by migration group
@@ -275,6 +281,36 @@ included. `M16` appears as `RELEASE-OUTPUT`, `M15` as `INGESTION`.
 | `release_source_use_profiles` | RELEASE-OUTPUT | `release_source_use_profiles` (InnoDB) |
 | `release_visibility_activations` | M12, P01, RELEASE-OUTPUT | `release_visibility_activations` (InnoDB) |
 
+
+### 2.1 Host tables — no upstream counterpart
+
+These eight are NOT derived from `db/schema.ts` and are not reachability results. Upstream runs on
+a host with a process manager, a session layer and a secret store; Loopia provides none of those,
+so the projection carries its own. **They hold no canonical law**, and nothing in them is compared
+against upstream in conformance — a divergence here is an implementation choice, not a drift.
+
+#### `110_jobs_scheduler`
+
+| Table | Why it exists | Notes |
+| --- | --- | --- |
+| `jobs` | Loopia has no daemon, so governed work is a durable state machine driven by a timer | typed states; no generic payload executor |
+| `job_transitions` | the audit trail of that machine | append-only; a refused advance writes nothing |
+| `scheduler_runs` | what each bounded tick claimed, advanced and failed | bounded per invocation by count and wall clock |
+
+#### `120_platform_auth`
+
+| Table | Why it exists | Notes |
+| --- | --- | --- |
+| `platform_users` | upstream has operators, not console logins | an operator is the governed identity; a platform user is how a person reaches one |
+| `platform_sessions` | the console needs a session; upstream's surfaces are M12 objects | stores DIGESTS of the session and CSRF tokens, never the tokens |
+| `auth_attempts` | rate limiting, and the record that a refusal happened | digests of the address and IP, never either in the clear |
+
+#### `130_provider_credentials`
+
+| Table | Why it exists | Notes |
+| --- | --- | --- |
+| `provider_credentials` | a tenant's own API credentials have to live somewhere on a host with no secret manager | AES-256-GCM ciphertext with nonce, auth tag and key version; the master key is never in a row |
+| `provider_call_records` | what was called with them, for audit | no credential material, ever |
 
 ---
 

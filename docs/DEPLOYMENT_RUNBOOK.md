@@ -109,7 +109,7 @@ hand; do not re-run and hope.
 
     php tests/run.php --strict
 
-Expect 1952 passing, 0 failing, 0 skipped. Under `--strict` a skip is a non-zero exit, so an
+Expect 2225 passing, 0 failing, 0 skipped. Under `--strict` a skip is a non-zero exit, so an
 unreachable database cannot be mistaken for a green run.
 
 ### 4.2 CHECK constraints are ENFORCED
@@ -148,9 +148,11 @@ answer for a private address before trusting it with a real source.
 ## 5. Provision a tenant
 
 1. Seed the platform permission vocabulary and roles (`M02\Permissions`).
-2. Register the tenant capability (`P01\Registration::registerTenantCapability`) — this provisions
+2. Register the P01 capability (`P01\Registration::registerCompetitionMonitor`) — this provisions
    the Valkyrie identity, governed tools, arbiter policy sets, M16 visibility profiles and the
-   subscription tier in one governed act.
+   subscription tier in one governed act. **It is the only registration in this port**: P02–P07-A
+   have no equivalent, so their tables, policy sets and admission rules exist but have no one-call
+   tenant setup. See `PORT_SCOPE_MATRIX.md` §3.7.
 3. Subscribe the tenant to a tier. **A role grant is not a purchase**: both gates must pass, and
    they are deliberately separate.
 4. Create audit profiles per category as needed.

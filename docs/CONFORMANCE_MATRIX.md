@@ -14,14 +14,14 @@ is not.
 
 | Layer | Files | Assertions | Result |
 | --- | --- | --- | --- |
-| foundation | 2 | 62 | PASS |
-| unit | 1 | 107 | PASS |
-| integration | 23 | 1041 | PASS |
-| conformance | 1 | 27 | PASS |
+| foundation | 3 | 99 | PASS |
+| unit | 2 | 153 | PASS |
+| integration | 24 | 1148 | PASS |
+| conformance | 2 | 110 | PASS |
 | acceptance | 1 | 32 | PASS |
 | security | 10 | 656 | PASS |
 | rollback | 1 | 27 | PASS |
-| **TOTAL** | **39** | **1952** | **PASS, 0 failing, 0 skipped** |
+| **TOTAL** | **43** | **2225** | **PASS, 0 failing, 0 skipped** |
 
 Run with `php tests/run.php --strict`. Under `--strict` a skip is a non-zero exit, so an
 unreachable database cannot be mistaken for a green suite.
