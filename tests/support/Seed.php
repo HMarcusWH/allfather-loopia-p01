@@ -9,7 +9,14 @@ use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Core\Digest;
 use Allfather\Loopia\Core\Ids;
 use Allfather\Loopia\Db\Database;
+use Allfather\Loopia\Substrate\M03\Registry;
+use Allfather\Loopia\Substrate\M04\Proposals;
 use Allfather\Loopia\Substrate\M05\EvidenceSpine;
+use Allfather\Loopia\Substrate\M05\Readiness as ReadinessEvaluator;
+use Allfather\Loopia\Substrate\M07\Council;
+use Allfather\Loopia\Substrate\M08\Arbiter;
+use Allfather\Loopia\Substrate\M08\PolicySets;
+use Allfather\Loopia\Substrate\M10\DecisionLedger;
 
 /**
  * Minimal authority-chain seeding for tests.
@@ -324,6 +331,149 @@ final class Seed
             'after_snapshot_id' => $snapshotIds[1],
             'source_diff_id' => $diffId,
             'company_signal_id' => $signalId,
+        ];
+    }
+
+    /**
+     * The WHOLE governed chain, run through the real modules rather than inserted:
+     *
+     *   valkyrie + contract -> mission -> proposal -> evidence -> bundle (frozen)
+     *     -> council session + assessment + frozen result
+     *     -> arbiter verdict
+     *     -> M10 INTERNAL_INFORMATIONAL_RELEASE record
+     *
+     * Every product test needs this, and every step of it is a gate. Inserting the end state
+     * directly would let a test prove behavior over a state the product cannot reach — and the
+     * foreign keys would reject most of it anyway, which is the schema saying the same thing.
+     *
+     * `$signalOverrides` bends one link of the P01 evidence chain so a single refusal path can be
+     * isolated; `$councilRecommendation` bends the review outcome.
+     *
+     * @param array<string, mixed> $signalOverrides
+     * @return array<string, mixed>
+     */
+    public static function governedReleaseChain(
+        Database $db,
+        Clock $clock,
+        array $scope,
+        array $signalOverrides = [],
+        string $councilRecommendation = 'PROCEED_TO_ARBITER',
+        string $proposalType = 'BATTLECARD_BRIEF',
+    ): array {
+        $m03 = new Registry($db, $clock);
+        $m04 = new Proposals($db, $clock);
+        $m05 = new EvidenceSpine($db, $clock);
+        $m07 = new Council($db, $clock);
+        $m08 = new Arbiter($db, $clock, new ReadinessEvaluator($db, $clock));
+        $m10 = new DecisionLedger($db, $clock);
+        $policies = new PolicySets($db, $clock);
+
+        $policySetId = $policies->seed(PolicySets::P01_COMPETITION_RELEVANCE, $scope['tenant_id'], $scope['workspace_id'])
+            ->value()['arbiter_policy_set_id'];
+
+        $producer = $m03->registerValkyrie(
+            $scope['tenant_id'], $scope['workspace_id'], 'Competition Monitor',
+            'COMPETITION_MONITOR_VALKYRIE', 'Monitors approved competitor sources.',
+            $scope['operator_id'], 'ACTIVE'
+        );
+        $critic = $m03->registerValkyrie(
+            $scope['tenant_id'], $scope['workspace_id'], 'Review Critic',
+            'REVIEW_CRITIC_VALKYRIE', 'Independent review.', $scope['operator_id'], 'ACTIVE'
+        );
+        $contractId = $m03->issueContract(
+            $producer, $scope['tenant_id'], $scope['workspace_id'], 'p01.monitor',
+            'COMPETITION_MONITOR_VALKYRIE', ['OBSERVE', 'ANALYZE', 'RELEASE_INTELLIGENCE']
+        )->value()['capability_contract_id'];
+
+        $missionId = $m04->createMission(
+            $scope['tenant_id'], $scope['workspace_id'], 'COMPETITION_MONITORING',
+            'Monitor competitor pricing', 'Detect and brief material pricing changes.',
+            ['OBSERVE', 'ANALYZE', 'RELEASE_INTELLIGENCE'], 'OPERATOR', $scope['operator_id']
+        );
+
+        $proposalId = $m04->createDraft([
+            'tenant_id' => $scope['tenant_id'],
+            'workspace_id' => $scope['workspace_id'],
+            'mission_id' => $missionId,
+            'producing_valkyrie_id' => $producer,
+            'capability_contract_id' => $contractId,
+            'proposal_type' => $proposalType,
+            'requested_action_class' => 'RELEASE_INTELLIGENCE',
+            'title' => 'Competitor A raised list pricing',
+            'safe_purpose_summary' => 'Brief the customer on an observed pricing change.',
+            'proposed_content_or_action_summary' => 'List price moved 449 -> 499 SEK.',
+            'uncertainty_summary' => 'Applicability to existing customers is NOT observed.',
+        ])->value()['proposal_id'];
+
+        $chain = self::p01SignalChain($db, $clock, $scope, $missionId, $proposalId, $signalOverrides);
+
+        // The evidence bundle: the frozen basis the verdict is decided on.
+        $evidenceId = (string) $db->scalar(
+            'SELECT e.evidence_id FROM evidence_objects e
+             JOIN source_snapshots s ON s.evidence_id = e.evidence_id
+             WHERE s.source_snapshot_id = ?',
+            [$chain['after_snapshot_id']]
+        );
+        $bundleId = $m05->createBundleDraft(
+            $scope['tenant_id'], $scope['workspace_id'], $missionId, $proposalId, 'P01 signal basis'
+        );
+        $m05->addBundleItem($bundleId, $evidenceId);
+        $m05->submitBundle($bundleId);
+
+        $m04->submit($proposalId);
+
+        $sessionId = $m07->openSession(
+            $scope['tenant_id'], $scope['workspace_id'], $missionId, $proposalId,
+            'MULTI_REVIEWER_DEMO', 'COMPETITION_RELEVANCE_REVIEW', 'OPERATOR', $scope['operator_id']
+        )->value()['review_session_id'];
+        $assignmentId = $m07->assignParticipant($sessionId, $critic, 'EVIDENCE_CRITIC', 'INDEPENDENT_DECLARED_REVIEWER')
+            ->value()['participant_assignment_id'];
+        $m07->recordAssessment(
+            $sessionId, $assignmentId, $critic,
+            $councilRecommendation === 'PROCEED_TO_ARBITER' ? 'SUPPORT_PROCEED_TO_ARBITER' : 'HOLD',
+            'Reviewed.'
+        );
+        $m07->freezeResult($sessionId, $councilRecommendation, 'Council result.');
+
+        $verdict = $m08->evaluateProposal($proposalId, $policySetId);
+
+        $release = null;
+        if ($verdict->isOk() && $verdict->value()['verdict'] === 'ALLOW_INFORMATIONAL_RELEASE') {
+            $streamId = $m10->ensureActiveStream($scope['tenant_id'], $scope['workspace_id'], 'TEST');
+            $release = $m10->appendInternalRelease($streamId, 'Released competition briefing.', [
+                [
+                    'owner_module_id' => 'M08', 'input_object_type' => 'ARBITER_VERDICT',
+                    'input_object_id' => $verdict->value()['arbiter_verdict_id'],
+                    'input_object_version_or_digest' => $verdict->value()['basis_hash'],
+                    'reference_role' => 'VERDICT_BASIS', 'verification_status_at_record_time' => 'VERIFIED_REFERENCE',
+                ],
+                [
+                    'owner_module_id' => 'M04', 'input_object_type' => 'PROPOSAL',
+                    'input_object_id' => $proposalId,
+                    'reference_role' => 'PROPOSAL_BASIS', 'verification_status_at_record_time' => 'VERIFIED_REFERENCE',
+                ],
+                [
+                    'owner_module_id' => 'M05', 'input_object_type' => 'EVIDENCE_BUNDLE',
+                    'input_object_id' => $bundleId,
+                    'reference_role' => 'EVIDENCE_BASIS', 'verification_status_at_record_time' => 'VERIFIED_REFERENCE',
+                ],
+            ], ['proposal_id' => $proposalId])->value();
+        }
+
+        return [
+            ...$chain,
+            'arbiter_policy_set_id' => $policySetId,
+            'producing_valkyrie_id' => $producer,
+            'critic_valkyrie_id' => $critic,
+            'capability_contract_id' => $contractId,
+            'mission_id' => $missionId,
+            'proposal_id' => $proposalId,
+            'evidence_id' => $evidenceId,
+            'evidence_bundle_id' => $bundleId,
+            'review_session_id' => $sessionId,
+            'verdict' => $verdict->isOk() ? $verdict->value() : null,
+            'verdict_refusal' => $verdict->isOk() ? null : $verdict->reasonCode(),
+            'release' => $release,
         ];
     }
 }
