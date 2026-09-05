@@ -55,17 +55,9 @@ $role = Seed::role($db, $clock, 'tool_caller', ['tool.invoke']);
 Seed::membership($db, $clock, $scope['tenant_id'], $scope['workspace_id'], $scope['operator_id'], $role['role_id']);
 $chain = Seed::governedToolChain($db, $clock, $scope);
 
-// The connector class this deployment has promoted for public web pages.
-$db->insert('ingestion_connector_descriptors', [
-    'ingestion_connector_descriptor_id' => Ids::new(),
-    'schema_version' => '1',
-    'connector_class' => 'PUBLIC_WEB_PAGE',
-    'connector_version' => '1',
-    'required_content_types' => json_encode(['text/html'], JSON_THROW_ON_ERROR),
-    'status' => 'ACTIVE',
-    'created_at' => $clock->now(),
-    'updated_at' => $clock->now(),
-]);
+// NO connector descriptor is seeded. A P01 capture rides its own governed read tool, not an M15
+// connector dispatch, so the connector legs of the compiled policy are out of its scope entirely
+// — and this chain running without one is part of what proves it.
 
 // ============================================================ source cards are default-deny
 

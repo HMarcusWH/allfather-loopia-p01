@@ -34,6 +34,34 @@ final class SourcePolicy
     public const COMPILER_VERSION = 'ing_policy_compiler_v2';
 
     /**
+     * The CLOSED vocabulary of fail-closed reason codes this compiler can emit.
+     *
+     * Upstream expresses this as a union TYPE, and its own compiler then checks exhaustively that
+     * every consumer handles every member — so an added reason code cannot reach production
+     * unhandled. PHP has no equivalent check, so the vocabulary is declared here and pinned by
+     * conformance instead: the P01 adapter must map or explicitly scope out every member, and a
+     * code added to this compiler without a decision about P01 fails the suite.
+     *
+     * @var list<string>
+     */
+    public const FAIL_CLOSED_REASON_CODES = [
+        'SOURCE_SCOPE_MISMATCH',
+        'SOURCE_CARD_NOT_APPROVED',
+        'SOURCE_CARD_REVIEW_EXPIRED',
+        'SOURCE_USE_PROHIBITED',
+        'SOURCE_LICENSE_PROHIBITED',
+        'SOURCE_RETENTION_PROHIBITED',
+        'SOURCE_REFERENCE_NOT_ACTIVE',
+        'SOURCE_SENSITIVITY_PROHIBITED',
+        'ROBOTS_NOT_CHECKED',
+        'TERMS_RECHECK_OVERDUE',
+        'SOURCE_TYPE_UNSUPPORTED',
+        'CONNECTOR_CLASS_NOT_PROMOTED',
+        'CONNECTOR_NOT_ACTIVATED',
+        'SOURCE_URL_MISSING_OR_INVALID',
+    ];
+
+    /**
      * The closed card-type to connector-class mapping.
      *
      * `search_api` has NO mapping, so it blocks as SOURCE_TYPE_UNSUPPORTED. Widening this table is

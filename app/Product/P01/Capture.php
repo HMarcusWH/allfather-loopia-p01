@@ -50,6 +50,52 @@ final class Capture
      */
     private const RESERVATION_TTL_MS = 900_000;
 
+    /**
+     * The compiler's fail-closed codes mapped back onto P01's OWN rejection vocabulary, in P01's
+     * historical precedence order.
+     *
+     * This adapter exists so the compiler can be the ONE law without P01 losing the reason codes
+     * its callers, audits and conformance transcripts were built on. The order is the law: the
+     * first matching code wins, so a refusal names the most fundamental authority that failed
+     * rather than whichever leg the compiler happened to evaluate last.
+     *
+     * Where a compiler code has no historical P01 equivalent (a prohibited use, license or
+     * sensitivity) it NARROWS to SOURCE_POLICY_PROHIBITED. Narrowing is the only direction an
+     * adapter may move: it may not invent an authority the card never granted, and it may not
+     * forgive one the compiler refused.
+     *
+     * @var list<array{0: string, 1: string}>
+     */
+    private const P01_REASON_BY_COMPILER_CODE = [
+        ['SOURCE_CARD_NOT_APPROVED', 'SOURCE_CARD_NOT_APPROVED'],
+        ['SOURCE_REFERENCE_NOT_ACTIVE', 'SOURCE_REFERENCE_NOT_ACTIVE_FOR_CAPTURE'],
+        ['SOURCE_CARD_REVIEW_EXPIRED', 'SOURCE_CARD_REVIEW_EXPIRED'],
+        ['ROBOTS_NOT_CHECKED', 'TERMS_RECHECK_OVERDUE_AT_CAPTURE'],
+        ['TERMS_RECHECK_OVERDUE', 'TERMS_RECHECK_OVERDUE_AT_CAPTURE'],
+        ['SOURCE_RETENTION_PROHIBITED', 'SOURCE_RETENTION_PROHIBITED'],
+        ['SOURCE_USE_PROHIBITED', 'SOURCE_POLICY_PROHIBITED'],
+        ['SOURCE_LICENSE_PROHIBITED', 'SOURCE_POLICY_PROHIBITED'],
+        ['SOURCE_SENSITIVITY_PROHIBITED', 'SOURCE_POLICY_PROHIBITED'],
+        ['SOURCE_SCOPE_MISMATCH', 'MONITORED_SOURCE_SCOPE_MISMATCH'],
+        ['SOURCE_URL_MISSING_OR_INVALID', 'SOURCE_URL_MISSING_OR_INVALID'],
+    ];
+
+    /**
+     * The CLOSED connector-leg skip list — the only compiler codes a P01 capture may ignore.
+     *
+     * A P01 capture dispatches through its own governed read tool, not through an M15 connector,
+     * so whether this deployment has promoted and activated a connector class says nothing about
+     * whether this card authorizes this read. Every other code, including any future compiler
+     * reason this projection has never seen, refuses.
+     *
+     * @var list<string>
+     */
+    private const P01_OUT_OF_SCOPE_COMPILER_CODES = [
+        'CONNECTOR_NOT_ACTIVATED',
+        'CONNECTOR_CLASS_NOT_PROMOTED',
+        'SOURCE_TYPE_UNSUPPORTED',
+    ];
+
     public function __construct(
         private readonly Database $db,
         private readonly Clock $clock,
@@ -128,21 +174,10 @@ final class Capture
              ORDER BY reviewed_at DESC, source_terms_review_id DESC LIMIT 1',
             [(string) $row['source_license_card_id']]
         );
-        // The connector descriptor is a PLATFORM row, not a tenant one: which connector classes
-        // this deployment has promoted is a property of the deployment, not of who is asking.
-        $connector = $this->db->one(
-            "SELECT connector_class, connector_version, status, required_content_types
-             FROM ingestion_connector_descriptors
-             WHERE connector_class = ? AND status = 'ACTIVE'
-             ORDER BY connector_version DESC LIMIT 1",
-            [self::connectorClassForCard($card)]
-        );
-        if ($connector !== null) {
-            $connector['required_content_types'] = json_decode(
-                (string) ($connector['required_content_types'] ?? '[]'), true, 512, JSON_THROW_ON_ERROR
-            );
-        }
-
+        // NO CONNECTOR. A P01 monitored-source capture is not a spine connector dispatch — it
+        // rides its own governed read tool — so connector activation is out of P01's scope.
+        // Handing the compiler a descriptor row here would make capture depend on a generic ACTIVE
+        // M15 connector descriptor that this authority never required.
         $policy = SourcePolicy::compile(
             [
                 'source_ref_id' => (string) $row['source_ref_id'],
@@ -152,16 +187,26 @@ final class Capture
             ],
             $card,
             $review,
-            $connector,
+            null,
             $nowMs,
         );
-        if ($policy['status'] !== 'COMPILED_ALLOW') {
-            // The FIRST fail-closed code is the reason. They are ordered by the compiler in the
-            // order the authorities were checked, so the first one names the most fundamental
-            // failure rather than whichever happened to be evaluated last.
-            return Outcome::refuse($policy['fail_closed_reason_codes'][0], [
-                'fail_closed_reason_codes' => $policy['fail_closed_reason_codes'],
-            ], 'POLICY');
+        // The compile STATUS is deliberately NOT the gate, and that is not a loosening. Compiled
+        // with no connector the compiler always blocks on its connector leg, and that leg is not
+        // P01's authority to enforce. What IS the gate is the mapped P01 reason: every non-connector
+        // code refuses, and any code the map does not know refuses fail-closed.
+        $cardRefusal = self::p01ReasonFor($policy['fail_closed_reason_codes']);
+        if ($cardRefusal !== null) {
+            // A scope mismatch is classified the same way whichever gate raised it, so the two
+            // routes to that code are indistinguishable in the audit trail — which is the point:
+            // they are the same finding.
+            $isScope = $cardRefusal === 'MONITORED_SOURCE_SCOPE_MISMATCH';
+
+            return Outcome::refuse(
+                $cardRefusal,
+                ['fail_closed_reason_codes' => $policy['fail_closed_reason_codes']],
+                $isScope ? 'SCOPE' : 'POLICY',
+                $isScope ? 'S4' : 'S2',
+            );
         }
 
         // The card's URL is the authority; the capture URL must fall inside it. A capture outside
@@ -417,18 +462,30 @@ final class Capture
         });
     }
 
-    /** @param array<string, mixed>|null $card */
-    private static function connectorClassForCard(?array $card): string
+    /**
+     * Translate a compiled policy's fail-closed codes into P01's rejection reason, or null when the
+     * compile raised nothing P01 is the authority for.
+     *
+     * FAIL CLOSED is the whole point of the tail: an unmapped code is not a code to ignore, it is a
+     * policy violation this projection does not yet have a name for, and a capture must not happen
+     * because a reason was unfamiliar.
+     *
+     * @param list<string> $failClosedReasonCodes
+     */
+    private static function p01ReasonFor(array $failClosedReasonCodes): ?string
     {
-        return match ((string) ($card['source_type'] ?? '')) {
-            'website', 'press_release' => 'PUBLIC_WEB_PAGE',
-            'rss' => 'RSS_OR_ATOM_FEED',
-            'public_api', 'licensed_api' => 'JSON_API',
-            'customer_upload', 'manual' => 'TENANT_UPLOADED_ARTIFACT',
-            // An unmapped card type resolves to a class no descriptor will match, so the compile
-            // blocks on CONNECTOR_NOT_ACTIVATED rather than silently picking a plausible one.
-            default => 'UNMAPPED',
-        };
+        foreach (self::P01_REASON_BY_COMPILER_CODE as [$compilerCode, $p01Code]) {
+            if (in_array($compilerCode, $failClosedReasonCodes, true)) {
+                return $p01Code;
+            }
+        }
+
+        $unexpected = array_filter(
+            $failClosedReasonCodes,
+            static fn (string $code): bool => !in_array($code, self::P01_OUT_OF_SCOPE_COMPILER_CODES, true),
+        );
+
+        return $unexpected === [] ? null : 'SOURCE_POLICY_PROHIBITED';
     }
 
     /** A safe, audit-friendly reason for a dispatch that never reached a capturable outcome. */

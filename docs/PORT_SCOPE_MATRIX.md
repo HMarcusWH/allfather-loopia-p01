@@ -241,6 +241,31 @@ that hole by minting exactly the shape the audit already recognizes, through the
 path. It grants no authority: the basis is an INTERNAL_DEMO derived reference over a still-relied-
 upon source, the claim must still be cited, and the audit must still accept it.
 
+### 4.3 Repaired divergences
+
+Not every difference from upstream was a decision. This one was a defect, and it is recorded here
+because the shape of the mistake is worth keeping.
+
+**P01 capture compiled with a connector descriptor.** `P01\Capture` resolved an ACTIVE
+`ingestion_connector_descriptors` row for the card's mapped connector class, handed it to
+`SourcePolicy::compile`, and then refused on `fail_closed_reason_codes[0]` whenever the compile was
+not `COMPILED_ALLOW`. Upstream's `captureMonitoredSource` passes `connector: null` and maps the
+compiler's codes back into P01's own vocabulary through an ordered table, skipping ONLY the three
+connector legs. The port's version therefore made every P01 capture depend on a platform-level M15
+connector row that canonical P01 never required — a source whose card, reference, terms review and
+scope were all in order would refuse with `CONNECTOR_NOT_ACTIVATED`, a reason belonging to a
+dispatch path P01 does not use. It also renamed every other refusal to whichever code the compiler
+happened to order first, rather than to the P01 code P01's callers and audits were built on.
+
+Repaired by porting the upstream adapter verbatim in intent: `P01_REASON_BY_COMPILER_CODE` (ordered,
+narrowing to `SOURCE_POLICY_PROHIBITED` where P01 has no historical code),
+`P01_OUT_OF_SCOPE_COMPILER_CODES` (exactly the three connector legs) and a `p01ReasonFor` that fails
+CLOSED on anything the map does not know. `SourcePolicy` remains the ONE compiler — no source-policy
+law was copied into P01, and no connector class was promoted to make capture work.
+`tests/conformance/p01_source_policy_adapter.php` pins every mapping, the closure of both tables
+against the compiler's declared vocabulary, and the independence claim itself: the suite seeds no
+connector descriptor at all, and both P01 integration chains now run without one.
+
 ### Substrate families deliberately NOT ported
 
 | Family | Upstream path | Why excluded |
