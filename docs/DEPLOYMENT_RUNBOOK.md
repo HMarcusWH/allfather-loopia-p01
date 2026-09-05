@@ -120,6 +120,37 @@ After any stand-down, verify the ledger still verifies:
 The chain must verify WITH the correction in it. That is what makes the withdrawal provable rather
 than merely performed.
 
+## 6a. The scheduler tick
+
+Loopia gives no daemon, so governed work is driven by a timer. Two doors, and the shell-cron one is
+preferred because its authority is filesystem access rather than a credential on the wire.
+
+**Shell cron (preferred).** Every fifteen minutes:
+
+    */15 * * * * /usr/bin/php /path/to/app/worker/tick.php >> /path/to/app/storage/scheduler.log 2>&1
+
+**Over HTTP.** Generate a token, store only its digest, and fire the tick with a POST:
+
+    php -r 'echo rtrim(strtr(base64_encode(random_bytes(32)), "+/", "-_"), "=") . PHP_EOL;'
+    # put the sha256 of that value in .env as SCHEDULER_TOKEN_HASH, keep the token in the caller
+    */15 * * * * curl -fsS -X POST -H "X-Scheduler-Token: $TOKEN" https://<host>/scheduler.php
+
+The token goes in a HEADER, never the query string: a URL-cron entry sits in a scheduler's
+configuration, in access logs and in any Referer it generates, and a token in a URL is a token in
+all three. `SCHEDULER_TOKEN_HASH` is preferred over `SCHEDULER_TOKEN` because a read of `.env` then
+yields nothing presentable; if both are set the digest wins, so a rotation cannot be undone by a
+stale plaintext value left beside it.
+
+**An unconfigured scheduler is unreachable, not open.** With neither key set, every token is refused
+with `SCHEDULER_CREDENTIAL_NOT_CONFIGURED`.
+
+**What a tick does today.** The step registry is closed and EMPTY: `LIVE_READ_ACTIVATED` is false,
+so no handler performing an external read is registered, and the internal steps are a separate act
+to wire. A tick therefore claims its bounded batch, FAILS each job with
+`STEP_HANDLER_NOT_REGISTERED` recorded in `job_transitions`, and exits. Expect that in the log. It
+is the honest behaviour of a machine whose capability nobody has granted — do not read a quiet log
+as work being done.
+
 ## 7. Monitoring
 
 Run the audits on a schedule; each opens an incident through the certified M11 intake on failure:
