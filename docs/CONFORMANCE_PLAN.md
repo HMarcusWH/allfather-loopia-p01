@@ -66,7 +66,7 @@ comparison format:
 | Pure unit | `tests/unit/` | no DB | digest/canonicalization, IP classification, fit + ICP scoring, reason-code mapping, redaction, visibility/reliance predicates |
 | MariaDB integration | `tests/integration/` | real MariaDB | migrations, CHECKs, FKs, triggers, transactions, tenant/workspace isolation, idempotency, job leases, the HTTP console end to end (sign-in, CSRF, escaping, per-surface denial) |
 | Conformance | `tests/conformance/` | real MariaDB | normalized transcripts vs the canonical expectations |
-| Acceptance | `tests/acceptance/` | real MariaDB | full SF-P01…SF-P07-A verticals end to end |
+| Acceptance | `tests/acceptance/` | real MariaDB | the claims the product may make: full SF-P01…SF-P07-A verticals end to end, and the console's own claims driven through the HTTP kernel |
 | Security | `tests/security/` | real MariaDB + fake transport | auth, scope, SSRF, secret handling, source policy, cross-tenant/workspace, privacy admission |
 | Rollback | `tests/rollback/` | real MariaDB | per-product stand-down + whole-deployment stand-down |
 

@@ -17,11 +17,11 @@ is not.
 | foundation | 3 | 99 | PASS |
 | unit | 2 | 153 | PASS |
 | integration | 24 | 1148 | PASS |
-| conformance | 2 | 110 | PASS |
-| acceptance | 1 | 32 | PASS |
+| conformance | 3 | 144 | PASS |
+| acceptance | 2 | 123 | PASS |
 | security | 10 | 656 | PASS |
 | rollback | 1 | 27 | PASS |
-| **TOTAL** | **43** | **2225** | **PASS, 0 failing, 0 skipped** |
+| **TOTAL** | **45** | **2350** | **PASS, 0 failing, 0 skipped** |
 
 Run with `php tests/run.php --strict`. Under `--strict` a skip is a non-zero exit, so an
 unreachable database cannot be mistaken for a green suite.
@@ -48,6 +48,26 @@ suite executed against SQLite would prove nothing about either.
 - **No road test has been executed.** See `LOOPIA_CAPABILITY_REPORT.md` §5.
 
 ## 2. Conformance cases
+
+Three files, answering three different questions.
+
+| File | Compares | Against |
+| --- | --- | --- |
+| `p01_governed_transcripts.php` | normalized decision transcripts for seven bent authority states | the outcome each is required to produce |
+| `p01_source_policy_adapter.php` | every compiler fail-closed code as P01 renders it, and the closure of the map | `src/p01/capture-source.ts` |
+| `governed_vocabulary.php` | the closed vocabularies, member by member and in order | `release-output/vocabulary.ts`, `action-class.ts`, `ingestion/policy.ts`, and the storage CHECKs |
+
+The third exists because of what the port loses at the language boundary. Upstream holds these
+vocabularies as TypeScript union types and its compiler proves exhaustively that every consumer
+handles every member, so a member added upstream cannot reach production unhandled. PHP has no
+equivalent check anywhere. Vocabulary drift is therefore the failure mode this port is most exposed
+to, and it is silent — a missing member is not a crash, it is a state nothing refuses.
+
+Where a vocabulary is also pinned in storage, the CHECK constraint is compared as well: a constant
+and a constraint that disagree is a gate that refuses in one layer and admits in the other.
+
+### 2.1 P01 transcript cases
+
 
 `tests/conformance/p01_governed_transcripts.php`. Each compares a normalized transcript —
 decision, reason codes, and whether an artifact materialized. Ids and timestamps are stripped;
