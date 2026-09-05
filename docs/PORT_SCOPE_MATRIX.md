@@ -167,7 +167,7 @@ Detail per table in [`SCHEMA_REACHABILITY.md`](./SCHEMA_REACHABILITY.md).
 
 | Family | Upstream path | Port | Bounded to |
 | --- | --- | --- | --- |
-| M01 runtime invocation | `src/m01/` | ✅ minimal | governed tool invocation + host-tool binding needed by capture. **No** host adapter/agent runtime |
+| M01 runtime invocation | `src/m01/` | ✅ minimal | governed tool invocation + host-tool binding needed by capture. **No** host adapter/agent runtime. See §4.1 for the two excluded dispatch paths |
 | M02 tenancy / scope / permissions | `src/m02/` | ✅ | tenants, workspaces, memberships, roles, permissions, data scopes, access evaluation |
 | M03 capability identity | `src/m03/` | ✅ | valkyries, capability contracts, tool rights, forbidden action clauses, revocations |
 | M04 missions / proposals | `src/m04/` | ✅ | proposal envelopes + status transitions + review paths used by selected flows |
@@ -183,6 +183,31 @@ Detail per table in [`SCHEMA_REACHABILITY.md`](./SCHEMA_REACHABILITY.md).
 | M15 live-read activation ladder | `src/ingestion/live-read-*.ts` | ⚠️ **state only** | the activation gate STATE is ported as inert/false; the upstream activation-ceremony machinery is not re-implemented |
 | M16 governed release output | `src/release-output/` | ✅ | artifacts, source-use profiles, evidence links, projections, visibility activation, lineage, reliance-aware reads |
 | `substrate-core` | `packages/allfather-substrate-core/src/` | ✅ **extract only** | canonical digest/serialization, chain digest, id generation, action classes, statuses, error model |
+
+### 4.1 M01/M06 dispatch paths — what shipped and what did not
+
+The canonical M01 module carries four dispatch entrypoints. Two are ported; two are excluded, and
+the exclusions are structural rather than merely unimplemented.
+
+| Upstream entrypoint | Port | Reason |
+| --- | --- | --- |
+| `invokeAuthorizedHostTool` (synthetic fixture) | ✅ `Invocation::invokeAuthorizedHostTool` | deterministic safe-read dispatch; no host contacted |
+| `invokeAuthorizedLiveSourceCapture` | ✅ `Invocation::invokeAuthorizedLiveSourceCapture` | the egress-guarded read P01 capture needs |
+| `invokeAuthorizedHarnessTool` | ❌ | the Harness native adapter path **is** the host adapter runtime, which this projection excludes |
+| Class-E / `HARMLESS_DEMO_ACTION` demo dispatch | ❌ | requires an M09 single-use authorization and a frozen artifact. There is no M09 plane here, so rather than porting a branch that could never be satisfied, `EXECUTE_CONSEQUENTIAL_ACTION` is refused outright at `CLASS_E_NOT_AVAILABLE_IN_PROJECTION` |
+
+Class E is separately unreachable by three independent planes, none of which depends on the others:
+M02 lists the matching permissions as EXCLUDED; M03 refuses to issue a capability contract granting
+the class; and the M06 V1 scope filter routes every class above `ANALYZE` to `REQUIRE_APPROVAL`,
+which — with no M09 plane — is terminal rather than a step toward eventual dispatch.
+
+**Adapter conformance is a characterized partial port.** Upstream replays the Harness Port
+conformance law (`checkAdapterConformance`) over the stored descriptor, manifest and profile.
+That law lives in the harness package. `M01\AdapterConformance` therefore verifies the half that
+does not depend on the harness — that all three identity payloads are in canonical form, and that
+the host-bound identity digest recomputes from exactly those payloads. It proves the adapter
+identity has not **drifted**; it does not prove conformance to a harness descriptor contract, and
+the class says so rather than implying the stronger property.
 
 ### Substrate families deliberately NOT ported
 

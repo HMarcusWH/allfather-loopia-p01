@@ -9,10 +9,13 @@ use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Core\Digest;
 use Allfather\Loopia\Core\Ids;
 use Allfather\Loopia\Db\Database;
+use Allfather\Loopia\Substrate\M01\AdapterConformance;
+use Allfather\Loopia\Substrate\M03\Eligibility;
 use Allfather\Loopia\Substrate\M03\Registry;
 use Allfather\Loopia\Substrate\M04\Proposals;
 use Allfather\Loopia\Substrate\M05\EvidenceSpine;
 use Allfather\Loopia\Substrate\M05\Readiness as ReadinessEvaluator;
+use Allfather\Loopia\Substrate\M06\Registry as ToolRegistry;
 use Allfather\Loopia\Substrate\M07\Council;
 use Allfather\Loopia\Substrate\M08\Arbiter;
 use Allfather\Loopia\Substrate\M08\PolicySets;
@@ -474,6 +477,246 @@ final class Seed
             'verdict' => $verdict->isOk() ? $verdict->value() : null,
             'verdict_refusal' => $verdict->isOk() ? null : $verdict->reasonCode(),
             'release' => $release,
+        ];
+    }
+
+    /**
+     * A complete governed READ-ONLY tool chain, ready for an M06 dispatch.
+     *
+     * Everything the gate chain reads is seeded through the real modules, not inserted as end
+     * state: the runtime host, its adapter, the binding and tool ref, the governed tool and its
+     * operation, the Valkyrie contract's tool right, the mission assignment, and the tenant's
+     * subscription entitlement. Each of those is a gate M06 will actually consult, so seeding one
+     * incorrectly makes the test fail rather than pass for the wrong reason.
+     *
+     * The whole chain is SAFE_READ_ONLY / OBSERVE. Nothing here can reach an external effect.
+     *
+     * @param array<string, mixed> $scope
+     * @return array<string, mixed>
+     */
+    public static function governedToolChain(
+        Database $db,
+        Clock $clock,
+        array $scope,
+        string $safetyClassification = 'SAFE_READ_ONLY',
+        string $actionClass = 'OBSERVE',
+        string $toolClass = 'READ_ONLY_SOURCE',
+    ): array {
+        $now = $clock->now();
+        $m03 = new Registry($db, $clock);
+        $m03e = new Eligibility($db, $clock);
+        $m04 = new Proposals($db, $clock);
+        $m06 = new ToolRegistry($db, $clock);
+
+        // --- the runtime host and its adapter ---------------------------------------------------
+        $hostId = Ids::new();
+        // Each chain gets its OWN host and adapter identity. A shared one would make two chains in
+        // the same test share a dispatch surface, so a refusal proved on one could be an artefact
+        // of the other's state rather than of the gate under test.
+        $suffix = substr($hostId, 0, 8);
+        $db->insert('runtime_host_instances', [
+            'runtime_host_instance_id' => $hostId,
+            'schema_version' => '1',
+            'host_family' => 'LOOPIA_TEST_HOST',
+            'host_name' => 'loopia-read-host-' . $suffix,
+            'host_instance_key' => 'loopia-read-host-' . $suffix,
+            'host_version' => '1.0.0',
+            'repository_reference_safe' => 'internal://loopia/read-host',
+            'licence_status_ref' => 'internal',
+            'integration_map_document_ref' => 'docs/SCHEMA_REACHABILITY.md',
+            'environment_class' => 'TEST',
+            'declared_security_assumptions' => json_encode(['NO_EXTERNAL_EFFECT'], JSON_THROW_ON_ERROR),
+            'status' => 'REGISTERED',
+            'created_at' => $now,
+        ]);
+
+        // The identity payloads must be in the project's CANONICAL form, because that is exactly
+        // what AdapterConformance re-derives at every invocation. Writing them any other way makes
+        // the adapter non-conformant, which is the intended failure mode for a drifted identity.
+        $descriptor = Digest::canonicalize(['adapterId' => 'loopia-read-' . $suffix, 'adapterVersion' => '1.0.0']);
+        $manifest = Digest::canonicalize(['capabilities' => ['READ_MODEL']]);
+        $profile = Digest::canonicalize(['profile' => 'READ_ONLY', 'version' => '1']);
+        $adapterId = Ids::new();
+        $identity = [
+            'runtime_host_instance_id' => $hostId,
+            'adapter_family' => 'LOOPIA_READ',
+            'adapter_name' => 'loopia-read-' . $suffix,
+            'adapter_version' => '1.0.0',
+            'descriptor_identity' => $descriptor,
+            'capability_manifest_identity' => $manifest,
+            'conformance_profile_identity' => $profile,
+        ];
+        $db->insert('runtime_adapter_instances', [
+            'runtime_adapter_instance_id' => $adapterId,
+            'schema_version' => '1',
+            ...$identity,
+            'identity_digest' => AdapterConformance::identityDigest($identity),
+            'status' => 'READY',
+            'created_at' => $now,
+            'retired_at' => null,
+        ]);
+
+        // --- the binding and its tool surface ---------------------------------------------------
+        $bindingId = Ids::new();
+        $db->insert('runtime_host_bindings', [
+            'binding_id' => $bindingId,
+            'schema_version' => '1',
+            'runtime_host_instance_id' => $hostId,
+            'runtime_adapter_instance_id' => $adapterId,
+            'binding_type' => 'TOOL_SURFACE',
+            'runtime_host_reference' => 'loopia-read-host-' . $suffix . ':tool',
+            'runtime_host_version' => '1.0.0',
+            'mapping_purpose' => 'Read-only competitor source capture.',
+            'permitted_operation_classes' => json_encode([$actionClass], JSON_THROW_ON_ERROR),
+            'safety_classification' => $safetyClassification,
+            'status' => 'ACTIVE',
+            'tenant_id' => $scope['tenant_id'],
+            'workspace_id' => $scope['workspace_id'],
+            'activation_evidence_refs' => json_encode([], JSON_THROW_ON_ERROR),
+            'activated_at' => $now,
+            'created_at' => $now,
+        ]);
+
+        // --- the governed tool and operation ----------------------------------------------------
+        $toolId = $m06->registerTool([
+            'tool_key' => 'p01.source.read.' . $suffix,
+            'display_name' => 'Competitor source read',
+            'purpose_summary' => 'Read an approved competitor source page.',
+            'tool_class' => $toolClass,
+            'risk_level' => 'T1',
+            'maximum_action_class' => $actionClass,
+            'runtime_mapping_ref_id' => $bindingId,
+            'evidence_capture_required_by_default' => true,
+        ]);
+        $operationId = $m06->registerOperation([
+            'governed_tool_id' => $toolId,
+            'operation_key' => 'source.read',
+            'operation_summary' => 'Fetch one approved source URL.',
+            'operation_class' => 'READ',
+            'classified_action_class' => $actionClass,
+            'requires_evidence_capture' => true,
+        ]);
+
+        $toolRefId = Ids::new();
+        $db->insert('runtime_host_tool_refs', [
+            'tool_ref_id' => $toolRefId,
+            'schema_version' => '1',
+            'binding_id' => $bindingId,
+            'governed_tool_id' => $toolId,
+            'runtime_host_tool_ref' => 'loopia-read-' . $suffix . ':source.read',
+            'tool_surface_type' => 'READ',
+            'declared_operation_class' => $actionClass,
+            'mapping_status' => 'ACTIVE',
+            'version' => '1.0.0',
+            'created_at' => $now,
+        ]);
+
+        // --- the agent, its contract, its tool right and its assignment --------------------------
+        $valkyrieId = $m03->registerValkyrie(
+            $scope['tenant_id'], $scope['workspace_id'], 'Source Reader',
+            'COMPETITION_MONITOR_VALKYRIE', 'Reads approved competitor sources.',
+            $scope['operator_id'], 'ACTIVE'
+        );
+        // The contract and mission both carry the chain's action class, so a refusal on a wider
+        // class comes from the gate under test rather than from an upstream plane that never
+        // granted it. Making M03 the refuser for every class would prove only that M03 runs first.
+        $grantedClasses = array_values(array_unique(['OBSERVE', 'ANALYZE', $actionClass]));
+        $contractId = $m03->issueContract(
+            $valkyrieId, $scope['tenant_id'], $scope['workspace_id'], 'p01.read',
+            'COMPETITION_MONITOR_VALKYRIE', $grantedClasses
+        )->value()['capability_contract_id'];
+        $toolRightId = $m03e->grantToolRight(
+            $contractId, $toolId, ['source.read'], $toolClass, $actionClass
+        );
+
+        $missionId = $m04->createMission(
+            $scope['tenant_id'], $scope['workspace_id'], 'COMPETITION_MONITORING',
+            'Read approved competitor sources', 'Capture source pages for change detection.',
+            $grantedClasses, 'OPERATOR', $scope['operator_id']
+        );
+        $assignmentId = $m04->assignToMission(
+            $missionId, $valkyrieId, $contractId, 'SOURCE_READER',
+            [$toolId], [$actionClass], $scope['operator_id']
+        )->value()['assignment_id'];
+
+        // --- the tenant's commercial entitlement -------------------------------------------------
+        // The tier is a PLATFORM catalogue row, not a per-tenant one, so a second chain reuses the
+        // existing tier rather than creating a rival definition of the same product.
+        $existingTier = $db->scalar(
+            "SELECT subscription_tier_id FROM subscription_tiers WHERE tier_key = 'sme_standard'"
+        );
+        $tierId = $existingTier === null ? Ids::new() : (string) $existingTier;
+        if ($existingTier === null) {
+            $db->insert('subscription_tiers', [
+            'subscription_tier_id' => $tierId,
+            'schema_version' => '1',
+            'tier_key' => 'sme_standard',
+            'tier_version' => '1',
+            'display_name' => 'SME Standard',
+            'monthly_fee_minor_units' => 249900,
+            'currency' => 'SEK',
+            'billing_period' => 'MONTHLY',
+            'status' => 'ACTIVE',
+            'created_at' => $now,
+            'activated_at' => $now,
+            ]);
+        }
+        // The entitlement plane references the SAME permission vocabulary M02 uses. A tier cannot
+        // grant a permission the platform does not define, which is what stops the commercial
+        // plane from inventing authority the access plane never heard of.
+        if ($db->one('SELECT permission_key FROM permissions WHERE permission_key = ?', ['competition_monitoring.read']) === null) {
+            $db->insert('permissions', [
+                'permission_key' => 'competition_monitoring.read',
+                'schema_version' => '1',
+                'display_name' => 'competition_monitoring.read',
+                'created_at' => $now,
+            ]);
+        }
+        if ($db->one(
+            'SELECT permission_key FROM subscription_tier_permissions WHERE subscription_tier_id = ? AND permission_key = ?',
+            [$tierId, 'competition_monitoring.read']
+        ) === null) {
+            $db->insert('subscription_tier_permissions', [
+                'subscription_tier_id' => $tierId,
+                'permission_key' => 'competition_monitoring.read',
+            ]);
+        }
+
+        // A tenant holds ONE live subscription. A second chain in the same tenant subscribes to the
+        // same one rather than opening a rival subscription, which would make the entitlement gate
+        // answer from whichever row it happened to read first.
+        $existingSubscription = $db->scalar(
+            "SELECT tenant_subscription_id FROM tenant_subscriptions
+             WHERE tenant_id = ? AND status IN ('TRIAL', 'ACTIVE')",
+            [$scope['tenant_id']]
+        );
+        $subscriptionId = $existingSubscription === null ? Ids::new() : (string) $existingSubscription;
+        if ($existingSubscription === null) {
+            $db->insert('tenant_subscriptions', [
+                'tenant_subscription_id' => $subscriptionId,
+                'schema_version' => '1',
+                'tenant_id' => $scope['tenant_id'],
+                'subscription_tier_id' => $tierId,
+                'status' => 'ACTIVE',
+                'started_at' => $now,
+            ]);
+        }
+
+        return [
+            'runtime_host_instance_id' => $hostId,
+            'runtime_adapter_instance_id' => $adapterId,
+            'binding_id' => $bindingId,
+            'tool_ref_id' => $toolRefId,
+            'runtime_host_tool_ref' => 'loopia-read-' . $suffix . ':source.read',
+            'governed_tool_id' => $toolId,
+            'governed_tool_operation_id' => $operationId,
+            'valkyrie_id' => $valkyrieId,
+            'capability_contract_id' => $contractId,
+            'tool_right_id' => $toolRightId,
+            'mission_id' => $missionId,
+            'assignment_id' => $assignmentId,
+            'subscription_tier_id' => $tierId,
+            'tenant_subscription_id' => $subscriptionId,
         ];
     }
 }

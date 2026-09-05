@@ -54,6 +54,11 @@ final class Assert
         $condition ? self::pass() : self::fail($message);
     }
 
+    public static function false(bool $condition, string $message): void
+    {
+        self::true(!$condition, $message);
+    }
+
     public static function same(mixed $expected, mixed $actual, string $message): void
     {
         if ($expected === $actual) {

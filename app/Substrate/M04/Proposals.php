@@ -100,6 +100,99 @@ final class Proposals
     }
 
     /**
+     * Assign a Valkyrie to a mission with an EXPLICIT tool and action-class scope.
+     *
+     * The assignment is the M04 half of the dispatch gate: M06 refuses a tool call whose governed
+     * tool or action class is not named here, even when the capability contract would permit it.
+     * A contract says what an agent may ever do; an assignment says what it may do on THIS mission.
+     * Conflating the two would make every contract grant effective on every mission.
+     *
+     * Both scopes are stored as explicit lists, never as a wildcard: an assignment with an empty
+     * tool list authorizes no tool at all, which is the correct reading of "nothing was assigned".
+     *
+     * @param list<string> $assignedToolIds
+     * @param list<string> $assignedActionClasses
+     */
+    public function assignToMission(
+        string $missionId,
+        string $valkyrieId,
+        string $capabilityContractId,
+        string $assignmentRole,
+        array $assignedToolIds,
+        array $assignedActionClasses,
+        string $assignedByOperatorId,
+        string $status = 'ACTIVE',
+    ): Outcome {
+        $mission = $this->db->one(
+            'SELECT tenant_id, workspace_id, status, requested_action_classes FROM missions WHERE mission_id = ?',
+            [$missionId]
+        );
+        if ($mission === null) {
+            return Outcome::refuse('MISSION_NOT_FOUND', [], 'PROVENANCE');
+        }
+
+        // An assignment may never widen the mission. Granting an action class the mission itself
+        // never requested would let the assignment become the authority instead of the mission.
+        $missionClasses = json_decode((string) $mission['requested_action_classes'], true, 512, JSON_THROW_ON_ERROR);
+        foreach ($assignedActionClasses as $class) {
+            if (!in_array($class, $missionClasses, true)) {
+                return Outcome::refuse('ASSIGNMENT_ACTION_CLASS_OUTSIDE_MISSION_SCOPE', [
+                    'action_class' => $class,
+                ], 'POLICY', 'S4');
+            }
+        }
+
+        $contract = $this->db->one(
+            'SELECT valkyrie_id, status FROM capability_contracts WHERE capability_contract_id = ?',
+            [$capabilityContractId]
+        );
+        if ($contract === null || (string) $contract['valkyrie_id'] !== $valkyrieId) {
+            return Outcome::refuse('ASSIGNMENT_CONTRACT_NOT_FOR_VALKYRIE', [], 'CONTRACT', 'S4');
+        }
+        if ((string) $contract['status'] !== 'ACTIVE') {
+            return Outcome::refuse('ASSIGNMENT_CONTRACT_NOT_ACTIVE', [
+                'status' => (string) $contract['status'],
+            ], 'CONTRACT');
+        }
+
+        $assignmentId = Ids::new();
+        $now = $this->clock->now();
+        $this->db->insert('mission_assignments', [
+            'assignment_id' => $assignmentId,
+            'schema_version' => '1',
+            'tenant_id' => (string) $mission['tenant_id'],
+            'workspace_id' => (string) $mission['workspace_id'],
+            'mission_id' => $missionId,
+            'valkyrie_id' => $valkyrieId,
+            'capability_contract_id' => $capabilityContractId,
+            // The contract IS its own version in this projection: contracts are append-only and a
+            // change issues a new contract rather than mutating one, so there is no separate
+            // version row that could name a different state than the contract itself.
+            'capability_contract_version_id' => $capabilityContractId,
+            'assignment_role' => $assignmentRole,
+            'assigned_action_classes' => json_encode(array_values($assignedActionClasses), JSON_THROW_ON_ERROR),
+            'assigned_tool_ids' => json_encode(array_values($assignedToolIds), JSON_THROW_ON_ERROR),
+            'assigned_output_classes' => json_encode(['INTERNAL_INFORMATIONAL'], JSON_THROW_ON_ERROR),
+            'status' => $status,
+            'assigned_by_operator_id' => $assignedByOperatorId,
+            'assigned_at' => $now,
+        ]);
+
+        // The mission's own allowed-tool list must name the tool too, or the M04 gate and the
+        // mission record would disagree about what the mission may reach.
+        $allowed = json_decode(
+            (string) $this->db->scalar('SELECT allowed_tool_ids FROM missions WHERE mission_id = ?', [$missionId]),
+            true, 512, JSON_THROW_ON_ERROR
+        );
+        $merged = array_values(array_unique([...$allowed, ...$assignedToolIds]));
+        $this->db->run('UPDATE missions SET allowed_tool_ids = ? WHERE mission_id = ?', [
+            json_encode($merged, JSON_THROW_ON_ERROR), $missionId,
+        ]);
+
+        return Outcome::ok(['assignment_id' => $assignmentId]);
+    }
+
+    /**
      * Create a DRAFT proposal envelope.
      *
      * @param array<string, mixed> $input
