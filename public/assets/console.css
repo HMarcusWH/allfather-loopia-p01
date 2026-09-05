@@ -1,0 +1,209 @@
+/*
+ * The control room.
+ *
+ * COLOUR IS SEMANTIC HERE, not decorative, and the palette is small on purpose:
+ *
+ *   gold    AUTHORITY   — who may do what: roles, permissions, contracts, ceilings
+ *   cyan    EVIDENCE    — what a claim rests on: sources, evidence, digests, references
+ *   violet  GOVERNANCE  — acts of the control plane: verdicts, decisions, releases, audits
+ *
+ * with three states layered over them:
+ *
+ *   green   permitted / released / passing
+ *   red     refused / blocked
+ *   amber   held, uncertain, or superseded — the states an operator most often misreads as one of
+ *           the other two, which is why they get a colour of their own
+ *
+ * EVERY colour is paired with a text label in the markup. A reader who cannot distinguish them
+ * loses nothing, which is the only honest way to use colour for meaning.
+ */
+
+:root {
+  --bg: #0b0e14;
+  --bg-raised: #121721;
+  --bg-sunken: #080a0f;
+  --line: #1f2733;
+  --line-strong: #2b3444;
+  --text: #d7dee9;
+  --text-dim: #8b97a8;
+  --text-faint: #5c6779;
+
+  --authority: #d9a441;
+  --authority-dim: #6b5321;
+  --evidence: #45c8d8;
+  --evidence-dim: #1d5b64;
+  --governance: #a276e8;
+  --governance-dim: #4b3670;
+
+  --ok: #4ec97f;
+  --refused: #e8615f;
+  --held: #e0a341;
+  --uncertain: #c9a227;
+
+  --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.55 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--evidence); text-decoration: none; }
+a:hover, a:focus-visible { text-decoration: underline; }
+:focus-visible { outline: 2px solid var(--evidence); outline-offset: 2px; }
+
+/* ---------------------------------------------------------------- shell */
+
+.shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+@media (max-width: 800px) { .shell { grid-template-columns: 1fr; } }
+
+.rail {
+  background: var(--bg-sunken);
+  border-right: 1px solid var(--line);
+  padding: 20px 0;
+}
+.rail__brand {
+  padding: 0 20px 18px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 14px;
+}
+.rail__title { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--authority); margin: 0; }
+.rail__sub { font-size: 11px; color: var(--text-faint); margin: 4px 0 0; font-family: var(--mono); }
+
+.rail__group { padding: 0 20px; margin: 0 0 18px; }
+.rail__label {
+  font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--text-faint); margin: 0 0 6px;
+}
+.rail__link { display: block; padding: 5px 0; color: var(--text-dim); font-size: 13px; }
+.rail__link[aria-current="page"] { color: var(--text); border-left: 2px solid var(--authority); padding-left: 8px; margin-left: -10px; }
+
+/* A nav item hidden by entitlement is a CONVENIENCE, never a permission. The note says so on the
+   page, because an operator who thinks the menu is the boundary will eventually test it. */
+.rail__note {
+  padding: 0 20px; margin-top: auto;
+  font-size: 11px; color: var(--text-faint); line-height: 1.45;
+}
+
+.main { padding: 24px 28px 64px; max-width: 1120px; }
+
+/* ---------------------------------------------------------------- headings */
+
+.page__head { margin: 0 0 20px; }
+.page__title { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+.page__lede { color: var(--text-dim); margin: 0; max-width: 70ch; }
+
+.section { margin: 28px 0 0; }
+.section__title {
+  font-size: 11px; letter-spacing: .11em; text-transform: uppercase;
+  color: var(--text-faint); margin: 0 0 10px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* ---------------------------------------------------------------- panels */
+
+.panel {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 16px 18px;
+  margin: 0 0 12px;
+}
+.panel--authority { border-left: 3px solid var(--authority); }
+.panel--evidence  { border-left: 3px solid var(--evidence); }
+.panel--governance{ border-left: 3px solid var(--governance); }
+
+.panel__head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 8px; }
+.panel__title { font-size: 14px; font-weight: 600; margin: 0; }
+.panel__meta { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+
+/* ---------------------------------------------------------------- tags */
+
+.tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-size: 11px;
+  padding: 2px 7px; border-radius: 3px;
+  border: 1px solid var(--line); color: var(--text-dim);
+  white-space: nowrap;
+}
+.tag__dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+
+.tag.is-ok        { color: var(--ok);        border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+.tag.is-refused   { color: var(--refused);   border-color: color-mix(in srgb, var(--refused) 35%, transparent); }
+.tag.is-held      { color: var(--held);      border-color: color-mix(in srgb, var(--held) 35%, transparent); }
+.tag.is-uncertain { color: var(--uncertain); border-color: color-mix(in srgb, var(--uncertain) 35%, transparent); }
+.tag.is-neutral   { color: var(--text-dim); }
+
+.tag--authority  { color: var(--authority);  border-color: var(--authority-dim); }
+.tag--evidence   { color: var(--evidence);   border-color: var(--evidence-dim); }
+.tag--governance { color: var(--governance); border-color: var(--governance-dim); }
+
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ---------------------------------------------------------------- data */
+
+.kv { display: grid; grid-template-columns: minmax(140px, auto) 1fr; gap: 4px 16px; margin: 0; }
+.kv dt { color: var(--text-faint); font-size: 12px; }
+.kv dd { margin: 0; font-family: var(--mono); font-size: 12px; word-break: break-all; }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th {
+  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--text-faint); font-weight: 500; background: var(--bg-sunken);
+}
+tbody tr:last-child td { border-bottom: 0; }
+td.mono { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+
+/* ---------------------------------------------------------------- timeline */
+
+.timeline { list-style: none; margin: 0; padding: 0 0 0 18px; border-left: 1px solid var(--line); }
+.timeline__item { position: relative; padding: 0 0 18px 18px; }
+.timeline__item::before {
+  content: ""; position: absolute; left: -23px; top: 6px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--bg); border: 2px solid var(--governance);
+}
+.timeline__head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.timeline__seq { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+.timeline__summary { margin: 4px 0 0; color: var(--text-dim); }
+
+/* ---------------------------------------------------------------- notices */
+
+.notice { border-radius: 6px; padding: 12px 14px; margin: 0 0 16px; border: 1px solid; font-size: 13px; }
+.notice--denied { border-color: color-mix(in srgb, var(--refused) 40%, transparent); background: color-mix(in srgb, var(--refused) 8%, transparent); color: var(--text); }
+.notice--empty  { border-color: var(--line); color: var(--text-dim); }
+.notice__codes { font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin: 6px 0 0; }
+
+.ceiling {
+  margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--line);
+  font-size: 11px; color: var(--text-faint); line-height: 1.6;
+}
+.ceiling strong { color: var(--text-dim); font-weight: 600; }
+
+/* ---------------------------------------------------------------- forms */
+
+.form { max-width: 340px; }
+.field { margin: 0 0 14px; }
+.field label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 5px; }
+.field input {
+  width: 100%; padding: 9px 11px; font: 13px var(--sans);
+  background: var(--bg-sunken); color: var(--text);
+  border: 1px solid var(--line); border-radius: 4px;
+}
+.button {
+  padding: 9px 16px; font: 500 13px var(--sans); cursor: pointer;
+  background: var(--authority); color: #17120a;
+  border: 0; border-radius: 4px;
+}
+.button:hover { filter: brightness(1.08); }
+
+.login { display: grid; place-items: center; min-height: 100vh; padding: 24px; }
+.login__card { width: 100%; max-width: 380px; }

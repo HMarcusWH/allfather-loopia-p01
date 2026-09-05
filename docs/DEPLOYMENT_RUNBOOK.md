@@ -32,13 +32,17 @@ connection to the address it validated, and the guard's central property is gone
 ## 3. Deploy
 
     git clone <repo> && cd allfather-loopia-p01
-    export DB_HOST=... DB_NAME=... DB_USER=... DB_PASSWORD=...   # or DB_SOCKET
-    php bin/migrate.php --status      # report only, changes nothing
-    php bin/migrate.php               # apply
+    cp .env.example .env && edit .env          # DB_*, APP_MASTER_KEY
+    php ops/migrate.php status --env=.env      # report only, changes nothing
+    php ops/migrate.php up --env=.env          # apply
 
-The migrator records a content digest per migration. If a file changed after it was applied, the
-command reports DRIFT and exits non-zero rather than guessing which side is right — the database and
-the repository disagreeing about history is a condition for a human, not for automation.
+Loopia offers no shell on the production host, so `ops/migrate.php` is also what the one-shot
+maintenance route invokes. It never runs implicitly on a web request.
+
+The migrator records a content digest per migration and reports each as APPLIED, PENDING or
+DRIFTED. DRIFTED means the file changed after it was applied — the database and the repository
+disagree about history, which is a condition for a human rather than for automation. Resolve it by
+hand; do not re-run and hope.
 
 ## 4. Verify the deployment — do not skip this
 
@@ -46,7 +50,7 @@ the repository disagreeing about history is a condition for a human, not for aut
 
     php tests/run.php --strict
 
-Expect 1903 passing, 0 failing, 0 skipped. Under `--strict` a skip is a non-zero exit, so an
+Expect 1948 passing, 0 failing, 0 skipped. Under `--strict` a skip is a non-zero exit, so an
 unreachable database cannot be mistaken for a green run.
 
 ### 4.2 CHECK constraints are ENFORCED

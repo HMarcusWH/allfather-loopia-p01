@@ -43,7 +43,7 @@ nowhere else. M15 governed ingestion is present with the guarded egress path.
 **Storage** — 15 migrations, MariaDB 10.11, with the invariants held as CHECK constraints and
 append-only triggers rather than as application conventions.
 
-**Tests** — 1903 assertions across seven layers, all executed against MariaDB. See
+**Tests** — 1948 assertions across seven layers, all executed against MariaDB. See
 `CONFORMANCE_MATRIX.md` §1 for the breakdown and for what has NOT been verified.
 
 ## 2. What it deliberately cannot do
@@ -117,10 +117,22 @@ An honest list, in the order I would do it:
 
 Items 1 and 2 are the ones I would not skip.
 
-## 7. UI
+## 7. Console
 
-Console surfaces are the remaining build item (CP10). The read models behind them exist and are
-tested — M12 workspace context, decision timeline and release readiness; P01 surfacing; P04
-three-gate distribution; P05 marketing surfacing — so the surfaces render from governed
-projections rather than from live joins across domain tables. That ordering is deliberate: it is
-what makes what a viewer saw on a given day reconstructable.
+Built. Six surfaces — login, workspace, decision ledger, competition briefings, role distributions,
+marketing drafts — server-rendered, with no JavaScript at all and a CSP that permits none.
+
+Three properties are worth naming because they are what make the console trustworthy rather than
+merely present:
+
+- **Every surface re-runs the M02 guard** against the permission it actually needs. Being signed in
+  is identity; authority is a separate question asked on every request. The test proves an operator
+  holding one role is denied by each of four surfaces, each naming a different permission.
+- **A denial renders the guard's own reason codes**, and the list is empty rather than partial.
+  A missing role, a missing tier and an unconfigured target have different remedies, and an
+  operator who cannot see which one refused cannot act on it.
+- **Surfaces render from governed projections**, not from live joins across domain tables — which
+  is what makes what a viewer saw on a given day reconstructable.
+
+The navigation rail states on the page that hiding an item is not a permission and showing one is
+not either, because an operator who believes the menu is the boundary will eventually test it.
