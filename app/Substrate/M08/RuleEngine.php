@@ -8,6 +8,7 @@ use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Product\P02\PrivacyPatterns;
 use Allfather\Loopia\Product\P03\FitScoring;
+use Allfather\Loopia\Product\P05\MarketingPatterns;
 
 /**
  * The ordinary-rule evaluators, one family per product module.
@@ -54,6 +55,9 @@ final class RuleEngine
             ],
             'INTELLIGENCE_DISTRIBUTION_ROUTING' => [
                 'P04_DISTRIBUTION_ADMISSION' => self::loadP04Context($db, $proposalId),
+            ],
+            'MARKETING_ASSET_DRAFT' => [
+                'P05_MARKETING_ASSET_ADMISSION' => self::loadP05Context($db, $proposalId),
             ],
             default => [],
         };
@@ -444,6 +448,145 @@ final class RuleEngine
     }
 
     /**
+     * The P05 marketing context: the bound draft, its comparative citations, and its bases.
+     *
+     * `comparative_citation_count` counts citations whose CLAIM TEXT is itself comparative, not
+     * citations in general. A draft comparing itself to a competitor and then citing evidence for
+     * an unrelated claim has cited nothing for the claim that needed it.
+     *
+     * @return array<string, mixed>|null null when the proposal binds no marketing draft
+     */
+    public static function loadP05Context(Database $db, string $proposalId): ?array
+    {
+        $row = $db->one(
+            'SELECT marketing_asset_draft_id, draft_content_safe, basis_evidence_id, asset_status,
+                    tenant_id, workspace_id, released_briefing_id, released_prospect_output_id
+             FROM marketing_asset_drafts WHERE proposal_id = ?
+             ORDER BY created_at DESC, marketing_asset_draft_id DESC LIMIT 1',
+            [$proposalId]
+        );
+        if ($row === null) {
+            return null;
+        }
+
+        $comparative = 0;
+        $citations = $db->all(
+            'SELECT claim_text_safe FROM marketing_claim_citations WHERE marketing_asset_draft_id = ?',
+            [(string) $row['marketing_asset_draft_id']]
+        );
+        foreach ($citations as $citation) {
+            if (MarketingPatterns::hasComparativeClaim((string) $citation['claim_text_safe'])) {
+                $comparative++;
+            }
+        }
+        $row['comparative_citation_count'] = $comparative;
+
+        // The basis must exist AND be in the draft's own scope. A basis id pointing at another
+        // workspace's evidence is not a weaker basis; it is a citation of something this draft
+        // cannot see.
+        $row['basis_evidence_in_scope'] = $row['basis_evidence_id'] !== null
+            && $db->one(
+                'SELECT 1 AS hit FROM evidence_objects
+                 WHERE evidence_id = ? AND tenant_id = ? AND workspace_id = ?',
+                [
+                    (string) $row['basis_evidence_id'],
+                    (string) $row['tenant_id'],
+                    (string) $row['workspace_id'],
+                ]
+            ) !== null;
+
+        $row['source_reliance'] = self::sourceRelianceForBriefing(
+            $db,
+            $row['released_briefing_id'] === null ? null : (string) $row['released_briefing_id'],
+            $row['released_prospect_output_id'] === null ? null : (string) $row['released_prospect_output_id'],
+        );
+
+        return $row;
+    }
+
+    /**
+     * The P05_MARKETING_ASSET_ADMISSION checks.
+     *
+     * A missing context FAILS CLOSED when the proposal IS a marketing draft, rather than standing
+     * aside. This family is stricter than the others on purpose: a marketing proposal with no
+     * draft bound to it is not a proposal these rules have nothing to say about — it is one whose
+     * content nobody can see, and content is the entire question here.
+     *
+     * @param array<string, mixed>|null $ctx
+     * @return array{decision: string, reason_codes: list<string>, severity: ?string, incident: bool, result: ?array<string, mixed>}
+     */
+    private static function evalP05(array $rule, ?array $ctx, string $proposalType, string $failClosed): array
+    {
+        $incident = (int) ($rule['incident_evaluation_if_failed'] ?? 0) === 1;
+
+        if ($ctx === null) {
+            if ($proposalType !== 'MARKETING_ASSET_DRAFT') {
+                return self::notApplicable($rule);
+            }
+
+            return self::refuse(
+                $rule,
+                ['P05_MARKETING_ASSET_CONTEXT_MISSING', 'ARBITER_P05_MARKETING_ASSET_DENIED'],
+                $failClosed,
+                $incident,
+                useFailClosedEffect: true,
+            );
+        }
+
+        $ruleKey = (string) $rule['rule_key'];
+        $failed = null;
+        $reason = '';
+
+        switch ($ruleKey) {
+            case 'p05_uncited_competitor_claim':
+                // BOTH halves. Copy that makes no comparative claim needs no comparative citation,
+                // and copy that makes one needs at least one citation whose own text is comparative.
+                $failed = MarketingPatterns::hasComparativeClaim((string) $ctx['draft_content_safe'])
+                    && (int) $ctx['comparative_citation_count'] === 0;
+                $reason = 'P05_UNCITED_COMPETITOR_CLAIM';
+                break;
+
+            case 'p05_forbidden_marketing_pattern':
+                $failed = MarketingPatterns::hasForbiddenPattern((string) $ctx['draft_content_safe']);
+                $reason = 'P05_FORBIDDEN_MARKETING_PATTERN';
+                break;
+
+            case 'p05_source_still_released':
+                // A null reliance — no resolvable record — fails too. Unknown is not permitted.
+                $failed = $ctx['source_reliance'] === null
+                    || (string) $ctx['source_reliance'] !== 'ACTIVE_AS_RECORDED';
+                $reason = 'SOURCE_NOT_RELEASED';
+                break;
+
+            case 'p05_draft_only':
+                // IN_REVIEW, not DRAFT: a verdict is issued about an asset that was submitted for
+                // one, and an asset still open for edits is not that.
+                $failed = (string) $ctx['asset_status'] !== 'IN_REVIEW';
+                $reason = 'P05_DRAFT_ONLY';
+                break;
+
+            case 'p05_evidence_basis_present':
+                $failed = $ctx['basis_evidence_id'] === null || $ctx['basis_evidence_in_scope'] !== true;
+                $reason = 'P05_EVIDENCE_BASIS_MISSING';
+                break;
+
+            default:
+                return self::refuse(
+                    $rule, ['ARBITER_P05_UNKNOWN_RULE', 'ARBITER_P05_MARKETING_ASSET_DENIED'],
+                    $failClosed, $incident
+                );
+        }
+
+        if ($failed !== true) {
+            return ['decision' => 'PASS', 'reason_codes' => [], 'severity' => null, 'incident' => false, 'result' => null];
+        }
+
+        return self::refuse(
+            $rule, [$reason, 'ARBITER_P05_MARKETING_ASSET_DENIED'], $failClosed, $incident
+        );
+    }
+
+    /**
      * Evaluate one ordinary rule.
      *
      * @param array<string, mixed> $rule    an `arbiter_policy_rules` row
@@ -458,6 +601,9 @@ final class RuleEngine
             'P01_RELEVANCE' => self::evalP01($rule, $context['P01_RELEVANCE'] ?? null, $failClosed),
             'P03_PROSPECT_ADMISSION' => self::evalP03($rule, $context['P03_PROSPECT_ADMISSION'] ?? null, $failClosed),
             'P04_DISTRIBUTION_ADMISSION' => self::evalP04($rule, $context['P04_DISTRIBUTION_ADMISSION'] ?? null, $failClosed),
+            'P05_MARKETING_ASSET_ADMISSION' => self::evalP05(
+                $rule, $context['P05_MARKETING_ASSET_ADMISSION'] ?? null, $proposalType, $failClosed
+            ),
             // A category this engine does not implement stands aside rather than passing: it has no
             // context to judge, and inventing an answer would be worse than declining to give one.
             default => self::notApplicable($rule),
@@ -566,11 +712,17 @@ final class RuleEngine
      * @param list<string> $codes
      * @return array{decision: string, reason_codes: list<string>, severity: string, incident: bool, result: array<string, mixed>}
      */
-    private static function refuse(array $rule, array $codes, string $failClosed, bool $incident): array
-    {
-        $effect = str_ends_with($codes[0], '_UNKNOWN_RULE')
-            // An unknown rule has no declared effect to honour, so it takes the policy's own
-            // fail-closed verdict rather than a guessed one.
+    private static function refuse(
+        array $rule,
+        array $codes,
+        string $failClosed,
+        bool $incident,
+        bool $useFailClosedEffect = false,
+    ): array {
+        $effect = $useFailClosedEffect || str_ends_with($codes[0], '_UNKNOWN_RULE')
+            // An unknown rule — or a family whose context could not be loaded at all — has no
+            // declared effect to honour, so it takes the policy's own fail-closed verdict rather
+            // than a guessed one.
             ? $failClosed
             : (string) $rule['failure_effect'];
         $result = Verdicts::failureEffectToResult($effect, $codes, $failClosed);

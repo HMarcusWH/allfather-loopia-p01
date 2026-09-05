@@ -258,6 +258,75 @@ final class PolicySets
         ],
     ];
 
+    /**
+     * P05 marketing-asset draft admission.
+     *
+     * The set governs MARKETING_ASSET_DRAFT only, and what it admits is an INTERNAL release — that
+     * the tenant's own people may read a draft in the console. There is no verdict here that
+     * publishes anything, because there is nothing in the plane to publish with.
+     */
+    public const P05_MARKETING_ASSET_ADMISSION = [
+        'policy_key' => 'P05_MARKETING_ASSET_ADMISSION',
+        'policy_version' => 'v1',
+        'display_name' => 'P05 marketing asset draft admission policy',
+        'purpose_summary' => 'Internal marketing-draft admission; never an uncited competitor claim, a forbidden marketing pattern, a stale source, a non-review asset, or a missing evidence basis.',
+        'applicable_proposal_types' => ['MARKETING_ASSET_DRAFT'],
+        'applicable_requested_action_classes' => ['RELEASE_INTELLIGENCE'],
+        'available_verdicts' => [
+            'ALLOW_INFORMATIONAL_RELEASE', 'REQUIRE_MORE_EVIDENCE', 'REQUIRE_REVISION',
+            'HOLD', 'BLOCK', 'QUARANTINE', 'REQUIRE_INCIDENT_EVALUATION',
+        ],
+        'default_fail_closed_verdict' => 'HOLD',
+        'rules' => [
+            [
+                'rule_key' => 'p05_uncited_competitor_claim',
+                'rule_category' => 'P05_MARKETING_ASSET_ADMISSION',
+                'rule_summary' => 'Copy making a comparative claim must cite governed evidence for it.',
+                'check_type' => 'PASS_FAIL',
+                // BLOCK. A comparative claim with nothing behind it is the one kind of marketing
+                // copy that can defame somebody, and revising the wording would not supply the
+                // evidence it lacks.
+                'failure_effect' => 'BLOCK',
+                'priority' => 55,
+            ],
+            [
+                'rule_key' => 'p05_forbidden_marketing_pattern',
+                'rule_category' => 'P05_MARKETING_ASSET_ADMISSION',
+                'rule_summary' => 'Copy must carry no dark-pattern, deception or sensitive-trait-targeting marker.',
+                'check_type' => 'PROHIBITION_CHECK',
+                // BLOCK and an incident. No citation makes fake scarcity honest, and copy that
+                // reached the arbiter carrying it is a question about how it was produced.
+                'failure_effect' => 'BLOCK',
+                'incident_evaluation_if_failed' => 1,
+                'priority' => 54,
+            ],
+            [
+                'rule_key' => 'p05_source_still_released',
+                'rule_category' => 'P05_MARKETING_ASSET_ADMISSION',
+                'rule_summary' => 'The cited P01/P03 source must still be relied upon at verdict time.',
+                'check_type' => 'ENUM_STATUS',
+                'failure_effect' => 'BLOCK',
+                'priority' => 50,
+            ],
+            [
+                'rule_key' => 'p05_draft_only',
+                'rule_category' => 'P05_MARKETING_ASSET_ADMISSION',
+                'rule_summary' => 'Only an IN_REVIEW draft may receive an admission verdict.',
+                'check_type' => 'ENUM_STATUS',
+                'failure_effect' => 'REQUIRE_REVISION',
+                'priority' => 45,
+            ],
+            [
+                'rule_key' => 'p05_evidence_basis_present',
+                'rule_category' => 'P05_MARKETING_ASSET_ADMISSION',
+                'rule_summary' => 'The proposal must bind a draft-basis evidence object in the draft\'s own scope.',
+                'check_type' => 'REQUIRED_REFERENCE',
+                'failure_effect' => 'REQUIRE_MORE_EVIDENCE',
+                'priority' => 40,
+            ],
+        ],
+    ];
+
     public function __construct(
         private readonly Database $db,
         private readonly Clock $clock,

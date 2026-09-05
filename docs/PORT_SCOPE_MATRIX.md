@@ -209,6 +209,38 @@ the host-bound identity digest recomputes from exactly those payloads. It proves
 identity has not **drifted**; it does not prove conformance to a harness descriptor contract, and
 the class says so rather than implying the stronger property.
 
+### 4.2 Product-plane characterized divergences
+
+Three places where the PHP projection does not read line-for-line like upstream. Each is recorded
+here rather than left for a reader to discover, and each states what the observable difference is.
+
+**P04 `observeRoleClass` — an added guard, placed last.** Upstream scans only `roleClassLabel` for
+an individual identifier. The port scans `subjectCompanyRefSafe` as well, because a person smuggled
+into the company field is an individual observation wearing a company's label. The added check runs
+AFTER all three upstream guards, so every input upstream refuses is refused here for the same
+stated reason; only inputs upstream would have ACCEPTED can newly refuse. Strictly fail-closed, and
+no upstream reason code changes.
+
+**P05 `p05_source_still_released` — a dead branch not carried forward.** Upstream selects between
+two reason codes on `sourceReliance === "INVALIDATED_AT_RELEASE"`. No reliance vocabulary contains
+that value — `decision_records.current_reliance_status` and
+`decision_supersession_records.new_current_reliance_status` both admit only `ACTIVE_AS_RECORDED`,
+`HISTORICAL_ONLY`, `SUPERSEDED`, `INVALIDATED_FOR_CURRENT_RELIANCE` and `UNDER_REVIEW` — so the
+branch cannot fire upstream either, and the rule always yields `SOURCE_NOT_RELEASED`. The port
+emits that code unconditionally. Observable behavior is identical; the unreachable branch is not
+reproduced.
+
+**P05 `captureClaimBasis` — an added producer for a lineage the audit already required.** The
+upstream citation gate accepts any real in-scope evidence, while the upstream
+`MARKETING_EVIDENCE_CITATION` audit accepts a comparative citation only when the cited evidence has
+lineage to that draft: its own admission basis, or a `marketing-claim-basis:<draftId>:<tag>`
+reference under the `marketing_claim_basis` use scope. Upstream ships no product function that
+mints the latter — its tests construct it by hand — so a marketer citing an ordinary P01 evidence
+object passes the gate and fails the audit permanently. `MarketingAssets::captureClaimBasis` closes
+that hole by minting exactly the shape the audit already recognizes, through the certified M05
+path. It grants no authority: the basis is an INTERNAL_DEMO derived reference over a still-relied-
+upon source, the claim must still be cited, and the audit must still accept it.
+
 ### Substrate families deliberately NOT ported
 
 | Family | Upstream path | Why excluded |
