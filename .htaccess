@@ -1,0 +1,30 @@
+# DENY EVERYTHING.
+#
+# Nothing in this directory is meant to be served. It holds the application, its migrations, its
+# tests and — in a live deployment — the `.env` beside them, and the correct layout puts all of it
+# OUTSIDE the web server's document root entirely (see docs/DEPLOYMENT_RUNBOOK.md §3).
+#
+# This file exists for the deployment that gets that wrong: a shared host where somebody pointed a
+# domain at the repository root rather than at `public/`. It is the same posture as
+# `worker/tick.php` refusing to run under a web SAPI — "outside the document root" is a property of
+# a configuration file, not of the code, so the code does not assume it.
+#
+# It is NOT a substitute for the layout. On a host without mod_authz_core or mod_access_compat both
+# guards below are silent no-ops, and this directory would be served in full.
+
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  <IfModule mod_access_compat.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</IfModule>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^ - [F,L]
+</IfModule>
+
+Options -Indexes -MultiViews

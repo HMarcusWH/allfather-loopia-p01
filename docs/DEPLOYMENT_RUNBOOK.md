@@ -31,8 +31,47 @@ connection to the address it validated, and the guard's central property is gone
 
 ## 3. Deploy
 
+### 3.1 The layout — this is the security boundary
+
+Loopia serves a domain from `~/public_html/<domain>/` and gives no way to move that root. So the
+boundary is not a rule inside the served directory; it is which directory gets served. **Only
+`public/` may ever be it.**
+
+    ~/allfather-loopia-p01/           <- the application. NEVER served.
+      app/  database/  ops/  worker/  tests/  storage/
+      .env                            <- credentials live here
+      public/                         <- the ONLY directory a web server may be pointed at
+        index.php  scheduler.php  assets/  .htaccess
+
+Two ways to arrange that on Loopia, in order of preference:
+
+1. **Symlink the document root.** `ln -s ~/allfather-loopia-p01/public ~/public_html/<domain>`.
+   Requires the vhost to allow `FollowSymLinks`; verify before relying on it — fetch
+   `https://<domain>/` and confirm the console renders rather than a 403.
+2. **A two-line shim.** Where symlinks are not followed, put ONLY these in
+   `~/public_html/<domain>/`: a copy of `public/.htaccess`, a copy of `public/assets/`, and an
+   `index.php` and `scheduler.php` that each `require` their counterpart in the application
+   directory. Nothing else. The application directory stays outside `public_html` either way.
+
+**Do not deploy the repository into `public_html` and rely on `.htaccess` to hide the rest.** The
+`.htaccess` files in this repository are defence in depth — every directive is `<IfModule>`-guarded,
+so on a host missing the module they are silent no-ops, and a layout whose safety depends on them
+being interpreted correctly has already gone wrong.
+
+Verify the boundary after deploying. Each of these must NOT return the file:
+
+    curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/.env
+    curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/../.env
+    curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/app/Support/Env.php
+    curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/storage/scheduler.log
+
+403 or 404 are both correct answers. A 200 means the layout is wrong — fix the layout, not the
+`.htaccess`.
+
+### 3.2 Install
+
     git clone <repo> && cd allfather-loopia-p01
-    cp .env.example .env && edit .env          # DB_*, APP_MASTER_KEY
+    cp .env.example .env && edit .env          # DB_*, APP_MASTER_KEY, SCHEDULER_TOKEN_HASH
     php ops/migrate.php status --env=.env      # report only, changes nothing
     php ops/migrate.php up --env=.env          # apply
 
