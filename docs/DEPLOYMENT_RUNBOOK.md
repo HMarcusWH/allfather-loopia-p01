@@ -145,6 +145,6 @@ Stated so nobody assumes otherwise:
 - **This has never run on Loopia shared hosting.** Everything above is verified on a development
   container with PHP 8.4.19 and MariaDB 10.11.14. §4.2 and §4.3 exist precisely because shared
   hosting is where they are most likely to fail.
-- Hosted CI has reported green on pushed commits, but was not inspected run-by-run in the session
-  that wrote this. `CONFORMANCE_MATRIX.md` §1 does not claim a hosted PASS it did not read.
+- Hosted CI runs the full suite on PHP 8.2.33 — the supported floor — against MariaDB 10.11.19.
+  It caught one failure this development container did not; see `CONFORMANCE_MATRIX.md` §1.
 - No road test has been executed. No live source has been captured outside the test suite.

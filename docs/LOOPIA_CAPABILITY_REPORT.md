@@ -94,8 +94,10 @@ Stated plainly, because build completion is not launch authority:
 - `OWNER_GO_GRANTED` — **false.** No owner sign-off exists.
 - `PRODUCTION_LAUNCH` — **false.** Nothing is deployed.
 - Loopia shared hosting — **untested.** The target runtime has not run this code.
-- Hosted CI — green on pushed commits per subscribed PR events, but not inspected run-by-run in
-  this session, and therefore not claimed here as a verified hosted PASS.
+- Hosted CI — runs the full suite on PHP 8.2.33 against MariaDB 10.11.19. It caught a
+  non-deterministic test assertion that passed in the development container; see
+  `CONFORMANCE_MATRIX.md` §1. That is the value of running on the supported floor rather than
+  on whatever the development container happens to have.
 
 ## 6. What I would want before launch
 

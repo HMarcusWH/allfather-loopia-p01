@@ -32,10 +32,17 @@ suite executed against SQLite would prove nothing about either.
 
 ### What has NOT been independently verified
 
-- **Hosted GitHub Actions CI has not been observed passing by this session for the full suite.**
-  `.github/workflows/ci.yml` defines a foundation/unit job and a MariaDB-backed job, and CI has
-  reported green on pushed commits via subscribed PR events. But those runs were not inspected
-  run-by-run here, and this document does not claim a hosted PASS it did not read.
+- **Hosted GitHub Actions CI runs the full suite against MariaDB 10.11.19 on PHP 8.2.33.** It is
+  the only environment that has verified this code on the SUPPORTED PHP floor rather than on
+  8.4 — worth noting, because the development container runs 8.4.19 and a language-level
+  regression would show up first here.
+
+  CI **failed** on commits `d92c1fd` and `f12d249`, and the failure was real: an acceptance
+  assertion queried `information_schema` with an unordered `LIMIT 1` and matched a different
+  table's constraint on the runner than it did locally. Fixed in `5d1a16e`, which also scoped the
+  five other instances of the same pattern. Recorded here rather than quietly repaired, because
+  an earlier draft of this document claimed CI had "reported green on pushed commits" — that
+  claim was made from notification summaries rather than from the runs, and it was wrong.
 - **Loopia shared hosting has not been tested.** The target host is stated in the README; no
   deployment to it has occurred. See `DEPLOYMENT_RUNBOOK.md` §8.
 - **No road test has been executed.** See `LOOPIA_CAPABILITY_REPORT.md` §5.
