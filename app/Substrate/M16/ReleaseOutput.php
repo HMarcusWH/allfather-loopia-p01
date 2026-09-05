@@ -34,13 +34,77 @@ use Allfather\Loopia\Substrate\M10\DecisionLedger;
  */
 final class ReleaseOutput
 {
+    /**
+     * The CLOSED audience vocabulary — seven members, and the seventh is not like the others.
+     *
+     * `BLOCKED_QUARANTINED` is a terminal-deny PSEUDO-AUDIENCE: a rendering state for content that
+     * has been withheld, never a place content is sent. It belongs to the vocabulary because a
+     * caller can name it and the answer has to be a stated refusal; it is deliberately absent from
+     * the LADDER below, from every storage CHECK, and from the seeded profiles, so there is no row
+     * anywhere that could make it a projection target.
+     *
+     * Upstream draws this line with a union type and a function that throws on the pseudo-audience.
+     * PHP has neither, so the same line is drawn by the two constants plus `audienceOrderIndex`.
+     *
+     * @var list<string>
+     */
     public const AUDIENCE_CLASS = [
+        'OPERATOR_ONLY', 'TENANT_INTERNAL', 'CUSTOMER_VISIBLE',
+        'EXPORTABLE', 'API_VISIBLE', 'CHANNEL_EMAIL_SMS_CRM',
+        'BLOCKED_QUARANTINED',
+    ];
+
+    /**
+     * The audience LADDER, inner to wider — the real audiences, ordered.
+     *
+     * The monotonicity law is stated over this list: content(wider) is a subset of
+     * content(narrower). A pseudo-audience has no position on it, because "narrower than a refusal"
+     * is not a question with an answer.
+     *
+     * @var list<string>
+     */
+    public const AUDIENCE_ORDER = [
         'OPERATOR_ONLY', 'TENANT_INTERNAL', 'CUSTOMER_VISIBLE',
         'EXPORTABLE', 'API_VISIBLE', 'CHANNEL_EMAIL_SMS_CRM',
     ];
 
+    /**
+     * Members of the vocabulary that are rendering states rather than destinations.
+     *
+     * Kept as a list rather than a single value so a second one — if the vocabulary ever gains
+     * another terminal-deny state — is added HERE and refused everywhere, instead of being missed
+     * at one of the call sites that special-cases the name.
+     *
+     * @var list<string>
+     */
+    public const PSEUDO_AUDIENCES = ['BLOCKED_QUARANTINED'];
+
     /** The only audiences this projection may ever ACTIVATE. The rest are designed-inert. */
     public const ACTIVATABLE_AUDIENCES = ['OPERATOR_ONLY', 'TENANT_INTERNAL'];
+
+    /**
+     * An audience's position on the ladder, inner to wider.
+     *
+     * THROWS on a pseudo-audience rather than returning a sentinel, and that is the point: a
+     * caller asking where BLOCKED_QUARANTINED sits has already made a category error, and a -1 or
+     * a null would let that error travel — most likely as "not found, therefore widest" or "not
+     * found, therefore narrowest", both of which are answers to a question nobody should be asking.
+     */
+    public static function audienceOrderIndex(string $audienceClass): int
+    {
+        $index = array_search($audienceClass, self::AUDIENCE_ORDER, true);
+        if ($index === false) {
+            throw new \ValueError(sprintf(
+                '%s is not a projection target: %s',
+                $audienceClass,
+                in_array($audienceClass, self::PSEUDO_AUDIENCES, true)
+                    ? 'it is a refusal-rendering pseudo-audience'
+                    : 'it is not an audience class at all',
+            ));
+        }
+
+        return (int) $index;
+    }
 
     public const ARTIFACT_KIND = [
         'COMPANY_SIGNAL_BRIEFING', 'BATTLECARD_BRIEFING',
@@ -386,6 +450,22 @@ final class ReleaseOutput
      */
     public function projectForAudience(string $artifactId, string $audienceClass): Outcome
     {
+        // THE VOCABULARY IS CHECKED FIRST, and the two failures are named separately. Without this
+        // both reached the storage CHECK as a driver error — and if that CHECK were ever widened,
+        // BLOCKED_QUARANTINED would instead be recorded as a projection REFUSED for being above
+        // the source-use ceiling, which is a true-sounding reason for the wrong thing: the
+        // pseudo-audience is not too wide, it is not an audience.
+        if (in_array($audienceClass, self::PSEUDO_AUDIENCES, true)) {
+            return Outcome::refuse('AUDIENCE_NOT_A_PROJECTION_TARGET', [
+                'audience_class' => $audienceClass,
+            ], 'POLICY');
+        }
+        if (!in_array($audienceClass, self::AUDIENCE_ORDER, true)) {
+            return Outcome::refuse('AUDIENCE_CLASS_UNKNOWN', [
+                'audience_class' => $audienceClass,
+            ], 'POLICY');
+        }
+
         $artifact = $this->db->one(
             'SELECT ra.tenant_id, ra.workspace_id, ra.status, ra.content_elements_json,
                     ra.uncertainty_summary_safe, ra.claim_ceiling, p.audience_ceiling, p.customer_output_allowed
@@ -473,7 +553,7 @@ final class ReleaseOutput
         $now = $this->clock->now();
         $seeded = 0;
 
-        foreach (self::AUDIENCE_CLASS as $audience) {
+        foreach (self::AUDIENCE_ORDER as $audience) {
             $existing = $this->db->one(
                 "SELECT output_visibility_profile_id FROM output_visibility_profiles
                  WHERE tenant_id = ? AND audience_class = ? AND status = 'ACTIVE'",

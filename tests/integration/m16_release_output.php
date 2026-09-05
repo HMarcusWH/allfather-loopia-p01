@@ -682,3 +682,88 @@ Assert::same(
     $ledger->verifyStream($streamId)['status'],
     'and the decision hash chain still verifies end to end after every rollback in this file',
 );
+
+// ============================================================ the audience vocabulary is CLOSED
+
+// BLOCKED_QUARANTINED is a terminal-deny PSEUDO-AUDIENCE: a rendering state for content that has
+// been withheld, never a place content is sent. It belongs to the vocabulary because a caller can
+// name it and the answer must be a stated refusal — and it is deliberately absent from the ladder,
+// from every storage CHECK, and from the seeded profiles, so no row anywhere could make it a target.
+Assert::true(
+    in_array('BLOCKED_QUARANTINED', ReleaseOutput::AUDIENCE_CLASS, true),
+    'the pseudo-audience IS in the vocabulary — a name a caller can use must have a stated answer',
+);
+Assert::false(
+    in_array('BLOCKED_QUARANTINED', ReleaseOutput::AUDIENCE_ORDER, true),
+    'and is NOT on the ladder — "narrower than a refusal" is not a question with an answer',
+);
+Assert::same(
+    ReleaseOutput::AUDIENCE_ORDER,
+    array_values(array_diff(ReleaseOutput::AUDIENCE_CLASS, ReleaseOutput::PSEUDO_AUDIENCES)),
+    'the ladder is exactly the vocabulary minus its pseudo-audiences — nothing else is off it',
+);
+
+// The ladder is ORDERED, inner to wider, and the order is the monotonicity law's subject.
+Assert::same(0, ReleaseOutput::audienceOrderIndex('OPERATOR_ONLY'), 'OPERATOR_ONLY is innermost');
+Assert::true(
+    ReleaseOutput::audienceOrderIndex('TENANT_INTERNAL') < ReleaseOutput::audienceOrderIndex('CUSTOMER_VISIBLE'),
+    'and TENANT_INTERNAL is narrower than CUSTOMER_VISIBLE',
+);
+
+// Asking where the pseudo-audience sits THROWS rather than returning a sentinel. A -1 or a null
+// would let the category error travel — most likely as "not found, therefore widest" or "not found,
+// therefore narrowest", both answers to a question nobody should be asking.
+foreach ([
+    'BLOCKED_QUARANTINED' => 'refusal-rendering pseudo-audience',
+    'INVENTED_AUDIENCE' => 'not an audience class at all',
+] as $notATarget => $expectedReason) {
+    try {
+        ReleaseOutput::audienceOrderIndex($notATarget);
+        Assert::fail("audienceOrderIndex({$notATarget}) should not return a position");
+    } catch (\ValueError $error) {
+        Assert::contains($expectedReason, $error->getMessage(), "{$notATarget}: and the message says why");
+    }
+}
+
+// AT THE PROJECTION GATE the two failures are named separately, and neither is reported as an
+// audience above the ceiling. The pseudo-audience is not too wide — it is not an audience.
+$pseudo = $m16->projectForAudience($liveArtifactId, 'BLOCKED_QUARANTINED');
+Assert::same(
+    'AUDIENCE_NOT_A_PROJECTION_TARGET',
+    $pseudo->reasonCode(),
+    'projecting for the pseudo-audience is refused as a category error, not as a ceiling breach',
+);
+Assert::same(
+    'AUDIENCE_CLASS_UNKNOWN',
+    $m16->projectForAudience($liveArtifactId, 'INVENTED_AUDIENCE')->reasonCode(),
+    'and an audience outside the vocabulary is refused by name too',
+);
+// A REFUSED projection row is a governed record; a refusal at the vocabulary gate writes NOTHING,
+// because there is no audience for the row to be about.
+Assert::same(
+    0,
+    (int) $db->scalar(
+        "SELECT COUNT(*) FROM customer_output_projections
+         WHERE release_artifact_id = ? AND audience_class IN ('BLOCKED_QUARANTINED', 'INVENTED_AUDIENCE')",
+        [$liveArtifactId]
+    ),
+    'and no projection row is written for either — a row about a non-audience would be a false record',
+);
+
+// NO PROFILE IS SEEDED for the pseudo-audience, so even the read path's audience gate has nothing
+// to find. Six ladder rows, and only those.
+Assert::same(
+    0,
+    (int) $db->scalar(
+        "SELECT COUNT(*) FROM output_visibility_profiles WHERE audience_class = 'BLOCKED_QUARANTINED'"
+    ),
+    'the pseudo-audience is seeded no visibility profile at all',
+);
+Assert::same(
+    count(ReleaseOutput::AUDIENCE_ORDER),
+    (int) $db->scalar(
+        'SELECT COUNT(*) FROM output_visibility_profiles WHERE tenant_id = ?',
+        [$scope['tenant_id']]
+    ),
+    'exactly one profile per LADDER audience is seeded — the inert ones explicitly, the extra one never',
+);

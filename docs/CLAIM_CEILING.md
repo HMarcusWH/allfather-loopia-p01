@@ -38,8 +38,13 @@ because the claim was never available to make.
 
 `RELEASED_INTERNAL` is the strongest release state in this projection.
 
-- M16 audiences are ordered `OPERATOR_ONLY` < `TENANT_INTERNAL` < `CUSTOMER_VISIBLE`, and a
-  projection may never exceed the source-use ceiling its evidence was captured under.
+- M16 audiences are ordered `OPERATOR_ONLY` < `TENANT_INTERNAL` < `CUSTOMER_VISIBLE` <
+  `EXPORTABLE` < `API_VISIBLE` < `CHANNEL_EMAIL_SMS_CRM`, and a projection may never exceed the
+  source-use ceiling its evidence was captured under.
+- `BLOCKED_QUARANTINED` is in the audience vocabulary but is NOT on that ladder. It is a
+  terminal-deny pseudo-audience — a rendering state for withheld content, never a destination — so
+  it appears in no storage CHECK, is seeded no visibility profile, and is refused at the projection
+  gate as `AUDIENCE_NOT_A_PROJECTION_TARGET` rather than as a ceiling breach.
 - No path activates a `CUSTOMER_VISIBLE` projection. Requesting one is refused at
   `AUDIENCE_ABOVE_SOURCE_USE_CEILING`.
 - A release is a decision record. There is no way to release without one, which is why every
