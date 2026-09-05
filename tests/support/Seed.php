@@ -362,6 +362,11 @@ final class Seed
         array $signalOverrides = [],
         string $councilRecommendation = 'PROCEED_TO_ARBITER',
         string $proposalType = 'BATTLECARD_BRIEF',
+        // Stop after the council freeze, leaving the proposal SUBMITTED and reviewed but NOT yet
+        // evaluated. A caller that will run the arbiter itself needs the chain in exactly that
+        // state — running it here first would leave the proposal already released, and the second
+        // evaluation would (correctly) refuse.
+        bool $stopBeforeArbiter = false,
     ): array {
         $m03 = new Registry($db, $clock);
         $m04 = new Proposals($db, $clock);
@@ -437,6 +442,24 @@ final class Seed
             'Reviewed.'
         );
         $m07->freezeResult($sessionId, $councilRecommendation, 'Council result.');
+
+        if ($stopBeforeArbiter) {
+            return [
+                ...$chain,
+                'arbiter_policy_set_id' => $policySetId,
+                'producing_valkyrie_id' => $producer,
+                'critic_valkyrie_id' => $critic,
+                'capability_contract_id' => $contractId,
+                'mission_id' => $missionId,
+                'proposal_id' => $proposalId,
+                'evidence_id' => $evidenceId,
+                'evidence_bundle_id' => $bundleId,
+                'review_session_id' => $sessionId,
+                'verdict' => null,
+                'verdict_refusal' => null,
+                'release' => null,
+            ];
+        }
 
         $verdict = $m08->evaluateProposal($proposalId, $policySetId);
 
