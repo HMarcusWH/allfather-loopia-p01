@@ -9,6 +9,8 @@ use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Product\P02\PrivacyPatterns;
 use Allfather\Loopia\Product\P03\FitScoring;
 use Allfather\Loopia\Product\P05\MarketingPatterns;
+use Allfather\Loopia\Product\P07A\ContentPolicy;
+use Allfather\Loopia\Product\P07A\PiiFirewall;
 
 /**
  * The ordinary-rule evaluators, one family per product module.
@@ -58,6 +60,9 @@ final class RuleEngine
             ],
             'MARKETING_ASSET_DRAFT' => [
                 'P05_MARKETING_ASSET_ADMISSION' => self::loadP05Context($db, $proposalId),
+            ],
+            'CRM_OUTREACH_EXECUTION' => [
+                'P07_OUTREACH_EXECUTION_ADMISSION' => self::loadP07Context($db, $proposalId),
             ],
             default => [],
         };
@@ -587,6 +592,190 @@ final class RuleEngine
     }
 
     /**
+     * The channel cooldown window: one day.
+     *
+     * A rate limit expressed as a floor on time between contacts to the same person on the same
+     * channel. It is not a spam heuristic — it is the difference between outreach and pestering,
+     * and it is measured per RECIPIENT rather than per campaign so no amount of re-framing gets
+     * around it.
+     */
+    public const P07_COOLDOWN_SECONDS = 86400;
+
+    /**
+     * The P07 outreach context: the bound outreach row, its re-derived consent, and its cooldown.
+     *
+     * CONSENT IS RE-DERIVED HERE, not read from the proposal. The producer recorded which consent
+     * entry it relied on; this recomputes the EFFECTIVE consent from the registry by the same
+     * recency rule the consent module uses. A withdrawal recorded between the submission and the
+     * verdict therefore blocks, which is the entire point of re-deriving rather than trusting.
+     *
+     * @return array<string, mixed>|null null when the proposal binds no outreach row
+     */
+    public static function loadP07Context(Database $db, string $proposalId): ?array
+    {
+        $row = $db->one(
+            'SELECT outreach_execution_proposal_id, tenant_id, workspace_id, recipient_pseudonym_ref,
+                    channel, content_to_scan_safe, source_decision_record_id, created_at
+             FROM outreach_execution_proposals WHERE proposal_id = ?
+             ORDER BY created_at DESC, outreach_execution_proposal_id DESC LIMIT 1',
+            [$proposalId]
+        );
+        if ($row === null) {
+            return null;
+        }
+
+        $consent = $db->one(
+            'SELECT consent_state, lawful_basis FROM consent_registry
+             WHERE tenant_id = ? AND workspace_id = ? AND recipient_pseudonym_ref = ? AND channel = ?
+             ORDER BY recorded_at DESC, consent_registry_entry_id DESC LIMIT 1',
+            [
+                (string) $row['tenant_id'],
+                (string) $row['workspace_id'],
+                (string) $row['recipient_pseudonym_ref'],
+                (string) $row['channel'],
+            ]
+        );
+        // Default DENY, and the reason defaults to the weakest claim the evidence supports. An
+        // absent registry row is not "unknown consent" — it is no lawful basis.
+        $row['consent_permitted'] = false;
+        $row['consent_reason'] = 'NO_LAWFUL_BASIS';
+        if ($consent !== null) {
+            $state = (string) $consent['consent_state'];
+            $basis = (string) $consent['lawful_basis'];
+            if ($state === 'WITHDRAWN') {
+                $row['consent_reason'] = 'CONSENT_WITHDRAWN';
+            } elseif ($state === 'OPTED_OUT') {
+                $row['consent_reason'] = 'CONSENT_OPTED_OUT';
+            } elseif ($state === 'NO_BASIS' || $basis === 'NONE') {
+                $row['consent_reason'] = 'NO_LAWFUL_BASIS';
+            } elseif ($state === 'OPTED_IN') {
+                $row['consent_permitted'] = true;
+            }
+        }
+
+        // A prior NON-BLOCKED outreach to the same recipient and channel inside the window. Blocked
+        // proposals are excluded because an outreach that was refused never reached anybody, and
+        // counting it would penalize the operator for the system's own refusal.
+        $cutoff = gmdate(
+            'Y-m-d\TH:i:s.v\Z',
+            strtotime((string) $row['created_at']) - self::P07_COOLDOWN_SECONDS
+        );
+        $prior = $db->one(
+            "SELECT 1 AS hit FROM outreach_execution_proposals
+             WHERE tenant_id = ? AND workspace_id = ? AND recipient_pseudonym_ref = ? AND channel = ?
+               AND outreach_execution_proposal_id <> ? AND proposal_status <> 'BLOCKED'
+               AND created_at >= ?
+             LIMIT 1",
+            [
+                (string) $row['tenant_id'],
+                (string) $row['workspace_id'],
+                (string) $row['recipient_pseudonym_ref'],
+                (string) $row['channel'],
+                (string) $row['outreach_execution_proposal_id'],
+                $cutoff,
+            ]
+        );
+        $row['cooldown_active'] = $prior !== null;
+
+        $row['source_reliance'] = self::decisionRecordReliance(
+            $db,
+            (string) $row['source_decision_record_id']
+        );
+
+        return $row;
+    }
+
+    /**
+     * A decision record's current reliance: the latest supersession wins, else the record's status.
+     */
+    private static function decisionRecordReliance(Database $db, string $decisionRecordId): ?string
+    {
+        $superseded = $db->one(
+            'SELECT s.new_current_reliance_status AS reliance
+             FROM decision_supersession_records s
+             JOIN decision_records dr ON dr.decision_record_id = s.successor_decision_record_id
+             WHERE s.original_decision_record_id = ?
+             ORDER BY dr.record_sequence_number DESC LIMIT 1',
+            [$decisionRecordId]
+        );
+        if ($superseded !== null) {
+            return (string) $superseded['reliance'];
+        }
+
+        $record = $db->one(
+            'SELECT current_reliance_status FROM decision_records WHERE decision_record_id = ?',
+            [$decisionRecordId]
+        );
+
+        return $record === null ? null : (string) $record['current_reliance_status'];
+    }
+
+    /**
+     * The P07_OUTREACH_EXECUTION_ADMISSION checks.
+     *
+     * @param array<string, mixed>|null $ctx
+     * @return array{decision: string, reason_codes: list<string>, severity: ?string, incident: bool, result: ?array<string, mixed>}
+     */
+    private static function evalP07(array $rule, ?array $ctx, string $failClosed): array
+    {
+        if ($ctx === null) {
+            return self::notApplicable($rule);
+        }
+
+        $incident = (int) ($rule['incident_evaluation_if_failed'] ?? 0) === 1;
+        $ruleKey = (string) $rule['rule_key'];
+        $failed = null;
+        $reason = '';
+
+        switch ($ruleKey) {
+            case 'p07_consent_lawful_basis':
+                // THE CONSENT INVARIANT, re-derived rather than trusted. The reason code comes from
+                // the context, so the verdict names WHICH act the recipient performed — a
+                // withdrawal and an opt-out are different facts about a person.
+                $failed = $ctx['consent_permitted'] !== true;
+                $reason = (string) $ctx['consent_reason'];
+                break;
+
+            case 'p07_pii_not_pseudonymized':
+                // Defence in depth over the firewall. Content carrying a raw identifier here means
+                // it got past the one function that was supposed to see one.
+                $failed = PiiFirewall::containsRawPii((string) $ctx['content_to_scan_safe']);
+                $reason = 'PII_NOT_PSEUDONYMIZED';
+                break;
+
+            case 'p07_content_policy':
+                $failed = ContentPolicy::hasProhibitedContent((string) $ctx['content_to_scan_safe']);
+                $reason = 'CONTENT_POLICY_VIOLATION';
+                break;
+
+            case 'p07_channel_cooldown':
+                $failed = $ctx['cooldown_active'] === true;
+                $reason = 'CHANNEL_COOLDOWN_ACTIVE';
+                break;
+
+            case 'p07_source_not_released':
+                $failed = $ctx['source_reliance'] === null
+                    || (string) $ctx['source_reliance'] !== 'ACTIVE_AS_RECORDED';
+                $reason = 'SOURCE_NOT_RELEASED';
+                break;
+
+            default:
+                return self::refuse(
+                    $rule, ['ARBITER_P07_UNKNOWN_RULE', 'ARBITER_P07_OUTREACH_EXECUTION_DENIED'],
+                    $failClosed, $incident
+                );
+        }
+
+        if ($failed !== true) {
+            return ['decision' => 'PASS', 'reason_codes' => [], 'severity' => null, 'incident' => false, 'result' => null];
+        }
+
+        return self::refuse(
+            $rule, [$reason, 'ARBITER_P07_OUTREACH_EXECUTION_DENIED'], $failClosed, $incident
+        );
+    }
+
+    /**
      * Evaluate one ordinary rule.
      *
      * @param array<string, mixed> $rule    an `arbiter_policy_rules` row
@@ -603,6 +792,9 @@ final class RuleEngine
             'P04_DISTRIBUTION_ADMISSION' => self::evalP04($rule, $context['P04_DISTRIBUTION_ADMISSION'] ?? null, $failClosed),
             'P05_MARKETING_ASSET_ADMISSION' => self::evalP05(
                 $rule, $context['P05_MARKETING_ASSET_ADMISSION'] ?? null, $proposalType, $failClosed
+            ),
+            'P07_OUTREACH_EXECUTION_ADMISSION' => self::evalP07(
+                $rule, $context['P07_OUTREACH_EXECUTION_ADMISSION'] ?? null, $failClosed
             ),
             // A category this engine does not implement stands aside rather than passing: it has no
             // context to judge, and inventing an answer would be worse than declining to give one.

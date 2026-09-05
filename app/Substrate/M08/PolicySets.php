@@ -327,6 +327,77 @@ final class PolicySets
         ],
     ];
 
+    /**
+     * P07 outreach-execution admission.
+     *
+     * The requested action class is `ANALYZE`, and that is not a typo. What this set admits is a
+     * DECISION ABOUT an outreach — whether one would be permissible — recorded as a frozen
+     * artifact. It admits no dispatch, because this projection has no channel to dispatch on.
+     */
+    public const P07_OUTREACH_EXECUTION_ADMISSION = [
+        'policy_key' => 'P07_OUTREACH_EXECUTION_ADMISSION',
+        'policy_version' => 'v1',
+        'display_name' => 'P07 outreach execution admission policy',
+        'purpose_summary' => 'Synthetic outreach admission; never without affirmative consent and a recorded lawful basis, never carrying un-pseudonymized PII, never prohibited content, never inside a channel cooldown.',
+        'applicable_proposal_types' => ['CRM_OUTREACH_EXECUTION'],
+        'applicable_requested_action_classes' => ['ANALYZE'],
+        'available_verdicts' => [
+            'ALLOW_INFORMATIONAL_RELEASE', 'REQUIRE_MORE_EVIDENCE', 'REQUIRE_REVISION',
+            'HOLD', 'BLOCK', 'QUARANTINE', 'REQUIRE_INCIDENT_EVALUATION',
+        ],
+        'default_fail_closed_verdict' => 'HOLD',
+        'rules' => [
+            [
+                'rule_key' => 'p07_consent_lawful_basis',
+                'rule_category' => 'P07_OUTREACH_EXECUTION_ADMISSION',
+                'rule_summary' => 'Outreach requires affirmative consent AND a recorded lawful basis, re-derived at verdict time.',
+                'check_type' => 'PASS_FAIL',
+                // The HIGHEST priority in the set, BLOCK, and an incident. Contacting somebody who
+                // did not agree to be contacted is not a draft to revise.
+                'failure_effect' => 'BLOCK',
+                'incident_evaluation_if_failed' => 1,
+                'priority' => 56,
+            ],
+            [
+                'rule_key' => 'p07_pii_not_pseudonymized',
+                'rule_category' => 'P07_OUTREACH_EXECUTION_ADMISSION',
+                'rule_summary' => 'The outreach content must carry no un-pseudonymized individual identifier.',
+                'check_type' => 'PASS_FAIL',
+                // Also BLOCK with an incident: content reaching the arbiter with raw PII in it means
+                // the firewall was bypassed, which is a question about the pipeline, not the copy.
+                'failure_effect' => 'BLOCK',
+                'incident_evaluation_if_failed' => 1,
+                'priority' => 54,
+            ],
+            [
+                'rule_key' => 'p07_content_policy',
+                'rule_category' => 'P07_OUTREACH_EXECUTION_ADMISSION',
+                'rule_summary' => 'The outreach content must carry no prohibited claim marker.',
+                'check_type' => 'PASS_FAIL',
+                // HOLD, not BLOCK. Unlike consent and PII, this one IS a wording problem, and the
+                // verdict says so by leaving the proposal where a revision can reach it.
+                'failure_effect' => 'HOLD',
+                'priority' => 40,
+            ],
+            [
+                'rule_key' => 'p07_channel_cooldown',
+                'rule_category' => 'P07_OUTREACH_EXECUTION_ADMISSION',
+                'rule_summary' => 'A prior non-blocked outreach to the same recipient and channel within the cooldown window bars another.',
+                'check_type' => 'PASS_FAIL',
+                'failure_effect' => 'HOLD',
+                'priority' => 30,
+            ],
+            [
+                'rule_key' => 'p07_source_not_released',
+                'rule_category' => 'P07_OUTREACH_EXECUTION_ADMISSION',
+                'rule_summary' => 'The cited source release must still be relied upon at verdict time.',
+                'check_type' => 'ENUM_STATUS',
+                'failure_effect' => 'HOLD',
+                'priority' => 20,
+            ],
+        ],
+    ];
+
     public function __construct(
         private readonly Database $db,
         private readonly Clock $clock,

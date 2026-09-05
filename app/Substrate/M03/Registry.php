@@ -140,6 +140,54 @@ final class Registry
      * @param list<string> $permittedActionClasses
      * @param list<string> $forbiddenActionClauses
      */
+    /**
+     * Bind an OUTPUT CLASS to a capability contract.
+     *
+     * The contract says which ACTION classes an agent may perform; this says which KINDS OF OUTPUT
+     * it may produce. They are different questions, and P07 is where the difference bites: an agent
+     * with ANALYZE authority may analyse a great many things, and producing a CRM outreach proposal
+     * is a specific one of them that has to be granted on its own.
+     *
+     * `requested_action_class_maximum` is the CEILING this output class may be produced under. A
+     * binding that named a class above the projection's own ceiling would be an authority the
+     * contract itself could not have granted, so it is refused here as it is there.
+     */
+    public function bindOutputClass(
+        string $capabilityContractId,
+        string $outputClass,
+        string $requestedActionClassMaximum,
+        string $status = 'ACTIVE',
+    ): Outcome {
+        if (in_array($requestedActionClassMaximum, ['PREPARE_EXTERNAL_ACTION', 'EXECUTE_CONSEQUENTIAL_ACTION'], true)) {
+            return Outcome::refuse('OUTPUT_CLASS_ACTION_CLASS_ABOVE_CEILING', [
+                'requested_action_class_maximum' => $requestedActionClassMaximum,
+            ], 'CONTRACT', 'S5', 'BLOCK_RELEASE');
+        }
+
+        $contract = $this->db->one(
+            'SELECT status FROM capability_contracts WHERE capability_contract_id = ?',
+            [$capabilityContractId]
+        );
+        if ($contract === null) {
+            return Outcome::refuse('CONTRACT_NOT_FOUND', [], 'CONTRACT');
+        }
+
+        $bindingId = Ids::new();
+        $this->db->insert('output_class_bindings', [
+            'output_class_binding_id' => $bindingId,
+            'schema_version' => '1',
+            'capability_contract_id' => $capabilityContractId,
+            'output_class' => $outputClass,
+            'requested_action_class_maximum' => $requestedActionClassMaximum,
+            'required_downstream_gates' => json_encode(['M07_HMWH', 'M08_ARBITER'], JSON_THROW_ON_ERROR),
+            'permitted_visibility_scope' => 'TENANT_INTERNAL',
+            'status' => $status,
+            'created_at' => $this->clock->now(),
+        ]);
+
+        return Outcome::ok(['output_class_binding_id' => $bindingId]);
+    }
+
     public function issueContract(
         string $valkyrieId,
         string $tenantId,
@@ -163,10 +211,17 @@ final class Registry
 
         $contractId = Ids::new();
         $now = $this->clock->now();
+        // The NEXT version for this Valkyrie. Contracts are append-only — a change of authority
+        // issues a new contract rather than editing one — so a Valkyrie legitimately accumulates
+        // versions, and a hardcoded 1 would make the second issuance impossible.
+        $version = 1 + (int) $this->db->scalar(
+            'SELECT COUNT(*) FROM capability_contracts WHERE valkyrie_id = ?',
+            [$valkyrieId]
+        );
 
         return $this->db->transaction(function (Database $tx) use (
             $contractId, $valkyrieId, $tenantId, $workspaceId, $contractKey, $roleClass,
-            $permittedActionClasses, $forbiddenActionClauses, $status, $now
+            $permittedActionClasses, $forbiddenActionClauses, $status, $now, $version
         ): Outcome {
             $tx->insert('capability_contracts', [
                 'capability_contract_id' => $contractId,
@@ -174,7 +229,7 @@ final class Registry
                 'tenant_id' => $tenantId,
                 'workspace_id' => $workspaceId,
                 'valkyrie_id' => $valkyrieId,
-                'contract_version' => 1,
+                'contract_version' => $version,
                 'role_class' => $roleClass,
                 'purpose_summary' => $contractKey,
                 'allowed_action_classes' => json_encode(array_values($permittedActionClasses), JSON_THROW_ON_ERROR),

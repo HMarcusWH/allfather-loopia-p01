@@ -65,6 +65,9 @@ final class Proposals
         string $createdByActorType,
         string $createdByActorId,
         string $status = 'ACTIVE',
+        // The output classes this mission may produce. Defaults to internal informational output —
+        // the only kind most missions need — so naming anything else is a deliberate act.
+        array $permittedOutputClasses = ['INTERNAL_INFORMATIONAL'],
     ): string {
         $missionId = Ids::new();
         $now = $this->clock->now();
@@ -80,7 +83,7 @@ final class Proposals
             'purpose_summary' => $objective,
             'target_scope' => 'WORKSPACE_SCOPED',
             'requested_action_classes' => json_encode(array_values($requestedActionClasses), JSON_THROW_ON_ERROR),
-            'permitted_output_classes' => json_encode(['INTERNAL_INFORMATIONAL'], JSON_THROW_ON_ERROR),
+            'permitted_output_classes' => json_encode(array_values($permittedOutputClasses), JSON_THROW_ON_ERROR),
             'allowed_tool_ids' => json_encode([], JSON_THROW_ON_ERROR),
             'allowed_source_scope_ids' => json_encode([], JSON_THROW_ON_ERROR),
             'completion_criteria' => 'Governed release recorded, or a refusal recorded with its reason code.',
@@ -122,6 +125,7 @@ final class Proposals
         array $assignedActionClasses,
         string $assignedByOperatorId,
         string $status = 'ACTIVE',
+        array $assignedOutputClasses = ['INTERNAL_INFORMATIONAL'],
     ): Outcome {
         $mission = $this->db->one(
             'SELECT tenant_id, workspace_id, status, requested_action_classes FROM missions WHERE mission_id = ?',
@@ -172,7 +176,7 @@ final class Proposals
             'assignment_role' => $assignmentRole,
             'assigned_action_classes' => json_encode(array_values($assignedActionClasses), JSON_THROW_ON_ERROR),
             'assigned_tool_ids' => json_encode(array_values($assignedToolIds), JSON_THROW_ON_ERROR),
-            'assigned_output_classes' => json_encode(['INTERNAL_INFORMATIONAL'], JSON_THROW_ON_ERROR),
+            'assigned_output_classes' => json_encode(array_values($assignedOutputClasses), JSON_THROW_ON_ERROR),
             'status' => $status,
             'assigned_by_operator_id' => $assignedByOperatorId,
             'assigned_at' => $now,

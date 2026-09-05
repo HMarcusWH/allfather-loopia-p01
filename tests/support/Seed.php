@@ -856,4 +856,63 @@ final class Seed
         ];
     }
 
+    /**
+     * A producer authorized to propose a CRM outreach, and a released source to cite.
+     *
+     * The P07 producer-authority gate reads five things no other product path needs: an ACTIVE
+     * Valkyrie, a current contract, a CRM-outreach OUTPUT-CLASS binding on that contract, a mission
+     * permitting that output class, and an assignment granting both ANALYZE and that class. Each
+     * is provisioned here through the real modules, because a seed that inserted the end state
+     * would let the test pass over authority the product cannot actually grant.
+     *
+     * @param array<string, mixed> $scope
+     * @return array<string, mixed>
+     */
+    public static function p07OutreachProducer(Database $db, Clock $clock, array $scope): array
+    {
+        $m03 = new Registry($db, $clock);
+        $m04 = new Proposals($db, $clock);
+
+        $producer = $m03->registerValkyrie(
+            $scope['tenant_id'], $scope['workspace_id'], 'Outreach Drafter',
+            'CRM_EXECUTION_VALKYRIE', 'Drafts consented outreach proposals.',
+            $scope['operator_id'], 'ACTIVE'
+        );
+        $critic = $m03->registerValkyrie(
+            $scope['tenant_id'], $scope['workspace_id'], 'Outreach Critic',
+            'REVIEW_CRITIC_VALKYRIE', 'Independent compliance review.', $scope['operator_id'], 'ACTIVE'
+        );
+        $contractId = $m03->issueContract(
+            $producer, $scope['tenant_id'], $scope['workspace_id'], 'p07.outreach',
+            'CRM_EXECUTION_VALKYRIE', ['OBSERVE', 'ANALYZE']
+        )->value()['capability_contract_id'];
+        // The OUTPUT-class binding. Distinct from the action classes above: the contract says the
+        // agent may analyse, and this says one of the things it may produce is an outreach proposal.
+        $m03->bindOutputClass($contractId, 'CRM_OUTREACH_EXECUTION_PROPOSAL', 'ANALYZE');
+
+        $missionId = $m04->createMission(
+            $scope['tenant_id'], $scope['workspace_id'], 'CRM_OUTREACH',
+            'Consented outreach preparation', 'Prepare consented, pseudonymized outreach for approval.',
+            ['OBSERVE', 'ANALYZE'], 'OPERATOR', $scope['operator_id'], 'ACTIVE',
+            ['INTERNAL_INFORMATIONAL', 'CRM_OUTREACH_EXECUTION_PROPOSAL']
+        );
+        $m04->assignToMission(
+            $missionId, $producer, $contractId, 'PRIMARY_PRODUCER', [], ['OBSERVE', 'ANALYZE'],
+            $scope['operator_id'], 'ACTIVE',
+            ['INTERNAL_INFORMATIONAL', 'CRM_OUTREACH_EXECUTION_PROPOSAL']
+        );
+
+        // A real released P01 briefing supplies the M10 decision record an outreach must cite.
+        $source = self::p01ReleasedBriefing($db, $clock, $scope);
+
+        return [
+            'producing_valkyrie_id' => $producer,
+            'critic_valkyrie_id' => $critic,
+            'capability_contract_id' => $contractId,
+            'mission_id' => $missionId,
+            'source_decision_record_id' => $source['decision_record_id'],
+            'released_briefing_id' => $source['released_briefing_id'],
+        ];
+    }
+
 }
