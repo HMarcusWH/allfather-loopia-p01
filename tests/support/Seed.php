@@ -244,8 +244,30 @@ final class Seed
             'review_status' => $overrides['review_status'] ?? 'approved',
             'approved_at' => $now,
             'review_expires_at' => $overrides['review_expires_at'] ?? null,
+            // The freshness policy the SOURCE_FRESHNESS audit reads. Null by default: a card that
+            // never asked for a recheck window is not failing a rule it did not set.
+            'warn_after_ms' => $overrides['warn_after_ms'] ?? null,
+            'error_after_ms' => $overrides['error_after_ms'] ?? null,
+            'recheck_terms_after_ms' => $overrides['recheck_terms_after_ms'] ?? null,
             'created_at' => $now,
         ]);
+
+        // The terms review the card's recheck window is measured against. Skipped when the case is
+        // specifically about a card that requires one and has none.
+        if (($overrides['skip_terms_review'] ?? false) !== true) {
+            $db->insert('source_terms_reviews', [
+                'source_terms_review_id' => Ids::new(),
+                'schema_version' => '1',
+                'source_license_card_id' => $cardId,
+                'robots_url' => 'https://competitor.example/robots.txt',
+                'terms_url' => 'https://competitor.example/terms',
+                'robots_policy_checked' => 1,
+                'terms_policy_checked' => 1,
+                'reviewed_by' => 'operator',
+                'reviewed_at' => $overrides['terms_reviewed_at'] ?? $now,
+                'expires_at' => $overrides['terms_expires_at'] ?? null,
+            ]);
+        }
 
         $monitoredSourceId = Ids::new();
         $db->insert('monitored_sources', [
@@ -263,6 +285,7 @@ final class Seed
 
         // Two snapshots, each backed by its own evidence object — the N-1 / N pair a diff is over.
         $snapshotIds = [];
+        $snapshotHashes = [];
         foreach ([['449 SEK', 1], ['499 SEK', 2]] as [$body, $sequence]) {
             $contentHash = Digest::contentDigest($body . $monitoredSourceId);
             $evidenceId = $m05->capture([
@@ -293,6 +316,7 @@ final class Seed
                 'captured_at' => $now,
             ]);
             $snapshotIds[] = $snapshotId;
+            $snapshotHashes[] = $contentHash;
         }
 
         $diffId = Ids::new();
@@ -304,9 +328,14 @@ final class Seed
             'monitored_source_id' => $monitoredSourceId,
             'before_snapshot_id' => $snapshotIds[0],
             'after_snapshot_id' => $snapshotIds[1],
+            // The SAME canonical projection ChangeDetection writes: the two snapshot ids AND their
+            // content hashes. A seed that digested a different shape would build state the product
+            // can never reach, and an audit re-deriving the real projection would call it tampered.
             'diff_digest' => Digest::canonicalDigest([
-                'before' => $snapshotIds[0],
-                'after' => $snapshotIds[1],
+                'beforeSnapshotId' => $snapshotIds[0],
+                'afterSnapshotId' => $snapshotIds[1],
+                'beforeContentHash' => $snapshotHashes[0],
+                'afterContentHash' => $snapshotHashes[1],
             ]),
             'hash_algorithm' => 'sha256',
             'change_significance' => $overrides['change_significance'] ?? 'MATERIAL',
