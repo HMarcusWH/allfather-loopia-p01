@@ -21,6 +21,7 @@ use Allfather\Loopia\Substrate\M05\Readiness;
 use Allfather\Loopia\Substrate\M08\Arbiter;
 use Allfather\Loopia\Substrate\M08\PolicySets;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
+use Allfather\Loopia\Substrate\M16\ReleaseOutput;
 use Allfather\Loopia\Tests\Assert;
 use Allfather\Loopia\Tests\Harness;
 use Allfather\Loopia\Tests\Seed;
@@ -38,7 +39,7 @@ $proposals = new Proposals($db, $clock);
 $ledger = new DecisionLedger($db, $clock);
 $arbiter = new Arbiter($db, $clock, new Readiness($db, $clock));
 $battlecards = new Battlecards($db, $clock, $arbiter);
-$release = new P01Release($db, $clock, $ledger, $proposals);
+$release = new P01Release($db, $clock, $ledger, $proposals, new ReleaseOutput($db, $clock, $ledger));
 
 $content = [
     'why_it_matters_safe' => 'The competitor raised list pricing on its public page.',
@@ -306,17 +307,34 @@ Assert::same(
     'a released battlecard cannot be released again',
 );
 
-// ============================================================ released is not visible
+// ============================================================ released is INTERNAL, and only internal
 
-// A release is INTERNAL. Nothing in this path activated visibility for any audience, and the
-// M16 activation plane is where that would have to happen.
+// The release freezes an M16 artifact and activates it for the TENANT_INTERNAL audience. That is
+// what "released" means here — visible to the tenant that paid for it, and to nobody else.
+Assert::same(
+    'TENANT_INTERNAL',
+    (string) $db->scalar('SELECT audience_class FROM release_visibility_activations LIMIT 1'),
+    'the release activates visibility for the INTERNAL audience',
+);
 Assert::same(
     0,
-    (int) $db->scalar('SELECT COUNT(*) FROM release_visibility_activations'),
-    'an internal release activated no visibility',
+    (int) $db->scalar(
+        "SELECT COUNT(*) FROM release_visibility_activations
+         WHERE audience_class <> 'OPERATOR_ONLY' AND audience_class <> 'TENANT_INTERNAL'"
+    ),
+    'and for no audience beyond it',
 );
 Assert::same(
     0,
     (int) $db->scalar("SELECT COUNT(*) FROM release_artifacts WHERE status = 'RELEASED_CUSTOMER_VISIBLE'"),
-    'and no artifact reached a customer-visible status',
+    'no artifact reached a customer-visible status',
+);
+Assert::same(
+    0,
+    (int) $db->scalar(
+        "SELECT COUNT(*) FROM customer_output_projections
+         WHERE audience_class <> 'OPERATOR_ONLY' AND audience_class <> 'TENANT_INTERNAL'
+           AND status = 'PROJECTED'"
+    ),
+    'and no wider audience obtained a PROJECTED row',
 );

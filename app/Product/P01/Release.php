@@ -10,6 +10,7 @@ use Allfather\Loopia\Core\Outcome;
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Substrate\M04\Proposals;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
+use Allfather\Loopia\Substrate\M16\ReleaseOutput;
 
 /**
  * P01 release — a verdict-admitted battlecard becomes an internally released briefing.
@@ -34,6 +35,7 @@ final class Release
         private readonly Clock $clock,
         private readonly DecisionLedger $ledger,
         private readonly Proposals $proposals,
+        private readonly ReleaseOutput $m16,
     ) {
     }
 
@@ -183,13 +185,132 @@ final class Release
                 ], 'POLICY');
             }
 
+            // The M16 artifact freeze rides THIS transaction, so the released reference and its
+            // frozen output commit together or not at all. A briefing with no frozen artifact would
+            // be released but unrenderable — the surface reads the artifact, not the domain rows.
+            $composed = $this->composeArtifact(
+                $input['tenant_id'],
+                $input['workspace_id'],
+                $input['battlecard_brief_id'],
+                $releasedBriefingId,
+                $decisionRecordId,
+                (string) $battlecard['arbiter_verdict_id'],
+                (string) $battlecard['company_signal_id'],
+            );
+            if ($composed->isRefusal()) {
+                return Outcome::refuse('RELEASE_ARTIFACT_ASSEMBLY_REFUSED', [
+                    'detail' => $composed->reasonCode(),
+                ], 'POLICY');
+            }
+
             return Outcome::ok([
                 'outcome' => 'RELEASED',
                 'released_briefing_id' => $releasedBriefingId,
                 'decision_record_id' => $decisionRecordId,
                 'arbiter_verdict_id' => (string) $battlecard['arbiter_verdict_id'],
+                'release_artifact_id' => $composed->value()['release_artifact_id'],
+                'customer_output_projection_id' => $composed->value()['customer_output_projection_id'],
             ]);
         });
+    }
+
+    /**
+     * Freeze the released briefing into an M16 artifact and activate it for internal visibility.
+     *
+     * The order is M16's own: compile the source-use profile, assemble the artifact against it,
+     * release it internally, project it for the internal audience, and only then activate. Each
+     * step gates the next, so an artifact whose sources do not permit the audience never reaches an
+     * activation — and the surface, which reads the projection, has nothing to render.
+     *
+     * The battlecard's authored content becomes the artifact's content elements. It travels as a
+     * CLAIM plus the artifact's own uncertainty statement, because that is what a released claim IS
+     * to a reader: an assertion and the limits on it, together.
+     */
+    private function composeArtifact(
+        string $tenantId,
+        string $workspaceId,
+        string $battlecardBriefId,
+        string $releasedBriefingId,
+        string $decisionRecordId,
+        string $arbiterVerdictId,
+        string $companySignalId,
+    ): Outcome {
+        $card = $this->db->one(
+            'SELECT bc.signal_summary_safe, bc.why_it_matters_safe, bc.confidence_band,
+                    bc.uncertainty_summary_safe, ms.source_ref_id
+             FROM battlecard_briefs bc
+             JOIN company_signals cs ON cs.company_signal_id = bc.company_signal_id
+             LEFT JOIN source_diffs sd ON sd.source_diff_id = cs.source_diff_id
+             LEFT JOIN monitored_sources ms ON ms.monitored_source_id = sd.monitored_source_id
+             WHERE bc.battlecard_brief_id = ?',
+            [$battlecardBriefId]
+        );
+        if ($card === null || $card['source_ref_id'] === null) {
+            // No contributing source means no provenance to state. M16 would refuse the profile
+            // anyway; refusing here names the P01-side cause rather than the M16-side symptom.
+            return Outcome::refuse('ARTIFACT_SOURCE_LINEAGE_MISSING', [], 'PROVENANCE');
+        }
+
+        $profile = $this->m16->compileSourceUseProfile($tenantId, $workspaceId, [(string) $card['source_ref_id']]);
+        if ($profile->isRefusal()) {
+            return Outcome::refuse('SOURCE_USE_PROFILE_REFUSED', [
+                'detail' => $profile->reasonCode(),
+            ], 'POLICY');
+        }
+        if ($profile->value()['status'] !== 'COMPILED_ALLOW') {
+            // A HELD profile is a compiled answer, not a failure — and the answer is no. The hold
+            // reasons travel with the refusal so the operator sees which source held it.
+            return Outcome::refuse('SOURCE_USE_PROFILE_HELD', [
+                'hold_reasons' => $profile->value()['hold_reasons'],
+            ], 'POLICY');
+        }
+
+        $artifact = $this->m16->assembleArtifact([
+            'tenant_id' => $tenantId,
+            'workspace_id' => $workspaceId,
+            'artifact_kind' => 'BATTLECARD_BRIEFING',
+            'released_briefing_id' => $releasedBriefingId,
+            'decision_record_id' => $decisionRecordId,
+            'arbiter_verdict_id' => $arbiterVerdictId,
+            'source_use_profile_id' => $profile->value()['release_source_use_profile_id'],
+            'content_elements' => [
+                [
+                    'elementClass' => 'CLAIM',
+                    'textSafe' => (string) $card['signal_summary_safe'],
+                    'confidence' => (string) $card['confidence_band'],
+                ],
+                [
+                    'elementClass' => 'CONTEXT',
+                    'textSafe' => (string) $card['why_it_matters_safe'],
+                ],
+            ],
+            // The battlecard's own uncertainty statement, carried onto the artifact. A released
+            // claim whose limits were left behind in the source row is a claim without its limits.
+            'uncertainty_summary_safe' => (string) $card['uncertainty_summary_safe'],
+        ]);
+        if ($artifact->isRefusal()) {
+            return Outcome::refuse('ARTIFACT_ASSEMBLY_REFUSED', [
+                'detail' => $artifact->reasonCode(),
+            ], 'POLICY');
+        }
+        $artifactId = $artifact->value()['release_artifact_id'];
+
+        $this->m16->releaseInternal($artifactId);
+        $projection = $this->m16->projectForAudience($artifactId, 'TENANT_INTERNAL');
+        if ($projection->isRefusal() || $projection->value()['status'] !== 'PROJECTED') {
+            return Outcome::refuse('ARTIFACT_PROJECTION_REFUSED', [], 'POLICY');
+        }
+        $activation = $this->m16->activateInternalVisibility($artifactId, $tenantId, $workspaceId);
+        if ($activation->isRefusal()) {
+            return Outcome::refuse('ARTIFACT_ACTIVATION_REFUSED', [
+                'detail' => $activation->reasonCode(),
+            ], 'POLICY');
+        }
+
+        return Outcome::ok([
+            'release_artifact_id' => $artifactId,
+            'customer_output_projection_id' => $projection->value()['customer_output_projection_id'],
+        ]);
     }
 
     /**

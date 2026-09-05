@@ -20,6 +20,7 @@ use Allfather\Loopia\Substrate\M07\Council;
 use Allfather\Loopia\Substrate\M08\Arbiter;
 use Allfather\Loopia\Substrate\M08\PolicySets;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
+use Allfather\Loopia\Substrate\M16\ReleaseOutput;
 
 /**
  * Minimal authority-chain seeding for tests.
@@ -70,6 +71,13 @@ final class Seed
             'status' => 'ACTIVE',
             'created_at' => $now,
         ]);
+
+        // Output visibility profiles are part of TENANT SETUP, provisioned in production by
+        // P01\Registration. They are seeded here for the same reason: the release path READS them
+        // and must never provision its own — a release that created the row permitting it would be
+        // checking its own work. Seeding them at tenant creation keeps that separation intact in
+        // every test, rather than leaving each one to remember.
+        (new ReleaseOutput($db, $clock, new DecisionLedger($db, $clock)))->seedVisibilityProfiles($tenantId);
 
         return ['tenant_id' => $tenantId, 'workspace_id' => $workspaceId, 'operator_id' => $operatorId];
     }
