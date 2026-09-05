@@ -29,10 +29,21 @@ $tag = static fn (string $term, string $kind = 'state'): string =>
 
 <?php if ($result['decision'] !== 'VISIBLE'): ?>
   <div class="notice notice--denied" role="status">
-    <strong>Not visible to you.</strong>
-    This surface requires <code><?= View::e($result['required_permission']) ?></code>, and the
-    list is empty rather than partial — a denial that still showed a summary line would be a denial
-    in name only.
+    <?php if (($result['required_permission'] ?? null) !== null): ?>
+      <strong>Not visible to you.</strong>
+      This surface requires <code><?= View::e($result['required_permission']) ?></code>, and the
+      list is empty rather than partial — a denial that still showed a summary line would be a denial
+      in name only.
+    <?php else: ?>
+      <?php /*
+        Not every empty surface is a denial. This branch is for the ones refused by STATE rather
+        than by authority — no active workspace, most of all — and naming a permission there would
+        send an operator to ask for a grant they already hold, for a problem a grant cannot fix.
+      */ ?>
+      <strong>Nothing to show yet.</strong>
+      This surface is not refusing you — it has no scope to answer in. The reason code below says
+      which, and the list is empty rather than partial for the same reason a denial's is.
+    <?php endif; ?>
     <p class="notice__codes">
       <?php foreach ($result['reason_codes'] as $code): ?><?= $tag($code) ?> <?php endforeach; ?>
     </p>

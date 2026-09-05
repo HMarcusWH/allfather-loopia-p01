@@ -154,7 +154,12 @@ final class ConsoleController
             'roleNote' => null,
             'result' => [
                 'decision' => 'DENIED',
-                'required_permission' => 'workspace.read',
+                // NO required permission, deliberately. This is a 409 about STATE, not a 403 about
+                // authority: the session has no workspace to ask questions about, and no grant
+                // fixes that. Naming `workspace.read` here — which nothing evaluates, and which
+                // every role bundle already carries — sent an operator to ask for a permission
+                // they held, for a problem a permission cannot solve.
+                'required_permission' => null,
                 'reason_codes' => ['NO_ACTIVE_WORKSPACE'],
                 'rows' => [],
             ],

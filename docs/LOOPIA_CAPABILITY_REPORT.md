@@ -43,7 +43,7 @@ nowhere else. M15 governed ingestion is present with the guarded egress path.
 **Storage** — 15 migrations, MariaDB 10.11, with the invariants held as CHECK constraints and
 append-only triggers rather than as application conventions.
 
-**Tests** — 2350 assertions across seven layers, all executed against MariaDB. See
+**Tests** — 2356 assertions across seven layers, all executed against MariaDB. See
 `CONFORMANCE_MATRIX.md` §1 for the breakdown and for what has NOT been verified.
 
 ## 2. What it deliberately cannot do
@@ -90,7 +90,9 @@ Working end to end today, given seeded authority:
 Stated plainly, because build completion is not launch authority:
 
 - `ROAD_TEST_001_EXECUTED` — **false.** No road test has been run.
-- `LIVE_READ_ACTIVATED` — **false.** No live external source has been captured outside tests.
+- `LIVE_READ_ACTIVATED` — **false**, and structurally so rather than by flag: the production
+  transport and DNS resolver exist and are tested, and NOTHING CONSTRUCTS EITHER. The foundation
+  suite fails if anything does. See `DEPLOYMENT_RUNBOOK.md` §7a for what activating it takes.
 - `OWNER_GO_GRANTED` — **false.** No owner sign-off exists.
 - `PRODUCTION_LAUNCH` — **false.** Nothing is deployed.
 - Loopia shared hosting — **untested.** The target runtime has not run this code.
@@ -121,8 +123,9 @@ Items 1 and 2 are the ones I would not skip.
 
 ## 7. Console
 
-Built. Six surfaces — login, workspace, decision ledger, competition briefings, role distributions,
-marketing drafts — server-rendered, with no JavaScript at all and a CSP that permits none.
+Built. Seven surfaces — login, workspace, workspace chooser, decision ledger, competition
+briefings, role distributions, marketing drafts — server-rendered, with no JavaScript at all and a
+CSP that permits none.
 
 Three properties are worth naming because they are what make the console trustworthy rather than
 merely present:
@@ -133,6 +136,10 @@ merely present:
 - **A denial renders the guard's own reason codes**, and the list is empty rather than partial.
   A missing role, a missing tier and an unconfigured target have different remedies, and an
   operator who cannot see which one refused cannot act on it.
+- **A refusal by STATE is not dressed as a refusal by authority.** A session with no active
+  workspace gets a 409 naming `NO_ACTIVE_WORKSPACE` and NO required permission — because no grant
+  fixes having no workspace, and naming one sent an operator to ask for a permission they already
+  held. The workspace chooser is the remedy, and the page points at it.
 - **Surfaces render from governed projections**, not from live joins across domain tables — which
   is what makes what a viewer saw on a given day reconstructable.
 

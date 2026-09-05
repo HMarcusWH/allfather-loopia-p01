@@ -109,7 +109,7 @@ hand; do not re-run and hope.
 
     php tests/run.php --strict
 
-Expect 2350 passing, 0 failing, 0 skipped. Under `--strict` a skip is a non-zero exit, so an
+Expect 2356 passing, 0 failing, 0 skipped. Under `--strict` a skip is a non-zero exit, so an
 unreachable database cannot be mistaken for a green run.
 
 ### 4.2 CHECK constraints are ENFORCED
@@ -229,6 +229,53 @@ Run the audits on a schedule; each opens an incident through the certified M11 i
 
 The external-effect guard is the one to alert on loudest. It is S5, and a positive finding means
 the deployment did something this codebase has no path to do.
+
+## 7a. ROAD_TEST_001 — operator-assisted, and it cannot be otherwise
+
+A road test is something an operator does WITH this build. It is not something the build does, and
+the difference is structural rather than procedural.
+
+**What this build cannot do on its own:**
+
+- **It cannot fetch anything.** `CurlHttpsTransport` and `DnsHostResolver` exist, are reviewed and
+  are tested — and nothing constructs either. The default transport refuses every request with
+  `LIVE_READ_NOT_ACTIVATED`. `tests/foundation/no_external_action_surface.php` asserts that no file
+  in the application, the entry points or the worker wires them, so activating live read is an
+  owner act with its own review rather than a line that could arrive in a refactor.
+- **It cannot record that a road test happened.** The claim-boundary flags live in
+  `upstream.lock.json`, which no code path writes. `road_test_001_executed`,
+  `live_read_activated`, `owner_go_granted` and `production_launch_authorized` are a human's to
+  change, and the foundation suite fails if any of them is true.
+- **It cannot approve itself.** The P07-A approval seat requires a human principal; there is no
+  service actor that can occupy it.
+
+**What an operator supplies, in order:**
+
+1. **A real source card, reviewed and approved** — a public page whose robots and terms have
+   actually been read by a person, recorded through `P01\SourceCards::project`. The card is the
+   authority; nothing downstream can manufacture one.
+2. **A decision to activate live read**, recorded before anything is wired. This is the owner act
+   the two unwired classes exist to make visible.
+3. **The wiring itself**: construct `CurlHttpsTransport` and `DnsHostResolver` and pass them to
+   `P01\Capture::captureMonitoredSource`. They are constructor arguments precisely so this is one
+   reviewable line at a call site rather than a default buried in a factory.
+4. **A capture**, then **a second capture** after the source changes, so change detection has two
+   snapshots to reconcile.
+5. **A reading of what it found** — including anything the change detector classified badly. A road
+   test whose findings are not read is a deployment rehearsal, not a road test.
+
+**What to record afterwards**, in `upstream.lock.json` and by hand:
+
+| Flag | Set true when |
+| --- | --- |
+| `live_read_activated` | the transport was wired and a real fetch occurred |
+| `road_test_001_executed` | steps 1–5 completed and the findings were read |
+| `loopia_capability_validated` | the probe ran on the actual host, not a container |
+| `staging_deployed` | the code is on the Loopia staging host |
+
+`owner_go_granted` and `production_launch_authorized` are separate from all of the above and depend
+on nothing in this file. **Build completion is not launch authority**, and a green suite is
+evidence for a decision somebody else makes.
 
 ## 8. Known untested surface
 

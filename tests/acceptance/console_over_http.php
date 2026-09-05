@@ -136,6 +136,20 @@ Assert::same(
     $kernel->handle($request('GET', '/console', [], $session['jar']))->status,
     'a signed-in operator with no workspace is told so rather than shown a default one',
 );
+$noWorkspace = $kernel->handle($request('GET', '/console', [], $session['jar']));
+Assert::contains('NO_ACTIVE_WORKSPACE', $noWorkspace->body, 'and the reason code says which state it is in');
+// A 409 about STATE, not a 403 about authority. Naming a required permission here would send an
+// operator to ask for a grant they already hold, for a problem no grant can fix.
+Assert::false(
+    str_contains($noWorkspace->body, 'This surface requires'),
+    'and it names no required permission — no grant fixes having no workspace',
+);
+Assert::contains(
+    'not refusing you',
+    $noWorkspace->body,
+    'the page says so in words, rather than reading as a denial the operator cannot act on',
+);
+
 $chooser = $kernel->handle($request('GET', '/console/workspaces', [], $session['jar']));
 Assert::contains(
     'You hold no active membership',
