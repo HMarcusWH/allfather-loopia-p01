@@ -249,3 +249,109 @@ Assert::same(
     ),
     'the offering-twin path is not ported — the P03 catalogue is the single products authority',
 );
+
+// ============================================================ relationship twins
+
+// An EDGE asserts something about the world — "Rival supplies Northern Logistics" — and an edge is
+// far easier to assert than to support. Two companies in the same article is not a relationship.
+
+$relationships = new \Allfather\Loopia\Product\P02\RelationshipTwins($db, $clock);
+
+$otherTwinId = $twins->registerTwin(
+    $scope['tenant_id'], $scope['workspace_id'], 'SUPPLIER', 'Northern Logistics AB',
+    ['industry' => 'logistics'], $scope['operator_id']
+)->value()['entity_twin_id'];
+
+// A self-edge is not a weak claim; it is not a claim, and it would corrupt every traversal that
+// assumed edges connect two things.
+Assert::same(
+    'RELATIONSHIP_SELF_EDGE',
+    $relationships->createEdge(
+        $scope['tenant_id'], $scope['workspace_id'], $twinId, $twinId, 'COMPETES_WITH'
+    )->reasonCode(),
+    'an edge from a twin to itself is refused',
+);
+
+// An edge reaching across a tenant boundary would assert a relationship one side could not see —
+// and could not contest.
+$rival = Seed::tenantWorkspace($db, $clock, 'rival');
+$foreignTwinId = $twins->registerTwin(
+    $rival['tenant_id'], $rival['workspace_id'], 'PROSPECT', 'Foreign Co', [], $rival['operator_id']
+)->value()['entity_twin_id'];
+Assert::same(
+    'RELATIONSHIP_END_SCOPE_MISMATCH',
+    $relationships->createEdge(
+        $scope['tenant_id'], $scope['workspace_id'], $twinId, $foreignTwinId, 'SUPPLIES'
+    )->reasonCode(),
+    'an edge cannot reach across a tenant boundary',
+);
+
+$edge = $relationships->createEdge(
+    $scope['tenant_id'], $scope['workspace_id'], $twinId, $otherTwinId, 'SUPPLIES'
+);
+Assert::true($edge->isOk(), 'an edge between two in-scope twins is created');
+$edgeId = $edge->value()['relationship_edge_id'];
+
+// THE SUPPORT REQUIREMENT. A version with no evidence asserts a relationship with nothing behind
+// it, and a graph full of those is worse than no graph: it looks like knowledge.
+$versionInput = [
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $scope['workspace_id'],
+    'relationship_edge_id' => $edgeId,
+    'confidence' => 'MEDIUM',
+    'freshness_observed_at' => $clock->now(),
+    'business_relevance' => 'HIGH',
+    'allowed_use' => 'INTERNAL_ONLY',
+    'uncertainty_summary_safe' => 'Inferred from a joint press release; not confirmed by either party.',
+    'claim_ceiling' => 'INTERNAL_REVIEWED',
+    'evidence_links' => [],
+];
+Assert::same(
+    'RELATIONSHIP_EDGE_UNSUPPORTED',
+    $relationships->appendVersion($versionInput)->reasonCode(),
+    'a relationship version with no evidence is refused',
+);
+Assert::same(
+    'RELATIONSHIP_UNCERTAINTY_SUMMARY_REQUIRED',
+    $relationships->appendVersion([
+        ...$versionInput,
+        'uncertainty_summary_safe' => '  ',
+        'evidence_links' => [['source_basis' => 'TENANT_PROVIDED_MANUAL']],
+    ])->reasonCode(),
+    'and so is one that states no uncertainty',
+);
+
+// Evidence cited from another workspace is evidence nobody here can check.
+$foreignEvidence = (string) $db->scalar(
+    'SELECT evidence_id FROM evidence_objects WHERE tenant_id = ? LIMIT 1', [$rival['tenant_id']]
+);
+if ($foreignEvidence !== '') {
+    Assert::same(
+        'RELATIONSHIP_EVIDENCE_SCOPE_MISMATCH',
+        $relationships->appendVersion([
+            ...$versionInput,
+            'evidence_links' => [['evidence_id' => $foreignEvidence, 'source_basis' => 'PUBLIC_SOURCE']],
+        ])->reasonCode(),
+        'evidence from another scope cannot support an edge here',
+    );
+}
+
+$supported = $relationships->appendVersion([
+    ...$versionInput,
+    'evidence_links' => [['source_basis' => 'TENANT_PROVIDED_MANUAL']],
+]);
+Assert::true($supported->isOk(), 'a supported version appends');
+
+// Confidence and freshness travel WITH the claim: an edge observed once two years ago at LOW
+// confidence is a different claim from one confirmed last week, and the digest says so.
+$moreConfident = $relationships->appendVersion([
+    ...$versionInput,
+    'confidence' => 'CONFIRMED',
+    'evidence_links' => [['source_basis' => 'TENANT_PROVIDED_MANUAL']],
+]);
+Assert::same(2, $moreConfident->value()['version_sequence'], 'a re-assessment is a new version');
+Assert::notSame(
+    $supported->value()['version_digest'],
+    $moreConfident->value()['version_digest'],
+    'and a different confidence is a DIFFERENT claim, so a different digest',
+);
