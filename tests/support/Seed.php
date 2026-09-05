@@ -6,8 +6,10 @@ namespace Allfather\Loopia\Tests;
 
 use Allfather\Loopia\Auth\PasswordPolicy;
 use Allfather\Loopia\Core\Clock;
+use Allfather\Loopia\Core\Digest;
 use Allfather\Loopia\Core\Ids;
 use Allfather\Loopia\Db\Database;
+use Allfather\Loopia\Substrate\M05\EvidenceSpine;
 
 /**
  * Minimal authority-chain seeding for tests.
@@ -161,5 +163,167 @@ final class Seed
         ]);
 
         return ['platform_user_id' => $platformUserId, 'email' => $email, 'password' => $password];
+    }
+
+    /**
+     * The full P01 evidence chain behind one company signal:
+     * competitor -> source reference + licence card -> monitored source -> two snapshots -> diff -> signal.
+     *
+     * Built the way the product builds it, not shortcut: a diff REQUIRES two snapshots, a snapshot
+     * REQUIRES an evidence object, and an evidence object requires an admitted source. Seeding a
+     * signal without that chain would let a test prove behavior over a state the product can never
+     * actually reach.
+     *
+     * `$overrides` bends one link at a time so a single refusal path can be isolated.
+     *
+     * @param array<string, mixed> $overrides
+     * @return array<string, string>
+     */
+    public static function p01SignalChain(
+        Database $db,
+        Clock $clock,
+        array $scope,
+        string $missionId,
+        ?string $proposalId,
+        array $overrides = [],
+    ): array {
+        $now = $clock->now();
+        $m05 = new EvidenceSpine($db, $clock);
+
+        $competitorId = Ids::new();
+        $db->insert('competitors', [
+            'competitor_id' => $competitorId,
+            'schema_version' => '1',
+            'tenant_id' => $scope['tenant_id'],
+            'workspace_id' => $scope['workspace_id'],
+            'display_name' => 'Competitor A',
+            'competitor_class' => $overrides['competitor_class'] ?? 'DIRECT',
+            'status' => 'ACTIVE',
+            'created_at' => $now,
+        ]);
+
+        $sourceRefId = $m05->registerSource(
+            $scope['tenant_id'], $scope['workspace_id'], 'WEB_RESOURCE',
+            'https://competitor.example/pricing', 'OBSERVE_AND_DERIVE',
+            'PUBLIC_OR_NON_SENSITIVE', 'ACTIVE_FOR_CAPTURE'
+        );
+
+        $cardId = Ids::new();
+        $db->insert('source_license_cards', [
+            'source_license_card_id' => $cardId,
+            'schema_version' => '1',
+            'tenant_id' => $scope['tenant_id'],
+            'source_ref_id' => $sourceRefId,
+            'source_name' => 'Competitor pricing page',
+            'source_url_safe' => 'https://competitor.example/pricing',
+            'source_type' => 'website',
+            'allowed_use_class' => 'customer_visible_allowed',
+            'license_class' => $overrides['license_class'] ?? 'PUBLIC_WEB_ALLOWED',
+            'customer_output_allowed' => $overrides['customer_output_allowed'] ?? 1,
+            'derived_summary_allowed' => 1,
+            'robots_policy_checked' => 1,
+            'terms_policy_checked' => 1,
+            'review_status' => $overrides['review_status'] ?? 'approved',
+            'approved_at' => $now,
+            'review_expires_at' => $overrides['review_expires_at'] ?? null,
+            'created_at' => $now,
+        ]);
+
+        $monitoredSourceId = Ids::new();
+        $db->insert('monitored_sources', [
+            'monitored_source_id' => $monitoredSourceId,
+            'schema_version' => '1',
+            'tenant_id' => $scope['tenant_id'],
+            'workspace_id' => $scope['workspace_id'],
+            'competitor_id' => $competitorId,
+            'source_ref_id' => $sourceRefId,
+            'source_license_card_id' => $cardId,
+            'source_kind' => 'WEBSITE',
+            'status' => 'ACTIVE',
+            'created_at' => $now,
+        ]);
+
+        // Two snapshots, each backed by its own evidence object — the N-1 / N pair a diff is over.
+        $snapshotIds = [];
+        foreach ([['449 SEK', 1], ['499 SEK', 2]] as [$body, $sequence]) {
+            $contentHash = Digest::contentDigest($body . $monitoredSourceId);
+            $evidenceId = $m05->capture([
+                'tenant_id' => $scope['tenant_id'],
+                'workspace_id' => $scope['workspace_id'],
+                'mission_id' => $missionId,
+                'source_ref_id' => $sourceRefId,
+                'evidence_type' => 'SOURCE_CAPTURE',
+                'captured_content_reference_safe' => 'evidence://sha256/' . substr($contentHash, 0, 12),
+                'content_hash' => $contentHash,
+                'capture_method' => 'GOVERNED_HTTPS_GET',
+                'sensitivity_class' => 'PUBLIC_OR_NON_SENSITIVE',
+            ])->value()['evidence_id'];
+
+            $snapshotId = Ids::new();
+            $db->insert('source_snapshots', [
+                'source_snapshot_id' => $snapshotId,
+                'schema_version' => '1',
+                'tenant_id' => $scope['tenant_id'],
+                'workspace_id' => $scope['workspace_id'],
+                'monitored_source_id' => $monitoredSourceId,
+                'evidence_id' => $evidenceId,
+                'snapshot_sequence' => $sequence,
+                'content_hash' => $contentHash,
+                'hash_algorithm' => 'sha256',
+                'capture_method' => 'FIXTURE',
+                'payload_class' => 'html_snapshot',
+                'captured_at' => $now,
+            ]);
+            $snapshotIds[] = $snapshotId;
+        }
+
+        $diffId = Ids::new();
+        $db->insert('source_diffs', [
+            'source_diff_id' => $diffId,
+            'schema_version' => '1',
+            'tenant_id' => $scope['tenant_id'],
+            'workspace_id' => $scope['workspace_id'],
+            'monitored_source_id' => $monitoredSourceId,
+            'before_snapshot_id' => $snapshotIds[0],
+            'after_snapshot_id' => $snapshotIds[1],
+            'diff_digest' => Digest::canonicalDigest([
+                'before' => $snapshotIds[0],
+                'after' => $snapshotIds[1],
+            ]),
+            'hash_algorithm' => 'sha256',
+            'change_significance' => $overrides['change_significance'] ?? 'MATERIAL',
+            'diff_summary_safe' => 'List price 449 -> 499 SEK.',
+            'detected_at' => $now,
+        ]);
+
+        $signalId = Ids::new();
+        $db->insert('company_signals', [
+            'company_signal_id' => $signalId,
+            'schema_version' => '1',
+            'tenant_id' => $scope['tenant_id'],
+            'workspace_id' => $scope['workspace_id'],
+            'competitor_id' => $competitorId,
+            'source_diff_id' => $diffId,
+            'signal_class' => 'PRICING_CHANGE_SIGNAL',
+            // FACT_OBSERVED: the price on the page changed, and that IS what was observed. The
+            // interpretation of WHY is a separate, HYPOTHESIS-classed claim.
+            'interpretation_kind' => $overrides['interpretation_kind'] ?? 'FACT_OBSERVED',
+            'confidence_band' => 'HIGH',
+            'summary_safe' => 'List price rose from 449 to 499 SEK.',
+            'proposal_id' => $proposalId,
+            'status' => 'PROPOSED',
+            'created_at' => $now,
+        ]);
+
+        return [
+            'competitor_id' => $competitorId,
+            'source_ref_id' => $sourceRefId,
+            'source_license_card_id' => $cardId,
+            'monitored_source_id' => $monitoredSourceId,
+            'before_snapshot_id' => $snapshotIds[0],
+            'after_snapshot_id' => $snapshotIds[1],
+            'source_diff_id' => $diffId,
+            'company_signal_id' => $signalId,
+        ];
     }
 }

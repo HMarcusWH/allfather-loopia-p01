@@ -293,4 +293,186 @@ final class EvidenceSpine
 
         return null;
     }
+
+    // ---------------------------------------------------------------- evidence bundles
+
+    /**
+     * Create a DRAFT evidence bundle for a proposal.
+     *
+     * A bundle is the FROZEN basis a verdict is decided on. It is scoped to one tenant, workspace
+     * and mission, and — once bound to a proposal — to that proposal, because a proposal citing
+     * another proposal's basis is not an incomplete basis but an unusable one.
+     */
+    public function createBundleDraft(
+        string $tenantId,
+        string $workspaceId,
+        string $missionId,
+        ?string $proposalId,
+        string $purpose,
+    ): string {
+        $bundleId = Ids::new();
+        $version = 1 + (int) $this->db->scalar(
+            'SELECT COUNT(*) FROM evidence_bundles WHERE mission_id = ?',
+            [$missionId]
+        );
+
+        $this->db->insert('evidence_bundles', [
+            'evidence_bundle_id' => $bundleId,
+            'schema_version' => '1',
+            'tenant_id' => $tenantId,
+            'workspace_id' => $workspaceId,
+            'mission_id' => $missionId,
+            'proposal_id' => $proposalId,
+            'bundle_version' => $version,
+            'purpose' => $purpose,
+            'status' => 'DRAFT',
+            'hash_algorithm' => 'sha256',
+            'created_at' => $this->clock->now(),
+        ]);
+
+        return $bundleId;
+    }
+
+    /**
+     * Add an evidence object to a DRAFT bundle.
+     *
+     * The scope check runs HERE, at add time, so a foreign item never enters the membership in the
+     * first place. Readiness re-derives closure anyway (defence in depth), but a bundle that was
+     * never contaminated is better than one caught later.
+     */
+    public function addBundleItem(string $bundleId, string $evidenceId, string $citationRole = 'SUPPORTIVE'): Outcome
+    {
+        $bundle = $this->db->one(
+            'SELECT status, tenant_id, workspace_id, mission_id FROM evidence_bundles WHERE evidence_bundle_id = ?',
+            [$bundleId]
+        );
+        if ($bundle === null) {
+            return Outcome::refuse('EVIDENCE_BUNDLE_NOT_FOUND', [], 'EVIDENCE');
+        }
+        if ((string) $bundle['status'] !== 'DRAFT') {
+            // A submitted bundle is frozen. Adding to it would change the basis a verdict was
+            // decided on, after the fact.
+            return Outcome::refuse('EVIDENCE_BUNDLE_NOT_DRAFT', ['status' => (string) $bundle['status']], 'EVIDENCE');
+        }
+
+        $evidence = $this->db->one(
+            'SELECT tenant_id, workspace_id, mission_id, evidence_status FROM evidence_objects WHERE evidence_id = ?',
+            [$evidenceId]
+        );
+        if ($evidence === null) {
+            return Outcome::refuse('EVIDENCE_OBJECT_NOT_FOUND', [], 'EVIDENCE');
+        }
+
+        if ((string) $evidence['tenant_id'] !== (string) $bundle['tenant_id']
+            || (string) $evidence['workspace_id'] !== (string) $bundle['workspace_id']
+            || ($evidence['mission_id'] !== null && (string) $evidence['mission_id'] !== (string) $bundle['mission_id'])) {
+            return Outcome::refuse('EVIDENCE_BUNDLE_SCOPE_NOT_CLOSED', [
+                'evidence_id' => $evidenceId,
+            ], 'SCOPE');
+        }
+
+        try {
+            $this->db->insert('evidence_bundle_items', [
+                'bundle_item_id' => Ids::new(),
+                'evidence_bundle_id' => $bundleId,
+                'evidence_id' => $evidenceId,
+                'item_role' => $citationRole,
+                'included_at' => $this->clock->now(),
+            ]);
+        } catch (\PDOException $error) {
+            return Database::classify($error, 'EVIDENCE_ALREADY_IN_BUNDLE');
+        }
+
+        return Outcome::ok(['evidence_bundle_id' => $bundleId, 'evidence_id' => $evidenceId]);
+    }
+
+    /**
+     * Submit (freeze) a bundle, computing its `bundle_hash`.
+     *
+     * The hash commits to the ORDERED membership plus the bundle's scope, so a verdict can cite an
+     * exact basis. Freezing re-checks scope closure: the add-time check can be bypassed by direct
+     * SQL, and a hash that faithfully freezes an invalid composition is worse than no hash.
+     */
+    public function submitBundle(string $bundleId): Outcome
+    {
+        $bundle = $this->db->one(
+            'SELECT status, tenant_id, workspace_id, mission_id, proposal_id FROM evidence_bundles WHERE evidence_bundle_id = ?',
+            [$bundleId]
+        );
+        if ($bundle === null) {
+            return Outcome::refuse('EVIDENCE_BUNDLE_NOT_FOUND', [], 'EVIDENCE');
+        }
+        if ((string) $bundle['status'] !== 'DRAFT') {
+            return Outcome::refuse('EVIDENCE_BUNDLE_NOT_DRAFT', ['status' => (string) $bundle['status']], 'EVIDENCE');
+        }
+
+        $items = $this->db->all(
+            'SELECT evidence_id FROM evidence_bundle_items WHERE evidence_bundle_id = ? ORDER BY evidence_id',
+            [$bundleId]
+        );
+        if ($items === []) {
+            return Outcome::refuse('EVIDENCE_BUNDLE_EMPTY', [], 'EVIDENCE');
+        }
+        $evidenceIds = array_map(static fn (array $r): string => (string) $r['evidence_id'], $items);
+
+        $violations = (new Readiness($this->db, $this->clock))->scopeViolations($bundleId);
+        if ($violations !== []) {
+            return Outcome::refuse('EVIDENCE_BUNDLE_SCOPE_NOT_CLOSED', ['violations' => $violations], 'SCOPE');
+        }
+
+        $bundleHash = \Allfather\Loopia\Core\Digest::canonicalDigest([
+            'evidenceBundleId' => $bundleId,
+            'tenantId' => (string) $bundle['tenant_id'],
+            'workspaceId' => (string) $bundle['workspace_id'],
+            'missionId' => (string) $bundle['mission_id'],
+            'proposalId' => $bundle['proposal_id'],
+            'evidenceIds' => $evidenceIds,
+        ]);
+
+        $now = $this->clock->now();
+        $this->db->run(
+            'UPDATE evidence_bundles SET status = ?, bundle_hash = ?, submitted_at = ?
+             WHERE evidence_bundle_id = ? AND status = ?',
+            ['SUBMITTED', $bundleHash, $now, $bundleId, 'DRAFT']
+        );
+
+        return Outcome::ok([
+            'evidence_bundle_id' => $bundleId,
+            'bundle_hash' => $bundleHash,
+            'evidence_ids' => $evidenceIds,
+        ]);
+    }
+
+    /**
+     * Record a missingness statement — a KNOWN gap.
+     *
+     * This is not the absence of evidence; it is evidence that something required is ABSENT, and
+     * when it blocks release it holds the verdict just as firmly as bad evidence would.
+     */
+    public function recordMissingness(
+        string $tenantId,
+        string $workspaceId,
+        string $missionId,
+        ?string $proposalId,
+        string $missingnessType,
+        string $description,
+        bool $blocksRelease,
+    ): string {
+        $missingnessId = Ids::new();
+        $this->db->insert('evidence_missingness_records', [
+            'missingness_id' => $missingnessId,
+            'schema_version' => '1',
+            'tenant_id' => $tenantId,
+            'workspace_id' => $workspaceId,
+            'mission_id' => $missionId,
+            'proposal_id' => $proposalId,
+            'missing_requirement_type' => $missingnessType,
+            'required_evidence_description' => $description,
+            'why_material' => $description,
+            'blocks_release_or_action' => $blocksRelease ? 1 : 0,
+            'recorded_at' => $this->clock->now(),
+        ]);
+
+        return $missingnessId;
+    }
 }
