@@ -461,6 +461,10 @@ final class Seed
                     'reference_role' => 'EVIDENCE_BASIS', 'verification_status_at_record_time' => 'VERIFIED_REFERENCE',
                 ],
             ], ['proposal_id' => $proposalId])->value();
+            // The envelope advances through M04, against the M10 record just written. Setting the
+            // status directly would create the second, unbacked release claim markReleased exists
+            // to prevent — and the seed must build state the product can actually reach.
+            $m04->markReleased($proposalId, $release['decision_record_id']);
         }
 
         return [

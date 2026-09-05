@@ -571,6 +571,84 @@ final class DecisionLedger
      *
      * @return array{status: string, records_verified: int, failures: list<array<string, mixed>>}
      */
+    /**
+     * Verify ONE record's payload digest, independently of the chain.
+     *
+     * A record's payload digest is a property of that record alone: it recomputes from the record's
+     * own fields and its input references. The CHAIN links records to each other, and
+     * `verifyStream()` checks that; this checks whether a single record still says what it was
+     * digested as saying.
+     *
+     * That distinction matters to M11 replay, which asks about specific records rather than about
+     * a whole stream — and to an operator reading a finding, for whom "this record was altered" and
+     * "the chain around it is broken" call for different responses.
+     *
+     * @return array{ok: bool, reason?: string}
+     */
+    public function verifyRecordPayload(string $decisionRecordId): array
+    {
+        $record = $this->db->one(
+            'SELECT * FROM decision_records WHERE decision_record_id = ?',
+            [$decisionRecordId]
+        );
+        if ($record === null) {
+            return ['ok' => false, 'reason' => 'LEDGER_RECORD_NOT_FOUND'];
+        }
+
+        $recomputed = self::computeRecordPayloadDigest(
+            self::payloadProjection($record),
+            $this->recordReferences($decisionRecordId),
+        );
+
+        return hash_equals((string) $record['record_payload_digest'], $recomputed)
+            ? ['ok' => true]
+            : ['ok' => false, 'reason' => 'LEDGER_PAYLOAD_DIGEST_MISMATCH'];
+    }
+
+    /**
+     * The canonical field projection a record's payload digest is computed over.
+     *
+     * ONE definition, shared by the writer, the stream verifier and the single-record verifier. A
+     * second copy would drift, and a digest that two readers compute differently verifies nothing.
+     *
+     * @param array<string, mixed> $record
+     * @return array<string, mixed>
+     */
+    private static function payloadProjection(array $record): array
+    {
+        return [
+            'record_type' => (string) $record['record_type'],
+            'materiality_class' => (string) $record['materiality_class'],
+            'primary_outcome_status' => (string) $record['primary_outcome_status'],
+            'mission_id' => $record['mission_id'],
+            'proposal_id' => $record['proposal_id'],
+            'proposal_submission_digest' => $record['proposal_submission_digest'],
+            'correlation_id' => $record['correlation_id'],
+            'safe_decision_summary' => (string) $record['safe_decision_summary'],
+            'reason_codes' => json_decode((string) $record['reason_codes'], true, 512, JSON_THROW_ON_ERROR),
+            'uncertainty_and_limitation_summary' => $record['uncertainty_and_limitation_summary'],
+            'severity' => $record['severity'],
+            'incident_evaluation_required' => (bool) $record['incident_evaluation_required'],
+            'supersedes_or_corrects_decision_record_id' => $record['supersedes_or_corrects_decision_record_id'],
+            // Reliance is part of the digest AND is never edited in place: supersession writes a
+            // separate row and `currentReliance()` derives from it. So a superseded record still
+            // recomputes to its ORIGINAL digest and stays verifiable as history.
+            'current_reliance_status' => (string) $record['current_reliance_status'],
+            'record_sequence_number' => (int) $record['record_sequence_number'],
+        ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function recordReferences(string $decisionRecordId): array
+    {
+        return $this->db->all(
+            'SELECT owner_module_id, input_object_type, input_object_id,
+                    input_object_version_or_digest, reference_role, verification_status_at_record_time
+             FROM decision_input_references WHERE decision_record_id = ?',
+            [$decisionRecordId]
+        );
+    }
+
     public function verifyStream(string $ledgerStreamId): array
     {
         $stream = $this->db->one(
@@ -608,33 +686,10 @@ final class DecisionLedger
             }
             $expectedSequence = $sequence + 1;
 
-            $references = $this->db->all(
-                'SELECT owner_module_id, input_object_type, input_object_id,
-                        input_object_version_or_digest, reference_role, verification_status_at_record_time
-                 FROM decision_input_references WHERE decision_record_id = ?',
-                [$recordId]
+            $recomputedPayload = self::computeRecordPayloadDigest(
+                self::payloadProjection($record),
+                $this->recordReferences($recordId),
             );
-
-            $recomputedPayload = self::computeRecordPayloadDigest([
-                'record_type' => (string) $record['record_type'],
-                'materiality_class' => (string) $record['materiality_class'],
-                'primary_outcome_status' => (string) $record['primary_outcome_status'],
-                'mission_id' => $record['mission_id'],
-                'proposal_id' => $record['proposal_id'],
-                'proposal_submission_digest' => $record['proposal_submission_digest'],
-                'correlation_id' => $record['correlation_id'],
-                'safe_decision_summary' => (string) $record['safe_decision_summary'],
-                'reason_codes' => json_decode((string) $record['reason_codes'], true, 512, JSON_THROW_ON_ERROR),
-                'uncertainty_and_limitation_summary' => $record['uncertainty_and_limitation_summary'],
-                'severity' => $record['severity'],
-                'incident_evaluation_required' => (bool) $record['incident_evaluation_required'],
-                'supersedes_or_corrects_decision_record_id' => $record['supersedes_or_corrects_decision_record_id'],
-                // Reliance is part of the digest AND is never edited in place: supersession
-                // writes a separate row and `currentReliance()` derives from it. So a superseded
-                // record still recomputes to its ORIGINAL digest and stays verifiable as history.
-                'current_reliance_status' => (string) $record['current_reliance_status'],
-                'record_sequence_number' => $sequence,
-            ], $references);
 
             if (!hash_equals((string) $record['record_payload_digest'], $recomputedPayload)) {
                 $failures[] = [
