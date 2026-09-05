@@ -175,15 +175,23 @@ final class JobMachine
         $claimed = [];
         foreach ($candidates as $candidate) {
             $jobId = (string) $candidate['job_id'];
-            // The conditional predicate is repeated here on purpose: between the SELECT and this
-            // UPDATE another scheduler may have taken the job, and the row count is the only
-            // honest answer about who owns it.
+            // THE WHOLE ELIGIBILITY PREDICATE IS REPEATED HERE, not just the lease. Between the
+            // SELECT and this UPDATE another scheduler may have claimed the job, failed it and
+            // written a backoff — and by then it is ineligible for THREE independent reasons, only
+            // one of which is the lease. Re-checking the lease alone would let this claim take a
+            // job whose `run_after` is in the future (hammering a source the backoff exists to back
+            // away from) and push `attempt_count` past `max_attempts` (spending an attempt the
+            // retry budget had already exhausted). The row count is the only honest answer, and it
+            // is only honest if it answers the same question the SELECT asked.
             $affected = $this->db->run(
-                'UPDATE jobs
+                "UPDATE jobs
                  SET lease_owner = ?, lease_expires_at = ?, attempt_count = attempt_count + 1, updated_at = ?
                  WHERE job_id = ?
-                   AND (lease_owner IS NULL OR lease_expires_at IS NULL OR lease_expires_at < ?)',
-                [$leaseOwner, $leaseExpiry, $now, $jobId, $now]
+                   AND state IN ({$placeholders})
+                   AND run_after <= ?
+                   AND attempt_count < max_attempts
+                   AND (lease_owner IS NULL OR lease_expires_at IS NULL OR lease_expires_at < ?)",
+                [$leaseOwner, $leaseExpiry, $now, $jobId, ...self::CLAIMABLE_STATES, $now, $now]
             );
             if ($affected === 1) {
                 $job = $this->db->one('SELECT * FROM jobs WHERE job_id = ?', [$jobId]);
@@ -209,8 +217,20 @@ final class JobMachine
     /**
      * Advance a claimed job to `$toState`, releasing the lease.
      *
-     * The lease owner is part of the WHERE clause: a worker whose lease expired and was reclaimed
-     * by someone else cannot write its stale result over the new owner's work.
+     * TWO THINGS PIN THE WRITE, and they answer different questions.
+     *
+     *   THE LEASE OWNER, so a worker whose lease expired and was reclaimed by someone else cannot
+     *   write its stale result over the new owner's work.
+     *
+     *   THE FROM-STATE, because the transition was validated against a state read in a SEPARATE
+     *   statement. Without it a second advance under the same lease would apply a transition
+     *   checked against a state the job has already left, and would record a `job_transitions` row
+     *   whose `from_state` never happened — a ledger entry describing a step nobody took.
+     *
+     * `$runAfter` rides the SAME write for the same reason a backoff exists at all. Applied as a
+     * second statement it would land after the lease was released, on a job another scheduler may
+     * already have claimed and moved on — re-delaying work that is in flight, and doing it to
+     * whoever owns the job now.
      */
     public function advance(
         string $jobId,
@@ -218,6 +238,7 @@ final class JobMachine
         string $toState,
         ?string $reasonCode = null,
         ?string $detailSafe = null,
+        ?string $runAfter = null,
     ): Outcome {
         $job = $this->db->one('SELECT state, attempt_count FROM jobs WHERE job_id = ?', [$jobId]);
         if ($job === null) {
@@ -236,27 +257,43 @@ final class JobMachine
         $terminal = in_array($toState, self::TERMINAL_STATES, true);
 
         return $this->db->transaction(function (Database $tx) use (
-            $jobId, $leaseOwner, $fromState, $toState, $reasonCode, $detailSafe, $now, $job, $terminal
+            $jobId, $leaseOwner, $fromState, $toState, $reasonCode, $detailSafe, $runAfter, $now, $job, $terminal
         ): Outcome {
             $affected = $tx->run(
                 'UPDATE jobs
                  SET state = ?, lease_owner = NULL, lease_expires_at = NULL, updated_at = ?,
-                     last_error_code = ?, last_error_at = ?
-                 WHERE job_id = ? AND lease_owner = ?',
+                     last_error_code = ?, last_error_at = ?, run_after = COALESCE(?, run_after)
+                 WHERE job_id = ? AND lease_owner = ? AND state = ?',
                 [
                     $toState,
                     $now,
                     $toState === 'FAILED' ? $reasonCode : null,
                     $toState === 'FAILED' ? $now : null,
+                    $runAfter,
                     $jobId,
                     $leaseOwner,
+                    $fromState,
                 ]
             );
             if ($affected !== 1) {
-                return Outcome::refuse('JOB_LEASE_LOST', [
-                    'job_id' => $jobId,
-                    'lease_owner' => $leaseOwner,
-                ], 'CONCURRENCY');
+                // WHICH of the two pins failed is what an operator needs. A lost lease is a slow
+                // step and a lease window worth tuning; a moved state is two callers advancing one
+                // job, which is a bug in the caller. Reporting both as one code would hide the
+                // second behind the first, which is the ordinary explanation.
+                $current = $tx->one('SELECT state, lease_owner FROM jobs WHERE job_id = ?', [$jobId]);
+
+                return Outcome::refuse(
+                    $current !== null && (string) $current['lease_owner'] === $leaseOwner
+                        ? 'JOB_STATE_CHANGED'
+                        : 'JOB_LEASE_LOST',
+                    [
+                        'job_id' => $jobId,
+                        'lease_owner' => $leaseOwner,
+                        'expected_state' => $fromState,
+                        'observed_state' => $current === null ? null : (string) $current['state'],
+                    ],
+                    'CONCURRENCY',
+                );
             }
 
             $this->appendTransition(
@@ -289,24 +326,21 @@ final class JobMachine
         $attempt = (int) $job['attempt_count'];
         $exhausted = $attempt >= (int) $job['max_attempts'];
 
+        // The backoff before the retry becomes eligible. Without it a source that is refusing
+        // requests would be hammered as fast as the scheduler fires — the abusive-crawler behavior
+        // the source policy exists to prevent. It is computed here and APPLIED BY `advance`, in the
+        // same write as the state change: as a follow-up statement it would land after the lease
+        // was released, and could delay a job another scheduler had already claimed and moved on.
+        $delay = self::BACKOFF_BASE_SECONDS * (2 ** max(0, $attempt - 1));
+
         $outcome = $this->advance(
             $jobId,
             $leaseOwner,
             $exhausted ? 'ABANDONED' : 'FAILED',
             $reasonCode,
             $detailSafe,
+            $exhausted ? null : $this->plusSeconds($this->clock->now(), $delay),
         );
-
-        if ($outcome->isOk() && !$exhausted) {
-            // Back off before the retry becomes eligible. Without this, a source that is refusing
-            // requests would be hammered as fast as the scheduler fires — the abusive-crawler
-            // behavior the source policy exists to prevent.
-            $delay = self::BACKOFF_BASE_SECONDS * (2 ** max(0, $attempt - 1));
-            $this->db->run(
-                'UPDATE jobs SET run_after = ? WHERE job_id = ?',
-                [$this->plusSeconds($this->clock->now(), $delay), $jobId]
-            );
-        }
 
         return $outcome->isOk()
             ? Outcome::ok([

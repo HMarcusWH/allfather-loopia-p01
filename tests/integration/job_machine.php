@@ -9,6 +9,19 @@ declare(strict_types=1);
  * replacement for a persistent worker. Each is a way the Loopia design could silently fail:
  * double-capture, lost work, an unbounded retry loop against a live source, or a stale worker
  * overwriting a newer owner's result.
+ *
+ * TWO KINDS OF ASSERTION APPEAR BELOW, and the difference is stated rather than blurred.
+ *
+ *   BEHAVIOURAL, which is most of it: real jobs through the real machine against real MariaDB.
+ *   A racing scheduler can be SIMULATED where its effect is a row this test can write itself — a
+ *   reclaimed lease, a state moved under an owner — and those cases are exercised directly.
+ *
+ *   STRUCTURAL, for the two guarantees that live INSIDE one invocation: that the conditional claim
+ *   re-checks everything the candidate query asked, and that the retry backoff rides the same write
+ *   as the state change. A single-threaded PHP test cannot interleave a second scheduler between
+ *   two statements of one method call, and a test that pretended to would be proving its own
+ *   fixture rather than the machine. So those are asserted against the statements themselves, and
+ *   labelled as what they are.
  */
 
 use Allfather\Loopia\Jobs\JobMachine;
@@ -83,6 +96,86 @@ Assert::same('JOB_LEASE_LOST', $stale->reasonCode(), 'and the refusal names the 
 
 $fresh = $laterMachine->advance($jobId, 'scheduler-C', 'PREFLIGHT');
 Assert::true($fresh->isOk(), 'the current lease owner advances the job');
+
+// --- a moved state is not a lost lease, and the refusal says which ---------------------------------
+
+// A REAL INTERLEAVING, not a simulated one. `advance()` reads the current state in one statement
+// and writes in another, so the write has to pin that state too — otherwise a second advance under
+// the same lease applies a transition checked against a state the job has already left, and records
+// a `job_transitions` row whose `from_state` never happened.
+//
+// The window is reached through the injected CLOCK, which `advance()` reads exactly once, between
+// the state read and the transaction. A one-shot hook there runs the racing scheduler's write at
+// precisely the moment a second scheduler would — which is a genuine test of the window rather than
+// a fixture that describes it.
+$racingClock = new class ('2026-01-01T02:00:00.000Z') extends \Allfather\Loopia\Core\Clock {
+    /** @var null|callable():void */
+    public $onNow = null;
+
+    public function __construct(private readonly string $iso)
+    {
+    }
+
+    public function now(): string
+    {
+        if ($this->onNow !== null) {
+            $hook = $this->onNow;
+            // One shot. A hook that fired on every read would re-run the racing write inside the
+            // transaction as well, which is a different race and not the one under test.
+            $this->onNow = null;
+            $hook();
+        }
+
+        return $this->iso;
+    }
+};
+$racingMachine = new JobMachine($db, $racingClock);
+
+$movedId = (string) $reclaimed[1]['job_id'];
+Assert::same(
+    'PENDING',
+    (string) $db->scalar('SELECT state FROM jobs WHERE job_id = ?', [$movedId]),
+    'the second reclaimed job is still PENDING, held under scheduler-C\'s lease',
+);
+$racingClock->onNow = static function () use ($db, $movedId): void {
+    // The racing scheduler's write: same lease owner, state moved on.
+    $db->run("UPDATE jobs SET state = 'PREFLIGHT' WHERE job_id = ?", [$movedId]);
+};
+
+$moved = $racingMachine->advance($movedId, 'scheduler-C', 'PREFLIGHT');
+Assert::true($moved->isRefusal(), 'an advance whose from-state moved underneath it is refused');
+Assert::same(
+    'JOB_STATE_CHANGED',
+    $moved->reasonCode(),
+    'and NOT as a lost lease — the lease is intact, two callers advanced one job',
+);
+Assert::same('PENDING', $moved->detail['expected_state'], 'the refusal names the state it expected');
+Assert::same('PREFLIGHT', $moved->detail['observed_state'], 'and the state it found instead');
+Assert::same(
+    'scheduler-C',
+    (string) $db->scalar('SELECT lease_owner FROM jobs WHERE job_id = ?', [$movedId]),
+    'the lease is left where it was — a refused advance releases nothing',
+);
+Assert::same(
+    0,
+    (int) $db->scalar(
+        "SELECT COUNT(*) FROM job_transitions WHERE job_id = ? AND from_state = 'PENDING' AND to_state = 'PREFLIGHT'",
+        [$movedId]
+    ),
+    'and no transition was recorded for a step that did not happen',
+);
+
+// The same window with the LEASE gone instead of the state is still a lost lease, so the two
+// refusals stay distinguishable rather than one absorbing the other.
+$racingClock->onNow = static function () use ($db, $movedId): void {
+    $db->run("UPDATE jobs SET lease_owner = 'scheduler-D' WHERE job_id = ?", [$movedId]);
+};
+$stolen = $racingMachine->advance($movedId, 'scheduler-C', 'FETCH');
+Assert::same(
+    'JOB_LEASE_LOST',
+    $stolen->reasonCode(),
+    'a lease taken inside the same window is still reported as a lost lease',
+);
 
 // --- transitions are typed ---------------------------------------------------------------------------
 
@@ -169,3 +262,44 @@ for ($i = 0; $i < 12; $i++) {
 }
 $batch = $bulkMachine->claim('scheduler-BULK', 5);
 Assert::same(5, count($batch), 'a claim never exceeds its per-invocation limit');
+
+// --- STRUCTURAL: the guarantees that live inside one invocation -------------------------------------
+
+$machineSource = (string) file_get_contents(dirname(__DIR__, 2) . '/app/Jobs/JobMachine.php');
+
+// THE CONDITIONAL CLAIM MUST ASK WHAT THE CANDIDATE QUERY ASKED. Between the SELECT that picks
+// candidates and the UPDATE that takes one, another scheduler may have claimed the job, failed it
+// and written a backoff — by then it is ineligible for four independent reasons, and a predicate
+// that re-checks only the lease would take it anyway: claiming a job whose backoff has not elapsed
+// (hammering a source the backoff exists to back away from) and spending an attempt the retry
+// budget had already exhausted.
+preg_match(
+    '/UPDATE jobs\s+SET lease_owner.*?"/s',
+    $machineSource,
+    $claimUpdate,
+);
+Assert::true($claimUpdate !== [], 'the conditional claim statement is found');
+foreach ([
+    'state IN' => 'the state is re-checked, so a job that has since become terminal is not claimed',
+    'run_after <= ?' => 'the backoff is re-checked, so a just-failed job is not claimed before it elapses',
+    'attempt_count < max_attempts' => 'the attempt budget is re-checked, so a claim cannot spend an exhausted one',
+    'lease_expires_at <' => 'and the lease is re-checked, so two schedulers cannot both hold one job',
+] as $condition => $because) {
+    Assert::contains($condition, $claimUpdate[0], "the claim UPDATE re-checks {$condition}: {$because}");
+}
+
+// THE BACKOFF RIDES THE STATE CHANGE. As a follow-up statement it would land after the lease was
+// released, on a job another scheduler may already have claimed and moved on — delaying work that
+// is in flight, and doing it to whoever owns the job now. `fail()` therefore computes the delay and
+// hands it to `advance()`; it must not write `run_after` itself.
+preg_match('/public function fail\(.*?\n    \}/s', $machineSource, $failBody);
+Assert::true($failBody !== [], 'the fail() body is found');
+Assert::false(
+    str_contains($failBody[0], 'UPDATE jobs SET run_after'),
+    'fail() does not write the backoff in a statement of its own',
+);
+Assert::contains(
+    'run_after = COALESCE(?, run_after)',
+    $machineSource,
+    'the backoff is applied by the same UPDATE that changes the state',
+);
