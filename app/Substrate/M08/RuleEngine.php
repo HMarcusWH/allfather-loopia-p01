@@ -6,6 +6,7 @@ namespace Allfather\Loopia\Substrate\M08;
 
 use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Db\Database;
+use Allfather\Loopia\Product\P02\PrivacyPatterns;
 use Allfather\Loopia\Product\P03\FitScoring;
 
 /**
@@ -50,6 +51,9 @@ final class RuleEngine
             'COMPANY_SIGNAL_BRIEF', 'BATTLECARD_BRIEF' => ['P01_RELEVANCE' => self::loadP01Context($db, $proposalId)],
             'FIT_HYPOTHESIS', 'PRIORITY_OUTREACH_QUEUE_ADMISSION' => [
                 'P03_PROSPECT_ADMISSION' => self::loadP03Context($db, $proposalId, $proposalType),
+            ],
+            'INTELLIGENCE_DISTRIBUTION_ROUTING' => [
+                'P04_DISTRIBUTION_ADMISSION' => self::loadP04Context($db, $proposalId),
             ],
             default => [],
         };
@@ -243,6 +247,203 @@ final class RuleEngine
     }
 
     /**
+     * The P04 distribution context: the bound briefing, the role's configuration, and whether the
+     * cited source is STILL released.
+     *
+     * The routing's own governance facts — sensitivity class and legal basis — are read out of the
+     * SUBMITTED proposal's release scope, not from a caller argument. That JSON froze into the
+     * submission digest, so the verdict judges exactly the facts the producer committed to and
+     * cannot be handed different ones at evaluation time.
+     *
+     * @return array<string, mixed>|null null when the proposal binds no distribution briefing
+     */
+    public static function loadP04Context(Database $db, string $proposalId): ?array
+    {
+        $row = $db->one(
+            'SELECT b.target_org_role, b.briefing_summary_safe, b.redaction_profile,
+                    b.released_briefing_id, b.released_prospect_output_id,
+                    b.tenant_id, b.workspace_id,
+                    pe.requested_release_or_action_scope AS scope
+             FROM role_distribution_briefings b
+             JOIN proposal_envelopes pe ON pe.proposal_id = b.proposal_id
+             WHERE b.proposal_id = ?
+             ORDER BY b.created_at DESC, b.role_distribution_briefing_id DESC LIMIT 1',
+            [$proposalId]
+        );
+        if ($row === null) {
+            return null;
+        }
+
+        // Parsed defensively. A malformed or absent scope reads as ROUTINE with no legal basis,
+        // which is the safe direction: the routing loses the SENSITIVE claim it can no longer
+        // substantiate rather than keeping the claim and losing the checks that come with it.
+        $row['sensitivity_class'] = 'ROUTINE';
+        $row['legal_basis_recorded'] = false;
+        if ($row['scope'] !== null) {
+            $parsed = json_decode((string) $row['scope'], true);
+            if (is_array($parsed)) {
+                if (($parsed['sensitivityClass'] ?? null) === 'SENSITIVE') {
+                    $row['sensitivity_class'] = 'SENSITIVE';
+                }
+                $row['legal_basis_recorded'] = is_string($parsed['legalBasisRef'] ?? null)
+                    && $parsed['legalBasisRef'] !== '';
+            }
+        }
+
+        $configured = $db->one(
+            'SELECT 1 AS hit FROM console_redaction_policy_projections
+             WHERE tenant_id = ? AND workspace_id = ? AND target_org_role = ? LIMIT 1',
+            [(string) $row['tenant_id'], (string) $row['workspace_id'], (string) $row['target_org_role']]
+        );
+        $row['target_configured'] = $configured !== null;
+        $row['redaction_profile_empty'] = self::redactionProfileIsEmpty((string) $row['redaction_profile']);
+        $row['source_reliance'] = self::sourceRelianceForBriefing(
+            $db,
+            $row['released_briefing_id'] === null ? null : (string) $row['released_briefing_id'],
+            $row['released_prospect_output_id'] === null ? null : (string) $row['released_prospect_output_id'],
+        );
+
+        return $row;
+    }
+
+    /**
+     * The current reliance of the M10 record behind a briefing's cited source.
+     *
+     * A LATER supersession wins over the record's own status: a record can be superseded without
+     * its own row changing, and reading only that row would report a withdrawn release as live.
+     */
+    private static function sourceRelianceForBriefing(
+        Database $db,
+        ?string $releasedBriefingId,
+        ?string $releasedProspectOutputId,
+    ): ?string {
+        $row = $releasedBriefingId !== null
+            ? $db->one(
+                'SELECT decision_record_id FROM released_briefings WHERE released_briefing_id = ?',
+                [$releasedBriefingId]
+            )
+            : ($releasedProspectOutputId !== null
+                ? $db->one(
+                    'SELECT decision_record_id FROM released_prospect_outputs WHERE released_prospect_output_id = ?',
+                    [$releasedProspectOutputId]
+                )
+                : null);
+        if ($row === null) {
+            return null;
+        }
+
+        $superseded = $db->one(
+            'SELECT s.new_current_reliance_status AS reliance
+             FROM decision_supersession_records s
+             JOIN decision_records dr ON dr.decision_record_id = s.successor_decision_record_id
+             WHERE s.original_decision_record_id = ?
+             ORDER BY dr.record_sequence_number DESC LIMIT 1',
+            [(string) $row['decision_record_id']]
+        );
+        if ($superseded !== null) {
+            return (string) $superseded['reliance'];
+        }
+
+        $record = $db->one(
+            'SELECT current_reliance_status FROM decision_records WHERE decision_record_id = ?',
+            [(string) $row['decision_record_id']]
+        );
+
+        return $record === null ? null : (string) $record['current_reliance_status'];
+    }
+
+    /**
+     * Is a redaction profile empty?
+     *
+     * Unparseable counts as empty. A profile the engine cannot read is a profile that redacts
+     * nothing it can prove, and the sensitive path must not clear on one.
+     */
+    private static function redactionProfileIsEmpty(string $redactionProfile): bool
+    {
+        $parsed = json_decode($redactionProfile, true);
+        if (!is_array($parsed)) {
+            return true;
+        }
+
+        return $parsed === [];
+    }
+
+    /**
+     * The P04_DISTRIBUTION_ADMISSION checks.
+     *
+     * A missing distribution context makes them NOT_APPLICABLE — they govern intelligence-routing
+     * proposals only.
+     *
+     * @param array<string, mixed>|null $ctx
+     * @return array{decision: string, reason_codes: list<string>, severity: ?string, incident: bool, result: ?array<string, mixed>}
+     */
+    private static function evalP04(array $rule, ?array $ctx, string $failClosed): array
+    {
+        if ($ctx === null) {
+            return self::notApplicable($rule);
+        }
+
+        $incident = (int) ($rule['incident_evaluation_if_failed'] ?? 0) === 1;
+        $ruleKey = (string) $rule['rule_key'];
+        $failed = null;
+        $reason = '';
+
+        switch ($ruleKey) {
+            case 'p04_individual_identifier_forbidden':
+                // THE PRIVACY INVARIANT, at the admission rather than only at the storage pin. The
+                // pins stop a column from holding a person; this stops the free-text summary from
+                // carrying one past them. It BLOCKs and opens an incident: a briefing that reached
+                // the arbiter with an identifier in it is a defect upstream, not a draft to revise.
+                $failed = PrivacyPatterns::containsIndividualIdentifier((string) $ctx['briefing_summary_safe']);
+                $reason = 'INDIVIDUAL_IDENTIFIER_FORBIDDEN';
+                break;
+
+            case 'p04_unauthorized_role':
+                // A role becomes a distribution target only once an admin configured its redaction
+                // policy. An unconfigured role is not a role with an empty policy — it is a
+                // recipient nobody authorized.
+                $failed = $ctx['target_configured'] !== true;
+                $reason = 'UNAUTHORIZED_ROLE';
+                break;
+
+            case 'p04_no_legal_basis_for_sensitive':
+                $failed = (string) $ctx['sensitivity_class'] === 'SENSITIVE'
+                    && $ctx['legal_basis_recorded'] !== true;
+                $reason = 'NO_LEGAL_BASIS_FOR_SENSITIVE';
+                break;
+
+            case 'p04_redaction_required':
+                $failed = (string) $ctx['sensitivity_class'] === 'SENSITIVE'
+                    && $ctx['redaction_profile_empty'] === true;
+                $reason = 'REDACTION_REQUIRED';
+                break;
+
+            case 'p04_source_not_released':
+                // Re-checked at VERDICT time, not just at composition: a source can be superseded
+                // or withdrawn in between, and routing it then would distribute a claim the ledger
+                // no longer stands behind. A null reliance — no resolvable record — fails too.
+                $failed = $ctx['source_reliance'] === null
+                    || (string) $ctx['source_reliance'] !== 'ACTIVE_AS_RECORDED';
+                $reason = 'SOURCE_NOT_RELEASED';
+                break;
+
+            default:
+                return self::refuse(
+                    $rule, ['ARBITER_P04_UNKNOWN_RULE', 'ARBITER_P04_DISTRIBUTION_ADMISSION_DENIED'],
+                    $failClosed, $incident
+                );
+        }
+
+        if ($failed !== true) {
+            return ['decision' => 'PASS', 'reason_codes' => [], 'severity' => null, 'incident' => false, 'result' => null];
+        }
+
+        return self::refuse(
+            $rule, [$reason, 'ARBITER_P04_DISTRIBUTION_ADMISSION_DENIED'], $failClosed, $incident
+        );
+    }
+
+    /**
      * Evaluate one ordinary rule.
      *
      * @param array<string, mixed> $rule    an `arbiter_policy_rules` row
@@ -256,6 +457,7 @@ final class RuleEngine
         return match ($category) {
             'P01_RELEVANCE' => self::evalP01($rule, $context['P01_RELEVANCE'] ?? null, $failClosed),
             'P03_PROSPECT_ADMISSION' => self::evalP03($rule, $context['P03_PROSPECT_ADMISSION'] ?? null, $failClosed),
+            'P04_DISTRIBUTION_ADMISSION' => self::evalP04($rule, $context['P04_DISTRIBUTION_ADMISSION'] ?? null, $failClosed),
             // A category this engine does not implement stands aside rather than passing: it has no
             // context to judge, and inventing an answer would be worse than declining to give one.
             default => self::notApplicable($rule),
@@ -366,7 +568,7 @@ final class RuleEngine
      */
     private static function refuse(array $rule, array $codes, string $failClosed, bool $incident): array
     {
-        $effect = $codes[0] === 'ARBITER_P03_UNKNOWN_RULE'
+        $effect = str_ends_with($codes[0], '_UNKNOWN_RULE')
             // An unknown rule has no declared effect to honour, so it takes the policy's own
             // fail-closed verdict rather than a guessed one.
             ? $failClosed

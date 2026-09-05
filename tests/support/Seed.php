@@ -9,6 +9,8 @@ use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Core\Digest;
 use Allfather\Loopia\Core\Ids;
 use Allfather\Loopia\Db\Database;
+use Allfather\Loopia\Product\P01\Battlecards;
+use Allfather\Loopia\Product\P01\Release as P01Release;
 use Allfather\Loopia\Substrate\M01\AdapterConformance;
 use Allfather\Loopia\Substrate\M03\Eligibility;
 use Allfather\Loopia\Substrate\M03\Registry;
@@ -783,4 +785,75 @@ final class Seed
             'tenant_subscription_id' => $subscriptionId,
         ];
     }
+    /**
+     * A REAL released P01 briefing, produced by the product rather than inserted.
+     *
+     * P04 and P05 both route intelligence that P01 already released, so their tests need a
+     * genuine `released_briefings` row — one carrying an M10 decision record whose reliance can
+     * then be withdrawn to prove the downstream re-checks. Writing the row directly would give
+     * the tests a source the product could not have produced, and the very reliance the P04
+     * gates read would have nothing behind it.
+     *
+     * @param array<string, mixed> $scope
+     * @return array<string, mixed>
+     */
+    public static function p01ReleasedBriefing(Database $db, Clock $clock, array $scope): array
+    {
+        // stopBeforeArbiter: the battlecard module issues the verdict, so the chain must arrive
+        // reviewed but unevaluated.
+        $governed = self::governedReleaseChain(
+            $db, $clock, $scope, [], 'PROCEED_TO_ARBITER', 'COMPANY_SIGNAL_BRIEF', true
+        );
+
+        $signalId = Ids::new();
+        $db->insert('company_signals', [
+            'company_signal_id' => $signalId,
+            'schema_version' => '1',
+            'tenant_id' => $scope['tenant_id'],
+            'workspace_id' => $scope['workspace_id'],
+            'competitor_id' => $governed['competitor_id'],
+            'source_diff_id' => $governed['source_diff_id'],
+            'signal_class' => 'PRICING_CHANGE_SIGNAL',
+            'interpretation_kind' => 'FACT_OBSERVED',
+            'confidence_band' => 'HIGH',
+            'summary_safe' => 'List price line changed.',
+            'proposal_id' => $governed['proposal_id'],
+            'status' => 'UNDER_REVIEW',
+            'created_at' => $clock->now(),
+        ]);
+
+        $arbiter = new Arbiter($db, $clock, new ReadinessEvaluator($db, $clock));
+        $battlecards = new Battlecards($db, $clock, $arbiter);
+        $verdict = $battlecards->issueVerdict([
+            'tenant_id' => $scope['tenant_id'],
+            'workspace_id' => $scope['workspace_id'],
+            'company_signal_id' => $signalId,
+            'arbiter_policy_set_id' => $governed['arbiter_policy_set_id'],
+            'content' => [
+                'why_it_matters_safe' => 'The competitor raised list pricing on its public page.',
+                'customer_impact_hypothesis_safe' => 'Existing customers MAY face a renewal increase; not observed.',
+                'talk_track_safe' => 'Ask whether the customer has seen a renewal notice.',
+                'recommended_response_safe' => 'Reconfirm our own price stability in writing.',
+                'rejected_claims_safe' => 'Not supported: that existing contracts were repriced.',
+            ],
+        ]);
+
+        $ledger = new DecisionLedger($db, $clock);
+        $released = (new P01Release(
+            $db, $clock, $ledger, new Proposals($db, $clock), new ReleaseOutput($db, $clock, $ledger)
+        ))->releaseBriefing([
+            'tenant_id' => $scope['tenant_id'],
+            'workspace_id' => $scope['workspace_id'],
+            'battlecard_brief_id' => $verdict->value()['battlecard_brief_id'],
+        ]);
+
+        return [
+            ...$governed,
+            'company_signal_id' => $signalId,
+            'battlecard_brief_id' => $verdict->value()['battlecard_brief_id'],
+            'released_briefing_id' => $released->value()['released_briefing_id'],
+            'decision_record_id' => $released->value()['decision_record_id'],
+        ];
+    }
+
 }

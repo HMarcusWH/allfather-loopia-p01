@@ -189,6 +189,75 @@ final class PolicySets
         ],
     ];
 
+    /**
+     * P04 intelligence-distribution admission.
+     *
+     * The set governs INTELLIGENCE_DISTRIBUTION_ROUTING only. Distribution ROUTES intelligence that
+     * M10 already recorded as released; it derives no new fact, and the verdict decides whether an
+     * already-true briefing may be shown to a particular internal role — never whether anything may
+     * leave the tenant. External delivery is not in this vocabulary at all.
+     */
+    public const P04_DISTRIBUTION_ADMISSION = [
+        'policy_key' => 'P04_DISTRIBUTION_ADMISSION',
+        'policy_version' => 'v1',
+        'display_name' => 'P04 intelligence distribution admission policy',
+        'purpose_summary' => 'Internal role-routing of M10-recorded P01/P03 intelligence; never an individual identifier, never an unauthorized role, never a sensitive briefing without a recorded role/legal basis.',
+        'applicable_proposal_types' => ['INTELLIGENCE_DISTRIBUTION_ROUTING'],
+        'applicable_requested_action_classes' => ['RELEASE_INTELLIGENCE'],
+        'available_verdicts' => [
+            'ALLOW_INFORMATIONAL_RELEASE', 'REQUIRE_MORE_EVIDENCE', 'REQUIRE_REVISION',
+            'HOLD', 'BLOCK', 'QUARANTINE', 'REQUIRE_INCIDENT_EVALUATION',
+        ],
+        'default_fail_closed_verdict' => 'HOLD',
+        'rules' => [
+            [
+                'rule_key' => 'p04_individual_identifier_forbidden',
+                'rule_category' => 'P04_DISTRIBUTION_ADMISSION',
+                'rule_summary' => 'The composed briefing must carry no structured individual identifier; defence-in-depth over the ROLE_CLASS and delivery-assurance storage pins.',
+                'check_type' => 'PASS_FAIL',
+                // BLOCK and an incident, at the highest priority in the set: once a briefing has
+                // been caught carrying a person, no more permissive rule below can reach an allow.
+                'failure_effect' => 'BLOCK',
+                'incident_evaluation_if_failed' => 1,
+                'priority' => 55,
+            ],
+            [
+                'rule_key' => 'p04_unauthorized_role',
+                'rule_category' => 'P04_DISTRIBUTION_ADMISSION',
+                'rule_summary' => 'The target org-role must be a configured distribution recipient.',
+                'check_type' => 'ENUM_STATUS',
+                'failure_effect' => 'BLOCK',
+                'priority' => 50,
+            ],
+            [
+                'rule_key' => 'p04_no_legal_basis_for_sensitive',
+                'rule_category' => 'P04_DISTRIBUTION_ADMISSION',
+                'rule_summary' => 'A SENSITIVE briefing must cite a recorded role/legal basis.',
+                'check_type' => 'PASS_FAIL',
+                'failure_effect' => 'BLOCK',
+                'priority' => 40,
+            ],
+            [
+                'rule_key' => 'p04_redaction_required',
+                'rule_category' => 'P04_DISTRIBUTION_ADMISSION',
+                'rule_summary' => 'A SENSITIVE briefing must declare a non-empty redaction profile.',
+                // HOLD, not BLOCK: an unredacted sensitive briefing is a briefing that is not
+                // finished, and configuring the redaction is a repair the operator can make.
+                'check_type' => 'PASS_FAIL',
+                'failure_effect' => 'HOLD',
+                'priority' => 30,
+            ],
+            [
+                'rule_key' => 'p04_source_not_released',
+                'rule_category' => 'P04_DISTRIBUTION_ADMISSION',
+                'rule_summary' => 'The cited P01/P03 source must still be relied upon at verdict time.',
+                'check_type' => 'ENUM_STATUS',
+                'failure_effect' => 'HOLD',
+                'priority' => 20,
+            ],
+        ],
+    ];
+
     public function __construct(
         private readonly Database $db,
         private readonly Clock $clock,
