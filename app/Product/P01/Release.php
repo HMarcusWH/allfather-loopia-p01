@@ -15,7 +15,9 @@ use Allfather\Loopia\Substrate\M16\ReleaseOutput;
  * P01 release — a verdict-admitted battlecard becomes an internally released briefing.
  *
  * M10 owns RELEASE. This module does not invent one: it re-validates what P01 knows, hands the
- * release to the decision ledger, and then projects the result onto the P01 domain rows.
+ * decision ledger a VERDICT IDENTITY, and then projects the result onto the P01 domain rows. It
+ * does not decide whether that verdict is releasable, supply a basis reference, or advance the
+ * proposal envelope — M10 does all three, in one transaction of its own.
  *
  * THE LICENCE IS RE-READ AT THE RELEASE BOUNDARY. The arbiter already gated on it at verdict time,
  * and this checks it again — because the gap between a verdict and a release is real time, in which

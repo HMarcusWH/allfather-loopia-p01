@@ -16,10 +16,11 @@ use Allfather\Loopia\Substrate\M10\DecisionLedger;
 /**
  * P04 release, surfacing and delivery assurance.
  *
- * M10 OWNS RELEASE. This module re-validates what P04 knows, hands the release to the ledger, and
- * then materializes two SIBLING records against the decision record it returns: the routing record
- * (who needed to know) and the released-output reference (the canonical pointer). Neither is the
- * release; the decision record is.
+ * M10 OWNS RELEASE. This module re-validates what P04 knows, hands the ledger a VERDICT IDENTITY,
+ * and then materializes two SIBLING records against the decision record it returns: the routing
+ * record (who needed to know) and the released-output reference (the canonical pointer). Neither is
+ * the release; the decision record is. Nothing here decides whether the verdict is releasable,
+ * supplies a basis reference, or advances the proposal envelope — M10 does all three, atomically.
  *
  * TWO INVARIANTS ARE RE-ASSERTED AT THE RELEASE BOUNDARY, both already checked at the verdict:
  *

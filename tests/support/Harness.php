@@ -107,6 +107,22 @@ final class Harness
     private static function env(): Env
     {
         $root = dirname(__DIR__, 2);
+
+        // An explicit file wins over the conventional ones. Without this, running the suite against
+        // a second server means editing `.env.testing` in place, and a forgotten edit — or a
+        // remembered one that silently lost to the file already there — produces a run that reports
+        // a version it never touched. A matrix claim made from the wrong server is worse than no
+        // matrix claim, so the override is named and the resolved DSN is printed by `--verbose`.
+        $explicit = getenv('TEST_ENV_FILE');
+        if (is_string($explicit) && $explicit !== '') {
+            $path = str_starts_with($explicit, '/') ? $explicit : $root . '/' . $explicit;
+            if (!is_file($path)) {
+                throw new \RuntimeException("TEST_ENV_FILE points at no file: {$path}");
+            }
+
+            return Env::load($path);
+        }
+
         foreach (['/.env.testing', '/.env'] as $candidate) {
             if (is_file($root . $candidate)) {
                 return Env::load($root . $candidate);

@@ -24,7 +24,6 @@ declare(strict_types=1);
 use Allfather\Loopia\Core\Ids;
 use Allfather\Loopia\Product\P01\Battlecards;
 use Allfather\Loopia\Product\P01\Release as P01Release;
-use Allfather\Loopia\Substrate\M04\Proposals;
 use Allfather\Loopia\Substrate\M05\Readiness;
 use Allfather\Loopia\Substrate\M08\Arbiter;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
@@ -43,7 +42,6 @@ if ($db === null) {
 $clock = Harness::clock();
 $scope = Seed::tenantWorkspace($db, $clock);
 $ledger = new DecisionLedger($db, $clock);
-$proposals = new Proposals($db, $clock);
 $arbiter = new Arbiter($db, $clock, new Readiness($db, $clock));
 $battlecards = new Battlecards($db, $clock, $arbiter);
 $release = new P01Release($db, $clock, $ledger, new ReleaseOutput($db, $clock, $ledger));

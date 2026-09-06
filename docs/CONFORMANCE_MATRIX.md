@@ -10,21 +10,31 @@ is not.
 
 ## 1. Test execution, stated truthfully
 
-**Executed in this development container** — PHP 8.4.19, MariaDB 10.11.14:
+**Executed in this development container** — PHP 8.4.19, against BOTH servers: MariaDB
+10.11.14-MariaDB-0ubuntu0.24.04.1 and MariaDB 10.6.28-MariaDB-ubu2204, each version read back from
+the server it ran on rather than assumed from how the run was launched:
 
 | Layer | Files | Assertions | 10.6 | 10.11 |
 | --- | --- | --- | --- | --- |
 | foundation | 3 | 144 | PASS | PASS |
 | unit | 2 | 153 | PASS | PASS |
-| integration | 29 | 1584 | PASS | PASS |
-| conformance | 3 | 179 | PASS | PASS |
-| acceptance | 3 | 152 | PASS | PASS |
-| security | 10 | 656 | PASS | PASS |
+| integration | 29 | 1605 | PASS | PASS |
+| conformance | 4 | 207 | PASS | PASS |
+| acceptance | 3 | 163 | PASS | PASS |
+| security | 11 | 702 | PASS | PASS |
 | rollback | 1 | 27 | PASS | PASS |
-| **TOTAL** | **51** | **2895** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
+| **TOTAL** | **53** | **3001** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
 
 Run with `php tests/run.php --strict`. Under `--strict` a skip is a non-zero exit, so an
 unreachable database cannot be mistaken for a green suite.
+
+**Pointing the suite at a second server needs `TEST_ENV_FILE`.** The harness used to resolve its
+connection from `.env.testing` and `.env` only, and it ignored the `--env=` flag that `ops/migrate.php`
+accepts. Running against 10.6 therefore meant editing `.env.testing` in place — and a run launched
+with `--env=.env.mariadb106` silently connected to 10.11 anyway while reporting a clean pass. That
+very nearly became a recorded 10.6 result for a run that never touched 10.6. `TEST_ENV_FILE=<path>`
+now wins over both conventional files and throws if the file is missing, so the mistake fails loudly
+instead of passing quietly.
 
 **Every database-backed layer ran against real MariaDB — BOTH 10.6 and 10.11**, not SQLite. This
 matters twice over. The port's guarantees lean on MariaDB CHECK constraints and `SIGNAL SQLSTATE
@@ -52,13 +62,20 @@ actually got rather than the one it asked for.
 
 ## 2. Conformance cases
 
-Three files, answering three different questions.
+Four files, answering four different questions.
 
 | File | Compares | Against |
 | --- | --- | --- |
 | `p01_governed_transcripts.php` | normalized decision transcripts for seven bent authority states | the outcome each is required to produce |
 | `p01_source_policy_adapter.php` | every compiler fail-closed code as P01 renders it, and the closure of the map | `src/p01/capture-source.ts` |
 | `governed_vocabulary.php` | the closed vocabularies, member by member and in order; and the RELEASE TOPOLOGY — that M10 owns release for every module, that M16 admits exactly four artifact kinds, that exactly TWO product families adopt it (P01 and P02, as canonical does), and that P03/P04/P05 keep their own canonical release paths | `release-output/vocabulary.ts`, `action-class.ts`, `ingestion/policy.ts`, the storage CHECKs, and the product code itself |
+| `m10_release_conformance.php` | CONF-M10-001 … CONF-M10-010: the release path's outcome and its EXACT reason code for every branch — valid ALLOW, missing verdict, non-ALLOW verdict, ALLOW routed elsewhere, invalidated verdict, unsatisfied conditions, satisfied conditions, proposal not releasable, scope mismatch, digest mismatch | `appendInternalReleaseDecisionRecord` in `m10/ledger.ts` |
+
+The reason codes in the fourth are not normalized. Six of them distinguish six different reasons a
+release can be refused, and an operator reading a refused release needs to know whether the verdict
+was invalidated or the proposal had already moved. Its companion,
+`tests/security/m10_release_ownership.php`, proves the same guards by reversion rather than by
+assertion — see §4.
 
 The third exists because of what the port loses at the language boundary. Upstream holds these
 vocabularies as TypeScript union types and its compiler proves exhaustively that every consumer
@@ -117,13 +134,22 @@ Recorded because a conformance document that lists only successes is not evidenc
 
 | Defect | Where | Consequence had it shipped |
 | --- | --- | --- |
+| The M10 release path validated NOTHING, and M04 performed the RELEASED mutation | M10 / M04 | the record the console treats as PROOF of release provable by any caller willing to assemble a basis; two modules owning release, in two transactions, so a failure between them left a durable release record against a still-SUBMITTED proposal — and the retry would mint a second |
+| `ReleasePathCapability` had a public static factory | M10 | the guard on the release record type was satisfiable by any module that could name the class; the docblock claimed a strength the code did not have |
+| The M16 audience ceiling was capped to match the activation policy | M16 | the stored source-use profile asserted that a licence permitting customer output does not permit it — a false claim about the SOURCES, defended in three documents as "stricter, never looser" |
 | `audiencePermittedByCeiling` compared across two vocabularies | M16 | an audience ceiling that silently permitted the wrong audience |
 | `rollbackArtifact` did not withdraw visibility, and was not idempotent | M16 | a rolled-back artifact still visible on the surface |
 | seeded diff digest used a different projection than the detector | test seed | tests passing over state the product could not reach |
 | `issueContract` hardcoded `contract_version` to 1 | M03 | a Valkyrie could never be reissued a contract |
 | UUIDs read as phone numbers to the PII detector | `P02\PrivacyPatterns` | ~24% of safe references quoting a record id would open spurious S4 incidents — measured over 20,000 ids — teaching operators the PII audit cries wolf |
 
-The last is the one worth dwelling on: it was found because a test failed intermittently, and the
+The first is the one worth dwelling on. It was not found by a failing test — every test passed
+throughout, because the tests asserted the release SUCCEEDED using fabricated UUID basis rows, which
+is exactly the behaviour the defect produced. A test that proves a defect is worse than no test: it
+converts the defect into a pinned requirement. That test now releases a real seeded governance chain
+and asserts M10 built the basis and moved the status itself.
+
+The last is the one worth dwelling on for a different reason: it was found because a test failed intermittently, and the
 intermittency was the symptom. It is now pinned by a regression test in both directions — UUIDs do
 not flag, and a real phone number adjacent to a UUID still does.
 

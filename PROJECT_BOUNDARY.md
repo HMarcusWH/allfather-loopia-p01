@@ -149,7 +149,36 @@ two P02, and P03/P04/P05 each carry their own release projection referencing the
 record directly.
 
 The distinction is load-bearing rather than cosmetic. **M10 owns release for every module** — one
-authority, one place a release can be revoked from. What differs is what gets PROJECTED afterwards:
+authority, one place a release can be revoked from.
+
+That sentence was aspirational until 2026-09-06, and it is worth saying so plainly rather than
+letting a corrected document read as though it had always been right. Before that date the PHP
+release path validated nothing — it took a basis the CALLER assembled and appended it — and M04
+performed the `SUBMITTED -> RELEASED` mutation separately, in a different transaction. Two modules
+owned release between them, and the record the console treats as PROOF of release proved only that
+some caller had asserted something. The guard on the record type was a capability object with a
+public static factory, so any module that could name the class could mint one.
+
+What now enforces the sentence:
+
+- `DecisionLedger::appendInternalReleaseDecisionRecord` takes a VERDICT IDENTITY and nothing else.
+  It loads the verdict, the proposal and the workspace itself; validates the verdict value AND its
+  routed stage, the M08 invalidations, the outstanding conditions, the tenant/workspace scope and
+  the submission digest; and builds the basis references from the records it read.
+- The record, its references, the head advance, the guarded `SUBMITTED -> RELEASED` flip and the
+  M10 transition row commit in ONE transaction. A flip matching any number of rows but one rolls
+  the whole unit back.
+- There is no capability token to forge, because there is no token: the public `append()` refuses
+  the release record type outright and takes no authorization parameter, and the only code that can
+  pass that type is a private method of the ledger.
+- M04 has no method that reaches RELEASED, and no product module has a `Proposals` handle in its
+  release path.
+- `tests/security/m10_release_ownership.php` proves each of those by reversion, including a
+  repository scan asserting exactly one runtime file mutates a proposal to RELEASED;
+  `tests/conformance/m10_release_conformance.php` walks CONF-M10-001…010 against the exact
+  canonical reason codes.
+
+What differs between modules is what gets PROJECTED afterwards:
 an M16 artifact is frozen content with a source-use profile and an audience projection, and a P03
 released output is a reference plus a two-gate read model. Routing P03/P04/P05 through M16 to make
 one release service out of four would re-decide an owner-gated adoption boundary and would change

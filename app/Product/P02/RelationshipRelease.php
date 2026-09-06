@@ -20,7 +20,8 @@ use Allfather\Loopia\Substrate\M16\P02Adapter;
  * relationship is a stronger claim than a twin field — it asserts a line between two companies —
  * so it gets no weaker a path.
  *
- * M10 OWNS RELEASE. Nothing here mints one: `DecisionLedger::appendInternalRelease` is the single
+ * M10 OWNS RELEASE. Nothing here mints one, decides whether a verdict is releasable, or advances
+ * the proposal envelope: `DecisionLedger::appendInternalReleaseDecisionRecord` is the single
  * path that can, and this module binds the immutable snapshot to what that wrote. The storage
  * release gate then runs AGAIN as defence in depth — it validated nothing at admission time, and
  * real time has passed since the verdict.

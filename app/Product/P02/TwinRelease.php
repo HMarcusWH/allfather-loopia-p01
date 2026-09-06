@@ -15,8 +15,9 @@ use Allfather\Loopia\Substrate\M16\P02Adapter;
 /**
  * The M10 release of an admitted twin state change, and the role-gated surface it becomes visible on.
  *
- * M10 OWNS RELEASE. Nothing here mints one: `DecisionLedger::appendInternalRelease` is the single
- * path that can, and this module binds the immutable snapshot to what that wrote. The storage
+ * M10 OWNS RELEASE. Nothing here mints one, decides whether a verdict is releasable, or advances
+ * the proposal envelope: `DecisionLedger::appendInternalReleaseDecisionRecord` is the single path
+ * that can, and this module binds the immutable snapshot to what that wrote. The storage
  * release gate then runs AGAIN as defence in depth — it validated nothing at admission time, and
  * real time has passed since the verdict.
  *

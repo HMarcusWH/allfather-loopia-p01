@@ -28,7 +28,6 @@ use Allfather\Loopia\Product\P01\Surfacing;
 use Allfather\Loopia\Substrate\M02\AccessGuard;
 use Allfather\Loopia\Substrate\M03\Eligibility;
 use Allfather\Loopia\Substrate\M03\Registry as M03Registry;
-use Allfather\Loopia\Substrate\M04\Proposals;
 use Allfather\Loopia\Substrate\M05\Readiness;
 use Allfather\Loopia\Substrate\M06\Registry as ToolRegistry;
 use Allfather\Loopia\Substrate\M08\Arbiter;
@@ -52,7 +51,6 @@ $access = new AccessGuard($db, $clock);
 $ledger = new DecisionLedger($db, $clock);
 $m16 = new ReleaseOutput($db, $clock, $ledger);
 $entitlements = new Entitlements($db, $clock);
-$proposals = new Proposals($db, $clock);
 $surfacing = new Surfacing($db, $access, $ledger, $entitlements);
 
 // ============================================================ registration provisions the capability

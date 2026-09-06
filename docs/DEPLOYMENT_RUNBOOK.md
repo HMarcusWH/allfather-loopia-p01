@@ -115,8 +115,17 @@ hand; do not re-run and hope.
 
     php tests/run.php --strict
 
-Expect 2895 passing, 0 failing, 0 skipped. Under `--strict` a skip is a non-zero exit, so an
+Expect 3001 passing, 0 failing, 0 skipped. Under `--strict` a skip is a non-zero exit, so an
 unreachable database cannot be mistaken for a green run.
+
+To run against a DIFFERENT server than the one `.env.testing` names — a second MariaDB version, a
+staging database — set `TEST_ENV_FILE` rather than editing `.env.testing` in place:
+
+    TEST_ENV_FILE=.env.mariadb106 php tests/run.php --strict
+
+The runner has no `--env` flag of its own; passing one is silently ignored and the run connects to
+whatever `.env.testing` names, which is how a "10.6 run" can report a clean pass without ever having
+touched 10.6. `TEST_ENV_FILE` wins over both conventional files and throws if the file is missing.
 
 ### 4.2 CHECK constraints are ENFORCED
 

@@ -421,3 +421,67 @@ foreach ([
         );
     }
 }
+
+// ONE RELEASE AUTHORITY, ACROSS EVERY FLOW IN THIS FILE.
+//
+// The verticals above release through different product modules with different projections — a P01
+// briefing, a P02 twin snapshot, a P03 prospect output — and until this pass each of them advanced
+// the proposal envelope itself, through M04, in a transaction of its own. These four assertions are
+// what "M10 owns release" means once the products are wired to it, checked over the state three
+// complete flows actually produced rather than over a fixture built for the purpose.
+
+$releasedProposals = $db->all(
+    "SELECT proposal_id FROM proposal_envelopes WHERE status = 'RELEASED' ORDER BY proposal_id"
+);
+Assert::true(count($releasedProposals) >= 3, 'the flows released at least one proposal each');
+
+foreach ($releasedProposals as $row) {
+    $proposalId = (string) $row['proposal_id'];
+    Assert::same(
+        1,
+        (int) $db->scalar(
+            "SELECT COUNT(*) FROM decision_records
+             WHERE proposal_id = ? AND record_type = 'INTERNAL_INFORMATIONAL_RELEASE'",
+            [$proposalId]
+        ),
+        'each RELEASED proposal rests on exactly one M10 release record',
+    );
+    Assert::same(
+        1,
+        (int) $db->scalar(
+            "SELECT COUNT(*) FROM proposal_status_transitions t
+             JOIN decision_records r ON r.decision_record_id = t.initiated_by_actor_id
+             WHERE t.proposal_id = ? AND t.to_status = 'RELEASED'
+               AND t.initiated_by_actor_type = 'M10'
+               AND t.reason_code = 'M10_DECISION_RECORD_APPENDED'
+               AND r.record_type = 'INTERNAL_INFORMATIONAL_RELEASE'
+               AND r.proposal_id = t.proposal_id",
+            [$proposalId]
+        ),
+        'and on exactly one M10 transition naming the record that caused it',
+    );
+}
+
+// No release record without the status it is supposed to have caused, and no RELEASED status
+// without a record. Either direction alone would let the two drift apart.
+Assert::same(
+    0,
+    (int) $db->scalar(
+        "SELECT COUNT(*) FROM decision_records r
+         JOIN proposal_envelopes p ON p.proposal_id = r.proposal_id
+         WHERE r.record_type = 'INTERNAL_INFORMATIONAL_RELEASE' AND p.status <> 'RELEASED'"
+    ),
+    'no release record stands against a proposal that is not RELEASED',
+);
+Assert::same(
+    0,
+    (int) $db->scalar(
+        "SELECT COUNT(*) FROM proposal_envelopes p
+         WHERE p.status = 'RELEASED' AND NOT EXISTS (
+           SELECT 1 FROM decision_records r
+           WHERE r.proposal_id = p.proposal_id
+             AND r.record_type = 'INTERNAL_INFORMATIONAL_RELEASE'
+         )"
+    ),
+    'and no RELEASED proposal exists without one',
+);

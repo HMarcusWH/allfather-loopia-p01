@@ -16,6 +16,10 @@ use Allfather\Loopia\Substrate\M10\DecisionLedger;
 /**
  * P05 internal release and surfacing.
  *
+ * M10 OWNS RELEASE. This module hands the ledger a VERDICT IDENTITY and projects what it returns.
+ * It does not decide whether the verdict is releasable, supply a basis reference, or advance the
+ * proposal envelope.
+ *
  * RELEASE HERE MEANS RELEASED_INTERNAL, and the status vocabulary has no member above it. What a
  * governed decision records is that the tenant's own people may read this draft in their console.
  * Nothing in this module dispatches, sends, publishes or writes CRM state, and there is no column

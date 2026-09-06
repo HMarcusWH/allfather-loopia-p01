@@ -26,8 +26,9 @@ use Allfather\Loopia\Substrate\M10\DecisionLedger;
  * out of three would be re-deciding an adoption boundary the owner gate set, and it would change
  * what the artifact IS — so the port carries the canonical shape.
  *
- * M10 STILL OWNS RELEASE. Nothing here mints a release; `DecisionLedger::appendInternalRelease` is
- * the one path that can, and this module references what it wrote.
+ * M10 STILL OWNS RELEASE. Nothing here mints a release, decides whether a verdict is releasable,
+ * or advances the proposal envelope; `DecisionLedger::appendInternalReleaseDecisionRecord` is the
+ * one path that can, and this module references what it wrote.
  *
  * THE SOURCE CARD IS RE-READ AT THE RELEASE BOUNDARY, resolved along the prospect → fit hypothesis
  * → customer product → catalogue → card lineage. The arbiter gated on it at verdict time; the gap
