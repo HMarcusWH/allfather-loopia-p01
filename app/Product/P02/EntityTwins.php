@@ -146,8 +146,13 @@ final class EntityTwins
                 'from_status' => null,
                 'to_status' => 'ACTIVE',
                 'reason_code' => 'REGISTERED',
-                'initiated_by_actor_type' => $createdByActorId === null ? 'SERVICE' : 'OPERATOR',
-                'initiated_by_actor_id' => $createdByActorId ?? $twinId,
+                // Upstream hardcodes SYSTEM as the actor TYPE on this history table and defaults the actor
+                // ID to the string "system" — `input.createdByActorId ?? "system"`. The port used
+                // the twin's OWN id, so a row asked "who put this here?" answered with the thing
+                // that was put there. It is the same fault the M10 writer column had, and the two
+                // sibling release paths in this file already do it correctly.
+                'initiated_by_actor_type' => 'SYSTEM',
+                'initiated_by_actor_id' => $createdByActorId ?? 'system',
                 'transitioned_at' => $now,
             ]);
 
@@ -549,7 +554,8 @@ final class EntityTwins
             'from_status' => null,
             'to_status' => 'ACTIVE',
             'reason_code' => $supersedes !== null ? 'SNAPSHOT_SUPERSEDED' : 'SNAPSHOT_RELEASED',
-            'initiated_by_actor_type' => 'SERVICE',
+            // SYSTEM, as upstream's appendTwinStatusHistory hardcodes for every row it writes.
+            'initiated_by_actor_type' => 'SYSTEM',
             'initiated_by_actor_id' => $input['released_by_actor_id'] ?? 'system',
             'transitioned_at' => $now,
         ]);

@@ -349,6 +349,17 @@ Assert::same(
 );
 
 // Two ACTIVE bindings at the SAME specificity are AMBIGUOUS, not "pick one".
+//
+// THE STATE IS NOW UNREACHABLE THROUGH THE APPLICATION, and this test still matters. Migration 160
+// enforces one ACTIVE policy set per scope with a real unique index, so `seed()` can no longer
+// produce this and neither can a race. The arbiter's ambiguity guard is therefore defence in depth
+// — against a restored dump, a manual insert, a future migration that widens the predicate — and a
+// control believed unreachable and never re-checked is one nobody would notice the loss of.
+//
+// So the row is planted the way something WITH database privileges would plant it: by removing the
+// index first. The index is restored immediately afterwards and asserted present, so this suite
+// cannot leave the schema weaker than production's for the suites that follow it.
+$db->pdo()->exec('DROP INDEX ux_arbiter_policy_sets_scope_one_active ON arbiter_policy_sets');
 $duplicateId = Ids::new();
 $db->insert('arbiter_policy_sets', [
     'arbiter_policy_set_id' => $duplicateId, 'schema_version' => '1',
@@ -372,6 +383,40 @@ Assert::same(
     'a coin flip between two authorities is not an authority',
 );
 $db->run('DELETE FROM arbiter_policy_sets WHERE arbiter_policy_set_id = ?', [$duplicateId]);
+
+// The schema goes back exactly as it was, and that is asserted rather than assumed — a suite that
+// silently left the invariant off would make every suite after it prove less than it claims.
+$db->pdo()->exec(
+    'CREATE UNIQUE INDEX ux_arbiter_policy_sets_scope_one_active
+     ON arbiter_policy_sets (tenant_id, workspace_id, policy_key, active_guard)'
+);
+Assert::same(
+    1,
+    (int) $db->scalar(
+        "SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics
+         WHERE table_schema = DATABASE() AND table_name = 'arbiter_policy_sets'
+           AND index_name = 'ux_arbiter_policy_sets_scope_one_active' AND non_unique = 0"
+    ),
+    'the ACTIVE-scope uniqueness index is restored before any later suite runs',
+);
+// And it BITES again: the row just deleted cannot come back while the original is still ACTIVE.
+Assert::throws(
+    static fn () => $db->insert('arbiter_policy_sets', [
+        'arbiter_policy_set_id' => Ids::new(), 'schema_version' => '1',
+        'tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'],
+        'policy_key' => 'P01_COMPETITION_RELEVANCE', 'policy_version' => 'v3',
+        'display_name' => 'Second competing binding', 'purpose_summary' => 'Competing authority',
+        'applicable_proposal_types' => json_encode(['COMPANY_SIGNAL_BRIEF']),
+        'applicable_requested_action_classes' => json_encode(['RELEASE_INTELLIGENCE']),
+        'available_verdicts' => json_encode(['ALLOW_INFORMATIONAL_RELEASE', 'HOLD']),
+        'default_fail_closed_verdict' => 'HOLD',
+        'requires_decision_ledger_for_material_outcome' => 1,
+        'does_not_approve_or_execute' => 1,
+        'status' => 'ACTIVE', 'created_at' => $clock->now(), 'activated_at' => $clock->now(),
+    ]),
+    \PDOException::class,
+    'and a second ACTIVE binding for the same scope is refused by the database, not by timing',
+);
 
 // --- deactivation is the stand-down lever -----------------------------------------------------------------------
 
