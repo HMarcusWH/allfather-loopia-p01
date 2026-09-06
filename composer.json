@@ -24,7 +24,7 @@
     "optimize-autoloader": true
   },
   "scripts": {
-    "lint": "find app public worker ops tests -name '*.php' -print0 | xargs -0 -n1 -P4 php -l > /dev/null",
+    "lint": "for d in app public_html worker ops tests; do [ -d \"$d\" ] || { echo \"lint: missing directory $d\" >&2; exit 1; }; done; find app public_html worker ops tests -name '*.php' -print0 | xargs -0 -r -n1 php -l > /dev/null",
     "test": "php tests/run.php",
     "test:unit": "php tests/run.php --layer=unit",
     "test:integration": "php tests/run.php --layer=integration",

@@ -444,3 +444,75 @@ foreach ($vectors['transcripts'] as $vector) {
         "{$outcome}: and the stored digest is that same encoder over this run's real ids",
     );
 }
+
+// ==================================================================================== the vocabulary
+// EVERY input-object type in the port, checked against canonical's — not just P07-A's five.
+//
+// The P07-A record cited `ARBITER_VERDICT` where canonical writes `arbiter_verdict`, and invented
+// `SYNTHETIC_DISPATCH_OUTCOME`, which exists nowhere upstream. Both are inside
+// `record_payload_digest`, so both produced a different digest for the same governed event while
+// verifying perfectly. Fixing the two P07-A references does not stop the third one, so the
+// vocabulary is pinned for the whole port.
+//
+// The canonical list below is every `inputObjectType:` literal in
+// packages/allfather-control-substrate/src at the pinned head, test files excluded. A port value
+// outside it is either a casing slip or an invention, and there is no third possibility.
+
+Assert::case('M10 input-object types are canonical vocabulary, port-wide');
+
+$canonicalObjectTypes = [
+    'action_execution_acknowledgement',
+    'approval_decision',
+    'arbiter_verdict',
+    'authority_source',
+    'decision_record',
+    'evidence_bundle',
+    'execution_authorization',
+    'frozen_action_artifact',
+    'frozen_outreach_artifact',
+    'hmwh_result',
+    'outreach_execution_authorization',
+    'proposal_envelope',
+    'replay_result',
+    'tool_authorization_decision',
+    'tool_dispatch_record',
+    'tool_execution_outcome',
+];
+
+$appRoot = dirname(__DIR__, 2) . '/app';
+$portObjectTypes = [];
+foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($appRoot)) as $file) {
+    if (!$file->isFile() || $file->getExtension() !== 'php') {
+        continue;
+    }
+    if (preg_match_all(
+        "/'input_object_type'\s*=>\s*'([^']+)'/",
+        (string) file_get_contents((string) $file),
+        $matches
+    ) > 0) {
+        foreach ($matches[1] as $type) {
+            $portObjectTypes[$type] = str_replace(dirname(__DIR__, 2) . '/', '', (string) $file);
+        }
+    }
+}
+Assert::true($portObjectTypes !== [], 'the scan found object types at all — an empty result proves nothing');
+
+foreach ($portObjectTypes as $type => $where) {
+    Assert::true(
+        in_array($type, $canonicalObjectTypes, true),
+        "{$type} (in {$where}) is a canonical object type, not an invention or a casing slip",
+    );
+    // Stated separately so a canonical value that gains an upper-case spelling upstream would not
+    // quietly make the port's upper-case one legitimate.
+    Assert::same(
+        strtolower($type),
+        $type,
+        "{$type} is lower-case, as every canonical object type is — casing is inside the digest",
+    );
+}
+
+// The one that started this, by name: it must not exist anywhere in the port.
+Assert::false(
+    array_key_exists('SYNTHETIC_DISPATCH_OUTCOME', $portObjectTypes),
+    'the invented SYNTHETIC_DISPATCH_OUTCOME object type is gone from the port entirely',
+);
