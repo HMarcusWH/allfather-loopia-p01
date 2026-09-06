@@ -69,7 +69,7 @@ $queue = new ProspectQueue(
     $db, $clock, $proposals, $evidence, new Readiness($db, $clock),
     new Arbiter($db, $clock, new Readiness($db, $clock))
 );
-$release = new P03Release($db, $clock, $ledger, $proposals, $access, $entitlements);
+$release = new P03Release($db, $clock, $ledger, $access, $entitlements);
 
 $policySetId = (new PolicySets($db, $clock))
     ->seed(PolicySets::P03_PROSPECT_ADMISSION, $scope['tenant_id'], $scope['workspace_id'])

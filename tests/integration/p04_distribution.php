@@ -59,7 +59,7 @@ $admission = new DistributionAdmission(
     $db, $clock, $evidence, $readiness, $proposals, $council, $arbiter, $ledger
 );
 $release = new P04Release(
-    $db, $clock, $ledger, $proposals, new AccessGuard($db, $clock), $entitlements
+    $db, $clock, $ledger, new AccessGuard($db, $clock), $entitlements
 );
 
 $policySetId = $policies->seed(

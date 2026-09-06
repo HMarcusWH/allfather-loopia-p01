@@ -77,8 +77,8 @@ $kernel->route('GET', '/console/decisions', $console->decisions(...));
 
 $surfaces = new SurfaceController(
     new Surfacing($db, $access, $ledger, $entitlements),
-    new P04Release($db, $clock, $ledger, new Proposals($db, $clock), $access, $entitlements),
-    new P05Release($db, $clock, $ledger, new Proposals($db, $clock), $access, $entitlements),
+    new P04Release($db, $clock, $ledger, $access, $entitlements),
+    new P05Release($db, $clock, $ledger, $access, $entitlements),
     $view,
 );
 $kernel->route('GET', '/console/briefings', $surfaces->briefings(...));

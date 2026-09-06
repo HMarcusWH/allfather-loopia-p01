@@ -69,7 +69,7 @@ $relationships = new RelationshipTwins($db, $clock);
 $stateChange = new RelationshipStateChange($db, $clock, $proposals, $evidence, $readiness, $council);
 $admission = new RelationshipAdmission($db, $clock, $arbiter, $stateChange);
 $release = new RelationshipRelease(
-    $db, $clock, $ledger, $proposals, $relationships, $access, $entitlements, $adapter
+    $db, $clock, $ledger, $relationships, $access, $entitlements, $adapter
 );
 
 $policySetId = (new PolicySets($db, $clock))

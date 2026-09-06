@@ -81,7 +81,7 @@ $stateChange = new TwinStateChange($db, $clock, $proposals, $evidence, $readines
 $admission = new TwinAdmission($db, $clock, $arbiter, $stateChange);
 $m16Output = new ReleaseOutput($db, $clock, $ledger);
 $p02Adapter = new P02Adapter($db, $m16Output);
-$release = new TwinRelease($db, $clock, $ledger, $proposals, $twins, $access, $entitlements, $p02Adapter);
+$release = new TwinRelease($db, $clock, $ledger, $twins, $access, $entitlements, $p02Adapter);
 
 $policySetId = (new PolicySets($db, $clock))
     ->seed(PolicySets::P02_TWIN_STATE_ADMISSION, $scope['tenant_id'], $scope['workspace_id'])

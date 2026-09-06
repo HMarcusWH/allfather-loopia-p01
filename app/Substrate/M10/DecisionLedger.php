@@ -23,9 +23,12 @@ use Allfather\Loopia\Db\Database;
  *     be appended unless every required role is present AND each is a `VERIFIED_REFERENCE`. A role
  *     present but unverified does NOT satisfy it — otherwise a positive material decision (a
  *     release, a completed action) could be recorded on a basis explicitly never verified.
- *  2. **The release-path capability.** `INTERNAL_INFORMATIONAL_RELEASE` — the record the console
- *     and the release-readiness projection treat as PROOF of release — can only be minted through
- *     the validated release path, never by a caller fabricating it directly.
+ *  2. **M10 owns release (INV-012).** `INTERNAL_INFORMATIONAL_RELEASE` — the record the console
+ *     and the release-readiness projection treat as PROOF of release — is minted in exactly one
+ *     place, `appendInternalReleaseDecisionRecord`, which loads and validates the real governed
+ *     records itself and then performs the `SUBMITTED -> RELEASED` mutation in the same
+ *     transaction. The public `append()` refuses that record type outright: there is no token,
+ *     object or string a caller outside this class can supply to reach it.
  *  3. **The chain.** `record_payload_digest` commits to the record fields AND its sorted reference
  *     set, so a record cryptographically binds its exact upstream basis; `chain_hash` chains that
  *     onto the previous head.
@@ -36,14 +39,17 @@ use Allfather\Loopia\Db\Database;
 final class DecisionLedger
 {
     /**
-     * The release-path capability token.
+     * The record type only the validated release path may mint.
      *
-     * Upstream uses a module-private `Symbol`, which PHP has no equivalent for. The nearest
-     * faithful construction is a private-constructor class: only code that can reach
-     * `ReleasePathCapability::grant()` can mint one, and that method is called from exactly one
-     * place — `appendInternalReleaseDecisionRecord`. A caller cannot forge the token by passing a
-     * matching string, because there is no matching string.
+     * Upstream guards it with a module-private `Symbol` that is never re-exported from the
+     * package barrel, so a consumer importing `appendDecisionRecord` cannot produce one. PHP has
+     * no module-private value, so the port takes the stronger equivalent: the release record type
+     * is not reachable through any public entry point at all. `append()` refuses it, and the only
+     * caller that passes it to `appendRecord()` is the validating wrapper below, which is a
+     * private method of this same class.
      */
+    private const RELEASE_RECORD_TYPE = 'INTERNAL_INFORMATIONAL_RELEASE';
+
     public function __construct(
         private readonly Database $db,
         private readonly Clock $clock,
@@ -221,15 +227,49 @@ final class DecisionLedger
         string $safeDecisionSummary,
         array $inputReferences,
         array $fields = [],
-        ?ReleasePathCapability $releasePathCapability = null,
     ): Outcome {
-        // Wrapper-owned record-type guard: the release basis can only be minted by the validated
-        // release path, never by a direct caller fabricating the record the console and the
-        // release-readiness projection treat as proof of release.
-        if ($recordType === 'INTERNAL_INFORMATIONAL_RELEASE' && $releasePathCapability === null) {
+        // Record-type guard. The release record is not reachable from here under ANY argument:
+        // there is no token, object or string a caller can add to unlock it. A caller that wants a
+        // release calls appendInternalReleaseDecisionRecord(), which loads the governed records and
+        // validates them before minting anything.
+        if ($recordType === self::RELEASE_RECORD_TYPE) {
             return Outcome::refuse('LEDGER_RELEASE_RECORD_REQUIRES_RELEASE_PATH');
         }
 
+        return $this->appendRecord(
+            $ledgerStreamId,
+            $recordType,
+            $materialityClass,
+            $primaryOutcomeStatus,
+            $safeDecisionSummary,
+            $inputReferences,
+            $fields,
+        );
+    }
+
+    /**
+     * The append itself, with no record-type restriction.
+     *
+     * Private on purpose: this is the only code path that can write the release record type, and
+     * it has exactly two callers inside this class — `append()`, which has already refused that
+     * type, and the validated release wrapper.
+     *
+     * Nests via savepoint when a caller already holds a transaction, which is how the release
+     * wrapper gets upstream's `ambientTransaction: true` behaviour: the append shares the release
+     * unit's transaction rather than committing independently of the status flip.
+     *
+     * @param list<array<string, mixed>> $inputReferences
+     * @param array<string, mixed>       $fields
+     */
+    private function appendRecord(
+        string $ledgerStreamId,
+        string $recordType,
+        string $materialityClass,
+        string $primaryOutcomeStatus,
+        string $safeDecisionSummary,
+        array $inputReferences,
+        array $fields = [],
+    ): Outcome {
         // Canonical-basis gate, evaluated BEFORE the transaction so a rejection moves no head.
         if ($inputReferences === []) {
             return Outcome::refuse('LEDGER_MANDATORY_INPUT_REFERENCE_MISSING', ['missing' => ['ANY']]);
@@ -384,28 +424,308 @@ final class DecisionLedger
     }
 
     /**
-     * Append the release record. This is the ONLY path that may mint an
-     * `INTERNAL_INFORMATIONAL_RELEASE`, and it is what makes that record trustworthy as proof.
+     * The ONE place that releases a proposal.
      *
-     * @param list<array<string, mixed>> $inputReferences
-     * @param array<string, mixed>       $fields
+     * Ported from `appendInternalReleaseDecisionRecord` in `src/m10/ledger.ts`. The caller supplies
+     * a release IDENTITY — the M08 verdict — and nothing else. It does not supply basis references,
+     * because a caller that can name its own basis can name a fabricated one, and the record the
+     * console treats as proof of release would then prove only that a caller asserted something.
+     * M10 loads the governed records itself and builds the references from what it read.
+     *
+     * Validation order is canonical and load-bearing:
+     *
+     *  1. the verdict exists, is `ALLOW_INFORMATIONAL_RELEASE` or `ALLOW_WITH_CONDITIONS`, AND is
+     *     routed to `M10_INTERNAL_RELEASE_RECORDING` — an ALLOW row routed elsewhere is an ALLOW
+     *     for a different stage, and honouring it would bypass the path that was actually chosen;
+     *  2. no M08 invalidation blocks progression on it;
+     *  3. for `ALLOW_WITH_CONDITIONS`, no attached condition is still OPEN/UNSATISFIED/FAILED;
+     *  4. the proposal exists and is still SUBMITTED;
+     *  5. the verdict and the proposal are the same tenant AND workspace;
+     *  6. the proposal's submission digest still matches the one the verdict was issued against.
+     *
+     * Everything that follows is one transaction: the record, its references, the head advance,
+     * the guarded status flip and the transition row commit together or not at all. A split would
+     * leave a durable release record against a still-SUBMITTED proposal, and the retry would mint a
+     * SECOND release record for the same decision.
+     *
+     * @param array{recorded_by_service_identity_id?: string, correlation_id?: string} $options
      */
-    public function appendInternalRelease(
-        string $ledgerStreamId,
-        string $safeDecisionSummary,
-        array $inputReferences,
-        array $fields = [],
+    public function appendInternalReleaseDecisionRecord(
+        string $arbiterVerdictId,
+        array $options = [],
     ): Outcome {
-        return $this->append(
-            $ledgerStreamId,
-            'INTERNAL_INFORMATIONAL_RELEASE',
-            'GOVERNANCE_MATERIAL',
-            'RELEASED_INTERNAL',
-            $safeDecisionSummary,
-            $inputReferences,
-            $fields,
-            ReleasePathCapability::grant(),
+        $verdict = $this->db->one(
+            'SELECT v.verdict, v.permitted_next_stage, v.proposal_id, v.proposal_submission_digest,
+                    v.basis_hash, v.tenant_id, v.workspace_id, v.mission_id, v.evidence_bundle_id,
+                    v.evidence_bundle_hash, v.hmwh_result_id
+             FROM arbiter_verdicts v WHERE v.arbiter_verdict_id = ?',
+            [$arbiterVerdictId]
         );
+        // Verdict value AND routed stage, exactly as the sibling M09 approval gate checks both. A
+        // malformed or imported ALLOW_* row that is NOT routed to M10 internal-release recording
+        // must not flip a proposal to RELEASED.
+        if (
+            $verdict === null
+            || !in_array((string) $verdict['verdict'], ['ALLOW_INFORMATIONAL_RELEASE', 'ALLOW_WITH_CONDITIONS'], true)
+            || (string) $verdict['permitted_next_stage'] !== 'M10_INTERNAL_RELEASE_RECORDING'
+        ) {
+            return Outcome::refuse('LEDGER_INTERNAL_RELEASE_WITHOUT_VALID_VERDICT', [
+                'arbiter_verdict_id' => $arbiterVerdictId,
+                'verdict' => $verdict === null ? null : (string) $verdict['verdict'],
+                'permitted_next_stage' => $verdict === null ? null : (string) $verdict['permitted_next_stage'],
+            ]);
+        }
+
+        // A verdict M08 has explicitly invalidated must not drive release progression, even though
+        // the ALLOW_* row itself is immutable and still reads ALLOW.
+        $invalidation = $this->db->one(
+            "SELECT 1 AS hit FROM arbiter_invalidations
+             WHERE affected_object_type = 'VERDICT' AND affected_object_id = ?
+               AND blocks_pending_progression = 1 LIMIT 1",
+            [$arbiterVerdictId]
+        );
+        if ($invalidation !== null) {
+            return Outcome::refuse('LEDGER_RELEASE_VERDICT_INVALIDATED', [
+                'arbiter_verdict_id' => $arbiterVerdictId,
+            ]);
+        }
+
+        // ALLOW_WITH_CONDITIONS releases only once every attached condition is satisfied or
+        // superseded. An OPEN/UNSATISFIED/FAILED condition means the required satisfaction
+        // reference does not exist yet.
+        if ((string) $verdict['verdict'] === 'ALLOW_WITH_CONDITIONS') {
+            $openCondition = $this->db->one(
+                "SELECT 1 AS hit FROM arbiter_conditions
+                 WHERE arbiter_verdict_id = ? AND status IN ('OPEN', 'UNSATISFIED', 'FAILED') LIMIT 1",
+                [$arbiterVerdictId]
+            );
+            if ($openCondition !== null) {
+                return Outcome::refuse('LEDGER_RELEASE_CONDITIONS_UNSATISFIED', [
+                    'arbiter_verdict_id' => $arbiterVerdictId,
+                ]);
+            }
+        }
+
+        $proposalId = (string) $verdict['proposal_id'];
+        $proposal = $this->db->one(
+            'SELECT p.status AS status, p.submission_digest AS submission_digest,
+                    p.tenant_id AS tenant_id, p.workspace_id AS workspace_id,
+                    w.environment_class AS environment_class
+             FROM proposal_envelopes p JOIN workspaces w ON w.workspace_id = p.workspace_id
+             WHERE p.proposal_id = ?',
+            [$proposalId]
+        );
+        if ($proposal === null || (string) $proposal['status'] !== 'SUBMITTED') {
+            return Outcome::refuse('LEDGER_PROPOSAL_NOT_RELEASABLE', [
+                'proposal_id' => $proposalId,
+                'status' => $proposal === null ? null : (string) $proposal['status'],
+            ]);
+        }
+        // A cross-scope verdict must never release another scope's proposal, nor leave its M10
+        // evidence in the wrong tenant's ledger.
+        if (
+            (string) $proposal['tenant_id'] !== (string) $verdict['tenant_id']
+            || (string) $proposal['workspace_id'] !== (string) $verdict['workspace_id']
+        ) {
+            return Outcome::refuse('LEDGER_RELEASE_VERDICT_SCOPE_MISMATCH', [
+                'proposal_id' => $proposalId,
+                'arbiter_verdict_id' => $arbiterVerdictId,
+            ]);
+        }
+        // The proposal must still be the one the verdict was issued against. A revised submission
+        // produces a new digest, and the old verdict no longer speaks for it.
+        if ((string) $proposal['submission_digest'] !== (string) $verdict['proposal_submission_digest']) {
+            return Outcome::refuse('LEDGER_UPSTREAM_DIGEST_MISMATCH', [
+                'proposal_id' => $proposalId,
+                'arbiter_verdict_id' => $arbiterVerdictId,
+            ]);
+        }
+
+        // References built from the records M10 just READ, never from caller input.
+        $references = [
+            [
+                'owner_module_id' => 'M08',
+                'input_object_type' => 'arbiter_verdict',
+                'input_object_id' => $arbiterVerdictId,
+                'input_object_version_or_digest' => (string) $verdict['basis_hash'],
+                'reference_role' => 'VERDICT_BASIS',
+                'verification_status_at_record_time' => 'VERIFIED_REFERENCE',
+            ],
+            [
+                'owner_module_id' => 'M04',
+                'input_object_type' => 'proposal_envelope',
+                'input_object_id' => $proposalId,
+                'input_object_version_or_digest' => (string) $verdict['proposal_submission_digest'],
+                'reference_role' => 'PROPOSAL_BASIS',
+                'verification_status_at_record_time' => 'VERIFIED_REFERENCE',
+            ],
+        ];
+        if ($verdict['evidence_bundle_id'] !== null) {
+            $references[] = [
+                'owner_module_id' => 'M05',
+                'input_object_type' => 'evidence_bundle',
+                'input_object_id' => (string) $verdict['evidence_bundle_id'],
+                'input_object_version_or_digest' => $verdict['evidence_bundle_hash'] === null
+                    ? null
+                    : (string) $verdict['evidence_bundle_hash'],
+                'reference_role' => 'EVIDENCE_BASIS',
+                'verification_status_at_record_time' => 'VERIFIED_REFERENCE',
+            ];
+        }
+        if ($verdict['hmwh_result_id'] !== null) {
+            $references[] = [
+                'owner_module_id' => 'M07',
+                'input_object_type' => 'hmwh_result',
+                'input_object_id' => (string) $verdict['hmwh_result_id'],
+                'input_object_version_or_digest' => null,
+                'reference_role' => 'REVIEW_BASIS',
+                'verification_status_at_record_time' => 'VERIFIED_REFERENCE',
+            ];
+        }
+
+        try {
+            return $this->db->transaction(function (Database $tx) use (
+                $arbiterVerdictId, $verdict, $proposal, $proposalId, $references, $options
+            ): Outcome {
+                $ledgerStreamId = $this->ensureActiveStream(
+                    (string) $verdict['tenant_id'],
+                    (string) $verdict['workspace_id'],
+                    (string) $proposal['environment_class'],
+                );
+
+                $appended = $this->appendRecord(
+                    $ledgerStreamId,
+                    self::RELEASE_RECORD_TYPE,
+                    'GOVERNANCE_MATERIAL',
+                    'RELEASED_INTERNAL',
+                    'Internal informational release recorded after M08 ALLOW verdict.',
+                    $references,
+                    [
+                        'reason_codes' => ['M10_INTERNAL_RELEASE_RECORDED'],
+                        'mission_id' => (string) $verdict['mission_id'],
+                        'proposal_id' => $proposalId,
+                        'proposal_submission_digest' => (string) $verdict['proposal_submission_digest'],
+                        'correlation_id' => $options['correlation_id'] ?? null,
+                        'recorded_by_service_identity_id' => $options['recorded_by_service_identity_id'] ?? null,
+                    ],
+                );
+                if ($appended->isRefusal()) {
+                    // Roll the unit back rather than returning: a returned refusal would COMMIT
+                    // whatever the append already wrote.
+                    throw new ReleaseRollback($appended->reasonCode());
+                }
+                $decisionRecordId = (string) $appended->value()['decision_record_id'];
+
+                // M10-owned mutation. Guarded on the still-SUBMITTED row so a concurrent racer that
+                // already released it advances no second time.
+                $flipped = $tx->run(
+                    "UPDATE proposal_envelopes SET status = 'RELEASED'
+                     WHERE proposal_id = ? AND status = 'SUBMITTED'",
+                    [$proposalId]
+                );
+                if ($flipped !== 1) {
+                    throw new ReleaseRollback('LEDGER_PROPOSAL_NOT_RELEASABLE');
+                }
+
+                $tx->insert('proposal_status_transitions', [
+                    'transition_id' => Ids::new(),
+                    'schema_version' => '1',
+                    'proposal_id' => $proposalId,
+                    'from_status' => 'SUBMITTED',
+                    'to_status' => 'RELEASED',
+                    'reason_code' => 'M10_DECISION_RECORD_APPENDED',
+                    'initiated_by_actor_type' => 'M10',
+                    'initiated_by_actor_id' => $decisionRecordId,
+                    'occurred_at' => $this->clock->now(),
+                ]);
+
+                return Outcome::ok([
+                    'decision_record_id' => $decisionRecordId,
+                    'ledger_stream_id' => $ledgerStreamId,
+                    'proposal_id' => $proposalId,
+                    'record_sequence_number' => (int) $appended->value()['record_sequence_number'],
+                    'chain_hash' => (string) $appended->value()['chain_hash'],
+                ]);
+            });
+        } catch (ReleaseRollback $rollback) {
+            return Outcome::refuse($rollback->reasonCode, [
+                'arbiter_verdict_id' => $arbiterVerdictId,
+                'proposal_id' => $proposalId,
+            ]);
+        } catch (LedgerSequenceConflict $conflict) {
+            // A lost head race rolled the whole unit back, proposal status included.
+            return Outcome::refuse('LEDGER_SEQUENCE_CONFLICT', [
+                'arbiter_verdict_id' => $arbiterVerdictId,
+                'proposal_id' => $proposalId,
+            ]);
+        }
+    }
+
+    /**
+     * The release record already recorded ON THIS VERDICT, if any.
+     *
+     * Matched through the record's own `VERDICT_BASIS` reference, not merely by proposal: a release
+     * decided on a DIFFERENT verdict is a different decision, and adopting it would let a second
+     * verdict inherit a release it never caused.
+     *
+     * @return array{decision_record_id: string, ledger_stream_id: string, proposal_id: string, record_sequence_number: int}|null
+     */
+    public function existingReleaseRecordForVerdict(string $arbiterVerdictId): ?array
+    {
+        $row = $this->db->one(
+            'SELECT r.decision_record_id, r.ledger_stream_id, r.proposal_id, r.record_sequence_number
+             FROM decision_records r
+             JOIN decision_input_references ref
+               ON ref.decision_record_id = r.decision_record_id
+              AND ref.reference_role = ?
+              AND ref.input_object_id = ?
+             WHERE r.record_type = ?
+             ORDER BY r.record_sequence_number ASC LIMIT 1',
+            ['VERDICT_BASIS', $arbiterVerdictId, self::RELEASE_RECORD_TYPE]
+        );
+
+        return $row === null ? null : [
+            'decision_record_id' => (string) $row['decision_record_id'],
+            'ledger_stream_id' => (string) $row['ledger_stream_id'],
+            'proposal_id' => (string) $row['proposal_id'],
+            'record_sequence_number' => (int) $row['record_sequence_number'],
+        ];
+    }
+
+    /**
+     * Release, or resume a release M10 already committed for this verdict.
+     *
+     * The product projection commits in its OWN transaction after M10's — upstream keeps that
+     * boundary too, and merging them would put product schema inside the substrate's release unit.
+     * The cost of that boundary is a window: M10 can commit and the product projection can then
+     * fail, leaving a real, correct release with an incomplete product view.
+     *
+     * A retry must be able to finish the product half. Calling the release path again would be
+     * refused — the proposal is no longer SUBMITTED, which is exactly right — so the retry asks for
+     * the decision that was already made instead. It mints nothing: the outcome is flagged
+     * `RESUMED`, the record id is the ORIGINAL one, and the ledger head does not move.
+     *
+     * A rejection for any other reason stays a rejection. Only `LEDGER_PROPOSAL_NOT_RELEASABLE`
+     * with a release record already standing on THIS verdict resumes.
+     *
+     * @param array{recorded_by_service_identity_id?: string, correlation_id?: string} $options
+     */
+    public function releaseOrResume(string $arbiterVerdictId, array $options = []): Outcome
+    {
+        $released = $this->appendInternalReleaseDecisionRecord($arbiterVerdictId, $options);
+        if (!$released->isRefusal()) {
+            return Outcome::ok($released->value() + ['outcome' => 'RELEASED']);
+        }
+        if ($released->reasonCode() !== 'LEDGER_PROPOSAL_NOT_RELEASABLE') {
+            return $released;
+        }
+
+        $existing = $this->existingReleaseRecordForVerdict($arbiterVerdictId);
+        if ($existing === null) {
+            return $released;
+        }
+
+        return Outcome::ok($existing + ['outcome' => 'RESUMED']);
     }
 
     // ---------------------------------------------------------------- reliance

@@ -6,11 +6,13 @@ declare(strict_types=1);
  * M10 decision ledger, proved against real MariaDB.
  *
  * The ledger is what makes every downstream claim checkable. These tests exercise the four
- * properties the rest of the system rests on: the canonical-basis gate, the release-path
- * capability, the hash chain, and supersession-without-deletion.
+ * properties the rest of the system rests on: the canonical-basis gate, M10's sole ownership of
+ * release, the hash chain, and supersession-without-deletion.
  */
 
 use Allfather\Loopia\Core\Ids;
+use Allfather\Loopia\Substrate\M05\Readiness;
+use Allfather\Loopia\Substrate\M08\Arbiter;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
 use Allfather\Loopia\Tests\Assert;
 use Allfather\Loopia\Tests\Harness;
@@ -48,56 +50,182 @@ $noBasis = $ledger->append($streamId, 'PROPOSAL_HELD', 'GOVERNANCE_MATERIAL', 'H
 Assert::true($noBasis->isRefusal(), 'a record with NO input reference is refused');
 Assert::same('LEDGER_MANDATORY_INPUT_REFERENCE_MISSING', $noBasis->reasonCode(), 'refused by name');
 
-// --- THE release-path capability ---------------------------------------------------------------------
+// --- M10 owns release: the record type is not reachable from outside ---------------------------
+// The record the console and the release-readiness projection treat as PROOF of release must not be
+// mintable by a caller that skipped the validation. This used to be guarded by a capability object
+// with a public factory, which any importing module could call — a lock whose key was on the door.
+// It is now guarded by reachability: `append()` refuses the type, and the code that can pass it is
+// a private method of this class.
 
-$proposalId = Ids::new();
-$verdictId = Ids::new();
-$fullBasis = [
-    ['owner_module_id' => 'M08', 'input_object_type' => 'ARBITER_VERDICT', 'input_object_id' => $verdictId,
+$fabricatedBasis = [
+    ['owner_module_id' => 'M08', 'input_object_type' => 'arbiter_verdict', 'input_object_id' => Ids::new(),
      'reference_role' => 'VERDICT_BASIS', 'verification_status_at_record_time' => 'VERIFIED_REFERENCE'],
-    ['owner_module_id' => 'M04', 'input_object_type' => 'PROPOSAL', 'input_object_id' => $proposalId,
+    ['owner_module_id' => 'M04', 'input_object_type' => 'proposal_envelope', 'input_object_id' => Ids::new(),
      'reference_role' => 'PROPOSAL_BASIS', 'verification_status_at_record_time' => 'VERIFIED_REFERENCE'],
 ];
 
 $forged = $ledger->append(
     $streamId, 'INTERNAL_INFORMATIONAL_RELEASE', 'GOVERNANCE_MATERIAL', 'RELEASED_INTERNAL',
-    'forged release', $fullBasis
+    'forged release', $fabricatedBasis
 );
-Assert::true($forged->isRefusal(), 'a release record CANNOT be minted by a direct caller');
+Assert::true($forged->isRefusal(), 'a release record CANNOT be minted through the public append');
 Assert::same(
     'LEDGER_RELEASE_RECORD_REQUIRES_RELEASE_PATH',
     $forged->reasonCode(),
-    'the record the console treats as PROOF of release is unforgeable',
+    'the record the console treats as PROOF of release is refused by record type',
 );
 
-// The validated release path succeeds with the same basis.
-$released = $ledger->appendInternalRelease($streamId, 'released briefing', $fullBasis);
+// And there is no SECOND argument that unlocks it. A guard that can be satisfied by supplying
+// something is only as strong as the difficulty of supplying it; this one cannot be satisfied at
+// all, because `append()` takes no authorization parameter of any kind.
+$appendSignature = new ReflectionMethod(DecisionLedger::class, 'append');
+Assert::equalsList(
+    ['ledgerStreamId', 'recordType', 'materialityClass', 'primaryOutcomeStatus',
+     'safeDecisionSummary', 'inputReferences', 'fields'],
+    array_map(static fn (ReflectionParameter $p): string => $p->getName(), $appendSignature->getParameters()),
+    'the public append takes no capability, token or override parameter',
+);
+Assert::same(
+    false,
+    file_exists(dirname(__DIR__, 2) . '/app/Substrate/M10/ReleasePathCapability.php'),
+    'and the forgeable capability class it used to accept no longer exists',
+);
+Assert::same(
+    false,
+    (new ReflectionMethod(DecisionLedger::class, 'appendRecord'))->isPublic(),
+    'the unrestricted append is private to M10',
+);
+
+// --- the validated release path, on REAL governed records ------------------------------------------
+// The basis is not supplied by the caller and is not fabricated here. The chain below is built by
+// the real modules; M10 is handed one thing — the verdict identity — and reads the rest itself.
+
+$arbiter = new Arbiter($db, $clock, new Readiness($db, $clock));
+$chain = Seed::governedReleaseChain(
+    $db, $clock, $scope, [], 'PROCEED_TO_ARBITER', 'BATTLECARD_BRIEF', true
+);
+$chainVerdict = $arbiter->evaluateProposal($chain['proposal_id'], $chain['arbiter_policy_set_id']);
+Assert::true($chainVerdict->isOk(), 'the seeded chain produces a real arbiter verdict');
+Assert::same(
+    'ALLOW_INFORMATIONAL_RELEASE',
+    (string) $chainVerdict->value()['verdict'],
+    'and it is an ALLOW routed to internal release',
+);
+$verdictId = (string) $chainVerdict->value()['arbiter_verdict_id'];
+$proposalId = (string) $chain['proposal_id'];
+
+Assert::same(
+    'SUBMITTED',
+    (string) $db->scalar('SELECT status FROM proposal_envelopes WHERE proposal_id = ?', [$proposalId]),
+    'the proposal is SUBMITTED before the release',
+);
+
+$released = $ledger->appendInternalReleaseDecisionRecord($verdictId);
 Assert::true($released->isOk(), 'the validated release path mints the release record');
 $releaseRecordId = $released->value()['decision_record_id'];
 Assert::same(1, $released->value()['record_sequence_number'], 'it is record 1 in the stream');
 
-// --- a required role present but UNVERIFIED does not satisfy the gate -------------------------------------
+// The flip is M10's, in M10's transaction. No product module and no M04 method performed it.
+Assert::same(
+    'RELEASED',
+    (string) $db->scalar('SELECT status FROM proposal_envelopes WHERE proposal_id = ?', [$proposalId]),
+    'and M10 itself advanced the proposal to RELEASED',
+);
+Assert::same(
+    1,
+    (int) $db->scalar(
+        "SELECT COUNT(*) FROM proposal_status_transitions
+         WHERE proposal_id = ? AND to_status = 'RELEASED' AND initiated_by_actor_type = 'M10'
+           AND reason_code = 'M10_DECISION_RECORD_APPENDED' AND initiated_by_actor_id = ?",
+        [$proposalId, $releaseRecordId]
+    ),
+    'with exactly one M10 transition naming the decision record that caused it',
+);
 
-$unverifiedBasis = [
-    ['owner_module_id' => 'M08', 'input_object_type' => 'ARBITER_VERDICT', 'input_object_id' => Ids::new(),
+// The references M10 built for itself, from the records it read.
+$builtReferences = $db->all(
+    'SELECT owner_module_id, input_object_type, input_object_id, reference_role,
+            verification_status_at_record_time
+     FROM decision_input_references WHERE decision_record_id = ? ORDER BY reference_role',
+    [$releaseRecordId]
+);
+Assert::equalsList(
+    ['EVIDENCE_BASIS', 'PROPOSAL_BASIS', 'REVIEW_BASIS', 'VERDICT_BASIS'],
+    array_column($builtReferences, 'reference_role'),
+    'M10 builds the verdict, proposal, evidence and review basis itself, from the verdict row',
+);
+$basisByRole = array_column($builtReferences, 'input_object_id', 'reference_role');
+Assert::same(
+    $verdictId,
+    (string) $basisByRole['VERDICT_BASIS'],
+    'and the verdict basis is the verdict it was actually given',
+);
+Assert::same(
+    $proposalId,
+    (string) $basisByRole['PROPOSAL_BASIS'],
+    'and the proposal basis is the one that verdict names, not one the caller chose',
+);
+Assert::same(
+    [],
+    array_values(array_filter(
+        $builtReferences,
+        static fn (array $r): bool => (string) $r['verification_status_at_record_time'] !== 'VERIFIED_REFERENCE'
+    )),
+    'every reference it built is a VERIFIED_REFERENCE, because it verified them',
+);
+
+// A second call on the same verdict does not mint a second release: the proposal is no longer
+// SUBMITTED, and the guarded flip refuses rather than releasing twice.
+$twice = $ledger->appendInternalReleaseDecisionRecord($verdictId);
+Assert::true($twice->isRefusal(), 'the same verdict cannot release the same proposal twice');
+Assert::same('LEDGER_PROPOSAL_NOT_RELEASABLE', $twice->reasonCode(), 'refused by name');
+Assert::same(
+    1,
+    (int) $db->scalar(
+        "SELECT COUNT(*) FROM decision_records
+         WHERE proposal_id = ? AND record_type = 'INTERNAL_INFORMATIONAL_RELEASE'",
+        [$proposalId]
+    ),
+    'and exactly one release record exists for the proposal',
+);
+
+// --- a required role present but UNVERIFIED does not satisfy the gate -------------------------------------
+// The release path no longer takes caller basis at all, so this gate is exercised on the other
+// record type that carries mandatory roles. The property is the same one: a role that is PRESENT
+// but not VERIFIED does not satisfy a mandatory basis role.
+
+$demoBasis = [
+    ['owner_module_id' => 'M08', 'input_object_type' => 'arbiter_verdict', 'input_object_id' => Ids::new(),
      'reference_role' => 'VERDICT_BASIS', 'verification_status_at_record_time' => 'VERIFIED_REFERENCE'],
-    ['owner_module_id' => 'M04', 'input_object_type' => 'PROPOSAL', 'input_object_id' => Ids::new(),
+    ['owner_module_id' => 'M09', 'input_object_type' => 'approval_decision', 'input_object_id' => Ids::new(),
+     'reference_role' => 'APPROVAL_BASIS', 'verification_status_at_record_time' => 'VERIFIED_REFERENCE'],
+    ['owner_module_id' => 'M12', 'input_object_type' => 'frozen_artifact', 'input_object_id' => Ids::new(),
+     'reference_role' => 'ARTIFACT_BASIS', 'verification_status_at_record_time' => 'VERIFIED_REFERENCE'],
+    ['owner_module_id' => 'M09', 'input_object_type' => 'action_authorization', 'input_object_id' => Ids::new(),
+     'reference_role' => 'AUTHORIZATION_BASIS', 'verification_status_at_record_time' => 'VERIFIED_REFERENCE'],
+    ['owner_module_id' => 'M06', 'input_object_type' => 'tool_outcome', 'input_object_id' => Ids::new(),
      // Present, but explicitly NOT verified.
-     'reference_role' => 'PROPOSAL_BASIS', 'verification_status_at_record_time' => 'PRESENT_UNVERIFIED'],
+     'reference_role' => 'OUTCOME_BASIS', 'verification_status_at_record_time' => 'PRESENT_UNVERIFIED'],
 ];
-$unverified = $ledger->appendInternalRelease($streamId, 'unverified basis', $unverifiedBasis);
+$unverified = $ledger->append(
+    $streamId, 'HARMLESS_DEMO_ACTION_COMPLETED', 'GOVERNANCE_MATERIAL', 'COMPLETED',
+    'unverified basis', $demoBasis
+);
 Assert::true($unverified->isRefusal(), 'a mandatory role present but UNVERIFIED does not satisfy the gate');
 Assert::same('LEDGER_MANDATORY_INPUT_REFERENCE_MISSING', $unverified->reasonCode(), 'refused by name');
 Assert::equalsList(
-    ['PROPOSAL_BASIS'],
+    ['OUTCOME_BASIS'],
     $unverified->detail['missing'],
     'and the refusal names exactly which role was unsatisfied',
 );
 
 foreach (['REQUIRED_BUT_MISSING', 'RESTRICTED_REFERENCE'] as $status) {
-    $basis = $unverifiedBasis;
-    $basis[1]['verification_status_at_record_time'] = $status;
-    $refused = $ledger->appendInternalRelease($streamId, 'basis ' . $status, $basis);
+    $basis = $demoBasis;
+    $basis[4]['verification_status_at_record_time'] = $status;
+    $refused = $ledger->append(
+        $streamId, 'HARMLESS_DEMO_ACTION_COMPLETED', 'GOVERNANCE_MATERIAL', 'COMPLETED',
+        'basis ' . $status, $basis
+    );
     Assert::true($refused->isRefusal(), "a {$status} reference does not satisfy a mandatory role");
 }
 
@@ -228,7 +356,14 @@ $freshScope = Seed::tenantWorkspace($db, $clock, 'rollback');
 $freshStream = $ledger->createStream($freshScope['tenant_id'], $freshScope['workspace_id'], 'TEST')
     ->value()['decision_ledger_stream_id'];
 
-$live = $ledger->appendInternalRelease($freshStream, 'live release', $fullBasis)->value();
+$freshChain = Seed::governedReleaseChain(
+    $db, $clock, $freshScope, [], 'PROCEED_TO_ARBITER', 'BATTLECARD_BRIEF', true
+);
+$freshVerdict = $arbiter->evaluateProposal($freshChain['proposal_id'], $freshChain['arbiter_policy_set_id']);
+$live = $ledger->appendInternalReleaseDecisionRecord(
+    (string) $freshVerdict->value()['arbiter_verdict_id']
+)->value();
+Assert::same($freshStream, $live['ledger_stream_id'], 'the release lands in the scope\'s ACTIVE stream');
 Assert::same(true, $ledger->isCurrentlyRelied($live['decision_record_id']), 'a fresh release is currently relied on');
 
 $superseded = $ledger->supersede(
@@ -258,7 +393,7 @@ Assert::same(
     'the superseded record is PRESERVED, not deleted',
 );
 Assert::same(
-    'live release',
+    'Internal informational release recorded after M08 ALLOW verdict.',
     (string) $db->scalar('SELECT safe_decision_summary FROM decision_records WHERE decision_record_id = ?', [$live['decision_record_id']]),
     'and its content is byte-intact',
 );

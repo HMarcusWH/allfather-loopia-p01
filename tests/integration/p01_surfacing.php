@@ -149,7 +149,7 @@ $battlecardId = (new Battlecards($db, $clock, new Arbiter($db, $clock, new Readi
     ],
 ])->value()['battlecard_brief_id'];
 
-$released = (new P01Release($db, $clock, $ledger, $proposals, $m16))->releaseBriefing([
+$released = (new P01Release($db, $clock, $ledger, $m16))->releaseBriefing([
     'tenant_id' => $scope['tenant_id'],
     'workspace_id' => $scope['workspace_id'],
     'battlecard_brief_id' => $battlecardId,

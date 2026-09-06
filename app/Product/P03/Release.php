@@ -10,7 +10,6 @@ use Allfather\Loopia\Core\Outcome;
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Product\P01\Entitlements;
 use Allfather\Loopia\Substrate\M02\AccessGuard;
-use Allfather\Loopia\Substrate\M04\Proposals;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
 
 /**
@@ -72,7 +71,6 @@ final class Release
         private readonly Database $db,
         private readonly Clock $clock,
         private readonly DecisionLedger $ledger,
-        private readonly Proposals $proposals,
         private readonly AccessGuard $access,
         private readonly Entitlements $entitlements,
     ) {
@@ -141,47 +139,17 @@ final class Release
         }
 
         // --- M10 owns the release ------------------------------------------------------------------
-        $verdict = $this->db->one(
-            'SELECT av.arbiter_verdict_id, av.verdict, av.basis_hash, av.proposal_id,
-                    pe.evidence_bundle_id
-             FROM arbiter_verdicts av
-             JOIN proposal_envelopes pe ON pe.proposal_id = av.proposal_id
-             WHERE av.arbiter_verdict_id = ?',
-            [(string) $row['arbiter_verdict_id']]
-        );
-        if ($verdict === null || (string) $verdict['verdict'] !== 'ALLOW_INFORMATIONAL_RELEASE') {
-            return Outcome::refuse('VERDICT_DOES_NOT_PERMIT_RELEASE', [
-                'verdict' => $verdict === null ? null : (string) $verdict['verdict'],
-            ], 'POLICY', 'S4');
-        }
-
-        $streamId = $this->ledger->ensureActiveStream($input['tenant_id'], $input['workspace_id']);
-        $released = $this->ledger->appendInternalRelease(
-            $streamId,
-            'Released qualified prospect intelligence.',
-            [
-                [
-                    'owner_module_id' => 'M08', 'input_object_type' => 'ARBITER_VERDICT',
-                    'input_object_id' => (string) $row['arbiter_verdict_id'],
-                    'input_object_version_or_digest' => (string) $verdict['basis_hash'],
-                    'reference_role' => 'VERDICT_BASIS',
-                    'verification_status_at_record_time' => 'VERIFIED_REFERENCE',
-                ],
-                [
-                    'owner_module_id' => 'M04', 'input_object_type' => 'PROPOSAL',
-                    'input_object_id' => (string) $verdict['proposal_id'],
-                    'reference_role' => 'PROPOSAL_BASIS',
-                    'verification_status_at_record_time' => 'VERIFIED_REFERENCE',
-                ],
-                [
-                    'owner_module_id' => 'M05', 'input_object_type' => 'EVIDENCE_BUNDLE',
-                    'input_object_id' => (string) $verdict['evidence_bundle_id'],
-                    'reference_role' => 'EVIDENCE_BASIS',
-                    'verification_status_at_record_time' => 'VERIFIED_REFERENCE',
-                ],
-            ],
-            ['proposal_id' => (string) $verdict['proposal_id']],
-        );
+        // The verdict IDENTITY is the whole handover. M10 loads the verdict, the proposal and the
+        // evidence bundle itself, checks the verdict value AND its routed stage, the invalidations,
+        // the outstanding conditions, the scope and the submission digest, mints the release record
+        // on the basis IT read, and performs the SUBMITTED -> RELEASED flip in its own transaction.
+        // Nothing here decides whether a verdict is releasable, supplies a basis reference, or
+        // touches proposal status: duplicating that policy is how the two copies come to disagree.
+        //
+        // releaseOrResume, not the bare release path: if an earlier attempt committed the M10
+        // decision and then failed in the projection below, this adopts THAT record rather than
+        // minting a second release for one decision.
+        $released = $this->ledger->releaseOrResume((string) $row['arbiter_verdict_id']);
         if ($released->isRefusal()) {
             return Outcome::refuse('M10_RELEASE_REJECTED', [
                 'detail' => $released->reasonCode(),
@@ -192,7 +160,7 @@ final class Release
         // --- the P03 projection --------------------------------------------------------------------
         // One transaction, so the reference and the proposal advance commit together.
         return $this->db->transaction(function (Database $tx) use (
-            $input, $kind, $idColumn, $verdict, $row, $decisionRecordId
+            $input, $kind, $idColumn, $row, $decisionRecordId
         ): Outcome {
             $releasedId = Ids::new();
             $tx->insert('released_prospect_outputs', [
@@ -213,12 +181,8 @@ final class Release
                 'released_at' => $this->clock->now(),
             ]);
 
-            $marked = $this->proposals->markReleased((string) $verdict['proposal_id'], $decisionRecordId);
-            if ($marked->isRefusal()) {
-                return Outcome::refuse('PROPOSAL_RELEASE_ADVANCE_FAILED', [
-                    'detail' => $marked->reasonCode(),
-                ], 'POLICY');
-            }
+            // The proposal envelope is ALREADY RELEASED: M10 flipped it, in the same transaction
+            // that wrote the decision record. There is nothing for this module to advance.
 
             return Outcome::ok([
                 'outcome' => 'RELEASED',

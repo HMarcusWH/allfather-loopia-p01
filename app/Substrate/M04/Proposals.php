@@ -319,67 +319,21 @@ final class Proposals
         });
     }
 
-    /** Append a status transition. The envelope is never mutated by this — the ledger is separate. */
     /**
-     * Advance a proposal envelope to RELEASED — but ONLY against a real M10 release record.
+     * M04 does NOT release.
      *
-     * The envelope status is a claim about the proposal, and the M10 record is the decision that
-     * claim rests on. If the envelope could reach RELEASED without one, "released" would become a
-     * second, independently-settable assertion — and the console's release-readiness projection,
-     * which reads BOTH, would then be reconciling two things that could disagree.
+     * Upstream states it outright: `appendInternalReleaseDecisionRecord` is "the ONE place in V1
+     * that sets proposal_envelopes.status = 'RELEASED'". This module used to carry a `markReleased`
+     * that performed the mutation itself after checking that an M10 record existed. That check was
+     * real, but the ownership was wrong: the flip happened in a DIFFERENT transaction from the
+     * decision, so a failure between them left a durable release record against a still-SUBMITTED
+     * proposal, and "who releases" had two answers instead of one. The mutation now lives inside
+     * the M10 release unit, and this module has no method that can reach RELEASED.
      *
-     * So the record must be an INTERNAL_INFORMATIONAL_RELEASE for THIS proposal in THIS scope.
-     * Not "some release record exists": the specific one that decided this release.
+     * The transition row for that flip is appended by M10, in that same transaction.
      */
-    public function markReleased(string $proposalId, string $decisionRecordId): Outcome
-    {
-        $proposal = $this->db->one(
-            'SELECT tenant_id, workspace_id, status FROM proposal_envelopes WHERE proposal_id = ?',
-            [$proposalId]
-        );
-        if ($proposal === null) {
-            return Outcome::refuse('PROPOSAL_NOT_FOUND', [], 'PROVENANCE');
-        }
-        $status = (string) $proposal['status'];
-        if ($status === 'RELEASED') {
-            // Idempotent replay. A second release of the same proposal is not a second release.
-            return Outcome::ok(['proposal_id' => $proposalId, 'status' => 'RELEASED', 'outcome' => 'REPLAYED']);
-        }
-        if ($status !== 'SUBMITTED') {
-            return Outcome::refuse('PROPOSAL_NOT_IN_RELEASABLE_STATE', ['status' => $status], 'POLICY');
-        }
 
-        $record = $this->db->one(
-            "SELECT decision_record_id FROM decision_records
-             WHERE decision_record_id = ? AND proposal_id = ?
-               AND record_type = 'INTERNAL_INFORMATIONAL_RELEASE'
-               AND tenant_id = ? AND workspace_id = ?",
-            [$decisionRecordId, $proposalId, (string) $proposal['tenant_id'], (string) $proposal['workspace_id']]
-        );
-        if ($record === null) {
-            return Outcome::refuse('PROPOSAL_RELEASE_WITHOUT_M10_RECORD', [
-                'decision_record_id' => $decisionRecordId,
-            ], 'PROVENANCE', 'S4', 'BLOCK_RELEASE');
-        }
-
-        $now = $this->clock->now();
-
-        return $this->db->transaction(function (Database $tx) use ($proposalId, $decisionRecordId, $status, $now): Outcome {
-            $tx->run(
-                'UPDATE proposal_envelopes SET status = ? WHERE proposal_id = ? AND status = ?',
-                ['RELEASED', $proposalId, $status]
-            );
-            // M10 is the initiating actor, and the release record is the actor id: the transition
-            // names the decision that caused it rather than the service that executed it.
-            $this->appendTransition(
-                $tx, $proposalId, $status, 'RELEASED', 'INTERNAL_INFORMATIONAL_RELEASE_RECORDED',
-                'M10', $decisionRecordId, $now
-            );
-
-            return Outcome::ok(['proposal_id' => $proposalId, 'status' => 'RELEASED', 'outcome' => 'RELEASED']);
-        });
-    }
-
+    /** Append a status transition. The envelope is never mutated by this — the ledger is separate. */
     public function appendTransition(
         Database $db,
         string $proposalId,

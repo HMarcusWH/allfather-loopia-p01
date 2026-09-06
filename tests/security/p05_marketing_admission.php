@@ -60,7 +60,7 @@ $admission = new MarketingAdmission(
     $db, $clock, $evidence, $readiness, $proposals, $council, $arbiter, $ledger
 );
 $release = new P05Release(
-    $db, $clock, $ledger, $proposals, new AccessGuard($db, $clock), new Entitlements($db, $clock)
+    $db, $clock, $ledger, new AccessGuard($db, $clock), new Entitlements($db, $clock)
 );
 $assurance = new P05Assurance($db, $clock, $m11);
 

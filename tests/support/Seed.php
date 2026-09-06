@@ -504,29 +504,12 @@ final class Seed
 
         $release = null;
         if ($verdict->isOk() && $verdict->value()['verdict'] === 'ALLOW_INFORMATIONAL_RELEASE') {
-            $streamId = $m10->ensureActiveStream($scope['tenant_id'], $scope['workspace_id'], 'TEST');
-            $release = $m10->appendInternalRelease($streamId, 'Released competition briefing.', [
-                [
-                    'owner_module_id' => 'M08', 'input_object_type' => 'ARBITER_VERDICT',
-                    'input_object_id' => $verdict->value()['arbiter_verdict_id'],
-                    'input_object_version_or_digest' => $verdict->value()['basis_hash'],
-                    'reference_role' => 'VERDICT_BASIS', 'verification_status_at_record_time' => 'VERIFIED_REFERENCE',
-                ],
-                [
-                    'owner_module_id' => 'M04', 'input_object_type' => 'PROPOSAL',
-                    'input_object_id' => $proposalId,
-                    'reference_role' => 'PROPOSAL_BASIS', 'verification_status_at_record_time' => 'VERIFIED_REFERENCE',
-                ],
-                [
-                    'owner_module_id' => 'M05', 'input_object_type' => 'EVIDENCE_BUNDLE',
-                    'input_object_id' => $bundleId,
-                    'reference_role' => 'EVIDENCE_BASIS', 'verification_status_at_record_time' => 'VERIFIED_REFERENCE',
-                ],
-            ], ['proposal_id' => $proposalId])->value();
-            // The envelope advances through M04, against the M10 record just written. Setting the
-            // status directly would create the second, unbacked release claim markReleased exists
-            // to prevent — and the seed must build state the product can actually reach.
-            $m04->markReleased($proposalId, $release['decision_record_id']);
+            // The seed releases the way a product does: it hands M10 the verdict identity and
+            // nothing else. M10 validates the governed records, mints the record on the basis it
+            // read, and flips the envelope to RELEASED itself, in one transaction.
+            $release = $m10->appendInternalReleaseDecisionRecord(
+                (string) $verdict->value()['arbiter_verdict_id']
+            )->value();
         }
 
         return [
@@ -840,7 +823,7 @@ final class Seed
 
         $ledger = new DecisionLedger($db, $clock);
         $released = (new P01Release(
-            $db, $clock, $ledger, new Proposals($db, $clock), new ReleaseOutput($db, $clock, $ledger)
+            $db, $clock, $ledger, new ReleaseOutput($db, $clock, $ledger)
         ))->releaseBriefing([
             'tenant_id' => $scope['tenant_id'],
             'workspace_id' => $scope['workspace_id'],

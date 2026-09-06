@@ -39,7 +39,7 @@ $proposals = new Proposals($db, $clock);
 $ledger = new DecisionLedger($db, $clock);
 $arbiter = new Arbiter($db, $clock, new Readiness($db, $clock));
 $battlecards = new Battlecards($db, $clock, $arbiter);
-$release = new P01Release($db, $clock, $ledger, $proposals, new ReleaseOutput($db, $clock, $ledger));
+$release = new P01Release($db, $clock, $ledger, new ReleaseOutput($db, $clock, $ledger));
 
 $content = [
     'why_it_matters_safe' => 'The competitor raised list pricing on its public page.',

@@ -126,7 +126,7 @@ $catalogue = new Catalogue($db, $clock);
 $icp = new Icp($db, $clock);
 $fit = new FitHypotheses($db, $clock, $evidence, $icp);
 $queue = new ProspectQueue($db, $clock, $proposals, $evidence, $readiness, $arbiter);
-$p03Release = new P03Release($db, $clock, $ledger, $proposals, $access, $entitlements);
+$p03Release = new P03Release($db, $clock, $ledger, $access, $entitlements);
 
 $card = $cards->project([
     'tenant_id' => $scope['tenant_id'],
@@ -249,7 +249,7 @@ $stateChange = new TwinStateChange($db, $clock, $proposals, $evidence, $readines
 $twinAdmission = new TwinAdmission($db, $clock, $arbiter, $stateChange);
 $m16Output = new ReleaseOutput($db, $clock, $ledger);
 $p02Adapter = new P02Adapter($db, $m16Output);
-$twinRelease = new TwinRelease($db, $clock, $ledger, $proposals, $twins, $access, $entitlements, $p02Adapter);
+$twinRelease = new TwinRelease($db, $clock, $ledger, $twins, $access, $entitlements, $p02Adapter);
 $p02PolicySetId = $policySets
     ->seed(PolicySets::P02_TWIN_STATE_ADMISSION, $scope['tenant_id'], $scope['workspace_id'])
     ->value()['arbiter_policy_set_id'];

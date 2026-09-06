@@ -54,7 +54,7 @@ $admission = new MarketingAdmission(
     $db, $clock, $evidence, $readiness, $proposals, $council, $arbiter, $ledger
 );
 $release = new P05Release(
-    $db, $clock, $ledger, $proposals, new AccessGuard($db, $clock), $entitlements
+    $db, $clock, $ledger, new AccessGuard($db, $clock), $entitlements
 );
 
 $policySetId = (new PolicySets($db, $clock))->seed(
