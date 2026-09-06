@@ -38,10 +38,20 @@ use Allfather\Loopia\Db\Database;
  */
 final class RelationshipTwins
 {
+    /**
+     * The closed set of visibility scopes and release statuses, shared with the twin path.
+     *
+     * Deliberately the SAME constants: a scope one half of P02 accepts and the other rejects is a
+     * hole in a default-deny that neither module's own tests would see.
+     */
+    private readonly M10BindingFloor $floor;
+
     public function __construct(
         private readonly Database $db,
         private readonly Clock $clock,
+        ?M10BindingFloor $floor = null,
     ) {
+        $this->floor = $floor ?? new M10BindingFloor($db);
     }
 
     /**
@@ -247,5 +257,167 @@ final class RelationshipTwins
                 'version_digest' => $versionDigest,
             ]);
         });
+    }
+
+    /**
+     * The relationship storage release gate — validate, then write the immutable snapshot.
+     *
+     * Callers already inside a transaction use {@see releaseSnapshotTxFree}; this opens one.
+     *
+     * @param array<string, mixed> $input
+     */
+    public function releaseSnapshot(array $input): Outcome
+    {
+        return $this->db->transaction(fn (): Outcome => $this->releaseSnapshotTxFree($input));
+    }
+
+    /**
+     * The same gate WITHOUT opening a transaction — the caller must already be inside one.
+     *
+     * Every refusal returns BEFORE any write. The gate, in order:
+     *
+     *   the version exists, and is the caller's        — scope
+     *   the version is not already released            — one fresh release per version
+     *   scope and status are known                     — closed vocabularies, default-deny
+     *   the claim ceiling is not withdrawn             — SUPERSEDED and RETRACTED stay withdrawn
+     *   at least one evidence link exists              — an edge nobody cited is an assertion
+     *   a supersede target is a prior snapshot of THIS edge
+     *   the M10 binding floor                          — last, and typed
+     *
+     * @param array{
+     *     tenant_id: string, workspace_id: string, relationship_version_id: string,
+     *     visibility_scope: string, release_status: string, decision_record_id?: ?string,
+     *     supersedes_release_id?: ?string, released_by_actor_id?: ?string
+     * } $input
+     */
+    public function releaseSnapshotTxFree(array $input): Outcome
+    {
+        $version = $this->db->one(
+            'SELECT relationship_edge_id, tenant_id, workspace_id, version_sequence, claim_ceiling,
+                    version_digest
+             FROM entity_relationship_versions WHERE relationship_version_id = ?',
+            [$input['relationship_version_id']]
+        );
+        if ($version === null) {
+            return Outcome::refuse('VERSION_NOT_FOUND', [], 'PROVENANCE');
+        }
+        if ((string) $version['tenant_id'] !== $input['tenant_id']
+            || (string) $version['workspace_id'] !== $input['workspace_id']
+        ) {
+            return Outcome::refuse('SCOPE_MISMATCH', [], 'SCOPE', 'S4');
+        }
+
+        // One fresh release per version. Storage says so too with a unique index; this names the
+        // condition rather than letting the caller meet a driver error.
+        $already = (int) $this->db->scalar(
+            'SELECT COUNT(*) FROM released_entity_relationship_snapshots WHERE relationship_version_id = ?',
+            [$input['relationship_version_id']]
+        );
+        if ($already > 0) {
+            return Outcome::refuse('ALREADY_RELEASED_VERSION', [], 'POLICY');
+        }
+
+        if (!in_array($input['visibility_scope'], EntityTwins::VISIBILITY_SCOPES, true)) {
+            return Outcome::refuse('VISIBILITY_RULE_MISSING', [
+                'visibility_scope' => $input['visibility_scope'],
+            ], 'POLICY');
+        }
+        if (!in_array($input['release_status'], EntityTwins::RELEASE_STATUSES, true)) {
+            return Outcome::refuse('INVALID_RELEASE_STATUS', [
+                'release_status' => $input['release_status'],
+            ], 'POLICY');
+        }
+        if (in_array((string) $version['claim_ceiling'], ['SUPERSEDED', 'RETRACTED'], true)) {
+            return Outcome::refuse('RELEASE_CEILING_INVALID', [
+                'claim_ceiling' => (string) $version['claim_ceiling'],
+            ], 'POLICY', 'S4', 'BLOCK_RELEASE');
+        }
+
+        // An edge is a CLAIM about two companies. One that cites nothing is an assertion, and the
+        // arbiter's own rule refuses it too — this is the storage-side half of the same invariant.
+        $evidence = (int) $this->db->scalar(
+            'SELECT COUNT(*) FROM entity_relationship_evidence_links WHERE relationship_version_id = ?',
+            [$input['relationship_version_id']]
+        );
+        if ($evidence === 0) {
+            return Outcome::refuse('RELATIONSHIP_EDGE_UNSUPPORTED', [], 'POLICY', 'S4', 'BLOCK_RELEASE');
+        }
+
+        $supersedes = $input['supersedes_release_id'] ?? null;
+        if ($supersedes !== null) {
+            $prior = $this->db->one(
+                'SELECT relationship_edge_id, tenant_id FROM released_entity_relationship_snapshots
+                 WHERE released_relationship_snapshot_id = ?',
+                [$supersedes]
+            );
+            if ($prior === null
+                || (string) $prior['tenant_id'] !== $input['tenant_id']
+                || (string) $prior['relationship_edge_id'] !== (string) $version['relationship_edge_id']
+            ) {
+                return Outcome::refuse('SUPERSEDE_TARGET_NOT_FOUND', [], 'PROVENANCE', 'S4');
+            }
+        }
+
+        $floor = $this->floor->check(
+            $input['tenant_id'],
+            $input['workspace_id'],
+            $input['decision_record_id'] ?? null,
+        );
+        if (!$floor['ok']) {
+            return Outcome::refuse($floor['reason_code'], [], 'PROVENANCE', 'S4', 'BLOCK_RELEASE');
+        }
+
+        $snapshotId = Ids::new();
+        $snapshotDigest = Digest::canonicalDigest([
+            'relationshipEdgeId' => (string) $version['relationship_edge_id'],
+            'versionSequence' => (int) $version['version_sequence'],
+            'versionDigest' => (string) $version['version_digest'],
+            'claimCeiling' => (string) $version['claim_ceiling'],
+            'visibilityScope' => $input['visibility_scope'],
+            'releaseStatus' => $input['release_status'],
+            'supersedesReleaseId' => $supersedes,
+        ]);
+        $now = $this->clock->now();
+
+        $this->db->insert('released_entity_relationship_snapshots', [
+            'released_relationship_snapshot_id' => $snapshotId,
+            'schema_version' => '1',
+            'tenant_id' => $input['tenant_id'],
+            'workspace_id' => $input['workspace_id'],
+            'relationship_edge_id' => (string) $version['relationship_edge_id'],
+            'relationship_version_id' => $input['relationship_version_id'],
+            'claim_ceiling' => (string) $version['claim_ceiling'],
+            'visibility_scope' => $input['visibility_scope'],
+            'snapshot_digest' => $snapshotDigest,
+            'release_status' => $input['release_status'],
+            'supersedes_release_id' => $supersedes,
+            'decision_record_id' => $input['decision_record_id'],
+            'released_at' => $now,
+            'released_by_actor_id' => $input['released_by_actor_id'] ?? null,
+        ]);
+
+        $this->db->insert('entity_relationship_status_history', [
+            'relationship_status_history_id' => Ids::new(),
+            'schema_version' => '1',
+            'tenant_id' => $input['tenant_id'],
+            'relationship_edge_id' => (string) $version['relationship_edge_id'],
+            'from_status' => null,
+            'to_status' => 'ACTIVE',
+            'reason_code' => $supersedes !== null ? 'SNAPSHOT_SUPERSEDED' : 'SNAPSHOT_RELEASED',
+            'initiated_by_actor_type' => 'SERVICE',
+            'initiated_by_actor_id' => $input['released_by_actor_id'] ?? 'system',
+            'transitioned_at' => $now,
+        ]);
+        $this->db->run(
+            "UPDATE entity_relationship_edges SET status = 'ACTIVE', updated_at = ?
+             WHERE relationship_edge_id = ?",
+            [$now, (string) $version['relationship_edge_id']]
+        );
+
+        return Outcome::ok([
+            'outcome' => 'RELEASED',
+            'released_relationship_snapshot_id' => $snapshotId,
+            'snapshot_digest' => $snapshotDigest,
+        ]);
     }
 }

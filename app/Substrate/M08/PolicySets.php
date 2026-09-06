@@ -359,6 +359,74 @@ final class PolicySets
         ],
     ];
 
+    public const P02_RELATIONSHIP_STATE_ADMISSION = [
+        'policy_key' => 'P02_RELATIONSHIP_STATE_ADMISSION',
+        'policy_version' => 'v1',
+        'display_name' => 'P02 entity relationship state admission policy',
+        'purpose_summary' => 'P02 relationship state-change admission for ENTITY_RELATIONSHIP_STATE_CHANGE. Internal evidence-backed relationship snapshots only; never an unsupported edge, never an unapproved anchor, never a restricted-licence basis, never a direct mutation of a released snapshot.',
+        'applicable_proposal_types' => ['ENTITY_RELATIONSHIP_STATE_CHANGE'],
+        'applicable_requested_action_classes' => ['RELEASE_INTELLIGENCE'],
+        'available_verdicts' => [
+            'ALLOW_INFORMATIONAL_RELEASE', 'REQUIRE_MORE_EVIDENCE', 'REQUIRE_REVISION',
+            'HOLD', 'BLOCK', 'QUARANTINE', 'REQUIRE_INCIDENT_EVALUATION',
+        ],
+        'default_fail_closed_verdict' => 'HOLD',
+        'rules' => [
+            // The non-overridable integrity rule: highest P02 priority, BLOCK plus an incident.
+            [
+                'rule_key' => 'p02rel_direct_mutation_of_released_snapshot',
+                'rule_category' => 'P02_RELATIONSHIP_STATE_ADMISSION',
+                'rule_summary' => 'A relationship version already bound to a released snapshot may not be re-released; a correction supersedes.',
+                'check_type' => 'CONDITION_CHECK',
+                'failure_effect' => 'BLOCK',
+                'incident_evaluation_if_failed' => 1,
+                'priority' => 54,
+            ],
+            // The evidence and claim rules.
+            [
+                'rule_key' => 'p02rel_relationship_edge_unsupported',
+                'rule_category' => 'P02_RELATIONSHIP_STATE_ADMISSION',
+                'rule_summary' => 'A released relationship edge must carry at least one evidence link.',
+                'check_type' => 'CONDITION_CHECK',
+                'failure_effect' => 'BLOCK',
+                'priority' => 50,
+            ],
+            [
+                'rule_key' => 'p02rel_source_not_approved',
+                'rule_category' => 'P02_RELATIONSHIP_STATE_ADMISSION',
+                'rule_summary' => 'Every relationship evidence link must reference an approved or valid M05 anchor.',
+                'check_type' => 'ENUM_STATUS',
+                'failure_effect' => 'BLOCK',
+                'priority' => 44,
+            ],
+            [
+                'rule_key' => 'p02rel_license_restricts_use',
+                'rule_category' => 'P02_RELATIONSHIP_STATE_ADMISSION',
+                'rule_summary' => 'A relationship version whose allowed use is RESTRICTED cannot back a release.',
+                'check_type' => 'CONDITION_CHECK',
+                'failure_effect' => 'BLOCK',
+                'priority' => 42,
+            ],
+            // Unfinished rather than wrong.
+            [
+                'rule_key' => 'p02rel_uncertainty_missing',
+                'rule_category' => 'P02_RELATIONSHIP_STATE_ADMISSION',
+                'rule_summary' => 'An uncertainty summary is required for relationship release.',
+                'check_type' => 'REQUIRED_REFERENCE',
+                'failure_effect' => 'REQUIRE_MORE_EVIDENCE',
+                'priority' => 40,
+            ],
+            [
+                'rule_key' => 'p02rel_release_ceiling_missing',
+                'rule_category' => 'P02_RELATIONSHIP_STATE_ADMISSION',
+                'rule_summary' => "The version's claim ceiling must be a releasable internal ceiling, not SUPERSEDED or RETRACTED.",
+                'check_type' => 'ENUM_STATUS',
+                'failure_effect' => 'HOLD',
+                'priority' => 32,
+            ],
+        ],
+    ];
+
     public const P04_DISTRIBUTION_ADMISSION = [
         'policy_key' => 'P04_DISTRIBUTION_ADMISSION',
         'policy_version' => 'v1',

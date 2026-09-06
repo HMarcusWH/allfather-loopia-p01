@@ -58,6 +58,9 @@ final class RuleEngine
             'ENTITY_TWIN_STATE_CHANGE' => [
                 'P02_TWIN_STATE_ADMISSION' => self::loadP02Context($db, $proposalId),
             ],
+            'ENTITY_RELATIONSHIP_STATE_CHANGE' => [
+                'P02_RELATIONSHIP_STATE_ADMISSION' => self::loadP02RelationshipContext($db, $proposalId),
+            ],
             'INTELLIGENCE_DISTRIBUTION_ROUTING' => [
                 'P04_DISTRIBUTION_ADMISSION' => self::loadP04Context($db, $proposalId),
             ],
@@ -656,6 +659,182 @@ final class RuleEngine
         return self::refuse($rule, [$reason, 'ARBITER_P02_TWIN_STATE_ADMISSION_DENIED'], $failClosed, $incident);
     }
 
+    /**
+     * The P02 RELATIONSHIP context: the bound version, its evidence links, and whether any of them
+     * rests on an approved anchor.
+     *
+     * @return array<string, mixed>|null null when the proposal binds no relationship state change
+     */
+    public static function loadP02RelationshipContext(Database $db, string $proposalId): ?array
+    {
+        $binding = $db->one(
+            'SELECT c.relationship_version_id, v.claim_ceiling, v.tenant_id, v.workspace_id,
+                    v.allowed_use, v.uncertainty_summary_safe
+             FROM entity_relationship_state_change_proposals c
+             JOIN entity_relationship_versions v
+               ON v.relationship_version_id = c.relationship_version_id
+             WHERE c.proposal_id = ?
+             ORDER BY c.created_at DESC, c.entity_relationship_state_change_proposal_id DESC LIMIT 1',
+            [$proposalId]
+        );
+        if ($binding === null) {
+            return null;
+        }
+
+        $links = $db->all(
+            'SELECT evidence_id, source_ref_id, source_basis FROM entity_relationship_evidence_links
+             WHERE relationship_version_id = ?',
+            [(string) $binding['relationship_version_id']]
+        );
+        $approved = 0;
+        foreach ($links as $link) {
+            if (self::p02SourceLinkApproved(
+                $db,
+                $link,
+                (string) $binding['tenant_id'],
+                (string) $binding['workspace_id'],
+            )) {
+                $approved++;
+            }
+        }
+
+        return [
+            'release_ceiling' => (string) $binding['claim_ceiling'],
+            'has_uncertainty_summary' => trim((string) $binding['uncertainty_summary_safe']) !== '',
+            'restricted_use' => (string) $binding['allowed_use'] === 'RESTRICTED',
+            'evidence_link_count' => count($links),
+            'approved_evidence_link_count' => $approved,
+            'version_already_released_count' => (int) $db->scalar(
+                'SELECT COUNT(*) FROM released_entity_relationship_snapshots
+                 WHERE relationship_version_id = ?',
+                [(string) $binding['relationship_version_id']]
+            ),
+        ];
+    }
+
+    /**
+     * Is this link's basis approved?
+     *
+     * A first-party basis is SELF-APPROVED: a tenant's own manual declaration, or a prior released
+     * snapshot, needs no external anchor because there is no external party to approve it. Anything
+     * else must rest on captured or assessed evidence, or on a live source reference.
+     *
+     * The relationship links share the twin links' shape exactly, so the same rule decides both —
+     * a gate that judged the two differently would be two laws wearing one name.
+     *
+     * @param array<string, mixed> $link
+     */
+    private static function p02SourceLinkApproved(
+        Database $db,
+        array $link,
+        string $tenantId,
+        string $workspaceId,
+    ): bool {
+        if (in_array((string) $link['source_basis'], ['TENANT_PROVIDED_MANUAL', 'PRIOR_RELEASED_SNAPSHOT'], true)) {
+            return true;
+        }
+        if (($link['evidence_id'] ?? null) !== null) {
+            $status = $db->scalar(
+                'SELECT evidence_status FROM evidence_objects
+                 WHERE evidence_id = ? AND tenant_id = ? AND workspace_id = ?',
+                [(string) $link['evidence_id'], $tenantId, $workspaceId]
+            );
+            if ($status !== null && in_array((string) $status, ['CAPTURED', 'ASSESSED'], true)) {
+                return true;
+            }
+        }
+        if (($link['source_ref_id'] ?? null) !== null) {
+            $status = $db->scalar(
+                'SELECT status FROM source_references
+                 WHERE source_ref_id = ? AND tenant_id = ? AND workspace_id = ?',
+                [(string) $link['source_ref_id'], $tenantId, $workspaceId]
+            );
+            if ($status !== null && in_array((string) $status, ['REGISTERED', 'ACTIVE_FOR_CAPTURE'], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The six P02_RELATIONSHIP_STATE_ADMISSION checks.
+     *
+     * A missing relationship context — a proposal that is not an ENTITY_RELATIONSHIP_STATE_CHANGE —
+     * makes every rule NOT_APPLICABLE rather than failing it. A rule that judged a proposal it was
+     * not written for would be answering a question nobody asked.
+     *
+     * @param array<string, mixed> $rule
+     * @param array<string, mixed>|null $ctx
+     * @return array<string, mixed>
+     */
+    private static function evalP02Relationship(array $rule, ?array $ctx, string $failClosed): array
+    {
+        if ($ctx === null) {
+            return self::notApplicable($rule);
+        }
+
+        $incident = (int) ($rule['incident_evaluation_if_failed'] ?? 0) === 1;
+        $failed = null;
+        $reason = '';
+
+        switch ((string) $rule['rule_key']) {
+            case 'p02rel_direct_mutation_of_released_snapshot':
+                // A released snapshot is immutable. A version already bound to one is corrected by
+                // superseding it, never by releasing the same version again.
+                $failed = (int) $ctx['version_already_released_count'] > 0;
+                $reason = 'DIRECT_MUTATION_OF_RELEASED_SNAPSHOT';
+                break;
+
+            case 'p02rel_relationship_edge_unsupported':
+                $failed = (int) $ctx['evidence_link_count'] === 0;
+                $reason = 'RELATIONSHIP_EDGE_UNSUPPORTED';
+                break;
+
+            case 'p02rel_source_not_approved':
+                // EVERY link must be approved, not merely one of them: a single unapproved anchor
+                // is enough to make the edge rest on something nobody cleared.
+                $failed = (int) $ctx['evidence_link_count'] > 0
+                    && (int) $ctx['approved_evidence_link_count'] < (int) $ctx['evidence_link_count'];
+                $reason = 'SOURCE_NOT_APPROVED';
+                break;
+
+            case 'p02rel_license_restricts_use':
+                $failed = $ctx['restricted_use'] === true;
+                $reason = 'LICENSE_RESTRICTS_USE';
+                break;
+
+            case 'p02rel_uncertainty_missing':
+                $failed = $ctx['has_uncertainty_summary'] !== true;
+                $reason = 'UNCERTAINTY_MISSING';
+                break;
+
+            case 'p02rel_release_ceiling_missing':
+                $failed = in_array((string) $ctx['release_ceiling'], ['SUPERSEDED', 'RETRACTED'], true);
+                $reason = 'RELEASE_CEILING_MISSING';
+                break;
+
+            default:
+                return self::refuse(
+                    $rule,
+                    ['ARBITER_P02_UNKNOWN_RULE', 'ARBITER_P02_RELATIONSHIP_STATE_ADMISSION_DENIED'],
+                    $failClosed,
+                    $incident,
+                );
+        }
+
+        if ($failed !== true) {
+            return ['decision' => 'PASS', 'reason_codes' => [], 'severity' => null, 'incident' => false, 'result' => null];
+        }
+
+        return self::refuse(
+            $rule,
+            [$reason, 'ARBITER_P02_RELATIONSHIP_STATE_ADMISSION_DENIED'],
+            $failClosed,
+            $incident,
+        );
+    }
+
     /** Case-insensitive whole-phrase presence, for the prohibition vocabularies. */
     private static function mentionsAny(string $haystack, array $needles): bool
     {
@@ -1073,6 +1252,9 @@ final class RuleEngine
             'P01_RELEVANCE' => self::evalP01($rule, $context['P01_RELEVANCE'] ?? null, $failClosed),
             'P03_PROSPECT_ADMISSION' => self::evalP03($rule, $context['P03_PROSPECT_ADMISSION'] ?? null, $failClosed),
             'P02_TWIN_STATE_ADMISSION' => self::evalP02($rule, $context['P02_TWIN_STATE_ADMISSION'] ?? null, $failClosed),
+            'P02_RELATIONSHIP_STATE_ADMISSION' => self::evalP02Relationship(
+                $rule, $context['P02_RELATIONSHIP_STATE_ADMISSION'] ?? null, $failClosed
+            ),
             'P04_DISTRIBUTION_ADMISSION' => self::evalP04($rule, $context['P04_DISTRIBUTION_ADMISSION'] ?? null, $failClosed),
             'P05_MARKETING_ASSET_ADMISSION' => self::evalP05(
                 $rule, $context['P05_MARKETING_ASSET_ADMISSION'] ?? null, $proposalType, $failClosed
