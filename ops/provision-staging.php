@@ -141,7 +141,7 @@ $modules = isset($args['modules'])
     : $available;
 foreach ($modules as $module) {
     if (!in_array($module, $available, true)) {
-        $fail("module {$module} is not provisionable; available: " . implode(',', $available));
+        $fail("module {$module} is not provisionable; available: " . implode(', ', $available));
     }
 }
 
