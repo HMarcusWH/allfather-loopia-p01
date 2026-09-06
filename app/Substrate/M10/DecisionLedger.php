@@ -50,6 +50,15 @@ final class DecisionLedger
      */
     private const RELEASE_RECORD_TYPE = 'INTERNAL_INFORMATIONAL_RELEASE';
 
+    /**
+     * The service identity M10's own governed wrappers write under.
+     *
+     * Upstream's three wrappers — `appendInternalReleaseDecisionRecord`,
+     * `appendActionOutcomeDecisionRecord` and `appendDecisionCorrection` — each default to this
+     * exact string when the caller supplies none. A record M10 minted on its own authority says so.
+     */
+    public const SERVICE_IDENTITY_M10 = 'service:m10-decision-ledger';
+
     public function __construct(
         private readonly Database $db,
         private readonly Clock $clock,
@@ -319,6 +328,20 @@ final class DecisionLedger
     /**
      * Append a decision record.
      *
+     * `$recordedByServiceIdentityId` is a REQUIRED positional parameter, and that is deliberate.
+     * Upstream types it as `recordedByServiceIdentityId: string` on `AppendDecisionRecordInput` —
+     * non-optional, so a caller that omits it does not compile and no fallback exists to reach.
+     * PHP has no compile step, and the closest equivalent to "this cannot be omitted" is a
+     * required parameter: omitting it is an `ArgumentCountError` at the call site, visible to
+     * static analysis, with no default to silently absorb it. It is NOT read out of `$fields`,
+     * because a second way to supply a value is a way to supply none.
+     *
+     * The alternative the port had was worse than a missing check. `$fields[...] ?? $recordId`
+     * defaulted the writer to the id of the record being written, which satisfies NOT NULL and
+     * destroys the column's meaning: the record claimed to have been written by itself, and
+     * "which service wrote this?" answered with the record. Provenance that names its own subject
+     * is not provenance.
+     *
      * @param list<array<string, mixed>> $inputReferences each: owner_module_id, input_object_type,
      *        input_object_id, reference_role, and optionally input_object_version_or_digest and
      *        verification_status_at_record_time
@@ -331,6 +354,7 @@ final class DecisionLedger
         string $primaryOutcomeStatus,
         string $safeDecisionSummary,
         array $inputReferences,
+        string $recordedByServiceIdentityId,
         array $fields = [],
     ): Outcome {
         // Record-type guard. The release record is not reachable from here under ANY argument:
@@ -348,6 +372,7 @@ final class DecisionLedger
             $primaryOutcomeStatus,
             $safeDecisionSummary,
             $inputReferences,
+            $recordedByServiceIdentityId,
             $fields,
         );
     }
@@ -373,8 +398,20 @@ final class DecisionLedger
         string $primaryOutcomeStatus,
         string $safeDecisionSummary,
         array $inputReferences,
+        string $recordedByServiceIdentityId,
         array $fields = [],
     ): Outcome {
+        // A programmer contract, not a governed refusal. Upstream's type makes an absent writer
+        // impossible rather than refusable, so there is no canonical reason code for it and
+        // inventing one would put a compile error onto the conformance surface. A blank string
+        // would satisfy the type upstream and NOT NULL here while naming nobody, so it is refused
+        // as the same fault in a quieter shape. No runtime caller can reach this.
+        if (trim($recordedByServiceIdentityId) === '') {
+            throw new \InvalidArgumentException(
+                'M10 append requires a service identity for recorded_by_service_identity_id'
+            );
+        }
+
         // Canonical-basis gate, evaluated BEFORE the transaction so a rejection moves no head.
         if ($inputReferences === []) {
             return Outcome::refuse('LEDGER_MANDATORY_INPUT_REFERENCE_MISSING', ['missing' => ['ANY']]);
@@ -386,7 +423,7 @@ final class DecisionLedger
 
         return $this->db->transaction(function (Database $tx) use (
             $ledgerStreamId, $recordType, $materialityClass, $primaryOutcomeStatus,
-            $safeDecisionSummary, $inputReferences, $fields
+            $safeDecisionSummary, $inputReferences, $recordedByServiceIdentityId, $fields
         ): Outcome {
             $stream = $tx->one(
                 'SELECT tenant_id, workspace_id, status, current_head_record_id, current_head_chain_hash,
@@ -468,7 +505,7 @@ final class DecisionLedger
                 'current_reliance_status' => $reliance,
                 'record_payload_digest' => $payloadDigest,
                 'hash_algorithm' => 'sha256',
-                'recorded_by_service_identity_id' => (string) ($fields['recorded_by_service_identity_id'] ?? $recordId),
+                'recorded_by_service_identity_id' => $recordedByServiceIdentityId,
                 'recorded_at' => $now,
             ]);
 
@@ -705,13 +742,17 @@ final class DecisionLedger
                     'RELEASED_INTERNAL',
                     'Internal informational release recorded after M08 ALLOW verdict.',
                     $references,
+                    // The wrapper owns the default, exactly as upstream's
+                    // `input.recordedByServiceIdentityId ?? "service:m10-decision-ledger"` does. A
+                    // product module that releases without naming itself has M10 named as the
+                    // writer, which is true: M10 minted the record.
+                    $options['recorded_by_service_identity_id'] ?? self::SERVICE_IDENTITY_M10,
                     [
                         'reason_codes' => ['M10_INTERNAL_RELEASE_RECORDED'],
                         'mission_id' => (string) $verdict['mission_id'],
                         'proposal_id' => $proposalId,
                         'proposal_submission_digest' => (string) $verdict['proposal_submission_digest'],
                         'correlation_id' => $options['correlation_id'] ?? null,
-                        'recorded_by_service_identity_id' => $options['recorded_by_service_identity_id'] ?? null,
                     ],
                 );
                 if ($appended->isRefusal()) {
@@ -909,7 +950,12 @@ final class DecisionLedger
         string $safeChangeSummary,
         string $newRelianceStatus = 'SUPERSEDED',
         ?string $correlationId = null,
+        ?string $recordedByServiceIdentityId = null,
     ): Outcome {
+        // Upstream `appendDecisionCorrection` takes an OPTIONAL writer and defaults it to M10's own
+        // service identity. A correction the ledger itself minted is M10's record, and saying so is
+        // the whole point of the column.
+        $writer = $recordedByServiceIdentityId ?? self::SERVICE_IDENTITY_M10;
         $original = $this->db->one(
             'SELECT ledger_stream_id, record_payload_digest, mission_id, proposal_id, proposal_submission_digest
              FROM decision_records WHERE decision_record_id = ?',
@@ -921,7 +967,7 @@ final class DecisionLedger
 
         return $this->db->transaction(function (Database $tx) use (
             $original, $originalDecisionRecordId, $changeType, $authoritySourceModuleId,
-            $authoritySourceObjectId, $safeChangeSummary, $newRelianceStatus, $correlationId
+            $authoritySourceObjectId, $safeChangeSummary, $newRelianceStatus, $correlationId, $writer
         ): Outcome {
             $appended = $this->append(
                 (string) $original['ledger_stream_id'],
@@ -946,6 +992,7 @@ final class DecisionLedger
                         'verification_status_at_record_time' => 'VERIFIED_REFERENCE',
                     ],
                 ],
+                $writer,
                 [
                     'reason_codes' => ["M10_{$changeType}"],
                     'mission_id' => $original['mission_id'],

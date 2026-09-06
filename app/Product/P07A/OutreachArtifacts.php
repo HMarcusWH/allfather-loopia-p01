@@ -338,7 +338,11 @@ final class OutreachArtifacts
                 );
 
                 return Outcome::refuse('FROZEN_PAYLOAD_MUTATED', [], 'INTEGRITY', 'S4', 'BLOCK_RELEASE');
-            });
+            },
+                // Upstream performs both REVOKEs with no transaction and then returns the refusal, so they persist.
+            // An artifact whose payload changed after freezing is not one to retry with, and an
+            // authorization left ISSUED would invite exactly that.
+                commitOnRefusal: true);
         }
 
         return $this->db->transaction(function (Database $tx) use ($input, $auth, $now): Outcome {

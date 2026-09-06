@@ -68,6 +68,9 @@ final class RelationshipTwins
         string $targetTwinId,
         string $relationshipType,
         string $direction = 'SOURCE_TO_TARGET',
+        // Upstream's `initiatedByActorId?: string`. Optional there and optional here; what it must
+        // NOT do is fall back to the edge's own id when nobody supplies one.
+        ?string $createdByActorId = null,
     ): Outcome {
         if ($sourceTwinId === $targetTwinId) {
             // Refused here AND storage-pinned. "X competes with X" is not a weak claim; it is not a
@@ -98,7 +101,7 @@ final class RelationshipTwins
 
         return $this->db->transaction(function (Database $tx) use (
             $edgeId, $tenantId, $workspaceId, $sourceTwinId, $targetTwinId,
-            $relationshipType, $direction, $now
+            $relationshipType, $direction, $now, $createdByActorId
         ): Outcome {
             $tx->insert('entity_relationship_edges', [
                 'relationship_edge_id' => $edgeId,
@@ -121,8 +124,13 @@ final class RelationshipTwins
                 'from_status' => null,
                 'to_status' => 'ACTIVE',
                 'reason_code' => 'CREATED',
-                'initiated_by_actor_type' => 'SERVICE',
-                'initiated_by_actor_id' => $edgeId,
+                // Upstream hardcodes SYSTEM as the actor TYPE on this history table and defaults the actor
+                // ID to the string "system" — `input.initiatedByActorId ?? "system"`. The port used
+                // the edge's OWN id, so a row asked "who put this here?" answered with the thing
+                // that was put there. It is the same fault the M10 writer column had, and the two
+                // sibling release paths in this file already do it correctly.
+                'initiated_by_actor_type' => 'SYSTEM',
+                'initiated_by_actor_id' => $createdByActorId ?? 'system',
                 'transitioned_at' => $now,
             ]);
 
@@ -404,7 +412,8 @@ final class RelationshipTwins
             'from_status' => null,
             'to_status' => 'ACTIVE',
             'reason_code' => $supersedes !== null ? 'SNAPSHOT_SUPERSEDED' : 'SNAPSHOT_RELEASED',
-            'initiated_by_actor_type' => 'SERVICE',
+            // SYSTEM, as upstream's appendRelationshipStatusHistory hardcodes for every row.
+            'initiated_by_actor_type' => 'SYSTEM',
             'initiated_by_actor_id' => $input['released_by_actor_id'] ?? 'system',
             'transitioned_at' => $now,
         ]);

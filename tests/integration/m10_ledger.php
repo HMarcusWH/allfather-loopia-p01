@@ -46,7 +46,7 @@ Assert::same(
 
 // --- THE canonical-basis gate (M10-DEC-006) --------------------------------------------------------
 
-$noBasis = $ledger->append($streamId, 'PROPOSAL_HELD', 'GOVERNANCE_MATERIAL', 'HELD', 'held', []);
+$noBasis = $ledger->append($streamId, 'PROPOSAL_HELD', 'GOVERNANCE_MATERIAL', 'HELD', 'held', [], 'service:test-harness');
 Assert::true($noBasis->isRefusal(), 'a record with NO input reference is refused');
 Assert::same('LEDGER_MANDATORY_INPUT_REFERENCE_MISSING', $noBasis->reasonCode(), 'refused by name');
 
@@ -66,7 +66,7 @@ $fabricatedBasis = [
 
 $forged = $ledger->append(
     $streamId, 'INTERNAL_INFORMATIONAL_RELEASE', 'GOVERNANCE_MATERIAL', 'RELEASED_INTERNAL',
-    'forged release', $fabricatedBasis
+    'forged release', $fabricatedBasis, 'service:forger'
 );
 Assert::true($forged->isRefusal(), 'a release record CANNOT be minted through the public append');
 Assert::same(
@@ -81,7 +81,7 @@ Assert::same(
 $appendSignature = new ReflectionMethod(DecisionLedger::class, 'append');
 Assert::equalsList(
     ['ledgerStreamId', 'recordType', 'materialityClass', 'primaryOutcomeStatus',
-     'safeDecisionSummary', 'inputReferences', 'fields'],
+     'safeDecisionSummary', 'inputReferences', 'recordedByServiceIdentityId', 'fields'],
     array_map(static fn (ReflectionParameter $p): string => $p->getName(), $appendSignature->getParameters()),
     'the public append takes no capability, token or override parameter',
 );
@@ -209,7 +209,7 @@ $demoBasis = [
 ];
 $unverified = $ledger->append(
     $streamId, 'HARMLESS_DEMO_ACTION_COMPLETED', 'GOVERNANCE_MATERIAL', 'COMPLETED',
-    'unverified basis', $demoBasis
+    'unverified basis', $demoBasis, 'service:test-harness'
 );
 Assert::true($unverified->isRefusal(), 'a mandatory role present but UNVERIFIED does not satisfy the gate');
 Assert::same('LEDGER_MANDATORY_INPUT_REFERENCE_MISSING', $unverified->reasonCode(), 'refused by name');
@@ -224,7 +224,7 @@ foreach (['REQUIRED_BUT_MISSING', 'RESTRICTED_REFERENCE'] as $status) {
     $basis[4]['verification_status_at_record_time'] = $status;
     $refused = $ledger->append(
         $streamId, 'HARMLESS_DEMO_ACTION_COMPLETED', 'GOVERNANCE_MATERIAL', 'COMPLETED',
-        'basis ' . $status, $basis
+        'basis ' . $status, $basis, 'service:test-harness'
     );
     Assert::true($refused->isRefusal(), "a {$status} reference does not satisfy a mandatory role");
 }
@@ -236,6 +236,7 @@ for ($i = 0; $i < 3; $i++) {
         $streamId, 'PROPOSAL_HELD', 'GOVERNANCE_MATERIAL', 'HELD', "held {$i}",
         [['owner_module_id' => 'M04', 'input_object_type' => 'PROPOSAL', 'input_object_id' => Ids::new(),
           'reference_role' => 'PROPOSAL_BASIS']],
+        'service:test-harness',
         ['reason_codes' => ['ARBITER_HOLD']]
     );
     Assert::true($appended->isOk(), "record " . ($i + 2) . " appends");

@@ -199,6 +199,86 @@ foreach (['/public_html/index.php', '/public_html/scheduler.php', '/worker/tick.
     );
 }
 
+// ============================================================ provisioning and Sources stay aligned
+
+// A deployment projection may adapt PHP/MariaDB/Loopia seams; it may not invent production identity
+// vocabulary that canonical does not define. The provisioner used to carry dead branches for
+// CUSTOMER / PRODUCTION that could only fail later at a CHECK constraint. Refuse that target BEFORE
+// opening the database, and pin the canonical TEST vocabulary that staging/testing actually use.
+$provisioner = (string) file_get_contents($root . '/ops/provision-staging.php');
+$productionGate = strpos($provisioner, "if (\$environment === 'production') {");
+$databaseConnect = strpos($provisioner, 'Database::connect(');
+Assert::true(
+    is_int($productionGate) && is_int($databaseConnect) && $productionGate < $databaseConnect,
+    'production provisioning is refused before DB access because its identity vocabulary is not canonical',
+);
+Assert::contains(
+    "'tenant_type' => 'TEST'",
+    $provisioner,
+    'supported provisioning uses canonical TEST tenant vocabulary',
+);
+Assert::contains(
+    "'workspace_type' => 'TEST'",
+    $provisioner,
+    'supported provisioning uses canonical TEST workspace vocabulary',
+);
+Assert::contains(
+    "'environment_class' => 'TEST'",
+    $provisioner,
+    'supported provisioning uses canonical TEST environment vocabulary',
+);
+Assert::contains(
+    "\$available = ['P01', 'P02', 'P03', 'P04', 'P05'];",
+    $provisioner,
+    'the Ops composer exposes the five selected product registrations, including P02',
+);
+Assert::contains(
+    'registerEntityTwinCurator($scope)',
+    $provisioner,
+    'P02 is actually provisioned through its governed registration rather than merely named',
+);
+
+$identitySchema = (string) file_get_contents($root . '/database/migrations/001_identity_scope.sql');
+Assert::contains(
+    "CHECK (tenant_type IN ('INTERNAL_DEMO_OWNER', 'TEST', 'FUTURE_RESERVED'))",
+    $identitySchema,
+    'tenant identity vocabulary remains the pinned canonical set',
+);
+Assert::contains(
+    "CHECK (workspace_type IN ('DEMO', 'INTERNAL', 'TEST'))",
+    $identitySchema,
+    'workspace identity vocabulary remains the pinned canonical set',
+);
+Assert::contains(
+    "CHECK (environment_class IN ('LOCAL_DEV', 'TEST', 'DEMO'))",
+    $identitySchema,
+    'workspace environment vocabulary remains the pinned canonical set',
+);
+
+// The launch-facing Sources document must not lag the code it describes. Count the migration files
+// rather than baking today's number into the test, and explicitly reject the two P02 statements that
+// survived from the pre-lifecycle build.
+$capabilityReport = (string) file_get_contents($root . '/docs/LOOPIA_CAPABILITY_REPORT.md');
+$migrationCount = count(glob($root . '/database/migrations/*.sql') ?: []);
+Assert::contains(
+    sprintf('**Storage** — %d migrations', $migrationCount),
+    $capabilityReport,
+    'the capability report states the migration count that actually exists',
+);
+Assert::contains(
+    sprintf('| schema migrations | complete, %d files, idempotent |', $migrationCount),
+    $capabilityReport,
+    'the operational-readiness table uses the same real migration count',
+);
+Assert::false(
+    str_contains($capabilityReport, 'P02 is refused'),
+    'the launch-facing report no longer claims the provisioner refuses P02',
+);
+Assert::false(
+    str_contains($capabilityReport, 'no governed lifecycle past a recorded version'),
+    'the launch-facing report no longer describes the pre-lifecycle P02 implementation',
+);
+
 // ---------------------------------------------------------------- the host model, in the code
 
 // Loopia's SSH page is explicit that recurring jobs go through the Kundzon scheduler rather than a

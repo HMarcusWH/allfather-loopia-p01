@@ -160,13 +160,29 @@ foreach ($authorityCases as $label => $override) {
 
 // A contract with no CRM-outreach OUTPUT binding. The agent may analyse; producing an outreach
 // proposal is a separate grant, and this proves the two are genuinely separate.
-$unboundContract = (new \Allfather\Loopia\Substrate\M03\Registry($db, $clock))->issueContract(
-    $producer['producing_valkyrie_id'], $scope['tenant_id'], $scope['workspace_id'],
+//
+// A SECOND VALKYRIE, not a second contract on the producer. An earlier revision issued the unbound
+// contract to the producing Valkyrie, which left it holding TWO ACTIVE contracts — the state
+// `ux_capability_contracts_one_active_per_valkyrie` exists to forbid, because an agent's authority
+// then depends on which row is read first. The fixture was building the invalid state it was
+// testing around; the invariant is now enforced in the database and this seat is its own agent.
+$m03 = new \Allfather\Loopia\Substrate\M03\Registry($db, $clock);
+$unboundValkyrieId = $m03->registerValkyrie(
+    $scope['tenant_id'], $scope['workspace_id'], 'Unbound CRM Producer',
+    'CRM_EXECUTION_VALKYRIE', 'Holds an analysis contract with no outreach output binding.',
+    $scope['operator_id'], 'ACTIVE'
+);
+$unboundContract = $m03->issueContract(
+    $unboundValkyrieId, $scope['tenant_id'], $scope['workspace_id'],
     'p07.unbound', 'CRM_EXECUTION_VALKYRIE', ['OBSERVE', 'ANALYZE']
 )->value()['capability_contract_id'];
 $unbound = $admission->submitProposal([
     ...$submitInput,
-    'governance' => [...$governance, 'capability_contract_id' => $unboundContract],
+    'governance' => [
+        ...$governance,
+        'producing_valkyrie_id' => $unboundValkyrieId,
+        'capability_contract_id' => $unboundContract,
+    ],
 ]);
 Assert::same('PRODUCER_NOT_AUTHORIZED', $unbound->reasonCode(), 'a contract with no output binding cannot');
 Assert::same(

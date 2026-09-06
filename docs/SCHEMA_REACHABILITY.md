@@ -2,7 +2,7 @@
 
 **Plane:** Ops — schema derivation record.
 **Canonical schema authority:** `packages/allfather-control-substrate/src/db/schema.ts` @ `c6d9cf9a7a1001b001ca6118999e9cb75c831c4d`
-**Target:** MariaDB 10.6+ / InnoDB (developed and tested against 10.11.14)
+**Target:** MariaDB 10.6+ / InnoDB (developed and tested against 10.11.19)
 
 The canonical SQLite schema is **structure and invariant authority, not copy-paste SQL**. This
 document records how the MariaDB schema was derived and which upstream tables are in or out.
@@ -355,14 +355,54 @@ Applied uniformly; deviations are recorded per table in the migration files.
 | implicit rowid ordering | explicit `(created_at, <pk>)` total order | closes the upstream TF7-09 `created_at DESC LIMIT 1` ambiguity in the ported selectors |
 | no engine concept | `ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci` | transactions, FKs, row locking for job leases |
 | FK enforcement optional | `FOREIGN KEY` always declared | tenant/workspace authority chains must not be application-only |
-| partial `UNIQUE ... WHERE <predicate>` | documented in the migration; **non-unique** lookup index installed; predicate enforced in the application and proved in tests | MariaDB has no partial index. Applied to ~17 canonical partial indexes; each is named in its migration with its canonical definition and predicate |
-| partial `UNIQUE ... WHERE status = 'ACTIVE'` on `decision_ledger_streams` | a **generated column** that is `NULL` wherever the predicate excludes a row, inside an ordinary `UNIQUE` index | the exception, and deliberately so — see below |
+| partial `UNIQUE ... WHERE <predicate>`, where a race cannot widen authority | documented in the migration; **non-unique** lookup index installed; predicate enforced in the application and proved in tests | MariaDB has no partial index. Applied to 18 of the 25 canonical partial indexes; each is named in its migration with its canonical definition and predicate |
+| partial `UNIQUE ... WHERE <predicate>`, where a race CAN widen authority | a **generated column** that is `NULL` wherever the predicate excludes a row, inside an ordinary `UNIQUE` index — **database-enforced** | 7 of 25: one in migration 140 and six more in migration 160, classified below |
 
-**Why one partial index gets a different translation.** The standing translation above is adequate
+**Why some partial indexes get a different translation.** The standing translation above is adequate
 where the predicate guards a preference. It is not adequate where the predicate guards whether two
-competing ledger HEADS can exist for one scope. Application enforcement of a uniqueness predicate is
+competing AUTHORITIES can exist for one scope. Application enforcement of a uniqueness predicate is
 a read followed by a write, and two callers can both pass the read before either does the write — so
-"at most one ACTIVE stream" was a statement about load, not about the database.
+"at most one ACTIVE X" was a statement about load, not about the database.
+
+**The classification, and the one question behind it.** All 25 canonical partial UNIQUE indexes were
+sorted by asking: *if two rows exist where the predicate permits one, can a caller end up with MORE
+AUTHORITY than the governed state grants?* Seven answer yes. One —
+`ux_decision_ledger_streams_active_scope` — was already promoted to database enforcement in
+migration 140; migration 160 adds the remaining six. The other eighteen retain the standing
+application/lookup translation or are unreachable from the selected graph.
+
+| Index | Enforcement | Why |
+| --- | --- | --- |
+| `ux_decision_ledger_streams_active_scope` | **database** (mig. 140) | two competing ledger heads for one scope |
+| `ux_capability_contracts_one_active_per_valkyrie` | **database** (mig. 160) | a contract IS an agent's permitted action classes; two make its authority depend on read order |
+| `ux_output_visibility_profiles_one_active` | **database** (mig. 160) | the M16 audience ceiling; two are two answers to "what may this audience see?" |
+| `ux_output_access_rules_one_active` | **database** (mig. 160) | the same, per artifact kind |
+| `ux_tenant_subscriptions_one_live` | **database** (mig. 160) | the tier gate every product surface consults |
+| `ux_subscription_tiers_one_active` | **database** (mig. 160) | two ACTIVE definitions of one tier are two answers to what the product grants |
+| `ux_arbiter_policy_sets_scope_one_active` | **database** (mig. 160) | the rules an admission is judged by; ALLOW or BLOCK would depend on row order. This table had **no index at all** — not even the `_np` lookup index the standing translation calls for |
+| `ux_audit_profiles_active_key`, `ux_replay_profiles_active_key` | application | an audit grants nothing — `does_not_grant_authority` is CHECK-pinned to 1 |
+| `ux_company_signals_admission_idempotency`, `ux_entity_twin_state_change_admission_idempotency`, `ux_entity_rel_state_change_admission_idempotency`, `ux_console_command_intents_idempotency` | application | a race duplicates work; it does not widen authority |
+| `ux_customer_product_catalogues_active`, `ux_icp_profiles_one_active` | application | internal read models, gated downstream by M02 **and** the tenant tier |
+| `ux_ingestion_fetch_plans_one_active`, `ux_ingestion_entity_aliases_active` | application | live read is inert; nothing constructs the transport (pinned by the foundation suite) |
+| `ux_exec_refs_terminal_dispatch`, `ux_decision_input_references_action_ack` | not reachable | no M01 host adapter and no general M09 execution plane in the selected graph |
+| `ux_trait_*`, `ux_entity_*_anchor_candidates_active_key`, `ux_adaptive_config_proposals_active_payload` | not reachable | outside the selected graph entirely |
+
+**One of the six added by migration 160 is narrower than canonical, and it is a host limit rather
+than a preference.** Canonical keys `ux_arbiter_policy_sets_scope_one_active` by
+`COALESCE(tenant_id, '*'), COALESCE(workspace_id, '*'), policy_key`, so platform-wide sets — whose
+scope columns are NULL, and NULLs never collide — still collide with each other. **MariaDB refuses a
+string literal inside an indexable generated column** (error 1901). Every spelling was tried on
+10.11.19: `COALESCE`, `IFNULL`, `CASE`, `CAST`, `CONCAT`, `COLLATE` on the expression, `COLLATE` on
+the column, `VIRTUAL` and `STORED`. A column-to-column `CASE` with no literal is accepted, which is
+what identifies the literal as the cause — the literal takes the connection's character set while
+the column takes the table's, so the result's collation depends on who is connected.
+
+So the sentinel is dropped, and the rows it existed for cannot be created here. The sole writer of
+that table is `M08\PolicySets::seed(array, string $tenantId, string $workspaceId)`, whose scope
+parameters are non-nullable. `tests/security/authority_uniqueness.php` asserts the unreachability
+three ways — reflection on those parameters, a repository scan for other writers, and a query for
+existing NULL-scoped rows — rather than trusting the migration's comment, because the day someone
+adds a platform-wide seed is the day this index stops covering everything.
 
 MariaDB has no partial index but it has an exact equivalent for this shape:
 
@@ -378,7 +418,7 @@ CREATE UNIQUE INDEX ux_decision_ledger_streams_active_scope
 NULLs are distinct in a unique index, so every non-ACTIVE row is exempt and ACTIVE rows collide
 exactly when `(tenant, workspace, environment)` repeats. It binds on `INSERT` and on an `UPDATE`
 that moves a row *into* `ACTIVE` — the second half being the one a hand-rolled check usually misses.
-Migration `140_m10_stream_identity.sql`; verified on 10.6.28 and 10.11.14.
+Migrations `140_m10_stream_identity.sql` and `160_authority_partial_indexes.sql`; both verified on 10.6.28 and 10.11.19, applied from an empty database and re-applied with 0 drift.
 
 **The chain, stated without rounding up:**
 
@@ -388,6 +428,16 @@ Migration `140_m10_stream_identity.sql`; verified on 10.6.28 and 10.11.14.
 | MariaDB translation | generated column + `UNIQUE` index — **database-enforced**, not advisory |
 | application | `ensureActiveStream` finds, creates, and on a losing race re-finds and converges; the pre-check in `createStream` returns a named refusal instead of an exception, but is **not** the enforcement |
 | tests | `tests/conformance/m10_stream_identity.php` (identity, keys, anchors, callers) and `tests/security/m10_stream_concurrency.php` (two real connections; the index proved to reject a forged second ACTIVE row and a reactivation) |
+
+Each of the six added by migration 160 is proved three ways in
+`tests/security/authority_uniqueness.php`, because a unique index has three failure modes and testing
+one proves little: a second row inside the predicate collides; rows OUTSIDE it coexist freely (an
+index that rejected those would break the supersession history every one of these tables keeps); and
+an `UPDATE` that moves a row INTO the predicate collides too. That third case is the half a
+hand-rolled application check almost always forgets, and dropping the indexes while keeping the
+application checks fails exactly it — including for capability contracts, where nothing in the
+application guards reactivation at all. The earlier M10 stream case is separately proved by
+`tests/security/m10_stream_concurrency.php`.
 
 ### Append-only protections
 

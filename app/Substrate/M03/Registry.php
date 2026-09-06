@@ -209,6 +209,28 @@ final class Registry
             }
         }
 
+        // AT MOST ONE ACTIVE CONTRACT PER VALKYRIE. A contract IS an agent's permitted action
+        // classes, so two ACTIVE ones make its authority depend on which row a query returns first
+        // — the union in practice, since nothing picks deliberately between them.
+        //
+        // Upstream says where the enforcement lives, in a comment on this exact rule: "The partial
+        // UNIQUE index enforces 'at most one ACTIVE contract per valkyrie', but surface a" named
+        // refusal. This port had NEITHER: no index (migration 160 adds it) and no check. The check
+        // below is upstream's courtesy — a caller gets a reason code instead of a driver error —
+        // and the index is what actually holds when two callers pass this read at once.
+        if ($status === 'ACTIVE') {
+            $active = $this->db->one(
+                "SELECT 1 AS hit FROM capability_contracts
+                 WHERE valkyrie_id = ? AND status = 'ACTIVE' LIMIT 1",
+                [$valkyrieId]
+            );
+            if ($active !== null) {
+                return Outcome::refuse('VALKYRIE_HAS_ACTIVE_CONTRACT', [
+                    'valkyrie_id' => $valkyrieId,
+                ], 'CONTRACT', 'S4');
+            }
+        }
+
         $contractId = Ids::new();
         $now = $this->clock->now();
         // The NEXT version for this Valkyrie. Contracts are append-only — a change of authority
@@ -219,54 +241,61 @@ final class Registry
             [$valkyrieId]
         );
 
-        return $this->db->transaction(function (Database $tx) use (
-            $contractId, $valkyrieId, $tenantId, $workspaceId, $contractKey, $roleClass,
-            $permittedActionClasses, $forbiddenActionClauses, $status, $now, $version
-        ): Outcome {
-            $tx->insert('capability_contracts', [
-                'capability_contract_id' => $contractId,
-                'schema_version' => '1',
-                'tenant_id' => $tenantId,
-                'workspace_id' => $workspaceId,
-                'valkyrie_id' => $valkyrieId,
-                'contract_version' => $version,
-                'role_class' => $roleClass,
-                'purpose_summary' => $contractKey,
-                'allowed_action_classes' => json_encode(array_values($permittedActionClasses), JSON_THROW_ON_ERROR),
-                'maximum_autonomy_statement' => 'Bounded to the allowed action classes; no external effect.',
-                'evidence_obligation_summary' => 'Every released claim cites admitted M05 evidence.',
-                'escalation_obligation_summary' => 'Unknown authority is refusal; escalate rather than proceed.',
-                // CHECK-pinned to 0. A capability contract in this projection can NEVER carry
-                // human-approval or execution authority — the approval seat is a separate M02 role
-                // and the execution ceiling is A/B/C.
-                'human_approval_or_execution_authority' => 0,
-                'status' => $status,
-                'valid_from' => $now,
-                'created_at' => $now,
-            ]);
-
-            foreach ($forbiddenActionClauses as $clause) {
-                $tx->insert('forbidden_action_clauses', [
-                    'forbidden_action_clause_id' => Ids::new(),
-                    'schema_version' => '1',
+        try {
+            return $this->db->transaction(function (Database $tx) use (
+                $contractId, $valkyrieId, $tenantId, $workspaceId, $contractKey, $roleClass,
+                $permittedActionClasses, $forbiddenActionClauses, $status, $now, $version
+            ): Outcome {
+                $tx->insert('capability_contracts', [
                     'capability_contract_id' => $contractId,
-                    'forbidden_category' => $clause,
-                    'description' => $clause,
-                    'severity_if_attempted' => 'S5',
-                    'incident_evaluation_required' => 1,
-                    'status' => 'ACTIVE',
+                    'schema_version' => '1',
+                    'tenant_id' => $tenantId,
+                    'workspace_id' => $workspaceId,
+                    'valkyrie_id' => $valkyrieId,
+                    'contract_version' => $version,
+                    'role_class' => $roleClass,
+                    'purpose_summary' => $contractKey,
+                    'allowed_action_classes' => json_encode(array_values($permittedActionClasses), JSON_THROW_ON_ERROR),
+                    'maximum_autonomy_statement' => 'Bounded to the allowed action classes; no external effect.',
+                    'evidence_obligation_summary' => 'Every released claim cites admitted M05 evidence.',
+                    'escalation_obligation_summary' => 'Unknown authority is refusal; escalate rather than proceed.',
+                    // CHECK-pinned to 0. A capability contract in this projection can NEVER carry
+                    // human-approval or execution authority — the approval seat is a separate M02 role
+                    // and the execution ceiling is A/B/C.
+                    'human_approval_or_execution_authority' => 0,
+                    'status' => $status,
+                    'valid_from' => $now,
                     'created_at' => $now,
                 ]);
-            }
 
-            if ($status === 'ACTIVE') {
-                $tx->run(
-                    'UPDATE valkyries SET active_capability_contract_id = ? WHERE valkyrie_id = ?',
-                    [$contractId, $valkyrieId]
-                );
-            }
+                foreach ($forbiddenActionClauses as $clause) {
+                    $tx->insert('forbidden_action_clauses', [
+                        'forbidden_action_clause_id' => Ids::new(),
+                        'schema_version' => '1',
+                        'capability_contract_id' => $contractId,
+                        'forbidden_category' => $clause,
+                        'description' => $clause,
+                        'severity_if_attempted' => 'S5',
+                        'incident_evaluation_required' => 1,
+                        'status' => 'ACTIVE',
+                        'created_at' => $now,
+                    ]);
+                }
 
-            return Outcome::ok(['capability_contract_id' => $contractId]);
-        });
+                if ($status === 'ACTIVE') {
+                    $tx->run(
+                        'UPDATE valkyries SET active_capability_contract_id = ? WHERE valkyrie_id = ?',
+                        [$contractId, $valkyrieId]
+                    );
+                }
+
+                return Outcome::ok(['capability_contract_id' => $contractId]);
+            });
+        } catch (\PDOException $error) {
+            // The loser of a race past the read above meets the index. Upstream's caller sees a
+            // reason code, not a driver error, so the duplicate is translated into the same refusal
+            // the pre-check returns.
+            return Database::classify($error, 'VALKYRIE_HAS_ACTIVE_CONTRACT');
+        }
     }
 }

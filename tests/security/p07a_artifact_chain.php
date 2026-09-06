@@ -461,7 +461,7 @@ Assert::same(
     'recorded as a HARMLESS DEMO ACTION — the M09 ceiling is not stretched to cover outreach',
 );
 Assert::contains(
-    'No external effect occurred',
+    'P07-A synthetic outreach delivery outcome: DELIVERED (no external effect).',
     (string) $db->scalar(
         'SELECT safe_decision_summary FROM decision_records WHERE decision_record_id = ?',
         [$dispatched->value()['decision_record_id']]

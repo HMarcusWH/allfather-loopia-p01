@@ -173,6 +173,37 @@ What now enforces the sentence:
   pass that type is a private method of the ledger.
 - M04 has no method that reaches RELEASED, and no product module has a `Proposals` handle in its
   release path.
+
+### A governed command is a unit, and a refusal undoes it
+
+Upstream's composite commands are written the same way everywhere:
+`if (step.outcome !== OK) { db.exec("ROLLBACK"); return REJECTED; }`. Across the whole selected
+graph exactly ONE upstream file commits and then refuses — `p07/outreach-delivery.ts`, twice, and it
+says why: the consume's EXPIRED and payload-mutation REVOKE transitions are "legitimate persisted
+effects (a real status change, not a half-finished dispatch)".
+
+Until 2026-09-06 this port did the opposite by default. `Database::transaction()` committed whatever
+its callback returned, so a refusal RETURNED after four of five steps had written left those four
+writes durable while the caller was told the command had refused: an evidence object and a bundle
+draft with no proposal; a released briefing with both status advances and no M16 artifact. Nothing
+threw, so nothing said so. The P07-A synthetic dispatch had the same fault in a sharper form — four
+separate transactions, so a failure after the consume left a spent authorization with no outcome
+recorded against it, and no retry possible because the authorization was single-use.
+
+The rule now: **a refused or failed `Outcome` returned from inside a transaction rolls that
+transaction back.** A site that genuinely needs the writes kept passes `commitOnRefusal: true`, and
+there are exactly five, each matching something upstream persists:
+
+| Site | Why upstream persists it |
+| --- | --- |
+| `P07A\SyntheticDelivery` | upstream's own COMMIT-then-refuse, both cases |
+| `P07A\OutreachArtifacts` (consume) | upstream runs no transaction there at all, so the REVOKEs stand |
+| `M07\Council` | the `hmwh_eligibility_checks` row IS the record that the denial happened; deleting it would remove the evidence of a refusal from an append-only ledger |
+| `P02\TwinAdmission` | upstream COMMITs before returning BLOCK or QUARANTINE — a terminated state |
+| `P02\RelationshipAdmission` | change is a real status change, and one rolled back to PENDING_VERDICT invites the same content again, reworded |
+
+`tests/security/p07a_dispatch_atomicity.php` proves the rule and scans the repository to pin that
+set closed, so a sixth exception cannot arrive looking like a fix.
 - `tests/security/m10_release_ownership.php` proves each of those by reversion, including a
   repository scan asserting exactly one runtime file mutates a proposal to RELEASED;
   `tests/conformance/m10_release_conformance.php` walks CONF-M10-001…010 against the exact

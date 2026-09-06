@@ -153,6 +153,10 @@ final class TwinAdmission
                 'reason_codes' => array_values($value['reason_codes']),
                 'state_change_blocked' => $terminates,
             ], 'POLICY', (string) $value['severity']);
-        });
+        },
+            // Upstream COMMITs before returning a BLOCK or QUARANTINE. The change_status flip and its transition
+        // row are the termination itself, not a half-finished admission — a block that rolled back would
+        // leave the state change PENDING_VERDICT and invite the same content again, reworded.
+            commitOnRefusal: true);
     }
 }

@@ -144,17 +144,36 @@ final class Database
     }
 
     /**
-     * Run `$work` inside a transaction, committing on return and rolling back on any throw.
+     * Run `$work` inside a transaction: commit on success, roll back on a throw OR on a refusal.
      *
      * Nesting uses savepoints so a governed command composed of other governed commands still
      * rolls back as one unit — the upstream atomicity hardening (P02/P04/P05 post-M10 writes)
      * depends on the inner write never committing independently of the outer one.
      *
+     * A REFUSAL ROLLS BACK, AND THAT IS THE DEFAULT ON PURPOSE. Upstream's composite commands are
+     * written as `if (step.outcome !== OK) { db.exec("ROLLBACK"); return REJECTED; }` — every one
+     * of them, in every module. Across the whole selected graph exactly ONE upstream file commits
+     * and then refuses (`p07/outreach-delivery.ts`, twice, for reasons it states), and that is the
+     * only thing `$commitOnRefusal` is for.
+     *
+     * This method used to commit whatever the callback returned. A refusal RETURNED after two of
+     * five steps had already written left those two writes durable — an evidence record and a
+     * bundle draft with no proposal, a released briefing with no frozen artifact — while the caller
+     * was told the command had refused. Nothing failed, so nothing said so.
+     *
+     * The two possible defaults fail differently, which is what decides it. Defaulting to commit
+     * persists partial state silently, and the only way to notice is to look. Defaulting to roll
+     * back turns a site that genuinely needed the commit into a red test naming the effect it lost.
+     *
      * @template T
      * @param callable(self): T $work
+     * @param bool $commitOnRefusal COMMIT a refused Outcome instead of rolling it back. Only for a
+     *        refusal whose writes are a legitimate persisted status change — an authorization that
+     *        really did expire, an artifact whose payload really was mutated — rather than a
+     *        half-finished command. Upstream commits exactly these.
      * @return T
      */
-    public function transaction(callable $work): mixed
+    public function transaction(callable $work, bool $commitOnRefusal = false): mixed
     {
         if ($this->transactionDepth === 0) {
             $this->pdo->beginTransaction();
@@ -179,8 +198,23 @@ final class Database
         }
 
         $this->transactionDepth = $depth;
+        // A refused or failed Outcome undoes the unit unless the caller has said its writes are a
+        // real status change. `isOk()` is the test rather than `isRefusal()` so a FAILURE — which
+        // is strictly worse than a refusal — cannot commit through a gap in the check.
+        $undo = !$commitOnRefusal && $result instanceof Outcome && !$result->isOk();
         if ($depth === 0) {
-            $this->pdo->commit();
+            if ($undo) {
+                if ($this->pdo->inTransaction()) {
+                    $this->pdo->rollBack();
+                }
+            } else {
+                $this->pdo->commit();
+            }
+        } elseif ($undo) {
+            // Undo this savepoint's work and release it, so the OUTER unit continues with the
+            // nested command's writes gone rather than carrying them to its own commit.
+            $this->pdo->exec('ROLLBACK TO SAVEPOINT sp' . $depth);
+            $this->pdo->exec('RELEASE SAVEPOINT sp' . $depth);
         } else {
             $this->pdo->exec('RELEASE SAVEPOINT sp' . $depth);
         }

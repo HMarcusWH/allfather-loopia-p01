@@ -96,3 +96,21 @@ Pinned by `tests/security/egress_guard.php`.
 If the owning architecture wants the property to hold at policy level rather than by transport
 construction, a refusal would need a reason code, and the refusal vocabulary is closed — so this is
 an owner/architecture decision, not a code change.
+
+---
+
+## Nothing new from the 2026-09-06 repair pass
+
+Recorded because an empty result is only evidence if someone says where they looked.
+
+That pass compared the port against canonical field by field for the P07-A synthetic dispatch
+(`p07/outreach-delivery.ts`), the M10 append and its three wrappers (`m10/ledger.ts`), the
+transaction shape of every composite command in the selected graph, all 25 canonical partial UNIQUE
+indexes (`db/schema.ts`), the M03 contract activation rule (`m03/registry.ts`), and the P02 status
+history writers (`p02/entity-twins.ts`, `p02/entity-relationships.ts`).
+
+**Every divergence found was the port's.** Canonical was correct in each case, and in two of them
+canonical's own comments named the invariant the port had missed — "the no-effect path either
+records the truthful outcome or leaves the authorization unconsumed", and "The partial UNIQUE index
+enforces 'at most one ACTIVE contract per valkyrie'". No new upstream finding was opened, and no
+canonical file was modified.
