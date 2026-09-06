@@ -67,4 +67,6 @@ $result = $runner->tick(
     $env->int('SCHEDULER_LEASE_SECONDS', 300),
 );
 
+// Loopia's scheduler emails the response, so this stays small and carries no credential. An
+// INACTIVE tick is a normal, successful, zero-effect run — exit 0.
 echo json_encode($result, JSON_THROW_ON_ERROR), "\n";

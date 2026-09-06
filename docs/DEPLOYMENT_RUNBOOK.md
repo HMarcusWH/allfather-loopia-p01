@@ -207,10 +207,15 @@ with `SCHEDULER_CREDENTIAL_NOT_CONFIGURED`.
 
 **What a tick does today.** The step registry is closed and EMPTY: `LIVE_READ_ACTIVATED` is false,
 so no handler performing an external read is registered, and the internal steps are a separate act
-to wire. A tick therefore claims its bounded batch, FAILS each job with
-`STEP_HANDLER_NOT_REGISTERED` recorded in `job_transitions`, and exits. Expect that in the log. It
-is the honest behaviour of a machine whose capability nobody has granted — do not read a quiet log
-as work being done.
+to wire. The registry BOUNDS THE CLAIM, so a tick today claims nothing and reports:
+
+    {"status":"OK","claimed":0,"advanced":0,"failed":0,"released":0,
+     "executable_states":[],"stopped_reason":"SCHEDULER_INACTIVE"}
+
+That is a successful run with zero effect. No lease is taken, no attempt is consumed, no transition
+is written — so a scheduler firing every fifteen minutes against an inactive capability leaves every
+waiting job exactly as claimable on the day it is switched on. **Do not read a quiet log as work
+being done**, and do not read `SCHEDULER_INACTIVE` as a fault.
 
 ## 7. Monitoring
 

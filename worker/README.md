@@ -28,12 +28,19 @@ GET a crawler, prefetch or link preview will eventually perform.
 - **It accepts no work definition.** No job id, no job type, no step — the endpoint reads neither
   query nor body. A scheduler that accepted one would be a remote execution surface with a timer
   attached.
-- **The step registry is closed and currently EMPTY.** `LIVE_READ_ACTIVATED` is false, so no
-  handler that performs an external read is registered, and the internal steps are a separate act
-  to wire. A claimed job whose state has no handler is FAILED by name
-  (`STEP_HANDLER_NOT_REGISTERED`) rather than skipped: a skip would leave it claimed, leased and
-  indistinguishable from work in progress.
+- **The step registry is closed, currently EMPTY, and it BOUNDS WHAT IS CLAIMED.** A job is
+  claimed only when a handler is registered for its exact current state. The registry is read from
+  the runner, never from the request, so bounding the claim by it cannot become a way for a caller
+  to choose which work runs.
+- **An inactive capability consumes nothing.** No lease, no attempt, no transition, no row touched.
+  A tick with an empty registry is indistinguishable, from the jobs' point of view, from a tick
+  that never happened — so a scheduler firing every fifteen minutes against a capability nobody has
+  switched on still leaves every waiting job claimable on the day it is.
 
-So a tick against this projection today claims eligible jobs, fails them with that reason recorded
-in the transition ledger, and exits. That is the honest behaviour of a machine whose capability
-nobody has granted — not a placeholder.
+So a tick against this projection today claims nothing, reports `SCHEDULER_INACTIVE` with the empty
+executable set that made it so, and exits 0. That is a successful run of a machine whose capability
+nobody has granted — not a failure, and not a placeholder.
+
+An earlier revision claimed those jobs and failed them for having no handler. It was honest about
+what it was doing and still wrong: three ticks abandoned a monitoring job because live read was
+off, discarding work nobody had asked to discard.

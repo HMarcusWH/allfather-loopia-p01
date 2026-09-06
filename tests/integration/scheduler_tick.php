@@ -104,40 +104,147 @@ Assert::same('SET', $snapshot['SCHEDULER_TOKEN'], 'the token renders as SET, nev
 Assert::same('SET', $snapshot['SCHEDULER_TOKEN_HASH'], 'and so does its digest');
 Assert::same('production', $snapshot['APP_ENV'], 'while non-secret configuration renders normally');
 
-// ============================================================ an unhandled step FAILS by name
+// ============================================================ an INACTIVE tick consumes nothing
 
-$unhandledId = $enqueue('tick-unhandled');
+// The invariant this section exists for: a capability that is off must not eat the jobs waiting
+// for it. An earlier revision claimed every claimable job, failed the ones it had no handler for,
+// and burned the retry budget — three ticks and a monitoring job was ABANDONED because live read
+// had not been activated. Nobody had asked for that work to be discarded.
+$untouchedId = $enqueue('tick-untouched');
+$before = $db->one('SELECT state, attempt_count, lease_owner, run_after, updated_at FROM jobs WHERE job_id = ?', [$untouchedId]);
+
 $emptyRegistry = new SchedulerRunner($machine, []);
-$first = $emptyRegistry->tick(10, 20_000);
+$idle = $emptyRegistry->tick(10, 20_000);
 
-Assert::same(1, $first['claimed'], 'the tick claims the eligible job');
-Assert::same(0, $first['advanced'], 'and advances nothing — no handler is registered for its state');
-Assert::same(1, $first['failed'], 'the job is FAILED rather than skipped');
-Assert::same('COMPLETED', $first['stopped_reason'], 'and the tick finishes its batch');
-
+Assert::same(0, $idle['claimed'], 'a tick with an empty registry claims NOTHING');
+Assert::same(0, $idle['advanced'], 'advances nothing');
+Assert::same(0, $idle['failed'], 'and fails nothing — an inactive capability is not a failure');
+Assert::same(0, $idle['released'], 'with nothing to hand back, because nothing was taken');
 Assert::same(
-    'FAILED',
-    (string) $db->scalar('SELECT state FROM jobs WHERE job_id = ?', [$unhandledId]),
-    'the job is left FAILED, not claimed-and-silent',
+    SchedulerRunner::INACTIVE_REASON,
+    $idle['stopped_reason'],
+    'the tick reports itself INACTIVE — idle by configuration, not for want of work',
+);
+Assert::same([], $idle['executable_states'], 'and names the empty executable set that made it so');
+
+// THE ROW IS BYTE-FOR-BYTE UNTOUCHED. Not "left in a reasonable state" — untouched.
+$after = $db->one('SELECT state, attempt_count, lease_owner, run_after, updated_at FROM jobs WHERE job_id = ?', [$untouchedId]);
+Assert::same($before, $after, 'and the waiting job is completely unchanged — state, attempts, lease, backoff, timestamp');
+Assert::same(0, (int) $after['attempt_count'], 'no attempt was consumed');
+Assert::same(null, $after['lease_owner'], 'no lease was taken');
+Assert::same(
+    0,
+    (int) $db->scalar('SELECT COUNT(*) FROM job_transitions WHERE job_id = ? AND from_state IS NOT NULL', [$untouchedId]),
+    'and no transition was written — the ledger is silent because nothing happened',
+);
+
+// Repeated ticks do not accumulate damage either. A scheduler firing every fifteen minutes against
+// an inactive capability must still leave the job claimable on the day it is switched on.
+for ($i = 0; $i < 5; $i++) {
+    $emptyRegistry->tick(10, 20_000);
+}
+Assert::same(
+    0,
+    (int) $db->scalar('SELECT attempt_count FROM jobs WHERE job_id = ?', [$untouchedId]),
+    'five more inactive ticks still consume no attempt — the retry budget is intact',
 );
 Assert::same(
-    SchedulerRunner::NO_HANDLER_REASON,
-    (string) $db->scalar('SELECT last_error_code FROM jobs WHERE job_id = ?', [$unhandledId]),
-    'and the reason names the missing handler — the honest record of a capability nobody granted',
+    'PENDING',
+    (string) $db->scalar('SELECT state FROM jobs WHERE job_id = ?', [$untouchedId]),
+    'and the job is still PENDING, waiting for the capability rather than abandoned by it',
+);
+
+// ============================================================ a PARTIAL registry claims only its own
+
+// The rule is per STATE, not per tick: a deployment with the internal steps wired and the live-read
+// step not wired must run the internal ones and leave the others completely alone.
+$pendingId = $enqueue('partial-pending');
+$preflightId = $enqueue('partial-preflight');
+$advanceOne = new SchedulerRunner($machine, [
+    'PENDING' => static fn (array $job): array => ['to_state' => 'PREFLIGHT', 'reason_code' => 'STEP_OK'],
+]);
+$advanceOne->tick(10, 20_000);
+Assert::same(
+    'PREFLIGHT',
+    (string) $db->scalar('SELECT state FROM jobs WHERE job_id = ?', [$preflightId]),
+    'both PENDING jobs advance while PENDING is the executable state',
+);
+
+// Now only PREFLIGHT is wired. The PENDING job enqueued next must be untouched.
+$stillPendingId = $enqueue('partial-still-pending');
+$preflightBefore = (int) $db->scalar('SELECT attempt_count FROM jobs WHERE job_id = ?', [$stillPendingId]);
+$partial = (new SchedulerRunner($machine, [
+    'PREFLIGHT' => static fn (array $job): array => ['to_state' => 'FETCH', 'reason_code' => 'STEP_OK'],
+]))->tick(10, 20_000);
+
+Assert::same(['PREFLIGHT'], $partial['executable_states'], 'the tick names PREFLIGHT as its only executable state');
+Assert::true($partial['advanced'] >= 1, 'and advances the PREFLIGHT work');
+Assert::same(
+    'PENDING',
+    (string) $db->scalar('SELECT state FROM jobs WHERE job_id = ?', [$stillPendingId]),
+    'while a PENDING job is not claimed at all — the bound is per state, not per tick',
+);
+Assert::same(
+    $preflightBefore,
+    (int) $db->scalar('SELECT attempt_count FROM jobs WHERE job_id = ?', [$stillPendingId]),
+    'and consumes none of its attempts',
+);
+
+// A caller cannot widen the executable set. `claim` intersects whatever it is given with its own
+// claimable states, so naming a state the machine does not consider claimable buys nothing — and
+// the probe is aimed at a job that IS in one of those states, or it would prove nothing.
+$terminalId = $enqueue('terminal-probe-subject');
+// The state is FIXTURE, not the behaviour under test, and is set directly: driving it through the
+// machine would spend the job's whole attempt budget on setup and prove nothing about the probe.
+$db->run("UPDATE jobs SET state = 'VISIBLE' WHERE job_id = ?", [$terminalId]);
+Assert::same(
+    'VISIBLE',
+    (string) $db->scalar('SELECT state FROM jobs WHERE job_id = ?', [$terminalId]),
+    'a job is driven to the terminal VISIBLE state, so the widening probe has a real target',
+);
+
+$widened = $machine->claim('probe-owner', 100, 300, ['VISIBLE', 'ABANDONED', 'NOT_A_STATE']);
+$widenedIds = array_map(static fn (array $j): string => (string) $j['job_id'], $widened);
+Assert::false(
+    in_array($terminalId, $widenedIds, true),
+    'naming a TERMINAL state claims nothing — the intersection is with the machine\'s own claimable set',
+);
+Assert::same([], $widened, 'and nothing else is claimed by inventing state names either');
+Assert::same(
+    null,
+    $db->scalar('SELECT lease_owner FROM jobs WHERE job_id = ?', [$terminalId]),
+    'the terminal job took no lease from the probe',
 );
 Assert::same(
     null,
-    $db->scalar('SELECT lease_owner FROM jobs WHERE job_id = ?', [$unhandledId]),
-    'the lease is released, so the job is not held by a tick that has exited',
+    $db->scalar('SELECT lease_owner FROM jobs WHERE job_id = ?', [$stillPendingId]),
+    'and that probe took no lease on anything',
 );
-Assert::same(
-    1,
-    (int) $db->scalar(
-        'SELECT COUNT(*) FROM job_transitions WHERE job_id = ? AND reason_code = ?',
-        [$unhandledId, SchedulerRunner::NO_HANDLER_REASON]
-    ),
-    'and the transition ledger records why nothing ran',
-);
+
+// A reversed claim costs no attempt. Reached directly, because the runner's claim is bounded by its
+// registry and cannot hand itself a job it has no handler for.
+$reverseId = $enqueue('reverse-claim');
+$reverseClaimed = $machine->claim('reversal-owner', 100, 300, ['PENDING']);
+$reverseJob = null;
+foreach ($reverseClaimed as $candidate) {
+    if ((string) $candidate['job_id'] === $reverseId) {
+        $reverseJob = $candidate;
+    }
+}
+if ($reverseJob === null) {
+    Assert::fail('the reversal fixture job was not claimed');
+} else {
+    Assert::same(1, (int) $reverseJob['attempt_count'], 'a claim consumes an attempt while it is held');
+    Assert::true($machine->releaseClaim($reverseId, 'reversal-owner')->isOk(), 'and the claim can be reversed');
+    $reversed = $db->one('SELECT attempt_count, lease_owner FROM jobs WHERE job_id = ?', [$reverseId]);
+    Assert::same(0, (int) $reversed['attempt_count'], 'which gives the attempt back — the job was never tried');
+    Assert::same(null, $reversed['lease_owner'], 'and releases the lease');
+    Assert::same(
+        'JOB_LEASE_LOST',
+        $machine->releaseClaim($reverseId, 'reversal-owner')->reasonCode(),
+        'reversing twice is refused — the second call does not drive the count below the truth',
+    );
+}
 
 // ============================================================ a registered handler advances
 
@@ -203,7 +310,12 @@ Assert::false(
 for ($i = 0; $i < 8; $i++) {
     $enqueue("bulk-{$i}");
 }
-$bounded = (new SchedulerRunner($machine, []))->tick(3, 20_000);
+// A registry that CAN run the work, because the count bound is only observable once something is
+// claimable at all — an empty registry now claims nothing by design, which is a different property.
+$countable = static fn (): SchedulerRunner => new SchedulerRunner($machine, [
+    'PENDING' => static fn (array $job): array => ['to_state' => 'PREFLIGHT', 'reason_code' => 'STEP_OK'],
+]);
+$bounded = $countable()->tick(3, 20_000);
 Assert::same(3, $bounded['claimed'], 'a tick claims no more than it was asked for');
 
 // The ceiling only means something when there is more work than it allows, so there is: enough
@@ -212,12 +324,15 @@ Assert::same(3, $bounded['claimed'], 'a tick claims no more than it was asked fo
 for ($i = 0; $i < 60; $i++) {
     $enqueue("ceiling-{$i}");
 }
-$eligible = (int) $db->scalar("SELECT COUNT(*) FROM jobs WHERE state = 'PENDING' AND lease_owner IS NULL");
+$eligible = (int) $db->scalar(
+    "SELECT COUNT(*) FROM jobs WHERE state = 'PENDING' AND lease_owner IS NULL AND run_after <= ?",
+    [$clock->now()]
+);
 Assert::true(
     $eligible > SchedulerRunner::MAX_JOBS_PER_TICK,
     'there is more eligible work than one tick may take, so the ceiling has something to bind',
 );
-$capped = (new SchedulerRunner($machine, []))->tick(10_000, 20_000);
+$capped = $countable()->tick(10_000, 20_000);
 Assert::same(
     SchedulerRunner::MAX_JOBS_PER_TICK,
     $capped['claimed'],
@@ -262,8 +377,9 @@ Assert::same(
 for ($i = 0; $i < 4; $i++) {
     $enqueue("overlap-{$i}");
 }
-$runnerA = new SchedulerRunner($machine, []);
-$runnerB = new SchedulerRunner($machine, []);
+$overlapHandlers = ['PENDING' => static fn (array $job): array => ['to_state' => 'PREFLIGHT', 'reason_code' => 'STEP_OK']];
+$runnerA = new SchedulerRunner($machine, $overlapHandlers);
+$runnerB = new SchedulerRunner($machine, $overlapHandlers);
 $tickA = $runnerA->tick(2, 20_000);
 $tickB = $runnerB->tick(2, 20_000);
 Assert::notSame($tickA['lease_owner'], $tickB['lease_owner'], 'each tick leases under its OWN identity');

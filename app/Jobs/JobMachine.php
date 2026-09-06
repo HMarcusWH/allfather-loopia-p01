@@ -153,13 +153,39 @@ final class JobMachine
      * Each claim is an individual conditional UPDATE. Claiming a batch in one statement would be
      * faster and would lose the per-row outcome that proves exclusivity, so this stays per-row.
      *
+     * `$executableStates` BOUNDS THE CANDIDATE SET to states the caller can actually advance. It is
+     * the fix for a capability that is off: a scheduler with no handler registered for a state used
+     * to claim those jobs anyway, fail them for having no handler, and burn the retry budget of
+     * work nobody had activated — so an inactive capability quietly consumed the jobs that were
+     * waiting for it. Passing the states that CAN run means the rest are never touched.
+     *
+     * Two properties keep that from becoming a way to widen anything. The list is INTERSECTED with
+     * `CLAIMABLE_STATES`, so a caller cannot name a state the machine does not consider claimable;
+     * and an empty intersection returns immediately WITHOUT QUERYING, so "nothing can run" costs a
+     * function call rather than a lease. `null` means every claimable state, which is what a fully
+     * wired deployment asks for.
+     *
+     * @param list<string>|null $executableStates
      * @return list<array<string, mixed>>
      */
-    public function claim(string $leaseOwner, int $limit, int $leaseSeconds = 300): array
-    {
+    public function claim(
+        string $leaseOwner,
+        int $limit,
+        int $leaseSeconds = 300,
+        ?array $executableStates = null,
+    ): array {
+        $states = $executableStates === null
+            ? self::CLAIMABLE_STATES
+            : array_values(array_intersect(self::CLAIMABLE_STATES, $executableStates));
+        if ($states === []) {
+            // No query, no lease, no row touched. A tick that can run nothing must be indistinguish-
+            // able from a tick that never happened, as far as the jobs are concerned.
+            return [];
+        }
+
         $now = $this->clock->now();
         $leaseExpiry = $this->plusSeconds($now, $leaseSeconds);
-        $placeholders = implode(', ', array_fill(0, count(self::CLAIMABLE_STATES), '?'));
+        $placeholders = implode(', ', array_fill(0, count($states), '?'));
 
         $candidates = $this->db->all(
             "SELECT job_id FROM jobs
@@ -169,7 +195,7 @@ final class JobMachine
                AND attempt_count < max_attempts
              ORDER BY run_after ASC, job_id ASC
              LIMIT " . max(1, min(100, $limit)),
-            [...self::CLAIMABLE_STATES, $now, $now]
+            [...$states, $now, $now]
         );
 
         $claimed = [];
@@ -191,7 +217,7 @@ final class JobMachine
                    AND run_after <= ?
                    AND attempt_count < max_attempts
                    AND (lease_owner IS NULL OR lease_expires_at IS NULL OR lease_expires_at < ?)",
-                [$leaseOwner, $leaseExpiry, $now, $jobId, ...self::CLAIMABLE_STATES, $now, $now]
+                [$leaseOwner, $leaseExpiry, $now, $jobId, ...$states, $now, $now]
             );
             if ($affected === 1) {
                 $job = $this->db->one('SELECT * FROM jobs WHERE job_id = ?', [$jobId]);
@@ -202,6 +228,38 @@ final class JobMachine
         }
 
         return $claimed;
+    }
+
+    /**
+     * Reverse a claim that produced no attempt.
+     *
+     * An ATTEMPT is a try. A job claimed and then handed back because nothing could run it was
+     * never tried, so leaving `attempt_count` incremented would spend a retry on work that never
+     * happened — and three such ticks would ABANDON a job for a capability nobody had switched on.
+     *
+     * This is not rewriting history: no transition is recorded by a claim, so there is no history
+     * to rewrite. The ledger stays silent because nothing occurred.
+     *
+     * Pinned to the lease owner, like every other write here: a worker whose lease expired and was
+     * reclaimed by somebody else must not decrement the new owner's attempt.
+     */
+    public function releaseClaim(string $jobId, string $leaseOwner): Outcome
+    {
+        $affected = $this->db->run(
+            'UPDATE jobs
+             SET lease_owner = NULL, lease_expires_at = NULL, updated_at = ?,
+                 attempt_count = GREATEST(attempt_count - 1, 0)
+             WHERE job_id = ? AND lease_owner = ?',
+            [$this->clock->now(), $jobId, $leaseOwner]
+        );
+        if ($affected !== 1) {
+            return Outcome::refuse('JOB_LEASE_LOST', [
+                'job_id' => $jobId,
+                'lease_owner' => $leaseOwner,
+            ], 'CONCURRENCY');
+        }
+
+        return Outcome::ok(['job_id' => $jobId, 'released' => true]);
     }
 
     /** Count leases that had expired and were therefore reclaimable at `$now`. */

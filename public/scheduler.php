@@ -106,4 +106,6 @@ $result = $runner->tick(
     $env->int('SCHEDULER_LEASE_SECONDS', 300),
 );
 
+// SCHEDULER_INACTIVE is a 200, not an error: the tick ran correctly and there was nothing it was
+// configured to do. An error status would page somebody about a deployment behaving as designed.
 $respond(200, ['status' => 'OK', ...$result]);

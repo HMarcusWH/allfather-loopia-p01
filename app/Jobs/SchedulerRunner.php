@@ -30,14 +30,20 @@ use Allfather\Loopia\Core\Ids;
  *   attached, and the token in front of it would be the only thing between the internet and
  *   arbitrary governed work.
  *
- *   THE STEP REGISTRY IS CLOSED, and it is EMPTY in this projection. There is no generic executor:
- *   a claimed job is advanced only by a handler registered for its exact state, and a state with no
- *   handler is FAILED by name rather than skipped. Skipping would leave a job claimed, leased and
- *   silently going nowhere — indistinguishable from work that is progressing.
+ *   THE STEP REGISTRY IS CLOSED, and it BOUNDS WHAT IS CLAIMED. There is no generic executor: a
+ *   job is claimed only when a handler is registered for its exact current state. The registry is
+ *   read from THIS OBJECT, never from the request, so bounding the claim by it cannot become a way
+ *   for a caller to choose which work runs.
+ *
+ *   AN INACTIVE CAPABILITY CONSUMES NOTHING. An earlier revision claimed every claimable job and
+ *   failed the ones it could not run, which burned a retry budget for work nobody had activated —
+ *   three ticks and a monitoring job was ABANDONED because a capability was off. Now those jobs are
+ *   not claimed at all: no lease, no attempt, no transition, no row touched. A tick with an empty
+ *   registry is indistinguishable, from the jobs' point of view, from a tick that never happened.
  *
  * WHAT THIS DOES NOT DO is activate anything. `LIVE_READ_ACTIVATED` is false, so no handler that
- * performs an external read is registered, and a monitoring job therefore fails with that reason
- * recorded in its transition ledger rather than quietly waiting for a capability nobody granted.
+ * performs an external read is registered — and the jobs that would need one simply wait, which is
+ * the correct state for work whose capability nobody has granted.
  */
 final class SchedulerRunner
 {
@@ -48,11 +54,21 @@ final class SchedulerRunner
     public const MAX_BUDGET_MS = 50_000;
 
     /**
-     * The reason a claimed job cannot be advanced because nothing is registered to advance it.
+     * Reported when a tick has no executable handler at all.
      *
-     * It is a FAILURE, not a skip. The retry budget then abandons the job after its attempts, and
-     * the transition ledger says exactly why — which is the honest record of a projection whose
-     * live-read capability has not been activated.
+     * It is a property of the TICK, not of any job: nothing was claimed, so there is nothing to
+     * record against. An operator reading this in the scheduler log is being told the machine is
+     * idle by configuration rather than by absence of work.
+     */
+    public const INACTIVE_REASON = 'SCHEDULER_INACTIVE';
+
+    /**
+     * Reported when a claimed job turns out to have no handler after all.
+     *
+     * Unreachable by construction — the claim is bounded by the registry — and kept because the
+     * construction is what makes it unreachable, and a future edit could change that. If it ever
+     * fires, the claim is REVERSED rather than the job failed: the job was never tried, so it must
+     * not spend an attempt on having been picked up by mistake.
      */
     public const NO_HANDLER_REASON = 'STEP_HANDLER_NOT_REGISTERED';
 
@@ -70,8 +86,8 @@ final class SchedulerRunner
      * Run one bounded tick.
      *
      * @return array{
-     *     tick_id: string, claimed: int, advanced: int, failed: int, stopped_reason: string,
-     *     elapsed_ms: int, lease_owner: string
+     *     tick_id: string, claimed: int, advanced: int, failed: int, released: int,
+     *     executable_states: list<string>, stopped_reason: string, elapsed_ms: int, lease_owner: string
      * }
      */
     public function tick(int $maxJobs = 10, int $budgetMs = 20_000, int $leaseSeconds = 300): array
@@ -85,11 +101,18 @@ final class SchedulerRunner
         $leaseOwner = 'tick:' . $tickId;
 
         $startedAt = $this->monotonicMs();
-        $claimed = $this->jobs->claim($leaseOwner, $maxJobs, $leaseSeconds);
+
+        // THE STATES THIS TICK CAN ACTUALLY ADVANCE, derived from the registry rather than asked
+        // for. `claim` intersects them with its own claimable set, so this can only ever narrow.
+        $executableStates = array_values(array_keys($this->handlers));
+        sort($executableStates);
+
+        $claimed = $this->jobs->claim($leaseOwner, $maxJobs, $leaseSeconds, $executableStates);
 
         $advanced = 0;
         $failed = 0;
-        $stopped = 'COMPLETED';
+        $released = 0;
+        $stopped = $executableStates === [] ? self::INACTIVE_REASON : 'COMPLETED';
 
         foreach ($claimed as $job) {
             // BETWEEN jobs, never inside one. A budget checked mid-step would abandon work half
@@ -102,13 +125,11 @@ final class SchedulerRunner
             $state = (string) $job['state'];
             $handler = $this->handlers[$state] ?? null;
             if ($handler === null) {
-                $this->jobs->fail(
-                    (string) $job['job_id'],
-                    $leaseOwner,
-                    self::NO_HANDLER_REASON,
-                    'no handler is registered for state ' . $state,
-                );
-                $failed++;
+                // Unreachable while the claim is bounded by the registry. If it ever fires, HAND
+                // THE JOB BACK: it was never tried, so it must not spend an attempt on having been
+                // picked up by mistake.
+                $this->jobs->releaseClaim((string) $job['job_id'], $leaseOwner);
+                $released++;
                 continue;
             }
 
@@ -148,6 +169,10 @@ final class SchedulerRunner
             'claimed' => count($claimed),
             'advanced' => $advanced,
             'failed' => $failed,
+            'released' => $released,
+            // Reported so an operator can see WHY a tick was idle. The list is the registry's, and
+            // a caller cannot influence it — it is output, never input.
+            'executable_states' => $executableStates,
             'stopped_reason' => $stopped,
             'elapsed_ms' => $this->monotonicMs() - $startedAt,
             'lease_owner' => $leaseOwner,
