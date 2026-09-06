@@ -5,7 +5,7 @@
 # OUTSIDE the web server's document root entirely (see docs/DEPLOYMENT_RUNBOOK.md §3).
 #
 # This file exists for the deployment that gets that wrong: a shared host where somebody pointed a
-# domain at the repository root rather than at `public/`. It is the same posture as
+# domain at the repository root rather than at `public_html/`. It is the same posture as
 # `worker/tick.php` refusing to run under a web SAPI — "outside the document root" is a property of
 # a configuration file, not of the code, so the code does not assume it.
 #

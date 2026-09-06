@@ -37,7 +37,7 @@ $phpFiles = static function (string $dir): array {
 
 $sources = [
     ...$phpFiles($root . '/app'),
-    ...$phpFiles($root . '/public'),
+    ...$phpFiles($root . '/public_html'),
     ...$phpFiles($root . '/worker'),
 ];
 

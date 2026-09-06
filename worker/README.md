@@ -7,14 +7,24 @@ tick is one HTTP request or one cron process, and nothing here outlives it.
 
 | Entry | Authority | Use when |
 | --- | --- | --- |
-| `worker/tick.php` | filesystem access to `.env` | Loopia's shell cron is available — **preferred**, because there is no credential on the wire to rotate, leak or misconfigure |
-| `public/scheduler.php` | the `X-Scheduler-Token` header | the tick must be fired over HTTP |
+| `worker/tick.php` | filesystem access to `.env` | an EXTERNAL scheduler can reach the host over SSH — **preferred**, because there is no credential on the wire to rotate, leak or misconfigure |
+| `public_html/scheduler.php` | the `X-Scheduler-Token` header | the tick must be fired over HTTP |
+
+**Loopia has no shell cron.** Verbatim from its SSH documentation: *"Nej. För återkommande jobb
+(cronjobb) hänvisar vi i stället till schemaläggaren i Kundzonen."* SSH itself IS available on all
+three tiers, so `worker/tick.php` is invoked by a scheduler running somewhere you control — not by a
+crontab on the Loopia host, which does not exist.
+
+Whether Loopia's own Kundzon scheduler can invoke the HTTP endpoint is **an open question**: it
+visits a URL, and Loopia documents neither the HTTP method nor custom-header support. See
+[`../docs/LOOPIA_HOST_MODEL.md`](../docs/LOOPIA_HOST_MODEL.md) §4 for the decision table and the
+question to ask Loopia support. The endpoint is not weakened to fit an assumption.
 
 `worker/tick.php` refuses to run under any SAPI but CLI. It lives outside the document root, but
 "outside the document root" is a property of a deployment's configuration, not of the file — so the
 file checks too.
 
-`public/scheduler.php` is **POST only**. A tick advances governed work, and a GET that mutates is a
+`public_html/scheduler.php` is **POST only**. A tick advances governed work, and a GET that mutates is a
 GET a crawler, prefetch or link preview will eventually perform.
 
 ## What a tick will and will not do

@@ -59,6 +59,7 @@ collected in §3.7.
 | [`docs/LOOPIA_CAPABILITY_REPORT.md`](./docs/LOOPIA_CAPABILITY_REPORT.md) | what this projection can and cannot do, and what is left before launch |
 | [`docs/DEPLOYMENT_RUNBOOK.md`](./docs/DEPLOYMENT_RUNBOOK.md) | staging/production procedure, rollback, restore |
 | [`docs/CLAIM_CEILING.md`](./docs/CLAIM_CEILING.md) | what may and may not be claimed |
+| [`docs/LOOPIA_HOST_MODEL.md`](./docs/LOOPIA_HOST_MODEL.md) | what the target host actually is, sourced from Loopia's own documentation, and what it does NOT document |
 
 ## Current status
 

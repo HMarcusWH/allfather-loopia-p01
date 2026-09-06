@@ -20,7 +20,7 @@ configured.
 | --- | --- |
 | PHP 8.2 or later | the code uses readonly promoted properties, enums, and `WeakMap` |
 | extensions: `pdo_mysql`, `curl`, `openssl`, `mbstring`, `json` | `openssl` for credential encryption; `curl` with `CURLOPT_RESOLVE` for the pinned-address egress guard |
-| MariaDB 10.5 or later | CHECK constraints must be ENFORCED, not parsed and ignored |
+| MariaDB 10.5 or later | CHECK constraints must be ENFORCED, not parsed and ignored. **Loopia Företag is 10.6; 10.11 is Företag Plus only.** Everything here is verified on 10.11 — 10.6 is untested and is an open blocker, see `LOOPIA_HOST_MODEL.md` §5 |
 | `APP_MASTER_KEY` in server-private configuration | provider-credential encryption; never in the repository, never in the database. **Required at boot** in staging and production — a deployment without it refuses to start rather than failing at the first credential it seals |
 | `APP_ENV` set correctly | a value outside `development`/`testing`/`staging`/`production` — including unset, empty or misspelled — resolves to **production**. Getting it wrong makes the deployment stricter, never looser |
 | DB credentials via environment | `DB_HOST`/`DB_PORT` or `DB_SOCKET`, plus `DB_NAME`, `DB_USER`, `DB_PASSWORD` |
@@ -34,40 +34,46 @@ connection to the address it validated, and the guard's central property is gone
 
 ### 3.1 The layout — this is the security boundary
 
-Loopia serves a domain from `~/public_html/<domain>/` and gives no way to move that root. So the
-boundary is not a rule inside the served directory; it is which directory gets served. **Only
-`public/` may ever be it.**
+Established from Loopia's own documentation; sources and the open questions are in
+[`LOOPIA_HOST_MODEL.md`](./LOOPIA_HOST_MODEL.md).
 
-    ~/allfather-loopia-p01/           <- the application. NEVER served.
-      app/  database/  ops/  worker/  tests/  storage/
-      .env                            <- credentials live here
-      public/                         <- the ONLY directory a web server may be pointed at
+Loopia serves a domain from **`<domän>/public_html/`** and states it does not support pointing at
+any other application folder. Files **above** `public_html/` are reachable over FTP/SSH and not from
+the web. So the boundary is not a rule inside the served directory — it is that the private files
+are that directory's **siblings**, and `<domain>/` itself is never a document root.
+
+**The repository layout IS the host layout.** The served directory here is named `public_html/` for
+exactly that reason: deployment is a copy into `<domain>/`, with no rename, no shim, no symlink.
+
+    <domain>/                     <- the SSH/FTP home for this domain
+      app/  database/  ops/  worker/  storage/  vendor/
+      .env                        <- credentials, a sibling of the served directory
+      public_html/                <- the ONLY web-served directory; the name is fixed by Loopia
         index.php  scheduler.php  assets/  .htaccess
 
-Two ways to arrange that on Loopia, in order of preference:
+**Deploy over SSH** (available on all three tiers), from a checkout on your own machine:
 
-1. **Symlink the document root.** `ln -s ~/allfather-loopia-p01/public ~/public_html/<domain>`.
-   Requires the vhost to allow `FollowSymLinks`; verify before relying on it — fetch
-   `https://<domain>/` and confirm the console renders rather than a 403.
-2. **A two-line shim.** Where symlinks are not followed, put ONLY these in
-   `~/public_html/<domain>/`: a copy of `public/.htaccess`, a copy of `public/assets/`, and an
-   `index.php` and `scheduler.php` that each `require` their counterpart in the application
-   directory. Nothing else. The application directory stays outside `public_html` either way.
+    rsync -av --delete       --exclude '.git' --exclude 'tests' --exclude '.env'       ./ <user>@<host>:~/<domain>/
 
-**Do not deploy the repository into `public_html` and rely on `.htaccess` to hide the rest.** The
-`.htaccess` files in this repository are defence in depth — every directive is `<IfModule>`-guarded,
-so on a host missing the module they are silent no-ops, and a layout whose safety depends on them
-being interpreted correctly has already gone wrong.
+`.env` is excluded deliberately and uploaded once, by hand, with its own permissions. A deploy that
+overwrites configuration is a deploy that can silently change which database it points at.
 
-Verify the boundary after deploying. Each of these must NOT return the file:
+**Do not symlink a separate directory into the document root.** Loopia states it does not support
+an application folder other than `public_html/` under the domain folder, so a symlinked root is not
+a supported configuration to rely on.
+
+**Verify the boundary after deploying.** Each of these must NOT return the file:
 
     curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/.env
-    curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/../.env
     curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/app/Support/Env.php
+    curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/database/migrations/010_governance_core.sql
     curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/storage/scheduler.log
+    curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/worker/tick.php
+    curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/ops/migrate.php
 
-403 or 404 are both correct answers. A 200 means the layout is wrong — fix the layout, not the
-`.htaccess`.
+403 or 404 are both correct. **A 200 from any of them means the layout is wrong** — and the fix is
+the layout, not the `.htaccess`. Those files are defence in depth: every directive is
+`<IfModule>`-guarded, so on a host missing the module each is a silent no-op.
 
 ### 3.2 Configuration fails closed
 
@@ -183,24 +189,40 @@ than merely performed.
 
 ## 6a. The scheduler tick
 
-Loopia gives no daemon, so governed work is driven by a timer. Two doors, and the shell-cron one is
-preferred because its authority is filesystem access rather than a credential on the wire.
+Loopia gives no daemon **and no shell cron** — verbatim from its SSH page: *"Nej. För återkommande
+jobb (cronjobb) hänvisar vi i stället till schemaläggaren i Kundzonen."* An earlier draft of this
+runbook offered a crontab line. That was wrong and is gone.
 
-**Shell cron (preferred).** Every fifteen minutes:
+The full capability analysis and the decision table are in
+[`LOOPIA_HOST_MODEL.md`](./LOOPIA_HOST_MODEL.md) §4. In short:
 
-    */15 * * * * /usr/bin/php /path/to/app/worker/tick.php >> /path/to/app/storage/scheduler.log 2>&1
+**Recommended — an external scheduler over SSH.** A host you control runs the tick. Authority is
+SSH key possession; there is no HTTP credential to leak, and nothing is needed from Kundzon:
 
-**Over HTTP.** Generate a token, store only its digest, and fire the tick with a POST:
+    */15 * * * * ssh <user>@<host> 'php ~/<domain>/worker/tick.php' >> /var/log/allfather-tick.log 2>&1
+
+or, equivalently, a POST from anywhere that can make one:
+
+    */15 * * * * curl -fsS -X POST -H "X-Scheduler-Token: $TOKEN" https://<domain>/scheduler.php
+
+**Kundzon's own scheduler is BLOCKED pending one answer from Loopia support.** It visits a URL, and
+Loopia documents neither the HTTP method nor whether custom headers can be set. The endpoint here is
+POST-only and requires `X-Scheduler-Token`, so a plain GET with no headers would get 405 and the
+schedule would silently do nothing. **Do not weaken the endpoint to fit an assumption.** The
+question to ask is written out in `LOOPIA_HOST_MODEL.md` §4.
+
+Kundzon also **emails the response body**, so nothing this endpoint returns may carry a credential —
+it does not, and that is a property to preserve if the response shape ever changes.
+
+**Token handling.** Generate it, store only its digest, keep the token in the caller:
 
     php -r 'echo rtrim(strtr(base64_encode(random_bytes(32)), "+/", "-_"), "=") . PHP_EOL;'
-    # put the sha256 of that value in .env as SCHEDULER_TOKEN_HASH, keep the token in the caller
-    */15 * * * * curl -fsS -X POST -H "X-Scheduler-Token: $TOKEN" https://<host>/scheduler.php
+    # the sha256 of that value goes in .env as SCHEDULER_TOKEN_HASH
 
-The token goes in a HEADER, never the query string: a URL-cron entry sits in a scheduler's
-configuration, in access logs and in any Referer it generates, and a token in a URL is a token in
-all three. `SCHEDULER_TOKEN_HASH` is preferred over `SCHEDULER_TOKEN` because a read of `.env` then
-yields nothing presentable; if both are set the digest wins, so a rotation cannot be undone by a
-stale plaintext value left beside it.
+The token goes in a HEADER, never a query string: a scheduler's configured URL sits in a control
+panel, in access logs, and in any Referer it generates. `SCHEDULER_TOKEN_HASH` is preferred over
+`SCHEDULER_TOKEN` because a read of `.env` then yields nothing presentable; if both are set the
+digest wins, so a rotation cannot be undone by a stale plaintext value left beside it.
 
 **An unconfigured scheduler is unreachable, not open.** With neither key set, every token is refused
 with `SCHEDULER_CREDENTIAL_NOT_CONFIGURED`.

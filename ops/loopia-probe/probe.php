@@ -181,9 +181,9 @@ $record('atomic_rename', $atomicRename ? 'PRESENT' : 'MISSING', $atomicRename,
     . 'reader never observes a partial payload.');
 
 $record('public_root_separation',
-    is_dir($root . '/public') ? 'PRESENT' : 'MISSING',
-    ['app_root_has_public_dir' => is_dir($root . '/public')],
-    'Only public/ may be the document root. app/, config/, storage/, database/ and .env must not be reachable.');
+    is_dir($root . '/public_html') ? 'PRESENT' : 'MISSING',
+    ['app_root_has_public_dir' => is_dir($root . '/public_html')],
+    'Only public_html/ may be the document root. app/, config/, storage/, database/ and .env must not be reachable.');
 
 // ---------------------------------------------------------------------------- MariaDB
 

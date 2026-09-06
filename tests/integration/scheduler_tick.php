@@ -407,7 +407,7 @@ Assert::same(
     'tick() takes BOUNDS and nothing else — no job id, no job type, no step',
 );
 
-$endpoint = (string) file_get_contents(dirname(__DIR__, 2) . '/public/scheduler.php');
+$endpoint = (string) file_get_contents(dirname(__DIR__, 2) . '/public_html/scheduler.php');
 Assert::false(
     str_contains($endpoint, '$_GET') || str_contains($endpoint, '$_POST'),
     'and the endpoint reads no request body or query at all — there is nothing for a caller to name',

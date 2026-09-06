@@ -68,8 +68,8 @@ Three things can be reached from outside this deployment, and each has exactly o
 
 | Surface | Entry | Authority |
 | --- | --- | --- |
-| the console | `public/index.php` | a session cookie, plus the M02 guard re-run per surface |
-| the scheduler tick | `public/scheduler.php` | `X-Scheduler-Token`, compared constant-time against a stored digest |
+| the console | `public_html/index.php` | a session cookie, plus the M02 guard re-run per surface |
+| the scheduler tick | `public_html/scheduler.php` | `X-Scheduler-Token`, compared constant-time against a stored digest |
 | the liveness probe | `GET /healthz` | none — it touches no governed state and names no tenant |
 
 **Being signed in is identity, not authority.** No authorization happens in the kernel. Each
@@ -117,11 +117,17 @@ FORBIDDEN, so the form cannot be used to probe another tenant.
 
 ## 5. Deployment and configuration
 
-**The served directory is the boundary.** Loopia serves a domain from a fixed `public_html` root
-and gives no way to move it, so which directory is pointed at *is* the security decision.
-`public/` holds two entry points, a stylesheet directory and its own `.htaccess`, and
+**The served directory is the boundary.** Loopia serves a domain from `<domän>/public_html/` and
+states it does not support pointing at any other application folder, so which directory is pointed
+at *is* the security decision. Files above `public_html/` are reachable over FTP/SSH and not from
+the web, so every private directory here is a **sibling** of the served one — `<domain>/` is never
+itself a document root, which is stronger than excluding files from a tree they sit inside.
+
+The repository layout IS the host layout: the served directory is named `public_html/` so a deploy
+is a copy into `<domain>/` with no rename, no shim and no symlink.
 `tests/foundation/deployment_boundary.php` keeps it that way — no third PHP file, no configuration
-copy, no application directory. The `.htaccess` files are defence in depth and are labelled as
+copy, no application directory inside the served tree, and each private directory asserted to exist
+as a sibling rather than merely to be absent from within. The `.htaccess` files are defence in depth and are labelled as
 such: every directive is `<IfModule>`-guarded, so on a host missing the module each is a silent
 no-op.
 
