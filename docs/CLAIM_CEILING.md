@@ -45,8 +45,17 @@ because the claim was never available to make.
   terminal-deny pseudo-audience — a rendering state for withheld content, never a destination — so
   it appears in no storage CHECK, is seeded no visibility profile, and is refused at the projection
   gate as `AUDIENCE_NOT_A_PROJECTION_TARGET` rather than as a ceiling breach.
-- No path activates a `CUSTOMER_VISIBLE` projection. Requesting one is refused at
-  `AUDIENCE_ABOVE_SOURCE_USE_CEILING`.
+- **No path activates a `CUSTOMER_VISIBLE` projection**, and the reason is worth stating precisely,
+  because the two halves are different rules. The source-use ceiling says what the SOURCES permit:
+  a fully-permissive licence records the full ladder, exactly as canonical does, and a projection
+  for a wider audience is then PROJECTED rather than refused. What stops it going anywhere is the
+  activation pin — `ReleaseOutput::ACTIVATABLE_AUDIENCES` is `OPERATOR_ONLY` and `TENANT_INTERNAL`,
+  the storage CHECK forbids an `ACTIVATED` event for anything wider, and no adapter asks for a
+  wider projection in the first place. A licence that does NOT permit customer output refuses the
+  projection too, at `CUSTOMER_OUTPUT_NOT_ALLOWED_BY_SOURCE_USE` and `AUDIENCE_ABOVE_PROFILE_CEILING`
+  together. **A source permission ceiling is not a deployment authority.** An earlier revision of
+  this port conflated them by capping the recorded ceiling, which made the profile assert something
+  false about the licence; the ceiling is now canonical and the pin is separate.
 - **A released prospect output is an M10 reference, not an M16 artifact.** P03, P04 and P05 each
   carry their own release projection. M16's frozen-artifact path is adopted by **P01 and P02**, as
   canonical does — four artifact kinds in total, and the two P02 kinds are governed by their own

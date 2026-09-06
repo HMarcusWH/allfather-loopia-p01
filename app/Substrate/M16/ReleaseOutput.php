@@ -229,11 +229,21 @@ final class ReleaseOutput
         $holdReasons = array_values(array_unique($holdReasons));
         $profileId = Ids::new();
 
-        // The AUDIENCE ceiling the licence ceiling implies. Note it can never exceed
-        // TENANT_INTERNAL in this projection even when the licence would allow more — the
-        // activation pins below make anything wider inert regardless, so recording a wider
-        // audience ceiling would only describe an authority nothing can exercise.
-        $audienceCeiling = $ceiling === 'CUSTOMER_VISIBLE_ALLOWED' ? 'TENANT_INTERNAL' : 'OPERATOR_ONLY';
+        // The derived hard ceiling, folded exactly as the contribution-driven compile folds it —
+        // one rule, one place, so the two paths cannot answer the same question differently.
+        //
+        // A ceiling is a statement about what the SOURCES permit. It is not a deployment
+        // authority: nothing above TENANT_INTERNAL is activatable here whatever the ceiling says,
+        // because ACTIVATABLE_AUDIENCES pins that separately. An earlier revision folded the two
+        // together and capped the recorded ceiling at TENANT_INTERNAL, which silently rewrote the
+        // source-use answer to match the activation policy — a licence that permits customer
+        // output was recorded as one that does not.
+        $audienceCeiling = self::foldAudienceCeiling(
+            $holdReasons === [] ? 'COMPILED_ALLOW' : 'COMPILED_HELD',
+            $sensitivityCeiling,
+            $licenseCeiling,
+            $ceiling === 'CUSTOMER_VISIBLE_ALLOWED',
+        );
 
         $profileDigest = Digest::canonicalDigest([
             'tenantId' => $tenantId,
@@ -416,21 +426,12 @@ final class ReleaseOutput
         // customer-output AND-fold caps at TENANT_INTERNAL. The activation pins keep everything
         // above TENANT_INTERNAL inert regardless — this answers "what may the SOURCES show", never
         // "what is activated".
-        if ($status === 'COMPILED_HELD' || $sensitivityCeiling === 'RESTRICTED_REVIEW') {
-            $audienceCeiling = 'OPERATOR_ONLY';
-        } elseif (in_array($licenseCeiling, ['LICENSED_INTERNAL_ONLY', 'LICENSED_NO_CUSTOMER_OUTPUT'], true)
-            || !$customerOutputAllowed
-        ) {
-            $audienceCeiling = 'TENANT_INTERNAL';
-        } else {
-            // TENANT_INTERNAL is the ceiling this projection can express, even where the licence
-            // would allow more. Upstream records the full ladder here and relies on the activation
-            // pins to keep everything wider inert; this port caps the recorded ceiling instead,
-            // matching the card-driven compile beside it. The behaviour is identical — nothing
-            // above TENANT_INTERNAL is activatable either way — and a recorded ceiling naming an
-            // audience no code can project would be an authority that does not exist.
-            $audienceCeiling = 'TENANT_INTERNAL';
-        }
+        $audienceCeiling = self::foldAudienceCeiling(
+            $status,
+            $sensitivityCeiling,
+            $licenseCeiling,
+            $customerOutputAllowed,
+        );
 
         $profileId = Ids::new();
         // The digest deliberately EXCLUDES the evaluation clock: the clock reaches the profile only
@@ -729,7 +730,24 @@ final class ReleaseOutput
             ]);
         }
 
-        $permitted = self::audiencePermittedByCeiling($audienceClass, (string) $artifact['audience_ceiling']);
+        // Two independent audience gates, and BOTH are recorded when both apply — a projection
+        // refused for two reasons that reported only one would understate why it was refused.
+        //
+        // The AND-fold gate is not implied by the ceiling gate even though the fold consults the
+        // same flag: the ceiling is computed once at compile time from the contributions, while
+        // this reads the flag the profile actually recorded. If they ever disagree, the projection
+        // must refuse on the recorded flag rather than trust the derived one.
+        $refusals = [];
+        if (
+            self::audienceOrderIndex($audienceClass) >= self::audienceOrderIndex('CUSTOMER_VISIBLE')
+            && (int) $artifact['customer_output_allowed'] !== 1
+        ) {
+            $refusals[] = 'CUSTOMER_OUTPUT_NOT_ALLOWED_BY_SOURCE_USE';
+        }
+        if (!self::audiencePermittedByCeiling($audienceClass, (string) $artifact['audience_ceiling'])) {
+            $refusals[] = 'AUDIENCE_ABOVE_PROFILE_CEILING';
+        }
+        $permitted = $refusals === [];
 
         $elements = json_decode((string) $artifact['content_elements_json'], true, 512, JSON_THROW_ON_ERROR);
         $containsClaim = false;
@@ -761,10 +779,7 @@ final class ReleaseOutput
                 'elements' => $permitted ? $elements : [],
             ]),
             'status' => $permitted ? 'PROJECTED' : 'REFUSED',
-            'refusal_reason_codes' => json_encode(
-                $permitted ? [] : ['AUDIENCE_ABOVE_SOURCE_USE_CEILING'],
-                JSON_THROW_ON_ERROR
-            ),
+            'refusal_reason_codes' => json_encode($refusals, JSON_THROW_ON_ERROR),
             'projected_at' => $this->clock->now(),
         ]);
 
@@ -772,6 +787,7 @@ final class ReleaseOutput
             'customer_output_projection_id' => $projectionId,
             'status' => $permitted ? 'PROJECTED' : 'REFUSED',
             'audience_class' => $audienceClass,
+            'refusal_reason_codes' => $refusals,
         ]);
     }
 
@@ -1304,39 +1320,63 @@ final class ReleaseOutput
     }
 
     /**
-     * Which audience classes a given AUDIENCE ceiling permits.
+     * The derived hard audience ceiling.
      *
-     * An explicit allow-list, not an ordering. The wider classes (`CUSTOMER_VISIBLE`, `EXPORTABLE`,
-     * `API_VISIBLE`, `CHANNEL_EMAIL_SMS_CRM`) are not ranked against each other because nothing
-     * here needs to rank them and inventing an order would assert a precedence the upstream
-     * vocabulary does not define. They are simply absent from every entry.
+     * The single canonical rule, used by BOTH compile paths:
      *
-     * A ceiling with NO entry permits nothing. `compileSourceUseProfile` caps the audience ceiling
-     * at `TENANT_INTERNAL`, so the map is total over the values that can actually be written; if a
-     * later change ever raises that cap, the missing entry refuses every projection rather than
-     * silently widening one, and forces the widening to be a deliberate edit here.
+     *  - a HELD compile, or RESTRICTED_REVIEW sensitivity, renders the operator hold-view only;
+     *  - an internal-only licence, a no-customer-output licence, or a failed customer-output
+     *    AND-fold caps at TENANT_INTERNAL;
+     *  - otherwise the sources permit the full ladder.
+     *
+     * The third branch is the one that is easy to get wrong. It records what the SOURCES allow,
+     * which is not what this deployment activates: `ACTIVATABLE_AUDIENCES` holds activation at
+     * OPERATOR_ONLY and TENANT_INTERNAL regardless. Capping the ceiling here to match the
+     * activation policy would be a different claim — that the licence itself forbids customer
+     * output — and it would be false.
      */
-    private const AUDIENCES_PERMITTED_BY_CEILING = [
-        'OPERATOR_ONLY' => ['OPERATOR_ONLY'],
-        'TENANT_INTERNAL' => ['OPERATOR_ONLY', 'TENANT_INTERNAL'],
-    ];
+    private static function foldAudienceCeiling(
+        string $status,
+        string $sensitivityCeiling,
+        string $licenseCeiling,
+        bool $customerOutputAllowed,
+    ): string {
+        if ($status === 'COMPILED_HELD' || $sensitivityCeiling === 'RESTRICTED_REVIEW') {
+            return 'OPERATOR_ONLY';
+        }
+        if (
+            in_array($licenseCeiling, ['LICENSED_INTERNAL_ONLY', 'LICENSED_NO_CUSTOMER_OUTPUT'], true)
+            || !$customerOutputAllowed
+        ) {
+            return 'TENANT_INTERNAL';
+        }
+
+        return self::AUDIENCE_ORDER[count(self::AUDIENCE_ORDER) - 1];
+    }
 
     /**
      * Whether the profile's audience ceiling permits projecting content for an audience.
      *
-     * Both arguments are AUDIENCE CLASSES. An earlier revision compared the audience ceiling
-     * against the LICENCE ceiling vocabulary (`PROHIBITED` / `CUSTOMER_VISIBLE_ALLOWED`), which
-     * never matched: it refused every wider audience for the right reason by accident, but it also
-     * returned true for any internal audience regardless of the ceiling, so an `OPERATOR_ONLY`
-     * ceiling did not actually bind a `TENANT_INTERNAL` projection. The comparison now stays inside
-     * one vocabulary.
+     * Both arguments are AUDIENCE CLASSES, compared by position on the one ladder. An earlier
+     * revision compared the audience ceiling against the LICENCE ceiling vocabulary
+     * (`PROHIBITED` / `CUSTOMER_VISIBLE_ALLOWED`), which never matched: it refused every wider
+     * audience for the right reason by accident, but it also returned true for any internal
+     * audience regardless of the ceiling, so an `OPERATOR_ONLY` ceiling did not actually bind a
+     * `TENANT_INTERNAL` projection.
+     *
+     * A later revision replaced that with an explicit two-entry allow-list, which was total only
+     * because the fold was capped at TENANT_INTERNAL. With the fold restored to canonical the
+     * ceiling can name the full ladder, and an allow-list would have refused every projection
+     * under it. The comparison is now the canonical one — index against index — which is total
+     * over the whole vocabulary by construction.
+     *
+     * `audienceOrderIndex` throws on a pseudo-audience, and that is deliberate: a ceiling of
+     * `BLOCKED_QUARANTINED` is a category error, and defaulting it to "narrowest" or "widest"
+     * would let that error travel.
      */
     private static function audiencePermittedByCeiling(string $audienceClass, string $ceiling): bool
     {
-        return in_array(
-            $audienceClass,
-            self::AUDIENCES_PERMITTED_BY_CEILING[$ceiling] ?? [],
-            true,
-        );
+        return self::audienceOrderIndex($audienceClass) <= self::audienceOrderIndex($ceiling);
     }
+
 }

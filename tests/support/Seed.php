@@ -241,6 +241,9 @@ final class Seed
             'license_class' => $overrides['license_class'] ?? 'PUBLIC_WEB_ALLOWED',
             'customer_output_allowed' => $overrides['customer_output_allowed'] ?? 1,
             'derived_summary_allowed' => 1,
+            // Defaults to 'none'. Overridable so a case can produce a RESTRICTED_REVIEW sensitivity
+            // ceiling without also holding the compile, which is a different fold branch.
+            'pii_risk_class' => $overrides['pii_risk_class'] ?? 'none',
             'robots_policy_checked' => 1,
             'terms_policy_checked' => 1,
             'review_status' => $overrides['review_status'] ?? 'approved',

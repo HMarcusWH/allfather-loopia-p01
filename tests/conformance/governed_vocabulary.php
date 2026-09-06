@@ -464,23 +464,23 @@ Assert::same(
     $fromContribution['status'],
     'both source-use entry points agree that an approved permissive source compiles ALLOW',
 );
-// THE CEILINGS ARE NOT EQUAL, AND THAT IS RECORDED RATHER THAN FORCED. For a source whose licence
-// does not permit customer output, canonical (and the contribution fold, which mirrors it) reaches
-// TENANT_INTERNAL; the port's card-driven path reaches OPERATOR_ONLY. The card path is therefore
-// STRICTER than canonical here — it shows LESS, never more.
+// THE TWO CEILINGS ARE EQUAL, because both paths now call one fold.
 //
-// That asymmetry is left alone deliberately. Making them equal would mean WIDENING P01's audience
-// ceiling to match, which is a behavioural change to a proven release path in service of a test.
-// The direction is what matters and is asserted: the card path may be stricter, never looser.
-$ceilingRank = ['OPERATOR_ONLY' => 0, 'TENANT_INTERNAL' => 1];
-Assert::true(
-    $ceilingRank[$fromCard['audience_ceiling']] <= $ceilingRank[$fromContribution['audience_ceiling']],
-    'the card-driven fold is never LOOSER than the contribution fold on the same facts',
+// They were not. The card-driven path used to reach OPERATOR_ONLY where canonical and the
+// contribution fold reach TENANT_INTERNAL, and that gap was recorded as a deliberate "stricter,
+// never looser" divergence. Stricter is not the same as conformant: a ceiling states what the
+// SOURCES permit, and answering that question differently from canonical is a changed answer
+// whichever direction it errs in. There was no host reason for the difference — MariaDB does not
+// constrain a fold — so the divergence is gone rather than documented.
+Assert::same(
+    $fromCard['audience_ceiling'],
+    $fromContribution['audience_ceiling'],
+    'both source-use entry points reach the SAME audience ceiling on the same facts',
 );
 Assert::same(
-    'OPERATOR_ONLY',
+    'TENANT_INTERNAL',
     $fromCard['audience_ceiling'],
-    'and it is stricter here, for a licence that does not permit customer output',
+    'and it is the canonical one for a licence that does not permit customer output',
 );
 
 // THE FIRST-PARTY RULE IS WHAT THE CONTRIBUTION PATH ADDS, and it must not leak into the card path:
@@ -528,9 +528,16 @@ Assert::equalsList(
     "a cardless TENANT_OWNED contribution does NOT hold — the tenant's own material needs no licence",
 );
 Assert::same(
-    'TENANT_INTERNAL',
+    'CHANNEL_EMAIL_SMS_CRM',
     $firstParty['audience_ceiling'],
-    'and reaches the tenant-internal ceiling this projection can express',
+    'and reaches the full source-use ceiling — the tenant may show its own material anywhere',
+);
+// Which is a statement about the SOURCES, not about this deployment. What actually gets turned on
+// is pinned separately, and stays at two internal audiences no licence can widen.
+Assert::equalsList(
+    ['OPERATOR_ONLY', 'TENANT_INTERNAL'],
+    ReleaseOutput::ACTIVATABLE_AUDIENCES,
+    'source permission is not deployment authority: activation stays pinned regardless',
 );
 
 // The hold-reason vocabulary is ordered, because the profile digest is order-sensitive.

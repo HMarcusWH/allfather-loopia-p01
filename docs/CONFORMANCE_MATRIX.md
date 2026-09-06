@@ -140,3 +140,11 @@ Three, each recorded in `PORT_SCOPE_MATRIX.md` §4.2 with its observable differe
 
 Plus one partial port, characterized in §4.1: adapter conformance proves identity has not drifted,
 not conformance to a harness descriptor contract.
+
+**Two former entries were removed rather than reworded.** Both concerned the M16 audience ceiling —
+the card path reaching `OPERATOR_ONLY` where canonical reaches `TENANT_INTERNAL`, and both paths
+capping the recorded ceiling at `TENANT_INTERNAL`. They were defended as "stricter, never looser",
+which is not the same claim as conformant: the ceiling states what the SOURCES permit, and this port
+was answering that question differently from canonical in order to encode a deployment decision the
+activation pin already encodes. There was no host necessity. Both compile paths now call one fold
+implementing canonical exactly, and `governed_vocabulary.php` asserts their equality.

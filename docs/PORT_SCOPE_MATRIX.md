@@ -188,12 +188,22 @@ and are now filled.
 
 | Divergence | Canonical | This port | Why it stands |
 | --- | --- | --- | --- |
-| Source-use audience ceiling on the CARD path | a licence not permitting customer output reaches `TENANT_INTERNAL` | reaches `OPERATOR_ONLY` | The port's card-driven fold is STRICTER — it shows less, never more. Making them equal would mean widening P01's audience ceiling in service of symmetry, which is a behavioural change to a proven release path. `governed_vocabulary.php` asserts the DIRECTION — the card path may be stricter, never looser — rather than equality |
-| Recorded audience ceiling maximum | records the full audience ladder and relies on the activation pins to keep wider audiences inert | caps the recorded ceiling at `TENANT_INTERNAL` | Behaviourally identical: nothing above `TENANT_INTERNAL` is activatable either way. A recorded ceiling naming an audience no code can project would describe an authority that does not exist |
 | Card path's capture-status gate | — | the card fold also refuses a source that is not `ACTIVE_FOR_CAPTURE` | Not a divergence in the fold but an extra gate the contribution fold structurally cannot apply: a twin's first-party basis was never fetched from anywhere and has no capture status |
 
-**Neither ceiling divergence widens anything.** Both make this port narrower than canonical, and
-both are asserted in conformance rather than merely described here.
+**The two audience-ceiling divergences this table used to carry are gone, not restated.** They were:
+the card path reaching `OPERATOR_ONLY` where canonical reaches `TENANT_INTERNAL`, and both paths
+capping the recorded ceiling at `TENANT_INTERNAL` where canonical records the full ladder. Both were
+defended here as "stricter, never looser".
+
+That defence was wrong, and it is worth saying why rather than quietly deleting it. The audience
+ceiling answers **what the SOURCES permit**. It is not a statement about what this deployment shows
+anyone — `ReleaseOutput::ACTIVATABLE_AUDIENCES` answers that, separately, and still pins activation
+to `OPERATOR_ONLY` and `TENANT_INTERNAL`. Folding the deployment answer into the source answer made
+the recorded profile say something false: that a licence permitting customer output does not permit
+it. Stricter is not a synonym for conformant when the two questions are different questions, and
+there was no host reason for the difference — MariaDB does not constrain a fold. Both compile paths
+now call one function, `foldAudienceCeiling`, implementing canonical exactly; `governed_vocabulary.php`
+asserts their EQUALITY, and asserts the activation pin beside it so the distinction stays visible.
 
 **None of these is a hidden capability.** Every one is an absence: no code path, no surface, no row.
 

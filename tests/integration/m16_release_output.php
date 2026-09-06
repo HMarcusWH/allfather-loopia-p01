@@ -144,14 +144,21 @@ Assert::same(
     'one internal-only source makes the whole artifact internal-only, however permissive its siblings',
 );
 Assert::same(
-    'OPERATOR_ONLY',
+    'TENANT_INTERNAL',
     $mixed->value()['audience_ceiling'],
     'and the AUDIENCE ceiling narrows with it, rather than staying at the permissive default',
 );
 Assert::same(
-    'TENANT_INTERNAL',
+    'CHANNEL_EMAIL_SMS_CRM',
     $profile->value()['audience_ceiling'],
-    'while a fully permissive profile still caps at TENANT_INTERNAL, never wider',
+    'while a fully permissive profile records the full ladder — what the SOURCES allow',
+);
+// The ceiling is a source-use answer, not a deployment authority. What this port actually turns on
+// is pinned separately and stays at two audiences, whatever a licence permits.
+Assert::equalsList(
+    ['OPERATOR_ONLY', 'TENANT_INTERNAL'],
+    ReleaseOutput::ACTIVATABLE_AUDIENCES,
+    'and nothing wider is activatable, however permissive the licence',
 );
 
 // ============================================================ the artifact
@@ -327,38 +334,77 @@ Assert::same(
     'with no projection yet, that absence is what refuses first',
 );
 
-// Ask for the wider projection. It is REFUSED — the audience ceiling `compileSourceUseProfile`
-// wrote caps at TENANT_INTERNAL, so no licence, however permissive, produces a PROJECTED row for
-// a wider audience. The refused row carries the reason and NO content.
+// Ask for the wider projection. This artifact's sources are fully permissive, so the source-use
+// answer is that they MAY be shown that widely — and the projection is PROJECTED. That is not the
+// same statement as "this deployment shows customers anything", and conflating the two is exactly
+// the error this section exists to prevent. A source-permission ceiling is not a deployment
+// authority; the activation pin below is.
 $widerProjection = $m16->projectForAudience($artifactId, 'CUSTOMER_VISIBLE');
 Assert::true($widerProjection->isOk(), 'the projection call itself answers rather than throwing');
-Assert::same('REFUSED', $widerProjection->value()['status'], 'and its answer is REFUSED');
+Assert::same(
+    'PROJECTED',
+    $widerProjection->value()['status'],
+    'a fully permissive licence projects for a wider audience — that is what the SOURCES allow',
+);
+
+// And it is still never shown, because activation is pinned independently of the licence.
+$widerActivation = $m16->activateInternalVisibility(
+    $artifactId, $scope['tenant_id'], $scope['workspace_id'], 'CUSTOMER_VISIBLE'
+);
+Assert::true($widerActivation->isRefusal(), 'a wider activation is refused');
+Assert::same(
+    'VISIBILITY_ACTIVATION_NOT_PERMITTED',
+    $widerActivation->reasonCode(),
+    'by the DEPLOYMENT pin, not by the source ceiling — the two answer different questions',
+);
+
+// A licence that does NOT permit customer output refuses the same audience, and records BOTH
+// canonical reasons: the AND-fold gate and the ceiling gate are separate checks, and a refusal
+// reporting only one would understate why it was refused.
+$restrictedProfileId = $mixed->value()['release_source_use_profile_id'];
+$governedRestricted = Seed::governedReleaseChain($db, $clock, $scope);
+$restrictedArtifact = $m16->assembleArtifact([
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $scope['workspace_id'],
+    'artifact_kind' => 'BATTLECARD_BRIEFING',
+    'released_briefing_id' => $mintBriefing(
+        $governedRestricted['release']['decision_record_id'], $governedRestricted['proposal_id']
+    ),
+    'decision_record_id' => $governedRestricted['release']['decision_record_id'],
+    'arbiter_verdict_id' => $governedRestricted['verdict']['arbiter_verdict_id'],
+    'source_use_profile_id' => $restrictedProfileId,
+    'content_elements' => [
+        ['elementClass' => 'CLAIM', 'textSafe' => 'List price rose from 449 to 499 SEK.', 'confidence' => 'HIGH'],
+    ],
+    'uncertainty_summary_safe' => 'Applicability to existing customers is not observed.',
+]);
+$restrictedArtifactId = $restrictedArtifact->value()['release_artifact_id'];
+$restrictedWider = $m16->projectForAudience($restrictedArtifactId, 'CUSTOMER_VISIBLE');
+Assert::same('REFUSED', $restrictedWider->value()['status'], 'and its answer is REFUSED');
 $widerRow = $db->one(
     'SELECT status, refusal_reason_codes, content_elements_safe_json FROM customer_output_projections
      WHERE release_artifact_id = ? AND audience_class = ?',
-    [$artifactId, 'CUSTOMER_VISIBLE']
+    [$restrictedArtifactId, 'CUSTOMER_VISIBLE']
 );
 Assert::same('REFUSED', (string) $widerRow['status'], 'the stored row is REFUSED');
-Assert::same(
-    ['AUDIENCE_ABOVE_SOURCE_USE_CEILING'],
+Assert::equalsList(
+    // Upstream's declaration order, which the refusal set preserves.
+    ['CUSTOMER_OUTPUT_NOT_ALLOWED_BY_SOURCE_USE', 'AUDIENCE_ABOVE_PROFILE_CEILING'],
     json_decode((string) $widerRow['refusal_reason_codes'], true),
-    'named by the specific upstream reason code, not a generic failure',
+    'named by the specific upstream reason codes, not a generic failure',
 );
 Assert::same(
     '[]',
     (string) $widerRow['content_elements_safe_json'],
     'and it carries no content — a refused projection is not content one query away from exposure',
 );
-
-// So the activation refuses at the PROJECTION gate, before the authority row is even consulted.
-$widerActivation = $m16->activateInternalVisibility(
-    $artifactId, $scope['tenant_id'], $scope['workspace_id'], 'CUSTOMER_VISIBLE'
+$restrictedActivation = $m16->activateInternalVisibility(
+    $restrictedArtifactId, $scope['tenant_id'], $scope['workspace_id'], 'CUSTOMER_VISIBLE'
 );
-Assert::true($widerActivation->isRefusal(), 'a wider activation is refused');
 Assert::same(
     'PROJECTION_REFUSED_OR_MISSING',
-    $widerActivation->reasonCode(),
-    'at the projection gate — a wider audience cannot obtain a PROJECTED row to activate',
+    $restrictedActivation->reasonCode(),
+    'at the projection gate — a REFUSED row is not a row anything can activate',
 );
 
 // A REFUSED projection cannot be cleared away and retried into a permitting one: the table is
@@ -366,7 +412,7 @@ Assert::same(
 // standing answer for that pair.
 try {
     $db->run('DELETE FROM customer_output_projections WHERE release_artifact_id = ? AND audience_class = ?', [
-        $artifactId, 'CUSTOMER_VISIBLE',
+        $restrictedArtifactId, 'CUSTOMER_VISIBLE',
     ]);
     Assert::fail('deleting a refused projection should be structurally impossible');
 } catch (\PDOException) {
@@ -387,7 +433,7 @@ $artifact3 = $m16->assembleArtifact([
     'released_briefing_id' => $briefing3,
     'decision_record_id' => $governed3['release']['decision_record_id'],
     'arbiter_verdict_id' => $governed3['verdict']['arbiter_verdict_id'],
-    'source_use_profile_id' => $profileId,
+    'source_use_profile_id' => $restrictedProfileId,
     'content_elements' => [
         ['elementClass' => 'CLAIM', 'textSafe' => 'List price rose from 449 to 499 SEK.', 'confidence' => 'HIGH'],
     ],
@@ -438,6 +484,28 @@ Assert::same(
 // which no audience-class value can equal: every wider audience was refused for the right reason by
 // accident, but every INTERNAL audience was permitted unconditionally, so the ceiling did not bind
 // where it was narrowest. The comparison now stays inside one vocabulary, and this proves it.
+//
+// The narrow ceiling here comes from SENSITIVITY, not from a hold: a high-PII card folds to a
+// RESTRICTED_REVIEW sensitivity ceiling, which caps at OPERATOR_ONLY while the compile still
+// ALLOWS. That isolates the ceiling rule from the hold rule — a held compile would refuse the
+// wider projection for a second reason and prove less.
+$restricted = Seed::p01SignalChain($db, $clock, $scope, $missionId, null, [
+    'pii_risk_class' => 'high',
+]);
+$narrowProfile = $m16->compileSourceUseProfile(
+    $scope['tenant_id'], $scope['workspace_id'], [$restricted['source_ref_id']]
+);
+Assert::same(
+    'COMPILED_ALLOW',
+    $narrowProfile->value()['status'],
+    'a high-PII card holds nothing — sensitivity narrows the ceiling, it does not refuse the compile',
+);
+Assert::same(
+    'OPERATOR_ONLY',
+    $narrowProfile->value()['audience_ceiling'],
+    'and RESTRICTED_REVIEW sensitivity caps the audience ceiling at OPERATOR_ONLY',
+);
+
 $governed4 = Seed::governedReleaseChain($db, $clock, $scope);
 $briefing4 = $mintBriefing($governed4['release']['decision_record_id'], $governed4['proposal_id']);
 $narrowArtifact = $m16->assembleArtifact([
@@ -447,7 +515,7 @@ $narrowArtifact = $m16->assembleArtifact([
     'released_briefing_id' => $briefing4,
     'decision_record_id' => $governed4['release']['decision_record_id'],
     'arbiter_verdict_id' => $governed4['verdict']['arbiter_verdict_id'],
-    'source_use_profile_id' => $mixed->value()['release_source_use_profile_id'],
+    'source_use_profile_id' => $narrowProfile->value()['release_source_use_profile_id'],
     'content_elements' => [
         ['elementClass' => 'CLAIM', 'textSafe' => 'List price rose from 449 to 499 SEK.', 'confidence' => 'HIGH'],
     ],
@@ -463,7 +531,7 @@ Assert::same(
     'TENANT_INTERNAL is above an OPERATOR_ONLY ceiling, so the projection is refused',
 );
 Assert::same(
-    ['AUDIENCE_ABOVE_SOURCE_USE_CEILING'],
+    ['AUDIENCE_ABOVE_PROFILE_CEILING'],
     json_decode(
         (string) $db->scalar(
             'SELECT refusal_reason_codes FROM customer_output_projections
