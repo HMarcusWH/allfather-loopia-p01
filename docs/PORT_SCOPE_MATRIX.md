@@ -178,10 +178,22 @@ and are now filled.
 | --- | --- | --- | --- |
 | P02 stakeholder role profiles | PORT_USEFUL_AND_COHERENT, not yet done | `stakeholder_role_profiles` and `stakeholder_role_attributes` have no producer | the `STAKEHOLDER_PROFILE_MINIMIZATION` audit is ported and proved to bite, so the control precedes the producer rather than following it |
 | P03 assurance (3 M11 audits) | PORT_USEFUL_AND_COHERENT, not yet done | no post-outcome audit trail for catalogue freshness, signal-pairing freshness or the buyer-intent invariant | the buyer-intent PRIMARY gate is the M08 rule and is ported and tested; these audits are the defence-in-depth re-scan, not the gate |
-| P03 console panels | PORT_USEFUL_AND_COHERENT, not yet done | the released prospect outputs have no dedicated console surface | the two-gate read model IS ported (`P03\Release::listVisibleProspectOutputs`); what is missing is the M12 panel that renders it |
+| P03 web surface | **RUNTIME_IMPLEMENTED / WEB_SURFACE_NOT_INCLUDED** | no dedicated console screen renders released prospect outputs | the two-gate read model IS ported and tested (`P03\Release::listVisibleProspectOutputs`). This is a UX scope decision for the first staging experience, NOT missing runtime and NOT a conformance gap |
+| P02 web surface | **RUNTIME_IMPLEMENTED / WEB_SURFACE_NOT_INCLUDED** | no dedicated console screen renders released twin or relationship snapshots | both two-gate read models are ported and tested (`P02\TwinRelease::listVisibleSnapshots`, `P02\RelationshipRelease::listVisibleSnapshots`), and the M16 operator hold-view is where a held artifact is read. The first staging experience for P02 is operator-assisted |
 | P02 offering twins | **EXCLUDED_BY_AUTHORITY** | none | not a gap — excluded by the upstream P02 cp11 gate (V1-GAP-097). P03 catalogue is the MVP products/offers authority |
 | P07-A channel binding | **EXCLUDED_BY_AUTHORITY / deliberate** | no `outreach_channel_bindings` row can exist | stronger than porting it inert — the port ships no producer, so there is nothing for the table's CHECK constraints to constrain |
 | P02 stakeholder role OBSERVATIONS | **ALREADY_SUBSUMED** | none | ported as `app/Product/P04/StakeholderRoles.php`, writing `stakeholder_role_observations`, where the distribution path consumes it. This is a DIFFERENT object from P02's role profiles above — an earlier revision of this matrix conflated them |
+
+### Known deliberate divergences from canonical (stricter, never looser)
+
+| Divergence | Canonical | This port | Why it stands |
+| --- | --- | --- | --- |
+| Source-use audience ceiling on the CARD path | a licence not permitting customer output reaches `TENANT_INTERNAL` | reaches `OPERATOR_ONLY` | The port's card-driven fold is STRICTER — it shows less, never more. Making them equal would mean widening P01's audience ceiling in service of symmetry, which is a behavioural change to a proven release path. `governed_vocabulary.php` asserts the DIRECTION — the card path may be stricter, never looser — rather than equality |
+| Recorded audience ceiling maximum | records the full audience ladder and relies on the activation pins to keep wider audiences inert | caps the recorded ceiling at `TENANT_INTERNAL` | Behaviourally identical: nothing above `TENANT_INTERNAL` is activatable either way. A recorded ceiling naming an audience no code can project would describe an authority that does not exist |
+| Card path's capture-status gate | — | the card fold also refuses a source that is not `ACTIVE_FOR_CAPTURE` | Not a divergence in the fold but an extra gate the contribution fold structurally cannot apply: a twin's first-party basis was never fetched from anywhere and has no capture status |
+
+**Neither ceiling divergence widens anything.** Both make this port narrower than canonical, and
+both are asserted in conformance rather than merely described here.
 
 **None of these is a hidden capability.** Every one is an absence: no code path, no surface, no row.
 

@@ -229,3 +229,27 @@ Assert::contains(
     (string) file_get_contents(dirname(__DIR__, 2) . '/docs/LOOPIA_HOST_MODEL.md'),
     'and the unresolved question about the Kundzon scheduler is recorded as a named blocker',
 );
+
+// ---------------------------------------------------------------- the web surface, as classified
+
+// `PORT_SCOPE_MATRIX.md` classifies P02 and P03 as RUNTIME_IMPLEMENTED /
+// WEB_SURFACE_NOT_INCLUDED: their gated read models exist and are tested, and no console screen
+// renders them. That is a UX scope decision, and it is only honest while it stays TRUE — a screen
+// added later without updating the classification would leave the document describing a product
+// that no longer matches, which is the failure this file exists to catch elsewhere too.
+$surfaceController = (string) file_get_contents(
+    dirname(__DIR__, 2) . '/app/Http/Controllers/SurfaceController.php'
+);
+foreach (['P01\\Surfacing' => true, 'P04\\Release' => true, 'P05\\Release' => true] as $served => $_) {
+    Assert::contains(
+        $served,
+        $surfaceController,
+        "the console serves {$served}",
+    );
+}
+foreach (['P02\\TwinRelease', 'P02\\RelationshipRelease', 'P03\\Release'] as $notServed) {
+    Assert::false(
+        str_contains($surfaceController, $notServed),
+        "{$notServed} has no console screen — classified WEB_SURFACE_NOT_INCLUDED, and still true",
+    );
+}

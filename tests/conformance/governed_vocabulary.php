@@ -28,7 +28,10 @@ declare(strict_types=1);
 use Allfather\Loopia\Core\ActionClass;
 use Allfather\Loopia\Ingestion\SourcePolicy;
 use Allfather\Loopia\Product\P01\Entitlements;
+use Allfather\Loopia\Product\P01\SourceCards;
 use Allfather\Loopia\Product\P02\EntityTwins;
+use Allfather\Loopia\Substrate\M10\DecisionLedger;
+use Allfather\Loopia\Tests\Seed;
 use Allfather\Loopia\Substrate\M16\ReleaseOutput;
 use Allfather\Loopia\Tests\Assert;
 use Allfather\Loopia\Tests\Harness;
@@ -401,4 +404,142 @@ Assert::equalsList(
     ['BLOCKED', 'DRAFT', 'PENDING_VERDICT', 'VERDICT_ISSUED'],
     $changeStatuses,
     'the state-change statuses stop at VERDICT_ISSUED — RELEASED is M10\'s word, not a status here',
+);
+
+// ============================================================ one source-use law, two entry points
+
+// M16 now compiles a source-use profile two ways: from registered CARDS (P01's path) and from
+// explicit CONTRIBUTIONS (P02's, because a twin's bases are a mix only the caller can classify).
+// Two implementations of one law is how the law drifts, so the agreement is pinned here rather
+// than left to the fact that both currently look right.
+$m16 = new ReleaseOutput($db, $clock ?? Harness::clock(), new DecisionLedger($db, Harness::clock()));
+$scopeForFold = Seed::tenantWorkspace($db, Harness::clock(), 'fold');
+
+// THE TWO PATHS ARE NOT THE SAME LAW, and this says where they differ before asserting where they
+// agree. The card path applies one gate the contribution path structurally cannot: the SOURCE's
+// capture status. A P02 contribution is not tied to a capture-eligible source — a twin's first-party
+// basis was never fetched from anywhere — so there is no status for it to check. What must agree is
+// the FOLD: given the same facts about licence, sensitivity, retention and card state, both must
+// reach the same verdict.
+$permissiveCard = (new SourceCards($db, Harness::clock()))->project([
+    'tenant_id' => $scopeForFold['tenant_id'],
+    'source_name' => 'Permissive source',
+    'source_url_safe' => 'https://example.test/open',
+    'source_type' => 'website',
+    'allowed_use_class' => 'derived_summary_allowed',
+    'license_class' => 'PUBLIC_WEB_ALLOWED',
+    'review_status' => 'approved',
+    // A public-web source is admissible only once robots and terms have actually been reviewed.
+    'robots_policy_checked' => true,
+    'terms_policy_checked' => true,
+]);
+Assert::same(
+    'ACTIVE_FOR_CAPTURE',
+    (string) $db->scalar(
+        'SELECT status FROM source_references WHERE source_ref_id = ?',
+        [$permissiveCard['source_ref_id']]
+    ),
+    'the fixture source is capture-active, so the card path\'s extra gate is not what is being compared',
+);
+$fromCard = $m16->compileSourceUseProfile(
+    $scopeForFold['tenant_id'], $scopeForFold['workspace_id'], [$permissiveCard['source_ref_id']]
+)->value();
+$fromContribution = $m16->compileSourceUseProfileFromContributions(
+    $scopeForFold['tenant_id'],
+    $scopeForFold['workspace_id'],
+    [[
+        'source_license_card_id' => $permissiveCard['source_license_card_id'],
+        'source_ref_id' => $permissiveCard['source_ref_id'],
+        'license_ceiling' => 'PUBLIC_WEB_ALLOWED',
+        'customer_output_allowed' => false,
+        'sensitivity_class' => 'PUBLIC_OR_NON_SENSITIVE',
+        'retention_class' => 'standard',
+        'data_ownership' => 'PUBLIC',
+        'card_state' => ['approved' => true, 'review_expires_at' => null],
+        'evidence_usable' => true,
+    ]]
+)->value();
+Assert::same(
+    $fromCard['status'],
+    $fromContribution['status'],
+    'both source-use entry points agree that an approved permissive source compiles ALLOW',
+);
+// THE CEILINGS ARE NOT EQUAL, AND THAT IS RECORDED RATHER THAN FORCED. For a source whose licence
+// does not permit customer output, canonical (and the contribution fold, which mirrors it) reaches
+// TENANT_INTERNAL; the port's card-driven path reaches OPERATOR_ONLY. The card path is therefore
+// STRICTER than canonical here — it shows LESS, never more.
+//
+// That asymmetry is left alone deliberately. Making them equal would mean WIDENING P01's audience
+// ceiling to match, which is a behavioural change to a proven release path in service of a test.
+// The direction is what matters and is asserted: the card path may be stricter, never looser.
+$ceilingRank = ['OPERATOR_ONLY' => 0, 'TENANT_INTERNAL' => 1];
+Assert::true(
+    $ceilingRank[$fromCard['audience_ceiling']] <= $ceilingRank[$fromContribution['audience_ceiling']],
+    'the card-driven fold is never LOOSER than the contribution fold on the same facts',
+);
+Assert::same(
+    'OPERATOR_ONLY',
+    $fromCard['audience_ceiling'],
+    'and it is stricter here, for a licence that does not permit customer output',
+);
+
+// THE FIRST-PARTY RULE IS WHAT THE CONTRIBUTION PATH ADDS, and it must not leak into the card path:
+// a cardless contribution that is NOT tenant-owned holds, and one that IS tenant-owned does not.
+$cardless = $m16->compileSourceUseProfileFromContributions(
+    $scopeForFold['tenant_id'],
+    $scopeForFold['workspace_id'],
+    [[
+        'source_license_card_id' => null,
+        'source_ref_id' => 'twin:external',
+        'license_ceiling' => 'PUBLIC_WEB_RESTRICTED',
+        'customer_output_allowed' => false,
+        'sensitivity_class' => 'PUBLIC_OR_NON_SENSITIVE',
+        'retention_class' => 'standard',
+        'data_ownership' => 'PUBLIC',
+        'card_state' => null,
+        'evidence_usable' => true,
+    ]]
+)->value();
+Assert::equalsList(
+    ['SOURCE_CARD_MISSING_FOR_EXTERNAL_SOURCE'],
+    $cardless['hold_reasons'],
+    'a cardless EXTERNAL contribution holds, naming the missing card',
+);
+Assert::same('OPERATOR_ONLY', $cardless['audience_ceiling'], 'and is capped at the operator hold-view');
+
+$firstParty = $m16->compileSourceUseProfileFromContributions(
+    $scopeForFold['tenant_id'],
+    $scopeForFold['workspace_id'],
+    [[
+        'source_license_card_id' => null,
+        'source_ref_id' => 'twin:first-party',
+        'license_ceiling' => 'OPEN_CC0',
+        'customer_output_allowed' => true,
+        'sensitivity_class' => 'PUBLIC_OR_NON_SENSITIVE',
+        'retention_class' => 'standard',
+        'data_ownership' => 'TENANT_OWNED',
+        'card_state' => null,
+        'evidence_usable' => true,
+    ]]
+)->value();
+Assert::equalsList(
+    [],
+    $firstParty['hold_reasons'],
+    "a cardless TENANT_OWNED contribution does NOT hold — the tenant's own material needs no licence",
+);
+Assert::same(
+    'TENANT_INTERNAL',
+    $firstParty['audience_ceiling'],
+    'and reaches the tenant-internal ceiling this projection can express',
+);
+
+// The hold-reason vocabulary is ordered, because the profile digest is order-sensitive.
+Assert::equalsList(
+    [
+        'SOURCE_LICENSE_PROHIBITED', 'SOURCE_CARD_NOT_APPROVED', 'SOURCE_CARD_REVIEW_EXPIRED',
+        'SOURCE_CARD_MISSING_FOR_EXTERNAL_SOURCE', 'EVIDENCE_QUARANTINED_OR_REVOKED',
+        'SENSITIVITY_PROHIBITED', 'RETENTION_PROHIBITED', 'UNKNOWN_LICENSE_VALUE',
+    ],
+    ReleaseOutput::SOURCE_USE_HOLD_REASONS,
+    'the hold reasons keep canonical declaration order — the digest depends on it',
 );
