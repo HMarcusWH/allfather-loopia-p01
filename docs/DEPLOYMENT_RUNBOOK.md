@@ -153,17 +153,52 @@ answer for a private address before trusting it with a real source.
 
 ## 5. Provision a tenant
 
-1. Seed the platform permission vocabulary and roles (`M02\Permissions`).
-2. Register the P01 capability (`P01\Registration::registerCompetitionMonitor`) — this provisions
-   the Valkyrie identity, governed tools, arbiter policy sets, M16 visibility profiles and the
-   subscription tier in one governed act. **It is the only registration in this port**: P02–P07-A
-   have no equivalent, so their tables, policy sets and admission rules exist but have no one-call
-   tenant setup. See `PORT_SCOPE_MATRIX.md` §3.7.
-3. Subscribe the tenant to a tier. **A role grant is not a purchase**: both gates must pass, and
-   they are deliberately separate.
-4. Create audit profiles per category as needed.
+One command, which composes the real module registrations and decides nothing itself:
 
-## 6. Stand-down and rollback
+    php ops/provision-staging.php \
+      --tenant-key=acme --workspace-key=main \
+      --display-name="Acme AB" --operator-name="Ops" \
+      [--modules=P01,P03,P04,P05] [--env=path] [--dry-run]
+
+It prints the tenant, workspace and operator ids and, per module, the Valkyrie, contract, governed
+tool and policy set it established. Run `--dry-run` first: it validates the arguments and the
+configuration and writes nothing.
+
+**What each module registration establishes** (its own decisions, made by the module):
+
+| Plane | What is established |
+| --- | --- |
+| M03 | the capability's Valkyrie, its contract, and the forbidden-action clauses recorded on it |
+| M06 | the governed tool and its operation — platform rows, converged on if they already exist |
+| M03 | the per-contract tool right, which is where per-tenant authority actually lives |
+| M08 | the module's admission policy set, workspace-scoped |
+| M16 | the tenant's output visibility profiles (P01 registration; internal permitted, every wider audience seeded explicitly as not permitted) |
+| Entitlement | the commercial tiers — platform rows, created once per deployment |
+
+**What the command itself writes:** the tenant, workspace and operator rows, and nothing else. Those
+are the scope the capabilities are registered INTO; no module owns them and they must exist first.
+It issues no UPDATE or DELETE at all, refuses an unrecognised argument rather than ignoring it, and
+refuses to run under any web SAPI before it connects to anything.
+
+**It fails closed and says how far it got.** The first module refusal stops the run and reports
+which module refused, why, and what was provisioned before it — because a half-provisioned tenant is
+a real state and implying a rollback that did not happen would be worse than reporting the truth.
+Exit codes: 2 bad arguments, 3 database unreachable, 4 tenant key already exists (pass
+`--allow-existing` only if minting a second set of per-tenant Valkyries is what you intend), 5 a
+module refused.
+
+**P02 is not provisionable**, and the command refuses `--modules=P02`. Its admission policy set is
+not ported, so registering the capability would establish an agent whose governed lifecycle does not
+exist. See [`PORT_SCOPE_MATRIX.md`](./PORT_SCOPE_MATRIX.md) §3.7.
+
+**Provisioning is not activation.** It establishes capability, never authority to use it against the
+outside world: `live_read_activated` and `external_action_authorized` are restated as false on every
+successful run.
+
+Afterwards, grant the operator a role and a workspace membership, and subscribe the tenant to a
+tier — a role grant is not a purchase, and both gates are checked independently at every surface.
+
+## 6. Stand-down and rollback## 6. Stand-down and rollback
 
 **Rollback is never a delete.** The storage refuses one, and the reason is that a rollback which
 destroyed the record would also destroy the proof the rollback happened. Five levers, in
