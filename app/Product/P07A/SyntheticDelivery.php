@@ -131,7 +131,24 @@ final class SyntheticDelivery
         // outcome below was supplied by the caller, and the record says so.
 
         $mapping = self::RECORD_BY_OUTCOME[$input['simulated_outcome']];
-        $streamId = $this->ledger->ensureActiveStream($input['tenant_id'], $input['workspace_id']);
+        // The environment is the WORKSPACE's, read here rather than assumed. This call used to omit
+        // it and take M10's `'TEST'` default, so a DEMO workspace's synthetic-delivery records were
+        // appended to the TEST ledger — one history wearing another's name. M10 no longer has a
+        // default to fall back on, and this is where the real value comes from.
+        $environmentClass = $this->db->scalar(
+            'SELECT environment_class FROM workspaces WHERE workspace_id = ?',
+            [$input['workspace_id']]
+        );
+        if ($environmentClass === null) {
+            return Outcome::refuse('WORKSPACE_NOT_FOUND', [
+                'workspace_id' => $input['workspace_id'],
+            ], 'SCOPE', 'S4');
+        }
+        $streamId = $this->ledger->ensureActiveStream(
+            $input['tenant_id'],
+            $input['workspace_id'],
+            (string) $environmentClass,
+        );
         $recorded = $this->ledger->append(
             $streamId,
             $mapping['record_type'],

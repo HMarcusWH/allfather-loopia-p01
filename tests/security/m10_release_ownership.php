@@ -215,8 +215,13 @@ Assert::case('I');
 // The record type is unreachable from outside M10. Not "guarded by a token that is hard to obtain"
 // — there is no token. The previous design had a `ReleasePathCapability` with a public static
 // factory, so the guard was satisfiable by anything that could type its name.
+$anyWorkspace = (array) $db->one(
+    'SELECT tenant_id, workspace_id, environment_class FROM workspaces ORDER BY workspace_id LIMIT 1'
+);
 $stream = $ledger->ensureActiveStream(
-    ...array_values((array) $db->one('SELECT tenant_id, workspace_id FROM workspaces LIMIT 1'))
+    (string) $anyWorkspace['tenant_id'],
+    (string) $anyWorkspace['workspace_id'],
+    (string) $anyWorkspace['environment_class'],
 );
 $forged = $ledger->append(
     $stream, 'INTERNAL_INFORMATIONAL_RELEASE', 'GOVERNANCE_MATERIAL', 'RELEASED_INTERNAL', 'forged',

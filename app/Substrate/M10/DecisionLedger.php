@@ -59,10 +59,60 @@ final class DecisionLedger
     // ---------------------------------------------------------------- stream lifecycle
 
     /**
+     * The canonical default stream key for an environment.
+     *
+     * Upstream: `input.streamKey ?? \`ledger:${input.environmentClass.toLowerCase()}\``. Tenant and
+     * workspace already scope the ROW — they are columns, and `(tenant, workspace, stream_key)` is
+     * unique. An earlier revision of this port derived the key as `m10.{tenant}.{workspace}`, which
+     * looked harmless and was not: with tenant and workspace already inside the key, that unique
+     * index permitted exactly ONE stream per scope for all time, so a DEMO stream could not exist
+     * beside a TEST one even once the ACTIVE lookup was fixed. The key is a governed name, not a
+     * uniqueness device.
+     */
+    public static function defaultStreamKey(string $environmentClass): string
+    {
+        return 'ledger:' . strtolower($environmentClass);
+    }
+
+    /**
+     * The canonical genesis anchor for a stream identity.
+     *
+     * Upstream digests exactly these five fields. Two properties follow, and both are load-bearing:
+     *
+     *  1. **It is derived from LOGICAL identity, not from the row.** The randomly generated
+     *     `decision_ledger_stream_id` is deliberately absent, so anyone holding the same tenant,
+     *     workspace, environment and key can reconstruct the anchor and verify a chain from its
+     *     own identity. An earlier revision of this port digested the random id instead, which made
+     *     the anchor unreproducible — a verifier had to be TOLD the answer it was checking.
+     *  2. **The environment is part of it.** A TEST anchor and a DEMO anchor for the same scope
+     *     differ, so the two histories cannot be mistaken for one another even by digest.
+     */
+    public static function genesisAnchor(
+        string $tenantId,
+        string $workspaceId,
+        string $environmentClass,
+        string $streamKey,
+    ): string {
+        return Digest::canonicalDigest([
+            'kind' => 'GENESIS',
+            'streamKey' => $streamKey,
+            'tenantId' => $tenantId,
+            'workspaceId' => $workspaceId,
+            'environmentClass' => $environmentClass,
+        ]);
+    }
+
+    /**
      * Create an ACTIVE ledger stream for a scope.
      *
-     * The genesis anchor is the deterministic predecessor of record 1, so a stream's chain is
-     * verifiable from its own identity without a stored magic value.
+     * **A scope is (tenant, workspace, environment).** Not (tenant, workspace). A TEST ledger and a
+     * DEMO ledger for the same tenant and workspace are two distinct governed histories, and the
+     * canonical partial unique index says so: `UNIQUE (tenant_id, workspace_id, environment_class)
+     * WHERE status = 'ACTIVE'`.
+     *
+     * The pre-check below is a courtesy that returns a named refusal instead of an exception. It is
+     * NOT the enforcement: `ux_decision_ledger_streams_active_scope` enforces it in the database,
+     * and a concurrent creator that slips past the pre-check is rejected there.
      */
     public function createStream(
         string $tenantId,
@@ -70,26 +120,18 @@ final class DecisionLedger
         string $environmentClass,
         ?string $streamKey = null,
     ): Outcome {
-        $key = $streamKey ?? "m10.{$tenantId}.{$workspaceId}";
-        $existing = $this->db->one(
-            'SELECT decision_ledger_stream_id FROM decision_ledger_streams
-             WHERE tenant_id = ? AND workspace_id = ? AND status = ?',
-            [$tenantId, $workspaceId, 'ACTIVE']
-        );
+        $key = $streamKey ?? self::defaultStreamKey($environmentClass);
+        $existing = $this->findActiveStream($tenantId, $workspaceId, $environmentClass);
         if ($existing !== null) {
             // At most one ACTIVE stream per scope — competing heads would be competing histories.
             return Outcome::refuse('LEDGER_ACTIVE_STREAM_ALREADY_EXISTS', [
-                'decision_ledger_stream_id' => (string) $existing['decision_ledger_stream_id'],
+                'decision_ledger_stream_id' => $existing,
+                'environment_class' => $environmentClass,
             ]);
         }
 
         $streamId = Ids::new();
-        $genesis = Digest::canonicalDigest([
-            'genesis' => true,
-            'ledgerStreamId' => $streamId,
-            'tenantId' => $tenantId,
-            'workspaceId' => $workspaceId,
-        ]);
+        $genesis = self::genesisAnchor($tenantId, $workspaceId, $environmentClass, $key);
         $now = $this->clock->now();
 
         $this->db->insert('decision_ledger_streams', [
@@ -109,21 +151,84 @@ final class DecisionLedger
             'activated_at' => $now,
         ]);
 
-        return Outcome::ok(['decision_ledger_stream_id' => $streamId, 'genesis_hash' => $genesis]);
+        return Outcome::ok([
+            'decision_ledger_stream_id' => $streamId,
+            'genesis_hash' => $genesis,
+            'stream_key' => $key,
+            'environment_class' => $environmentClass,
+        ]);
     }
 
-    public function ensureActiveStream(string $tenantId, string $workspaceId, string $environmentClass = 'TEST'): string
-    {
-        $existing = $this->db->one(
-            'SELECT decision_ledger_stream_id FROM decision_ledger_streams
-             WHERE tenant_id = ? AND workspace_id = ? AND status = ?',
-            [$tenantId, $workspaceId, 'ACTIVE']
+    /**
+     * The ACTIVE stream for a scope, or null. The environment is part of the scope.
+     *
+     * `$latestCommitted` selects a LOCKING read, and it exists for exactly one caller: the race
+     * recovery below. The session runs at REPEATABLE READ, so an ordinary read inside a transaction
+     * is served from the snapshot taken at that transaction's first read — which means a caller
+     * that lost a race would re-read its own "there is no stream" answer forever and conclude the
+     * conflict was something else. InnoDB serves LOCKING reads from the latest committed version
+     * instead, so the recovery actually sees the winner. It is a shared lock rather than an
+     * exclusive one because this reads an id; and if the winner has not committed yet, blocking
+     * until it does is the correct answer rather than a race to guess.
+     */
+    public function findActiveStream(
+        string $tenantId,
+        string $workspaceId,
+        string $environmentClass,
+        bool $latestCommitted = false,
+    ): ?string {
+        $sql = 'SELECT decision_ledger_stream_id FROM decision_ledger_streams
+                WHERE tenant_id = ? AND workspace_id = ? AND environment_class = ? AND status = ?';
+        $row = $this->db->one(
+            $latestCommitted ? $sql . ' LOCK IN SHARE MODE' : $sql,
+            [$tenantId, $workspaceId, $environmentClass, 'ACTIVE']
         );
+
+        return $row === null ? null : (string) $row['decision_ledger_stream_id'];
+    }
+
+    /**
+     * The ACTIVE stream for a scope, creating one if none exists. Idempotent per scope.
+     *
+     * `$environmentClass` is REQUIRED. It used to default to `'TEST'`, which is the kind of default
+     * that reads as a convenience and behaves as a bug: a caller that forgot to pass the workspace's
+     * environment silently wrote DEMO history into the TEST ledger, and nothing anywhere said so.
+     * There is no environment this module may assume on a caller's behalf.
+     *
+     * Race convergence follows upstream exactly: find, create, and on a losing race find again and
+     * return what the winner made. Two callers asking for the same scope get the same stream — one
+     * history, one head — and the loser raises nothing. Any OTHER failure is rethrown, because a
+     * swallowed insert error on a governed ledger is indistinguishable from a successful create.
+     */
+    public function ensureActiveStream(string $tenantId, string $workspaceId, string $environmentClass): string
+    {
+        $existing = $this->findActiveStream($tenantId, $workspaceId, $environmentClass);
         if ($existing !== null) {
-            return (string) $existing['decision_ledger_stream_id'];
+            return $existing;
         }
 
-        return (string) $this->createStream($tenantId, $workspaceId, $environmentClass)->value()['decision_ledger_stream_id'];
+        try {
+            $created = $this->createStream($tenantId, $workspaceId, $environmentClass);
+            if (!$created->isRefusal()) {
+                return (string) $created->value()['decision_ledger_stream_id'];
+            }
+            // The pre-check lost to a concurrent creator between the find and the insert.
+            $raced = $this->findActiveStream($tenantId, $workspaceId, $environmentClass, true);
+            if ($raced !== null) {
+                return $raced;
+            }
+
+            throw new LedgerStreamConflict((string) $created->reasonCode());
+        } catch (\PDOException $error) {
+            // The database rejected the insert. If that was the active-scope guard, a winner exists
+            // and this caller converges on it; anything else is a real failure and is rethrown.
+            $raced = $this->findActiveStream($tenantId, $workspaceId, $environmentClass, true);
+            if ($raced !== null) {
+                return $raced;
+            }
+
+            throw $error;
+        }
     }
 
     // ---------------------------------------------------------------- digests

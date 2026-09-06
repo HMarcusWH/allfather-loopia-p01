@@ -55,6 +55,36 @@ final class Harness
         return $db;
     }
 
+    /**
+     * A SECOND, independent connection to the same test database.
+     *
+     * Concurrency invariants cannot be proved on one connection. A test that "races" two calls
+     * through a single PDO handle races nothing — the statements are serialized by the wire, and
+     * the second call reads whatever the first committed. Anything a repository claims about
+     * behaviour under concurrent callers has to be exercised by actual concurrent connections,
+     * each with its own transaction and its own snapshot.
+     *
+     * Deliberately NOT memoized: a caller asking for a second connection generally wants a third
+     * too, and handing back the same one would quietly turn a race test into a sequence test.
+     */
+    public static function secondConnection(): ?Database
+    {
+        if (self::db() === null) {
+            return null;
+        }
+
+        $env = self::env();
+
+        return Database::connect(
+            $env->get('DB_HOST', '127.0.0.1') ?? '127.0.0.1',
+            $env->int('DB_PORT', 3306),
+            $env->get('DB_NAME', 'allfather_test') ?? 'allfather_test',
+            $env->get('DB_USER', 'allfather') ?? 'allfather',
+            $env->get('DB_PASSWORD', 'allfather_dev') ?? 'allfather_dev',
+            $env->get('DB_SOCKET'),
+        );
+    }
+
     public static function unavailableReason(): string
     {
         return self::$unavailableReason ?? 'MariaDB unreachable';
