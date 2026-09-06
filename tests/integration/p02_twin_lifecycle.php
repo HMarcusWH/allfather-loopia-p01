@@ -309,7 +309,7 @@ Assert::same(
         'SELECT status FROM proposal_envelopes WHERE proposal_id = ?',
         [$flow['submitted']->value()['proposal_id']]
     ),
-    'and the M04 envelope advances through markReleased, against the record just written',
+    'and M10 itself advanced the envelope, inside the transaction that wrote the record',
 );
 
 Assert::same(
