@@ -157,7 +157,7 @@ foreach (['INDIVIDUAL', 'PERSON', 'EMPLOYEE', 'CONTACT'] as $narrower) {
 
 // And the entity twin refuses the same thing through the real product path, with a named reason
 // for each kind of overreach — because the remedies differ, and an operator needs to know which.
-$twins = new EntityTwins($db, $clock, new \Allfather\Loopia\Substrate\M05\EvidenceSpine($db, $clock));
+$twins = new EntityTwins($db, $clock);
 $twinId = $twins->registerTwin(
     $scope['tenant_id'], $scope['workspace_id'], 'COMPETITOR', 'Rival AB',
     [], $scope['operator_id']

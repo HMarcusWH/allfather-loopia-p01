@@ -28,6 +28,7 @@ declare(strict_types=1);
 use Allfather\Loopia\Core\ActionClass;
 use Allfather\Loopia\Ingestion\SourcePolicy;
 use Allfather\Loopia\Product\P01\Entitlements;
+use Allfather\Loopia\Product\P02\EntityTwins;
 use Allfather\Loopia\Substrate\M16\ReleaseOutput;
 use Allfather\Loopia\Tests\Assert;
 use Allfather\Loopia\Tests\Harness;
@@ -276,6 +277,7 @@ foreach (['PROSPECT', 'DISTRIBUTION', 'MARKETING', 'QUEUE'] as $unadopted) {
 // decision record. That is the shape: one release authority, several projections.
 foreach ([
     'released_briefings' => 'P01 — also the M16-adopted path',
+    'released_entity_twin_snapshots' => 'P02',
     'released_prospect_outputs' => 'P03',
     'released_distribution_outputs' => 'P04',
     'released_marketing_assets' => 'P05',
@@ -303,4 +305,60 @@ Assert::same(
     ['P01'],
     array_values(array_unique($m16Consumers)),
     'exactly one product family reaches M16 in this port — P01, the adopted path that is ported',
+);
+// P02 is the pointed case: its release lifecycle IS ported, and upstream composes an additive M16
+// snapshot-view artifact inside the same post-M10 transaction. This port does not, and the
+// assertion above is what keeps that an honest exclusion rather than a claim — the SNAPSHOT_VIEW
+// kinds exist in M16's vocabulary and nothing here composes one.
+Assert::same(
+    0,
+    (int) $db->scalar('SELECT COUNT(*) FROM release_artifacts'),
+    'and no artifact exists on a fresh database, P02 snapshot views included',
+);
+
+// ============================================================ the P02 release vocabularies
+
+// One constant, three readers. `TwinStateChange` validates the REQUEST, `EntityTwins` validates the
+// RELEASE, and `TwinRelease` validates the read LENS — against the same list, because a scope one
+// module accepts and another rejects is a hole in a default-deny that no single test would see.
+foreach ([
+    ['entity_twin_state_change_proposals', 'requested_visibility_scope', EntityTwins::VISIBILITY_SCOPES],
+    ['released_entity_twin_snapshots', 'visibility_scope', EntityTwins::VISIBILITY_SCOPES],
+    ['entity_twin_state_change_proposals', 'requested_release_status', EntityTwins::RELEASE_STATUSES],
+] as [$table, $column, $constant]) {
+    $members = $checkMembers($table, $column);
+    sort($members);
+    $expected = $constant;
+    sort($expected);
+    Assert::equalsList(
+        $expected,
+        $members,
+        "{$table}.{$column}: the PHP constant and the storage CHECK admit exactly the same members",
+    );
+}
+
+// The release STATUS column on the snapshot admits two members the request vocabulary does not:
+// SUPERSEDED and RETRACTED are OUTCOMES of later events, never something a caller may ask for. A
+// constant that grew to match this column would let a caller request its own retraction.
+$snapshotStatuses = $checkMembers('released_entity_twin_snapshots', 'release_status');
+foreach (['SUPERSEDED', 'RETRACTED', 'BLOCKED'] as $outcomeOnly) {
+    Assert::true(
+        in_array($outcomeOnly, $snapshotStatuses, true),
+        "released_entity_twin_snapshots.release_status admits {$outcomeOnly} as an outcome",
+    );
+    Assert::false(
+        in_array($outcomeOnly, EntityTwins::RELEASE_STATUSES, true),
+        "and {$outcomeOnly} is NOT requestable — an outcome is not a request",
+    );
+}
+
+// The state-change status vocabulary has no released member. A change is BOUND to a released
+// snapshot through a column; it never becomes a status, so no code path can mint a release by
+// setting one.
+$changeStatuses = $checkMembers('entity_twin_state_change_proposals', 'change_status');
+sort($changeStatuses);
+Assert::equalsList(
+    ['BLOCKED', 'DRAFT', 'PENDING_VERDICT', 'VERDICT_ISSUED'],
+    $changeStatuses,
+    'the state-change statuses stop at VERDICT_ISSUED — RELEASED is M10\'s word, not a status here',
 );

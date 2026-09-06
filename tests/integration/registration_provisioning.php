@@ -21,6 +21,7 @@ declare(strict_types=1);
  */
 
 use Allfather\Loopia\Product\P01\Entitlements;
+use Allfather\Loopia\Product\P02\Registration as P02Registration;
 use Allfather\Loopia\Product\P03\Registration as P03Registration;
 use Allfather\Loopia\Product\P04\Registration as P04Registration;
 use Allfather\Loopia\Product\P05\Registration as P05Registration;
@@ -54,6 +55,14 @@ $input = [
 ];
 
 $registrations = [
+    'P02' => [
+        (new P02Registration($db, $clock, $m03, $eligibility, $tools, $policySets, $entitlements))
+            ->registerEntityTwinCurator($input),
+        'ENTITY_TWIN_CURATOR_VALKYRIE',
+        'p02.entity_twin.read',
+        'P02_TWIN_STATE_ADMISSION',
+        ['P02_INTELLIGENCE', 'P02_GOVERNED_OPS'],
+    ],
     'P03' => [
         (new P03Registration($db, $clock, $m03, $eligibility, $tools, $policySets, $entitlements))
             ->registerLeadQualification($input),
@@ -218,10 +227,11 @@ Assert::true(
 // Unknown arguments are refused rather than ignored: silently dropping a typo is how a run does
 // something other than what the operator asked for.
 Assert::contains('unknown argument --', $command, 'an unrecognised argument is refused by name');
-// P02 is deliberately absent from the provisionable set.
+// P02 joined the provisionable set when its governed lifecycle was ported. The set is asserted
+// EXACTLY rather than by membership: a module that appears here without a registration behind it is
+// the failure this assertion exists to catch, and only an exact match notices an addition.
 Assert::contains(
-    "\$available = ['P01', 'P03', 'P04', 'P05'];",
+    "\$available = ['P01', 'P02', 'P03', 'P04', 'P05'];",
     $command,
-    'P02 is not provisionable — its admission policy set is not ported, and registering a '
-    . 'capability whose governed lifecycle does not exist would be worse than the gap',
+    'the provisionable set is exactly the five modules with a registration and a governed lifecycle',
 );

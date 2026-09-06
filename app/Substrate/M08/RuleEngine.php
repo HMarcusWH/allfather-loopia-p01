@@ -55,6 +55,9 @@ final class RuleEngine
             'FIT_HYPOTHESIS', 'PRIORITY_OUTREACH_QUEUE_ADMISSION' => [
                 'P03_PROSPECT_ADMISSION' => self::loadP03Context($db, $proposalId, $proposalType),
             ],
+            'ENTITY_TWIN_STATE_CHANGE' => [
+                'P02_TWIN_STATE_ADMISSION' => self::loadP02Context($db, $proposalId),
+            ],
             'INTELLIGENCE_DISTRIBUTION_ROUTING' => [
                 'P04_DISTRIBUTION_ADMISSION' => self::loadP04Context($db, $proposalId),
             ],
@@ -165,6 +168,49 @@ final class RuleEngine
      *
      * @var list<string>
      */
+    /**
+     * The profiling vocabulary a twin state may never carry.
+     *
+     * DETERMINISTIC MARKERS, not a classifier — the same honesty the other detectors carry. They
+     * catch the named thing; the structural guarantee is that a twin has no column a profile could
+     * live in, and this is the layer over it for the free-text fields that do exist.
+     *
+     * @var list<string>
+     */
+    private const P02_PROFILING_TERMS = [
+        'psychographic', 'personality profile', 'emotional state', 'mental health',
+        'political affiliation', 'religious belief', 'sexual orientation', 'private life',
+        'health condition', 'sensitive trait',
+    ];
+
+    /** @var list<string> */
+    private const P02_EMPLOYEE_SCORING_TERMS = [
+        'employee score', 'productivity score', 'loyalty score', 'performance ranking',
+        'covert monitoring', 'surveillance of staff', 'employee ranking',
+    ];
+
+    /**
+     * The buyer-intent vocabulary — the same invariant P03 holds, held again at the twin gate.
+     *
+     * @var list<string>
+     */
+    private const P02_BUYER_INTENT_TERMS = [
+        'intends to buy', 'wants to buy', 'ready to purchase', 'will purchase',
+        'plans to purchase', 'in market to buy', 'intent to purchase',
+    ];
+
+    /**
+     * Licence classes that are not public-sourced.
+     *
+     * An EXTERNAL twin describes somebody else's company, so whatever it says must have come from a
+     * public source; a licensed or prohibited class is the failure.
+     *
+     * @var list<string>
+     */
+    private const NON_PUBLIC_LICENSE_CLASSES = [
+        'LICENSED_INTERNAL_ONLY', 'LICENSED_NO_CUSTOMER_OUTPUT', 'PROHIBITED',
+    ];
+
     public const BUYER_INTENT_TRIGGER_CLASSES = [
         'PRICING_CHANGE_SIGNAL',
         'PRODUCT_LAUNCH_SIGNAL',
@@ -386,6 +432,243 @@ final class RuleEngine
      * @param array<string, mixed>|null $ctx
      * @return array{decision: string, reason_codes: list<string>, severity: ?string, incident: bool, result: ?array<string, mixed>}
      */
+    /**
+     * The P02 twin-state context: the proposed version, its twin, its uncertainty summary, and the
+     * source card behind it.
+     *
+     * The state fields the prohibition rules read are the twin's own descriptive columns plus the
+     * uncertainty prose — the places a person, a score or an intent claim can actually be written.
+     *
+     * @return array<string, mixed>|null null when the proposal binds no twin state change
+     */
+    public static function loadP02Context(Database $db, string $proposalId): ?array
+    {
+        $row = $db->one(
+            'SELECT p.entity_twin_version_id, p.asserted_relationship_version_id,
+                    p.requested_visibility_scope, p.released_entity_twin_snapshot_id,
+                    p.supersedes_release_id,
+                    v.claim_ceiling, v.entity_twin_id,
+                    t.is_first_party, t.is_external, t.display_name, t.legal_name,
+                    t.industry, t.segment, t.jurisdiction,
+                    u.summary_safe AS uncertainty_summary_safe,
+                    u.has_conflict, u.conflict_summary_safe
+             FROM entity_twin_state_change_proposals p
+             JOIN entity_twin_versions v ON v.entity_twin_version_id = p.entity_twin_version_id
+             JOIN entity_twins t ON t.entity_twin_id = v.entity_twin_id
+             LEFT JOIN entity_twin_uncertainty_summaries u
+                    ON u.entity_twin_version_id = v.entity_twin_version_id
+             WHERE p.proposal_id = ?
+             ORDER BY p.created_at DESC, p.entity_twin_state_change_proposal_id DESC LIMIT 1',
+            [$proposalId]
+        );
+        if ($row === null) {
+            return null;
+        }
+
+        // The evidence behind this version. A version with no source link asserts a state nobody
+        // recorded a basis for, which is what `p02_unsupported_twin_claim` exists to catch.
+        $row['source_link_count'] = (int) $db->scalar(
+            'SELECT COUNT(*) FROM entity_twin_source_links WHERE entity_twin_version_id = ?',
+            [(string) $row['entity_twin_version_id']]
+        );
+
+        // The card behind the most recent source link, for the licence and freshness rules.
+        $card = $db->one(
+            'SELECT slc.review_status, slc.review_expires_at, slc.license_class,
+                    slc.retention_class, sr.status AS reference_status
+             FROM entity_twin_source_links l
+             JOIN source_references sr ON sr.source_ref_id = l.source_ref_id
+             LEFT JOIN source_license_cards slc ON slc.source_ref_id = sr.source_ref_id
+             WHERE l.entity_twin_version_id = ?
+             ORDER BY l.created_at DESC, l.entity_twin_source_link_id DESC LIMIT 1',
+            [(string) $row['entity_twin_version_id']]
+        );
+        $row['card'] = $card;
+
+        // Every free-text field a prohibited claim could be written into, concatenated once so the
+        // five prohibition rules each scan the same surface rather than each choosing their own.
+        $row['state_text'] = implode(' ', array_filter([
+            (string) ($row['display_name'] ?? ''),
+            (string) ($row['legal_name'] ?? ''),
+            (string) ($row['industry'] ?? ''),
+            (string) ($row['segment'] ?? ''),
+            (string) ($row['uncertainty_summary_safe'] ?? ''),
+            (string) ($row['conflict_summary_safe'] ?? ''),
+        ]));
+
+        // An asserted relationship edge, with the two things the rule requires of one: a declared
+        // confidence and at least one cited basis. Evidence lives in its own link table rather than
+        // on the version, so the count comes from there — a version row alone proves nothing.
+        if ($row['asserted_relationship_version_id'] !== null) {
+            $relationship = $db->one(
+                'SELECT confidence FROM entity_relationship_versions WHERE relationship_version_id = ?',
+                [(string) $row['asserted_relationship_version_id']]
+            );
+            if ($relationship !== null) {
+                $relationship['evidence_link_count'] = (int) $db->scalar(
+                    'SELECT COUNT(*) FROM entity_relationship_evidence_links
+                     WHERE relationship_version_id = ?',
+                    [(string) $row['asserted_relationship_version_id']]
+                );
+            }
+            $row['relationship'] = $relationship;
+        }
+
+        return $row;
+    }
+
+    /**
+     * The P02 twin-state rules.
+     *
+     * The five prohibition rules are first in priority and each opens an incident: a twin state
+     * that reached the arbiter carrying a person, an employee score, private external data, a
+     * first-party leak or a direct mutation of a released snapshot is a defect upstream, not a
+     * draft to revise. The rest grade from BLOCK through REQUIRE_MORE_EVIDENCE to HOLD, the
+     * difference being whether the state is WRONG or merely UNFINISHED.
+     */
+    private static function evalP02(array $rule, ?array $ctx, string $failClosed): array
+    {
+        if ($ctx === null) {
+            return self::notApplicable($rule);
+        }
+
+        $incident = (int) ($rule['incident_evaluation_if_failed'] ?? 0) === 1;
+        $ruleKey = (string) $rule['rule_key'];
+        $card = $ctx['card'] ?? null;
+        $text = (string) $ctx['state_text'];
+        $failed = null;
+        $reason = '';
+
+        switch ($ruleKey) {
+            case 'p02_person_profile_overreach':
+                // Two ways this fails, and both matter: a structured individual identifier, or the
+                // vocabulary of profiling. The shared detector is the same one P04 and P07-A use,
+                // deliberately — a gate and the audit that checks it must not disagree about what
+                // PII is.
+                $failed = PrivacyPatterns::containsIndividualIdentifier($text)
+                    || self::mentionsAny($text, self::P02_PROFILING_TERMS);
+                $reason = 'PERSON_PROFILE_OVERREACH';
+                break;
+
+            case 'p02_employee_scoring_or_surveillance':
+                $failed = self::mentionsAny($text, self::P02_EMPLOYEE_SCORING_TERMS);
+                $reason = 'EMPLOYEE_SCORING_OR_SURVEILLANCE';
+                break;
+
+            case 'p02_external_entity_private_data':
+                // An EXTERNAL twin describes somebody else's company. Whatever it says must have
+                // come from a public source, so a non-public reference is the failure.
+                $failed = (int) $ctx['is_external'] === 1
+                    && $card !== null
+                    && in_array((string) ($card['license_class'] ?? ''), self::NON_PUBLIC_LICENSE_CLASSES, true);
+                $reason = 'EXTERNAL_ENTITY_PRIVATE_DATA';
+                break;
+
+            case 'p02_first_party_external_leakage':
+                // A twin cannot be both. A row claiming first-party AND external is the shape a
+                // leak takes: our own material carried into somebody else's record.
+                $failed = (int) $ctx['is_external'] === 1 && (int) $ctx['is_first_party'] === 1;
+                $reason = 'FIRST_PARTY_EXTERNAL_LEAKAGE';
+                break;
+
+            case 'p02_direct_mutation_of_released_snapshot':
+                // A released snapshot is immutable. A change that names one must SUPERSEDE it; a
+                // change that names one without superseding is an edit.
+                $failed = $ctx['released_entity_twin_snapshot_id'] !== null
+                    && $ctx['supersedes_release_id'] === null;
+                $reason = 'DIRECT_MUTATION_OF_RELEASED_SNAPSHOT';
+                break;
+
+            case 'p02_unsupported_twin_claim':
+                $failed = (int) $ctx['source_link_count'] === 0;
+                $reason = 'UNSUPPORTED_TWIN_CLAIM';
+                break;
+
+            case 'p02_buyer_intent_overclaim':
+                // The same invariant P03 holds at its own gate, held again here: a twin may
+                // describe what was observed. It may not assert that a company wants to buy.
+                $failed = self::mentionsAny($text, self::P02_BUYER_INTENT_TERMS);
+                $reason = 'BUYER_INTENT_OVERCLAIM';
+                break;
+
+            case 'p02_relationship_edge_unsupported':
+                $relationship = $ctx['relationship'] ?? null;
+                $failed = $ctx['asserted_relationship_version_id'] !== null
+                    && ($relationship === null
+                        || (int) ($relationship['evidence_link_count'] ?? 0) === 0
+                        || ($relationship['confidence'] ?? null) === null);
+                $reason = 'RELATIONSHIP_EDGE_UNSUPPORTED';
+                break;
+
+            case 'p02_source_not_approved':
+                $failed = $card !== null && (string) ($card['review_status'] ?? '') !== 'approved';
+                $reason = 'SOURCE_NOT_APPROVED';
+                break;
+
+            case 'p02_license_restricts_use':
+                $failed = $card !== null
+                    && (string) ($card['license_class'] ?? '') === 'PROHIBITED';
+                $reason = 'LICENSE_RESTRICTS_USE';
+                break;
+
+            case 'p02_uncertainty_missing':
+                $failed = ($ctx['uncertainty_summary_safe'] ?? null) === null
+                    || trim((string) $ctx['uncertainty_summary_safe']) === '';
+                $reason = 'UNCERTAINTY_MISSING';
+                break;
+
+            case 'p02_conflicting_evidence_unresolved':
+                $failed = (int) ($ctx['has_conflict'] ?? 0) === 1;
+                $reason = 'CONFLICTING_EVIDENCE_UNRESOLVED';
+                break;
+
+            case 'p02_stale_or_superseded_source':
+                $failed = $card !== null && (
+                    !in_array((string) ($card['reference_status'] ?? ''), ['ACTIVE_FOR_CAPTURE', 'REGISTERED'], true)
+                    || (($card['review_expires_at'] ?? null) !== null
+                        && (string) $card['review_expires_at'] < (new Clock())->now())
+                );
+                $reason = 'STALE_OR_SUPERSEDED_SOURCE';
+                break;
+
+            case 'p02_retention_policy_missing':
+                $failed = $card !== null && ($card['retention_class'] ?? null) === null;
+                $reason = 'RETENTION_POLICY_MISSING';
+                break;
+
+            case 'p02_release_ceiling_missing':
+                $failed = ($ctx['claim_ceiling'] ?? null) === null
+                    || trim((string) $ctx['claim_ceiling']) === '';
+                $reason = 'RELEASE_CEILING_MISSING';
+                break;
+
+            default:
+                return self::refuse(
+                    $rule, ['ARBITER_P02_UNKNOWN_RULE', 'ARBITER_P02_TWIN_STATE_ADMISSION_DENIED'],
+                    $failClosed, $incident
+                );
+        }
+
+        if ($failed !== true) {
+            return ['decision' => 'PASS', 'reason_codes' => [], 'severity' => null, 'incident' => false, 'result' => null];
+        }
+
+        return self::refuse($rule, [$reason, 'ARBITER_P02_TWIN_STATE_ADMISSION_DENIED'], $failClosed, $incident);
+    }
+
+    /** Case-insensitive whole-phrase presence, for the prohibition vocabularies. */
+    private static function mentionsAny(string $haystack, array $needles): bool
+    {
+        $lower = strtolower($haystack);
+        foreach ($needles as $needle) {
+            if (str_contains($lower, strtolower($needle))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static function evalP04(array $rule, ?array $ctx, string $failClosed): array
     {
         if ($ctx === null) {
@@ -789,6 +1072,7 @@ final class RuleEngine
         return match ($category) {
             'P01_RELEVANCE' => self::evalP01($rule, $context['P01_RELEVANCE'] ?? null, $failClosed),
             'P03_PROSPECT_ADMISSION' => self::evalP03($rule, $context['P03_PROSPECT_ADMISSION'] ?? null, $failClosed),
+            'P02_TWIN_STATE_ADMISSION' => self::evalP02($rule, $context['P02_TWIN_STATE_ADMISSION'] ?? null, $failClosed),
             'P04_DISTRIBUTION_ADMISSION' => self::evalP04($rule, $context['P04_DISTRIBUTION_ADMISSION'] ?? null, $failClosed),
             'P05_MARKETING_ASSET_ADMISSION' => self::evalP05(
                 $rule, $context['P05_MARKETING_ASSET_ADMISSION'] ?? null, $proposalType, $failClosed

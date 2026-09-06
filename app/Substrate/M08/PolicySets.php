@@ -197,6 +197,168 @@ final class PolicySets
      * already-true briefing may be shown to a particular internal role — never whether anything may
      * leave the tenant. External delivery is not in this vocabulary at all.
      */
+    /**
+     * P02 entity-twin state-change admission.
+     *
+     * The set governs ENTITY_TWIN_STATE_CHANGE, and what it admits is an INTERNAL snapshot release:
+     * that the tenant's own people may read a recorded twin state. Nothing here publishes, sends,
+     * or reaches an external party.
+     *
+     * FIVE OF ITS RULES ARE NON-OVERRIDABLE AND CARRY AN INCIDENT, and they sit at the top of the
+     * priority order for a reason: once a twin state has been caught profiling a person, scoring an
+     * employee, carrying private external data, leaking first-party material into an external twin,
+     * or mutating a released snapshot directly, no more permissive rule below can reach an allow.
+     * They are the privacy and integrity floor of the whole module.
+     *
+     * The rest grade downward from BLOCK (an unsupported claim, an unapproved source, a licence
+     * that forbids the use) through REQUIRE_MORE_EVIDENCE (no uncertainty summary) to HOLD (a
+     * conflict nobody has resolved, a stale source, a missing retention or release ceiling) — the
+     * difference being whether the state is WRONG or merely UNFINISHED.
+     */
+    public const P02_TWIN_STATE_ADMISSION = [
+        'policy_key' => 'P02_TWIN_STATE_ADMISSION',
+        'policy_version' => 'v1',
+        'display_name' => 'P02 entity twin state admission policy',
+        'purpose_summary' => 'P02 entity-twin state-change admission for ENTITY_TWIN_STATE_CHANGE. Internal evidence-backed twin-state snapshots only; never an unsupported claim, never a person/employee psychographic-or-scoring overreach, never private external data, never a first-party leak into an external twin, never a buyer-intent overclaim, never a direct mutation of a released snapshot.',
+        'applicable_proposal_types' => ['ENTITY_TWIN_STATE_CHANGE'],
+        'applicable_requested_action_classes' => ['RELEASE_INTELLIGENCE'],
+        'available_verdicts' => [
+            'ALLOW_INFORMATIONAL_RELEASE', 'REQUIRE_MORE_EVIDENCE', 'REQUIRE_REVISION',
+            'HOLD', 'BLOCK', 'QUARANTINE', 'REQUIRE_INCIDENT_EVALUATION',
+        ],
+        'default_fail_closed_verdict' => 'HOLD',
+        'rules' => [
+            // --- the five non-overridable privacy/integrity rules ---------------------------------
+            [
+                'rule_key' => 'p02_person_profile_overreach',
+                'rule_category' => 'P02_TWIN_STATE_ADMISSION',
+                'rule_summary' => 'No twin state field may carry psychographic / emotional / sensitive-trait / health / political / religious / sexual / private-life profiling.',
+                'check_type' => 'PROHIBITION_CHECK',
+                'failure_effect' => 'BLOCK',
+                'incident_evaluation_if_failed' => 1,
+                'priority' => 58,
+            ],
+            [
+                'rule_key' => 'p02_employee_scoring_or_surveillance',
+                'rule_category' => 'P02_TWIN_STATE_ADMISSION',
+                'rule_summary' => 'No twin state field may carry employee productivity or loyalty scoring, or covert surveillance.',
+                'check_type' => 'PROHIBITION_CHECK',
+                'failure_effect' => 'BLOCK',
+                'incident_evaluation_if_failed' => 1,
+                'priority' => 57,
+            ],
+            [
+                'rule_key' => 'p02_external_entity_private_data',
+                'rule_category' => 'P02_TWIN_STATE_ADMISSION',
+                'rule_summary' => 'An EXTERNAL entity twin may carry no private (non-public-sourced) data.',
+                'check_type' => 'PROHIBITION_CHECK',
+                'failure_effect' => 'BLOCK',
+                'incident_evaluation_if_failed' => 1,
+                'priority' => 56,
+            ],
+            [
+                'rule_key' => 'p02_first_party_external_leakage',
+                'rule_category' => 'P02_TWIN_STATE_ADMISSION',
+                'rule_summary' => 'First-party material may not be carried into an EXTERNAL entity twin.',
+                'check_type' => 'PROHIBITION_CHECK',
+                'failure_effect' => 'BLOCK',
+                'incident_evaluation_if_failed' => 1,
+                'priority' => 55,
+            ],
+            [
+                'rule_key' => 'p02_direct_mutation_of_released_snapshot',
+                'rule_category' => 'P02_TWIN_STATE_ADMISSION',
+                'rule_summary' => 'A released snapshot is immutable; a change must supersede it, never edit it.',
+                'check_type' => 'PROHIBITION_CHECK',
+                'failure_effect' => 'BLOCK',
+                'incident_evaluation_if_failed' => 1,
+                'priority' => 54,
+            ],
+            // --- the substantive BLOCKs -------------------------------------------------------------
+            [
+                'rule_key' => 'p02_unsupported_twin_claim',
+                'rule_category' => 'P02_TWIN_STATE_ADMISSION',
+                'rule_summary' => 'Every asserted twin state field must rest on cited evidence.',
+                'check_type' => 'PASS_FAIL',
+                'failure_effect' => 'BLOCK',
+                'priority' => 50,
+            ],
+            [
+                'rule_key' => 'p02_buyer_intent_overclaim',
+                'rule_category' => 'P02_TWIN_STATE_ADMISSION',
+                'rule_summary' => 'A twin state may describe what was observed; it may not assert that a company intends to buy.',
+                'check_type' => 'PROHIBITION_CHECK',
+                'failure_effect' => 'BLOCK',
+                'priority' => 48,
+            ],
+            [
+                'rule_key' => 'p02_relationship_edge_unsupported',
+                'rule_category' => 'P02_TWIN_STATE_ADMISSION',
+                'rule_summary' => 'An asserted relationship edge must cite evidence and a confidence classification.',
+                'check_type' => 'PASS_FAIL',
+                'failure_effect' => 'BLOCK',
+                'priority' => 46,
+            ],
+            [
+                'rule_key' => 'p02_source_not_approved',
+                'rule_category' => 'P02_TWIN_STATE_ADMISSION',
+                'rule_summary' => 'The backing source card must be approved at verdict time.',
+                'check_type' => 'ENUM_STATUS',
+                'failure_effect' => 'BLOCK',
+                'priority' => 44,
+            ],
+            [
+                'rule_key' => 'p02_license_restricts_use',
+                'rule_category' => 'P02_TWIN_STATE_ADMISSION',
+                'rule_summary' => 'The backing licence class must permit this use.',
+                'check_type' => 'ENUM_STATUS',
+                'failure_effect' => 'BLOCK',
+                'priority' => 42,
+            ],
+            // --- unfinished rather than wrong -------------------------------------------------------
+            [
+                'rule_key' => 'p02_uncertainty_missing',
+                'rule_category' => 'P02_TWIN_STATE_ADMISSION',
+                'rule_summary' => 'An uncertainty summary is required for release.',
+                'check_type' => 'PASS_FAIL',
+                'failure_effect' => 'REQUIRE_MORE_EVIDENCE',
+                'priority' => 40,
+            ],
+            [
+                'rule_key' => 'p02_conflicting_evidence_unresolved',
+                'rule_category' => 'P02_TWIN_STATE_ADMISSION',
+                'rule_summary' => 'A recorded evidence conflict must be resolved before release.',
+                'check_type' => 'PASS_FAIL',
+                'failure_effect' => 'HOLD',
+                'priority' => 38,
+            ],
+            [
+                'rule_key' => 'p02_stale_or_superseded_source',
+                'rule_category' => 'P02_TWIN_STATE_ADMISSION',
+                'rule_summary' => 'The backing source must not be revoked, superseded or past its review window.',
+                'check_type' => 'ENUM_STATUS',
+                'failure_effect' => 'HOLD',
+                'priority' => 36,
+            ],
+            [
+                'rule_key' => 'p02_retention_policy_missing',
+                'rule_category' => 'P02_TWIN_STATE_ADMISSION',
+                'rule_summary' => 'The backing card must declare a retention class.',
+                'check_type' => 'PASS_FAIL',
+                'failure_effect' => 'HOLD',
+                'priority' => 34,
+            ],
+            [
+                'rule_key' => 'p02_release_ceiling_missing',
+                'rule_category' => 'P02_TWIN_STATE_ADMISSION',
+                'rule_summary' => 'The twin version must declare a claim ceiling.',
+                'check_type' => 'PASS_FAIL',
+                'failure_effect' => 'HOLD',
+                'priority' => 32,
+            ],
+        ],
+    ];
+
     public const P04_DISTRIBUTION_ADMISSION = [
         'policy_key' => 'P04_DISTRIBUTION_ADMISSION',
         'policy_version' => 'v1',

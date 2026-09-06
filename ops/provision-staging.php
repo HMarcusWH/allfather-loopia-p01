@@ -7,7 +7,7 @@ declare(strict_types=1);
  *
  * Usage:
  *   php ops/provision-staging.php --tenant-key=acme --workspace-key=main \
- *       --display-name="Acme AB" --operator-name="Ops" [--env=path] [--modules=P01,P03,P04,P05]
+ *       --display-name="Acme AB" --operator-name="Ops" [--env=path] [--modules=P01,P02,P03,P04,P05]
  *
  * OPS COMPOSITION, NOT DOCTRINE. Every governed decision below belongs to a Core module and is made
  * by calling that module's own registration function. This file chooses the ORDER and reports what
@@ -44,6 +44,7 @@ use Allfather\Loopia\Core\Ids;
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Product\P01\Entitlements;
 use Allfather\Loopia\Product\P01\Registration as P01Registration;
+use Allfather\Loopia\Product\P02\Registration as P02Registration;
 use Allfather\Loopia\Product\P03\Registration as P03Registration;
 use Allfather\Loopia\Product\P04\Registration as P04Registration;
 use Allfather\Loopia\Product\P05\Registration as P05Registration;
@@ -115,10 +116,11 @@ if (isset($args['env'])) {
     $environment = $boot['environment'];
 }
 
-// The MODULES to provision, from a closed set. P02 is deliberately absent: its admission policy set
-// is not ported, so registering it would establish a capability whose governed lifecycle does not
-// exist. See docs/PORT_SCOPE_MATRIX.md §3.7.
-$available = ['P01', 'P03', 'P04', 'P05'];
+// The MODULES to provision, from a closed set. P02 is provisionable now that its admission policy
+// set and governed lifecycle are ported (state change -> admission -> M10 release -> surfacing);
+// it registers the ENTITY-TWIN capability only. Offering twins remain out of scope and have no
+// registration to reach. See docs/PORT_SCOPE_MATRIX.md §3.7.
+$available = ['P01', 'P02', 'P03', 'P04', 'P05'];
 $modules = isset($args['modules'])
     ? array_values(array_filter(array_map('trim', explode(',', $args['modules']))))
     : $available;
@@ -224,6 +226,9 @@ $registrars = [
     'P01' => static fn (): mixed => (new P01Registration(
         $db, $clock, $m03, $eligibility, $tools, $policySets, $m16, $entitlements
     ))->registerCompetitionMonitor($scope),
+    'P02' => static fn (): mixed => (new P02Registration(
+        $db, $clock, $m03, $eligibility, $tools, $policySets, $entitlements
+    ))->registerEntityTwinCurator($scope),
     'P03' => static fn (): mixed => (new P03Registration(
         $db, $clock, $m03, $eligibility, $tools, $policySets, $entitlements
     ))->registerLeadQualification($scope),

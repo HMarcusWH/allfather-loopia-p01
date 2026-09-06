@@ -41,10 +41,58 @@ use Allfather\Loopia\Db\Database;
  */
 final class EntityTwins
 {
+    /**
+     * Value statuses that ASSERT a supported fact. A version carrying any of them REQUIRES at least
+     * one source link before it may be released.
+     *
+     * @var list<string>
+     */
+    private const SUPPORTED_FACT_STATUSES = [
+        'KNOWN_FACT', 'TENANT_PROVIDED', 'PUBLIC_SOURCE', 'LICENSED_SOURCE', 'DERIVED_SUMMARY',
+    ];
+
+    /**
+     * Value statuses that may NEVER enter a released snapshot.
+     *
+     * `appendVersion` already refuses the fields that produce them at the content screen; this is
+     * the second, independent reading, at the boundary where the claim would become visible.
+     *
+     * @var list<string>
+     */
+    private const NON_RELEASABLE_STATUSES = ['UNSUPPORTED_CLAIM', 'PROHIBITED'];
+
+    /**
+     * The closed set of internal visibility scopes a snapshot may be released to.
+     *
+     * Public because the state-change and release modules must read the SAME set — three private
+     * copies of a closed vocabulary is three chances for them to drift apart, and a scope that one
+     * module accepts and another rejects is a hole in a default-deny.
+     *
+     * @var list<string>
+     */
+    public const VISIBILITY_SCOPES = [
+        'TENANT_ADMIN_LEADERSHIP', 'SALES', 'MARKETING', 'PRODUCT', 'PROCUREMENT_FINANCE_OPS',
+        'BROAD_INTERNAL_BI', 'RESTRICTED_NEED_TO_KNOW',
+    ];
+
+    /**
+     * The closed set of release statuses a state change may REQUEST. `SUPERSEDED` and `RETRACTED`
+     * exist in storage as outcomes of later events; neither is something a caller may ask for.
+     *
+     * @var list<string>
+     */
+    public const RELEASE_STATUSES = [
+        'INTERNAL_DRAFT', 'INTERNAL_REVIEWED', 'INTERNAL_DEMO_VALIDATED_WITH_LIMITATIONS',
+    ];
+
+    private readonly M10BindingFloor $floor;
+
     public function __construct(
         private readonly Database $db,
         private readonly Clock $clock,
+        ?M10BindingFloor $floor = null,
     ) {
+        $this->floor = $floor ?? new M10BindingFloor($db);
     }
 
     /**
@@ -270,6 +318,191 @@ final class EntityTwins
                 'unknown_field_count' => $unknownCount,
             ]);
         });
+    }
+
+    /**
+     * The storage release gate — validate, then write the immutable snapshot.
+     *
+     * Callers that are ALREADY inside a transaction use {@see releaseSnapshotTxFree}; this wrapper
+     * exists for a standalone release and opens one of its own.
+     *
+     * @param array{
+     *     tenant_id: string, workspace_id: string, entity_twin_version_id: string,
+     *     visibility_scope: string, release_status: string, decision_record_id?: ?string,
+     *     supersedes_release_id?: ?string, released_by_actor_id?: ?string
+     * } $input
+     */
+    public function releaseSnapshot(array $input): Outcome
+    {
+        return $this->db->transaction(fn (): Outcome => $this->releaseSnapshotTxFree($input));
+    }
+
+    /**
+     * The same gate WITHOUT opening a transaction — the caller must already be inside one.
+     *
+     * The governed release path composes this write and its own binding update into a single
+     * post-M10 unit, so that there is never a released snapshot the state change does not point at.
+     * Every refusal returns BEFORE any write, so a refused release leaves nothing behind.
+     *
+     * The gate, in order, and each condition is here because releasing without it would publish a
+     * claim the system cannot stand behind:
+     *
+     *   the version exists, and is the caller's                — scope
+     *   the visibility scope and release status are known      — closed vocabularies, default-deny
+     *   the claim ceiling is not SUPERSEDED or RETRACTED       — a withdrawn version stays withdrawn
+     *   an uncertainty summary exists                          — INV-P02: unknowns travel with claims
+     *   no field is UNSUPPORTED_CLAIM or PROHIBITED            — content that may never be released
+     *   a version asserting facts has at least one source link — no unsourced assertion
+     *   a supersede target is a prior snapshot of THIS twin    — no cross-twin supersession
+     *   the M10 binding floor                                  — last, and typed
+     *
+     * @param array{
+     *     tenant_id: string, workspace_id: string, entity_twin_version_id: string,
+     *     visibility_scope: string, release_status: string, decision_record_id?: ?string,
+     *     supersedes_release_id?: ?string, released_by_actor_id?: ?string
+     * } $input
+     */
+    public function releaseSnapshotTxFree(array $input): Outcome
+    {
+        $version = $this->db->one(
+            'SELECT entity_twin_id, tenant_id, workspace_id, version_sequence, claim_ceiling, version_digest
+             FROM entity_twin_versions WHERE entity_twin_version_id = ?',
+            [$input['entity_twin_version_id']]
+        );
+        if ($version === null) {
+            return Outcome::refuse('VERSION_NOT_FOUND', [], 'PROVENANCE');
+        }
+        if ((string) $version['tenant_id'] !== $input['tenant_id']
+            || (string) $version['workspace_id'] !== $input['workspace_id']
+        ) {
+            return Outcome::refuse('SCOPE_MISMATCH', [], 'SCOPE', 'S4');
+        }
+        if (!in_array($input['visibility_scope'], self::VISIBILITY_SCOPES, true)) {
+            // Default-deny on the role lens: an unrecognized scope has no rule, and inventing one
+            // at release time would decide who may see this by accident.
+            return Outcome::refuse('VISIBILITY_RULE_MISSING', [
+                'visibility_scope' => $input['visibility_scope'],
+            ], 'POLICY');
+        }
+        if (!in_array($input['release_status'], self::RELEASE_STATUSES, true)) {
+            return Outcome::refuse('INVALID_RELEASE_STATUS', [
+                'release_status' => $input['release_status'],
+            ], 'POLICY');
+        }
+        if (in_array((string) $version['claim_ceiling'], ['SUPERSEDED', 'RETRACTED'], true)) {
+            return Outcome::refuse('RELEASE_CEILING_INVALID', [
+                'claim_ceiling' => (string) $version['claim_ceiling'],
+            ], 'POLICY', 'S4', 'BLOCK_RELEASE');
+        }
+
+        $uncertaintyId = $this->db->scalar(
+            'SELECT entity_twin_uncertainty_summary_id FROM entity_twin_uncertainty_summaries
+             WHERE entity_twin_version_id = ?',
+            [$input['entity_twin_version_id']]
+        );
+        if ($uncertaintyId === null) {
+            return Outcome::refuse('UNCERTAINTY_SUMMARY_MISSING', [], 'POLICY', 'S3', 'BLOCK_RELEASE');
+        }
+
+        $statuses = array_map(
+            static fn (array $row): string => (string) $row['value_status'],
+            $this->db->all(
+                'SELECT value_status FROM entity_twin_state_summaries WHERE entity_twin_version_id = ?',
+                [$input['entity_twin_version_id']]
+            )
+        );
+        if (array_intersect($statuses, self::NON_RELEASABLE_STATUSES) !== []) {
+            return Outcome::refuse('PROHIBITED_STATE_FIELD', [], 'POLICY', 'S5', 'BLOCK_RELEASE');
+        }
+        if (array_intersect($statuses, self::SUPPORTED_FACT_STATUSES) !== []) {
+            // A version that asserts facts must cite something. This is the release-side half of
+            // the same invariant the arbiter reads: no supported claim without a source.
+            $links = (int) $this->db->scalar(
+                'SELECT COUNT(*) FROM entity_twin_source_links WHERE entity_twin_version_id = ?',
+                [$input['entity_twin_version_id']]
+            );
+            if ($links === 0) {
+                return Outcome::refuse('UNSUPPORTED_TWIN_CLAIM', [], 'POLICY', 'S4', 'BLOCK_RELEASE');
+            }
+        }
+
+        $supersedes = $input['supersedes_release_id'] ?? null;
+        if ($supersedes !== null) {
+            $prior = $this->db->one(
+                'SELECT entity_twin_id, tenant_id FROM released_entity_twin_snapshots
+                 WHERE released_entity_twin_snapshot_id = ?',
+                [$supersedes]
+            );
+            if ($prior === null
+                || (string) $prior['tenant_id'] !== $input['tenant_id']
+                || (string) $prior['entity_twin_id'] !== (string) $version['entity_twin_id']
+            ) {
+                return Outcome::refuse('SUPERSEDE_TARGET_NOT_FOUND', [], 'PROVENANCE', 'S4');
+            }
+        }
+
+        // The M10 binding floor — last gate before the write, and a typed refusal rather than a
+        // NOT NULL driver error.
+        $floor = $this->floor->check(
+            $input['tenant_id'],
+            $input['workspace_id'],
+            $input['decision_record_id'] ?? null,
+        );
+        if (!$floor['ok']) {
+            return Outcome::refuse($floor['reason_code'], [], 'PROVENANCE', 'S4', 'BLOCK_RELEASE');
+        }
+
+        $snapshotId = Ids::new();
+        $snapshotDigest = Digest::canonicalDigest([
+            'entityTwinId' => (string) $version['entity_twin_id'],
+            'versionSequence' => (int) $version['version_sequence'],
+            'versionDigest' => (string) $version['version_digest'],
+            'claimCeiling' => (string) $version['claim_ceiling'],
+            'visibilityScope' => $input['visibility_scope'],
+            'releaseStatus' => $input['release_status'],
+            'supersedesReleaseId' => $supersedes,
+        ]);
+        $now = $this->clock->now();
+
+        $this->db->insert('released_entity_twin_snapshots', [
+            'released_entity_twin_snapshot_id' => $snapshotId,
+            'schema_version' => '1',
+            'tenant_id' => $input['tenant_id'],
+            'workspace_id' => $input['workspace_id'],
+            'entity_twin_id' => (string) $version['entity_twin_id'],
+            'entity_twin_version_id' => $input['entity_twin_version_id'],
+            'entity_twin_uncertainty_summary_id' => (string) $uncertaintyId,
+            'claim_ceiling' => (string) $version['claim_ceiling'],
+            'visibility_scope' => $input['visibility_scope'],
+            'snapshot_digest' => $snapshotDigest,
+            'release_status' => $input['release_status'],
+            'supersedes_release_id' => $supersedes,
+            'decision_record_id' => $input['decision_record_id'],
+            'released_at' => $now,
+            'released_by_actor_id' => $input['released_by_actor_id'] ?? null,
+        ]);
+
+        $this->db->insert('entity_twin_status_history', [
+            'entity_twin_status_history_id' => Ids::new(),
+            'schema_version' => '1',
+            'tenant_id' => $input['tenant_id'],
+            'entity_twin_id' => (string) $version['entity_twin_id'],
+            'from_status' => null,
+            'to_status' => 'ACTIVE',
+            'reason_code' => $supersedes !== null ? 'SNAPSHOT_SUPERSEDED' : 'SNAPSHOT_RELEASED',
+            'initiated_by_actor_type' => 'SERVICE',
+            'initiated_by_actor_id' => $input['released_by_actor_id'] ?? 'system',
+            'transitioned_at' => $now,
+        ]);
+        $this->db->run('UPDATE entity_twins SET status = \'ACTIVE\', updated_at = ? WHERE entity_twin_id = ?', [
+            $now, (string) $version['entity_twin_id'],
+        ]);
+
+        return Outcome::ok([
+            'outcome' => 'RELEASED',
+            'released_entity_twin_snapshot_id' => $snapshotId,
+            'snapshot_digest' => $snapshotDigest,
+        ]);
     }
 
     /**
