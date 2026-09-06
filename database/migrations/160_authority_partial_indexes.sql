@@ -8,12 +8,15 @@
 -- Migration 140 established that the standing translation is not adequate where the predicate
 -- guards whether two competing governed heads can exist, because application enforcement of a
 -- uniqueness predicate is a read followed by a write and two callers can both pass the read. It
--- also said, deliberately, that this was NOT permission to redesign the whole database.
+-- promoted ONE authority-sensitive partial index to database enforcement:
+-- `ux_decision_ledger_streams_active_scope`.
 --
--- THIS MIGRATION IS THE REST OF THAT SENTENCE. The 25 were classified by ONE question: if two rows
--- exist where the predicate permits one, can a caller end up with MORE AUTHORITY than the governed
--- state grants? Six answer yes. They are enforced here. The other nineteen are not touched, and
--- docs/SCHEMA_REACHABILITY.md records the reasoning for every one.
+-- THIS MIGRATION IS THE REST OF THAT SENTENCE. Of the remaining 24 canonical partial UNIQUE
+-- indexes, six more answer YES to the same question: if two rows exist where the predicate permits
+-- one, can a caller end up with MORE AUTHORITY than the governed state grants? Those six are
+-- enforced here. Eighteen retain the standing application/lookup translation or are unreachable
+-- from the selected graph. Together with migration 140 that is 7 database-enforced
+-- authority-sensitive translations out of 25; docs/SCHEMA_REACHABILITY.md records every case.
 --
 --   capability_contracts        The contract IS an agent's permitted action classes. Two ACTIVE
 --                               contracts for one Valkyrie means its permissions depend on which
