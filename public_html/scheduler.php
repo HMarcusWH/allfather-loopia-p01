@@ -16,8 +16,14 @@ declare(strict_types=1);
  * ambient credential for a browser to be tricked into attaching.
  *
  * POST ONLY. A tick advances governed work, and a GET that mutates is a GET any crawler, prefetch
- * or link preview will eventually perform. Loopia's shell cron issues the POST; see the deployment
- * runbook for the exact line.
+ * or link preview will eventually perform.
+ *
+ * WHETHER LOOPIA'S SCHEDULER CAN ISSUE A POST IS NOT ESTABLISHED. Its documentation says the
+ * Kundzon scheduler visits a URL and emails the result; it does not document the method, headers,
+ * basic auth, or a request body. That gap is recorded as LOOPIA_SCHEDULER_TRANSPORT_BLOCKER in
+ * `docs/LOOPIA_HOST_MODEL.md` §4, and this endpoint is NOT weakened to close it — the recommended
+ * arrangement is an external scheduler reaching `worker/tick.php` over SSH. This door stays POST
+ * only either way.
  */
 
 require __DIR__ . '/../app/autoload.php';

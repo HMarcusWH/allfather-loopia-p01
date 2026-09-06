@@ -20,6 +20,14 @@ declare(strict_types=1);
  * not make a network request the operator did not ask for.
  */
 
+// CLI ONLY, and refused BEFORE anything is loaded. `ops/` sits outside the served tree and the
+// deployment-boundary test proves it, so this guard is the second layer: a probe that could be
+// reached over the web would be an unauthenticated way to make the server open a connection.
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    exit(1);
+}
+
 require __DIR__ . '/../../app/autoload.php';
 
 use Allfather\Loopia\Db\Database;

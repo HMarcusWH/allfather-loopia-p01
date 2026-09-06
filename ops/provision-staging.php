@@ -37,6 +37,14 @@ declare(strict_types=1);
  * stays false, no live transport is wired, and nothing here can change a claim-boundary flag.
  */
 
+// CLI ONLY, refused BEFORE anything is loaded. Provisioning is an operator act with filesystem
+// authority; it must never be reachable over HTTP, and living outside the document root is a
+// property of a deployment's configuration rather than of this file.
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    exit(1);
+}
+
 require __DIR__ . '/../app/autoload.php';
 
 use Allfather\Loopia\Core\Clock;
@@ -56,15 +64,6 @@ use Allfather\Loopia\Substrate\M10\DecisionLedger;
 use Allfather\Loopia\Substrate\M16\ReleaseOutput;
 use Allfather\Loopia\Support\Bootstrap;
 use Allfather\Loopia\Support\Env;
-
-if (PHP_SAPI !== 'cli') {
-    // Provisioning is an operator act with filesystem authority. It must never be reachable over
-    // HTTP, and "it lives outside the document root" is a property of a deployment's configuration
-    // rather than of this file.
-    http_response_code(404);
-
-    return;
-}
 
 /** @return array<string, string> */
 $parseArgs = static function (array $argv): array {

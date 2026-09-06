@@ -32,8 +32,20 @@ jobs:
       - name: Validate the upstream lock
         run: php -r "json_decode(file_get_contents('upstream.lock.json'), true, 512, JSON_THROW_ON_ERROR);"
 
+      # `public` was renamed to `public_html` to match Loopia's fixed document-root name. The old
+      # path lingered here and `find` merely warned about it, so nothing under the SERVED directory
+      # was syntax-checked at all — the step stayed green by checking less. The loop below fails
+      # loudly on a missing directory, which is the behaviour that would have caught it.
       - name: PHP syntax
-        run: find app public worker ops tests -name '*.php' -print0 | xargs -0 -r -n1 php -l > /dev/null
+        run: |
+          set -euo pipefail
+          for dir in app public_html worker ops tests; do
+            if [ ! -d "$dir" ]; then
+              echo "PHP syntax: expected directory '$dir' is missing — refusing to lint less than intended" >&2
+              exit 1
+            fi
+          done
+          find app public_html worker ops tests -name '*.php' -print0 | xargs -0 -r -n1 php -l > /dev/null
 
       # The authority boundary and the no-external-action structural proof. These need no database
       # and must never be skipped.

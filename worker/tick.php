@@ -3,12 +3,17 @@
 declare(strict_types=1);
 
 /**
- * The scheduler tick, run from a shell cron.
+ * The scheduler tick, invoked from a shell.
  *
- * The same bounded runner as the HTTP endpoint, reached without the network. Where Loopia's
- * crontab is available this is the better door: the authority is filesystem access to `.env`
- * rather than a token travelling over the wire, so there is no credential to rotate, leak or
- * misconfigure.
+ * The same bounded runner as the HTTP endpoint, reached without the network. THIS IS THE BETTER
+ * DOOR: the authority is filesystem access to `.env` rather than a token travelling over the wire,
+ * so there is no credential to rotate, leak or misconfigure.
+ *
+ * LOOPIA HAS NO SHELL CRON. Its support documentation is explicit — recurring jobs go through the
+ * Kundzon scheduler, which visits a URL — so on Loopia this door is reached over SSH from a
+ * scheduler running elsewhere. That is the recommended arrangement, and `docs/LOOPIA_HOST_MODEL.md`
+ * §4 records why, along with the one question about the Kundzon scheduler's HTTP method that is
+ * still open. Where a real crontab exists, it can invoke this directly.
  *
  * It refuses to run from a web request. This file lives outside the document root, but a
  * deployment that mapped the wrong directory would otherwise expose an unauthenticated tick — and

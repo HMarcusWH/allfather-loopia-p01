@@ -12,6 +12,13 @@ declare(strict_types=1);
  * runbook's one-shot maintenance route. It never runs implicitly on a web request.
  */
 
+// CLI ONLY, refused BEFORE anything is loaded. Living outside the document root is a property of
+// a deployment's configuration; this is a property of the file, and the two are independent.
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    exit(1);
+}
+
 require __DIR__ . '/../app/autoload.php';
 
 use Allfather\Loopia\Db\Database;
