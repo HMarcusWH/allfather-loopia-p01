@@ -17,14 +17,14 @@ launched:
 
 | Layer | Files | Assertions | 10.6 | 10.11 |
 | --- | --- | --- | --- | --- |
-| foundation | 3 | 144 | PASS | PASS |
+| foundation | 3 | 157 | PASS | PASS |
 | unit | 2 | 153 | PASS | PASS |
 | integration | 29 | 1607 | PASS | PASS |
 | conformance | 6 | 395 | PASS | PASS |
 | acceptance | 3 | 163 | PASS | PASS |
 | security | 14 | 821 | PASS | PASS |
 | rollback | 1 | 27 | PASS | PASS |
-| **TOTAL** | **58** | **3310** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
+| **TOTAL** | **58** | **3323** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
 
 Migrations were applied from empty and then re-applied on both servers: 18 applied, 0 drift, then
 18 skipped, 0 drift.
@@ -49,10 +49,11 @@ actually got rather than the one it asked for.
 
 ### What has NOT been independently verified
 
-- **Hosted GitHub Actions CI runs the full suite against MariaDB 10.11.19 on PHP 8.2.33.** It is
-  the only environment that has verified this code on the SUPPORTED PHP floor rather than on
-  8.4 — worth noting, because the development container runs 8.4.19 and a language-level
-  regression would show up first here.
+- **Hosted GitHub Actions CI runs the full suite on PHP 8.2.33 against BOTH MariaDB 10.6.28 and
+  10.11.19.** Each matrix leg reads back and asserts the actual server version before migrations and
+  the strict suite. This is the environment that has verified the code on the SUPPORTED PHP floor
+  rather than on 8.4 — worth noting, because the development container runs 8.4.19 and a
+  language-level regression would show up first here.
 
   CI **failed** on commits `d92c1fd` and `f12d249`, and the failure was real: an acceptance
   assertion queried `information_schema` with an unordered `LIMIT 1` and matched a different
