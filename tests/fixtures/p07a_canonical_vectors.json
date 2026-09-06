@@ -1,0 +1,210 @@
+{
+  "generated_from": "HMarcusWH/Allfatherbusinessintelligence",
+  "canonical_head": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+  "canonical_source": "packages/allfather-control-substrate/src/p07/outreach-delivery.ts",
+  "encoder": "packages/allfather-substrate-core/src/digest.ts via m10/ledger.ts computeRecordPayloadDigest",
+  "note": "Produced by RUNNING canonical dispatchOutreachSynthetic against a real canonical SQLite database. No PHP participated in producing any value in this file.",
+  "transcripts": [
+    {
+      "simulated_outcome": "DELIVERED",
+      "dispatch_outcome": "DISPATCHED",
+      "authorization_status_after": "CONSUMED",
+      "artifact_status_after": "CONSUMED",
+      "delivery_outcome": "DELIVERED",
+      "record": {
+        "record_type": "HARMLESS_DEMO_ACTION_COMPLETED",
+        "materiality_class": "ACTION_MATERIAL",
+        "primary_outcome_status": "EXECUTED_SUCCESS",
+        "mission_id": null,
+        "proposal_id": null,
+        "proposal_submission_digest": null,
+        "correlation_id": null,
+        "safe_decision_summary": "P07-A synthetic outreach delivery outcome: DELIVERED (no external effect).",
+        "reason_codes": [
+          "P07_DELIVERY_DELIVERED"
+        ],
+        "uncertainty_and_limitation_summary": null,
+        "severity": null,
+        "incident_evaluation_required": 0,
+        "supersedes_or_corrects_decision_record_id": null,
+        "current_reliance_status": "ACTIVE_AS_RECORDED"
+      },
+      "recorded_by_service_identity_id": "service:p07-crm-delivery",
+      "references_by_role": {
+        "APPROVAL_BASIS": {
+          "owner_module_id": "M09",
+          "input_object_type": "approval_decision",
+          "input_object_version_or_digest": null,
+          "verification_status_at_record_time": "VERIFIED_REFERENCE"
+        },
+        "ARTIFACT_BASIS": {
+          "owner_module_id": "M09",
+          "input_object_type": "frozen_outreach_artifact",
+          "input_object_version_or_digest": null,
+          "verification_status_at_record_time": "VERIFIED_REFERENCE"
+        },
+        "AUTHORIZATION_BASIS": {
+          "owner_module_id": "M09",
+          "input_object_type": "outreach_execution_authorization",
+          "input_object_version_or_digest": null,
+          "verification_status_at_record_time": "VERIFIED_REFERENCE"
+        },
+        "OUTCOME_BASIS": {
+          "owner_module_id": "M10",
+          "input_object_type": "decision_record",
+          "input_object_version_or_digest": null,
+          "verification_status_at_record_time": "VERIFIED_REFERENCE"
+        },
+        "VERDICT_BASIS": {
+          "owner_module_id": "M08",
+          "input_object_type": "arbiter_verdict",
+          "input_object_version_or_digest": null,
+          "verification_status_at_record_time": "VERIFIED_REFERENCE"
+        }
+      },
+      "fixed_reference_ids": {
+        "VERDICT_BASIS": "00000000-0000-4000-8000-0000000000v1",
+        "APPROVAL_BASIS": "00000000-0000-4000-8000-0000000000a1",
+        "AUTHORIZATION_BASIS": "00000000-0000-4000-8000-0000000000z1",
+        "ARTIFACT_BASIS": "00000000-0000-4000-8000-0000000000f1",
+        "OUTCOME_BASIS": "00000000-0000-4000-8000-0000000000d1"
+      },
+      "fixed_record_sequence_number": 7,
+      "pinned_record_payload_digest": "88b3d49a33943f36c1248b450e06cc7c53586093076fb4768be5bcc12315ac4a"
+    },
+    {
+      "simulated_outcome": "FAILED",
+      "dispatch_outcome": "DISPATCHED",
+      "authorization_status_after": "CONSUMED",
+      "artifact_status_after": "CONSUMED",
+      "delivery_outcome": "FAILED",
+      "record": {
+        "record_type": "HARMLESS_DEMO_ACTION_FAILED",
+        "materiality_class": "ACTION_MATERIAL",
+        "primary_outcome_status": "EXECUTION_FAILED",
+        "mission_id": null,
+        "proposal_id": null,
+        "proposal_submission_digest": null,
+        "correlation_id": null,
+        "safe_decision_summary": "P07-A synthetic outreach delivery outcome: FAILED (no external effect).",
+        "reason_codes": [
+          "P07_DELIVERY_FAILED"
+        ],
+        "uncertainty_and_limitation_summary": null,
+        "severity": "S3",
+        "incident_evaluation_required": 1,
+        "supersedes_or_corrects_decision_record_id": null,
+        "current_reliance_status": "ACTIVE_AS_RECORDED"
+      },
+      "recorded_by_service_identity_id": "service:p07-crm-delivery",
+      "references_by_role": {
+        "APPROVAL_BASIS": {
+          "owner_module_id": "M09",
+          "input_object_type": "approval_decision",
+          "input_object_version_or_digest": null,
+          "verification_status_at_record_time": "VERIFIED_REFERENCE"
+        },
+        "ARTIFACT_BASIS": {
+          "owner_module_id": "M09",
+          "input_object_type": "frozen_outreach_artifact",
+          "input_object_version_or_digest": null,
+          "verification_status_at_record_time": "VERIFIED_REFERENCE"
+        },
+        "AUTHORIZATION_BASIS": {
+          "owner_module_id": "M09",
+          "input_object_type": "outreach_execution_authorization",
+          "input_object_version_or_digest": null,
+          "verification_status_at_record_time": "VERIFIED_REFERENCE"
+        },
+        "OUTCOME_BASIS": {
+          "owner_module_id": "M10",
+          "input_object_type": "decision_record",
+          "input_object_version_or_digest": null,
+          "verification_status_at_record_time": "VERIFIED_REFERENCE"
+        },
+        "VERDICT_BASIS": {
+          "owner_module_id": "M08",
+          "input_object_type": "arbiter_verdict",
+          "input_object_version_or_digest": null,
+          "verification_status_at_record_time": "VERIFIED_REFERENCE"
+        }
+      },
+      "fixed_reference_ids": {
+        "VERDICT_BASIS": "00000000-0000-4000-8000-0000000000v1",
+        "APPROVAL_BASIS": "00000000-0000-4000-8000-0000000000a1",
+        "AUTHORIZATION_BASIS": "00000000-0000-4000-8000-0000000000z1",
+        "ARTIFACT_BASIS": "00000000-0000-4000-8000-0000000000f1",
+        "OUTCOME_BASIS": "00000000-0000-4000-8000-0000000000d1"
+      },
+      "fixed_record_sequence_number": 7,
+      "pinned_record_payload_digest": "0fb88248a4ba5f5d384037e5287bf9fc771409feda850a198bc75bf96ad96e7c"
+    },
+    {
+      "simulated_outcome": "UNKNOWN",
+      "dispatch_outcome": "DISPATCHED",
+      "authorization_status_after": "CONSUMED",
+      "artifact_status_after": "CONSUMED",
+      "delivery_outcome": "UNKNOWN",
+      "record": {
+        "record_type": "HARMLESS_DEMO_ACTION_OUTCOME_UNKNOWN",
+        "materiality_class": "ACTION_MATERIAL",
+        "primary_outcome_status": "OUTCOME_UNKNOWN",
+        "mission_id": null,
+        "proposal_id": null,
+        "proposal_submission_digest": null,
+        "correlation_id": null,
+        "safe_decision_summary": "P07-A synthetic outreach delivery outcome: UNKNOWN (no external effect).",
+        "reason_codes": [
+          "P07_DELIVERY_UNKNOWN"
+        ],
+        "uncertainty_and_limitation_summary": null,
+        "severity": "S3",
+        "incident_evaluation_required": 1,
+        "supersedes_or_corrects_decision_record_id": null,
+        "current_reliance_status": "ACTIVE_AS_RECORDED"
+      },
+      "recorded_by_service_identity_id": "service:p07-crm-delivery",
+      "references_by_role": {
+        "APPROVAL_BASIS": {
+          "owner_module_id": "M09",
+          "input_object_type": "approval_decision",
+          "input_object_version_or_digest": null,
+          "verification_status_at_record_time": "VERIFIED_REFERENCE"
+        },
+        "ARTIFACT_BASIS": {
+          "owner_module_id": "M09",
+          "input_object_type": "frozen_outreach_artifact",
+          "input_object_version_or_digest": null,
+          "verification_status_at_record_time": "VERIFIED_REFERENCE"
+        },
+        "AUTHORIZATION_BASIS": {
+          "owner_module_id": "M09",
+          "input_object_type": "outreach_execution_authorization",
+          "input_object_version_or_digest": null,
+          "verification_status_at_record_time": "VERIFIED_REFERENCE"
+        },
+        "OUTCOME_BASIS": {
+          "owner_module_id": "M10",
+          "input_object_type": "decision_record",
+          "input_object_version_or_digest": null,
+          "verification_status_at_record_time": "VERIFIED_REFERENCE"
+        },
+        "VERDICT_BASIS": {
+          "owner_module_id": "M08",
+          "input_object_type": "arbiter_verdict",
+          "input_object_version_or_digest": null,
+          "verification_status_at_record_time": "VERIFIED_REFERENCE"
+        }
+      },
+      "fixed_reference_ids": {
+        "VERDICT_BASIS": "00000000-0000-4000-8000-0000000000v1",
+        "APPROVAL_BASIS": "00000000-0000-4000-8000-0000000000a1",
+        "AUTHORIZATION_BASIS": "00000000-0000-4000-8000-0000000000z1",
+        "ARTIFACT_BASIS": "00000000-0000-4000-8000-0000000000f1",
+        "OUTCOME_BASIS": "00000000-0000-4000-8000-0000000000d1"
+      },
+      "fixed_record_sequence_number": 7,
+      "pinned_record_payload_digest": "70dd6666c542b7ab0bb5f10ae2a8110748fcb7d8c0fc79c2b6f2a10984394603"
+    }
+  ]
+}
