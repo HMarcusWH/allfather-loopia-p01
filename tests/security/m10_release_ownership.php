@@ -230,7 +230,8 @@ $forged = $ledger->append(
       'verification_status_at_record_time' => 'VERIFIED_REFERENCE'],
      ['owner_module_id' => 'M04', 'input_object_type' => 'proposal_envelope',
       'input_object_id' => Ids::new(), 'reference_role' => 'PROPOSAL_BASIS',
-      'verification_status_at_record_time' => 'VERIFIED_REFERENCE']]
+      'verification_status_at_record_time' => 'VERIFIED_REFERENCE']],
+    'service:forger'
 );
 Assert::same(
     'LEDGER_RELEASE_RECORD_REQUIRES_RELEASE_PATH',
@@ -239,11 +240,14 @@ Assert::same(
 );
 Assert::equalsList(
     ['ledgerStreamId', 'recordType', 'materialityClass', 'primaryOutcomeStatus',
-     'safeDecisionSummary', 'inputReferences', 'fields'],
+     'safeDecisionSummary', 'inputReferences', 'recordedByServiceIdentityId', 'fields'],
     array_map(
         static fn (ReflectionParameter $p): string => $p->getName(),
         (new ReflectionMethod(DecisionLedger::class, 'append'))->getParameters()
     ),
+    // `recordedByServiceIdentityId` is a REQUIRED provenance parameter, not an override: it names
+    // who wrote the record and unlocks nothing. The forged call below supplies one and is still
+    // refused by record type.
     'and takes no capability, token or override parameter that could unlock it',
 );
 Assert::false(
