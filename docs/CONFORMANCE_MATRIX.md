@@ -12,23 +12,26 @@ is not.
 
 **Executed in this development container** — PHP 8.4.19, MariaDB 10.11.14:
 
-| Layer | Files | Assertions | Result |
-| --- | --- | --- | --- |
-| foundation | 3 | 113 | PASS |
-| unit | 2 | 153 | PASS |
-| integration | 27 | 1313 | PASS |
-| conformance | 3 | 157 | PASS |
-| acceptance | 2 | 126 | PASS |
-| security | 10 | 656 | PASS |
-| rollback | 1 | 27 | PASS |
-| **TOTAL** | **48** | **2545** | **PASS, 0 failing, 0 skipped** |
+| Layer | Files | Assertions | 10.6 | 10.11 |
+| --- | --- | --- | --- | --- |
+| foundation | 3 | 144 | PASS | PASS |
+| unit | 2 | 153 | PASS | PASS |
+| integration | 29 | 1584 | PASS | PASS |
+| conformance | 3 | 179 | PASS | PASS |
+| acceptance | 3 | 152 | PASS | PASS |
+| security | 10 | 656 | PASS | PASS |
+| rollback | 1 | 27 | PASS | PASS |
+| **TOTAL** | **51** | **2895** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
 
 Run with `php tests/run.php --strict`. Under `--strict` a skip is a non-zero exit, so an
 unreachable database cannot be mistaken for a green suite.
 
-**Every database-backed layer ran against MariaDB 10.11**, not SQLite. This matters because the
-port's guarantees lean on MariaDB CHECK constraints and `SIGNAL SQLSTATE '45000'` triggers, and a
-suite executed against SQLite would prove nothing about either.
+**Every database-backed layer ran against real MariaDB — BOTH 10.6 and 10.11**, not SQLite. This
+matters twice over. The port's guarantees lean on MariaDB CHECK constraints and `SIGNAL SQLSTATE
+'45000'` triggers, so a suite executed against SQLite would prove nothing about either. And Loopia
+Företag is 10.6 while 10.11 is Företag Plus — proving only 10.11 would have proved the tier a
+customer may not be on. CI runs both as a matrix, and each job asserts the server version it
+actually got rather than the one it asked for.
 
 ### What has NOT been independently verified
 

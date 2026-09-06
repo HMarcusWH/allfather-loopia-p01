@@ -47,7 +47,7 @@ append-only triggers rather than as application conventions. **Loopia Företag i
 **Provisioning** — `ops/provision-staging.php` stands a tenant up by composing the real module
 registrations for P01, P03, P04 and P05. P02 is refused: its admission policy set is not ported.
 
-**Tests** — 2545 assertions across seven layers, all executed against MariaDB. See
+**Tests** — 2895 assertions across seven layers, executed against real MariaDB 10.6 AND 10.11. See
 `CONFORMANCE_MATRIX.md` §1 for the breakdown and for what has NOT been verified.
 
 ## 2. What it deliberately cannot do
