@@ -11,6 +11,7 @@ use Allfather\Loopia\Product\P01\Entitlements;
 use Allfather\Loopia\Substrate\M02\AccessGuard;
 use Allfather\Loopia\Substrate\M04\Proposals;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
+use Allfather\Loopia\Substrate\M16\P02Adapter;
 
 /**
  * The M10 release of an admitted twin state change, and the role-gated surface it becomes visible on.
@@ -20,13 +21,22 @@ use Allfather\Loopia\Substrate\M10\DecisionLedger;
  * release gate then runs AGAIN as defence in depth — it validated nothing at admission time, and
  * real time has passed since the verdict.
  *
- * P02 DOES NOT ROUTE THROUGH M16 IN THIS PORT, and that is a recorded exclusion rather than an
- * omission: upstream composes an additive M16 snapshot-view artifact inside this same transaction,
- * whose documented outcome for a twin's external sources is a HELD freeze, because twin source links
- * carry no governed card. The release itself is identical either way. Adopting M16 here would mean
- * porting a projection layer whose only reachable result is an operator hold view — so the port
- * carries the release and declares the artifact composition NOT PORTED, rather than claiming an M16
- * adoption it does not have.
+ * P02 ADOPTS M16, as canonical does. The snapshot-view artifact is composed inside THIS
+ * transaction, additively: M10 still owns the release and the snapshot row is still the product's
+ * record, but the frozen artifact and its audience projections are what anyone actually reads.
+ *
+ * THE THREE M16 OUTCOMES ARE NOT INTERCHANGEABLE:
+ *
+ *   COMPOSED  artifact frozen, operator and tenant-internal projections made, visibility activated.
+ *   HELD      artifact frozen, operator hold-view made, nothing wider. The release STANDS. A twin's
+ *             external sources carry no governed licence card, so they cannot clear a tenant-wide
+ *             read — that is a governed answer about the sources, not a fault in the release.
+ *   REFUSED   no artifact could be made. The whole post-M10 unit rolls back.
+ *
+ * An earlier revision of this port treated HELD as a reason to skip the adoption entirely, on the
+ * reasoning that a held artifact was "the same as no artifact". It is not: the held artifact and
+ * its operator view are governed output that a release is entitled to produce, and discarding them
+ * lost a real surface.
  *
  * THE TWO WRITES AFTER M10 ARE ONE UNIT. M10 has already committed its decision record in its own
  * transaction; the snapshot insert and the binding update commit together or not at all, so there is
@@ -45,6 +55,7 @@ final class TwinRelease
         private readonly EntityTwins $twins,
         private readonly AccessGuard $access,
         private readonly Entitlements $entitlements,
+        private readonly P02Adapter $m16,
     ) {
     }
 
@@ -173,11 +184,31 @@ final class TwinRelease
                 ], 'POLICY');
             }
 
+            // The M16 composition rides THIS transaction, so a refusal takes the snapshot and the
+            // binding down with it. A released snapshot pointing at an artifact that failed to
+            // compose would be a release whose output does not exist.
+            $composed = $this->m16->composeTwinSnapshotArtifact([
+                'tenant_id' => $input['tenant_id'],
+                'workspace_id' => $input['workspace_id'],
+                'released_entity_twin_snapshot_id' => $snapshotId,
+                'decision_record_id' => $decisionRecordId,
+            ]);
+            if ($composed->isRefusal()) {
+                return Outcome::refuse('ARTIFACT_COMPOSITION_REFUSED', [
+                    'detail' => $composed->reasonCode(),
+                ], 'POLICY');
+            }
+
             return Outcome::ok([
                 'outcome' => 'RELEASED',
                 'released_entity_twin_snapshot_id' => $snapshotId,
                 'decision_record_id' => $decisionRecordId,
                 'arbiter_verdict_id' => (string) $change['arbiter_verdict_id'],
+                'release_artifact_id' => (string) $composed->value()['release_artifact_id'],
+                // COMPOSED or HELD. A held artifact is a completed release with an operator-only
+                // view, and the caller is told which it got rather than having to infer it.
+                'artifact_outcome' => (string) $composed->value()['outcome'],
+                'artifact_hold_reasons' => $composed->value()['hold_reasons'] ?? [],
             ]);
         });
     }

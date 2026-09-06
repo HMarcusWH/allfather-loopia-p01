@@ -279,6 +279,236 @@ final class ReleaseOutput
         ]);
     }
 
+    /**
+     * The canonical hold-reason order. The digest is order-sensitive, so this is the declaration
+     * order of the upstream union rather than whatever order the checks happen to fire in.
+     *
+     * @var list<string>
+     */
+    public const SOURCE_USE_HOLD_REASONS = [
+        'SOURCE_LICENSE_PROHIBITED',
+        'SOURCE_CARD_NOT_APPROVED',
+        'SOURCE_CARD_REVIEW_EXPIRED',
+        'SOURCE_CARD_MISSING_FOR_EXTERNAL_SOURCE',
+        'EVIDENCE_QUARANTINED_OR_REVOKED',
+        'SENSITIVITY_PROHIBITED',
+        'RETENTION_PROHIBITED',
+        'UNKNOWN_LICENSE_VALUE',
+    ];
+
+    /** Least- to most-permissive. The fold takes the MINIMUM — the strictest contributor governs. */
+    private const LICENSE_LATTICE = [
+        'PROHIBITED', 'LICENSED_INTERNAL_ONLY', 'LICENSED_NO_CUSTOMER_OUTPUT', 'PUBLIC_WEB_RESTRICTED',
+        'LICENSED_DERIVED_OUTPUT_ALLOWED', 'PUBLIC_WEB_ALLOWED', 'OPEN_CC0',
+    ];
+
+    /** Least- to most-sensitive. The fold takes the MAXIMUM. */
+    private const SENSITIVITY_ORDER = [
+        'PUBLIC_OR_NON_SENSITIVE', 'INTERNAL_DEMO', 'RESTRICTED_REVIEW', 'PROHIBITED_IN_V1',
+    ];
+
+    /** Least- to most-restrictive retention. The fold takes the MAXIMUM. */
+    private const RETENTION_STRICTNESS = ['standard', 'short', 'minimal', 'prohibited'];
+
+    /**
+     * Compile a source-use profile from EXPLICIT contributions rather than from card lookups.
+     *
+     * The card-driven {@see compileSourceUseProfile} answers "what do these registered sources
+     * permit". This one answers the question P02 actually has: a twin's state rests on a MIX of
+     * bases — the tenant's own material, prior released snapshots, and external references that
+     * carry no governed card at all — and only the caller knows which is which.
+     *
+     * THE FIRST-PARTY RULE IS THE WHOLE POINT. A contribution with no card reference AND
+     * `TENANT_OWNED` ownership is the tenant's own material: it folds at the top of the lattice and
+     * never drags the artifact down. Every other cardless contribution HOLDS the profile with
+     * `SOURCE_CARD_MISSING_FOR_EXTERNAL_SOURCE`, because an external claim with no licence card is
+     * exactly the thing nobody has cleared for release.
+     *
+     * A HOLD IS A COMPILED ANSWER, NOT A FAILURE. The profile row is written either way and records
+     * WHY, which a missing profile could not. The artifact that follows is HELD rather than absent.
+     *
+     * @param list<array<string, mixed>> $contributions
+     */
+    public function compileSourceUseProfileFromContributions(
+        string $tenantId,
+        string $workspaceId,
+        array $contributions,
+    ): Outcome {
+        if ($contributions === []) {
+            return Outcome::refuse('SOURCE_USE_NO_CONTRIBUTING_SOURCES', [], 'PROVENANCE');
+        }
+
+        $holds = [];
+        $now = $this->clock->now();
+
+        foreach ($contributions as $c) {
+            $license = (string) ($c['license_ceiling'] ?? 'PROHIBITED');
+            if (!in_array($license, self::LICENSE_LATTICE, true)) {
+                // Vocabulary drift in storage fails CLOSED. A licence value nobody recognizes is
+                // not treated as permissive by default.
+                $holds[] = 'UNKNOWN_LICENSE_VALUE';
+            } elseif ($license === 'PROHIBITED') {
+                $holds[] = 'SOURCE_LICENSE_PROHIBITED';
+            }
+
+            $firstParty = ($c['source_license_card_id'] ?? null) === null
+                && (string) ($c['data_ownership'] ?? 'PUBLIC') === 'TENANT_OWNED';
+            if (!$firstParty) {
+                $cardState = $c['card_state'] ?? null;
+                if ($cardState === null) {
+                    $holds[] = 'SOURCE_CARD_MISSING_FOR_EXTERNAL_SOURCE';
+                } else {
+                    if (($cardState['approved'] ?? false) !== true) {
+                        $holds[] = 'SOURCE_CARD_NOT_APPROVED';
+                    }
+                    $expires = $cardState['review_expires_at'] ?? null;
+                    if ($expires !== null && $now > (string) $expires) {
+                        $holds[] = 'SOURCE_CARD_REVIEW_EXPIRED';
+                    }
+                }
+            }
+
+            if (($c['evidence_usable'] ?? true) === false) {
+                $holds[] = 'EVIDENCE_QUARANTINED_OR_REVOKED';
+            }
+            if ((string) ($c['sensitivity_class'] ?? 'PUBLIC_OR_NON_SENSITIVE') === 'PROHIBITED_IN_V1') {
+                $holds[] = 'SENSITIVITY_PROHIBITED';
+            }
+            if ((string) ($c['retention_class'] ?? 'standard') === 'prohibited') {
+                $holds[] = 'RETENTION_PROHIBITED';
+            }
+        }
+
+        $holdReasons = array_values(array_filter(
+            self::SOURCE_USE_HOLD_REASONS,
+            static fn (string $r): bool => in_array($r, $holds, true),
+        ));
+
+        $customerOutputAllowed = true;
+        $licenseIndex = count(self::LICENSE_LATTICE) - 1;
+        $sensitivityIndex = 0;
+        $retentionIndex = 0;
+        $ownerships = [];
+        foreach ($contributions as $c) {
+            $customerOutputAllowed = $customerOutputAllowed && (($c['customer_output_allowed'] ?? false) === true);
+            $li = array_search((string) ($c['license_ceiling'] ?? 'PROHIBITED'), self::LICENSE_LATTICE, true);
+            $licenseIndex = min($licenseIndex, $li === false ? 0 : (int) $li);
+            $si = array_search((string) ($c['sensitivity_class'] ?? 'PUBLIC_OR_NON_SENSITIVE'), self::SENSITIVITY_ORDER, true);
+            // An unknown sensitivity reads as RESTRICTED_REVIEW, not as public.
+            $sensitivityIndex = max($sensitivityIndex, $si === false ? 2 : (int) $si);
+            $ri = array_search((string) ($c['retention_class'] ?? 'standard'), self::RETENTION_STRICTNESS, true);
+            $retentionIndex = max($retentionIndex, $ri === false ? count(self::RETENTION_STRICTNESS) - 1 : (int) $ri);
+            $ownerships[] = (string) ($c['data_ownership'] ?? 'PUBLIC');
+        }
+
+        $licenseCeiling = self::LICENSE_LATTICE[$licenseIndex];
+        $sensitivityCeiling = self::SENSITIVITY_ORDER[$sensitivityIndex];
+        $retentionFloor = self::RETENTION_STRICTNESS[$retentionIndex];
+        $distinctOwnership = array_values(array_unique($ownerships));
+        $ownershipMix = count($distinctOwnership) === 1 && $distinctOwnership[0] !== 'MIXED'
+            ? $distinctOwnership[0]
+            : 'MIXED';
+
+        $status = $holdReasons === [] ? 'COMPILED_ALLOW' : 'COMPILED_HELD';
+
+        // The derived hard ceiling. A HELD compile renders the OPERATOR hold-view only;
+        // RESTRICTED_REVIEW sensitivity caps at OPERATOR_ONLY; an internal-only licence or a failed
+        // customer-output AND-fold caps at TENANT_INTERNAL. The activation pins keep everything
+        // above TENANT_INTERNAL inert regardless — this answers "what may the SOURCES show", never
+        // "what is activated".
+        if ($status === 'COMPILED_HELD' || $sensitivityCeiling === 'RESTRICTED_REVIEW') {
+            $audienceCeiling = 'OPERATOR_ONLY';
+        } elseif (in_array($licenseCeiling, ['LICENSED_INTERNAL_ONLY', 'LICENSED_NO_CUSTOMER_OUTPUT'], true)
+            || !$customerOutputAllowed
+        ) {
+            $audienceCeiling = 'TENANT_INTERNAL';
+        } else {
+            // TENANT_INTERNAL is the ceiling this projection can express, even where the licence
+            // would allow more. Upstream records the full ladder here and relies on the activation
+            // pins to keep everything wider inert; this port caps the recorded ceiling instead,
+            // matching the card-driven compile beside it. The behaviour is identical — nothing
+            // above TENANT_INTERNAL is activatable either way — and a recorded ceiling naming an
+            // audience no code can project would be an authority that does not exist.
+            $audienceCeiling = 'TENANT_INTERNAL';
+        }
+
+        $profileId = Ids::new();
+        // The digest deliberately EXCLUDES the evaluation clock: the clock reaches the profile only
+        // through derived semantics (the expiry hold), never as an input of its own.
+        $profileDigest = Digest::canonicalDigest([
+            'tenantId' => $tenantId,
+            'workspaceId' => $workspaceId,
+            'status' => $status,
+            'holdReasons' => $holdReasons,
+            'customerOutputAllowed' => $customerOutputAllowed,
+            'licenseCeiling' => $licenseCeiling,
+            'sensitivityCeiling' => $sensitivityCeiling,
+            'retentionFloor' => $retentionFloor,
+            'audienceCeiling' => $audienceCeiling,
+            'dataOwnershipMix' => $ownershipMix,
+            'perSourceContributions' => $contributions,
+        ]);
+
+        // A PROFILE IS ITS DIGEST. Identical contributions compile to an identical profile, and
+        // storage says so with a unique (tenant, digest) index — so a recompile CONVERGES on the
+        // existing row rather than inserting a duplicate. This is what makes a replayed composition
+        // replayable: the compile runs before the assembly's idempotency probe can be reached.
+        $existing = $this->db->one(
+            'SELECT release_source_use_profile_id FROM release_source_use_profiles
+             WHERE tenant_id = ? AND profile_digest = ?',
+            [$tenantId, $profileDigest]
+        );
+        if ($existing !== null) {
+            return Outcome::ok([
+                'release_source_use_profile_id' => (string) $existing['release_source_use_profile_id'],
+                'profile_digest' => $profileDigest,
+                'license_ceiling' => $licenseCeiling,
+                'sensitivity_ceiling' => $sensitivityCeiling,
+                'retention_floor' => $retentionFloor,
+                'audience_ceiling' => $audienceCeiling,
+                'data_ownership_mix' => $ownershipMix,
+                'hold_reasons' => $holdReasons,
+                'status' => $status,
+                'converged' => true,
+            ]);
+        }
+
+        $this->db->insert('release_source_use_profiles', [
+            'release_source_use_profile_id' => $profileId,
+            'schema_version' => '1',
+            'tenant_id' => $tenantId,
+            'status' => $status,
+            'hold_reasons' => json_encode($holdReasons, JSON_THROW_ON_ERROR),
+            'profile_digest' => $profileDigest,
+            'compiler_version' => '1',
+            'customer_output_allowed' => $customerOutputAllowed ? 1 : 0,
+            'license_ceiling' => $licenseCeiling,
+            'sensitivity_ceiling' => $sensitivityCeiling,
+            'retention_floor' => $retentionFloor,
+            'audience_ceiling' => $audienceCeiling,
+            'data_ownership_mix' => $ownershipMix,
+            'profile_json' => json_encode([
+                'contributions' => $contributions,
+                'effective_license_ceiling' => $customerOutputAllowed && $holdReasons === []
+                    ? 'CUSTOMER_VISIBLE_ALLOWED'
+                    : 'INTERNAL_ONLY',
+            ], JSON_THROW_ON_ERROR),
+            'compiled_at' => $now,
+        ]);
+
+        return Outcome::ok([
+            'release_source_use_profile_id' => $profileId,
+            'profile_digest' => $profileDigest,
+            'license_ceiling' => $licenseCeiling,
+            'sensitivity_ceiling' => $sensitivityCeiling,
+            'retention_floor' => $retentionFloor,
+            'audience_ceiling' => $audienceCeiling,
+            'data_ownership_mix' => $ownershipMix,
+            'hold_reasons' => $holdReasons,
+            'status' => $status,
+        ]);
+    }
+
     // ---------------------------------------------------------------- 2. the frozen artifact
 
     /**
@@ -313,9 +543,13 @@ final class ReleaseOutput
         // The M10 binding. An artifact without a release record behind it would be a published
         // claim nobody decided to release.
         $record = $this->db->one(
-            "SELECT decision_record_id, tenant_id, workspace_id, proposal_id
-             FROM decision_records
-             WHERE decision_record_id = ? AND record_type = 'INTERNAL_INFORMATIONAL_RELEASE'",
+            "SELECT dr.decision_record_id, dr.tenant_id, dr.workspace_id, dr.proposal_id,
+                    (SELECT av.arbiter_verdict_id FROM arbiter_verdicts av
+                      WHERE av.proposal_id = dr.proposal_id
+                      ORDER BY av.issued_at DESC, av.arbiter_verdict_id DESC LIMIT 1)
+                      AS arbiter_verdict_id
+             FROM decision_records dr
+             WHERE dr.decision_record_id = ? AND dr.record_type = 'INTERNAL_INFORMATIONAL_RELEASE'",
             [$input['decision_record_id']]
         );
         if ($record === null || $record['proposal_id'] === null) {
@@ -387,7 +621,10 @@ final class ReleaseOutput
                 'released_entity_twin_snapshot_id' => $refs['released_entity_twin_snapshot_id'],
                 'released_relationship_snapshot_id' => $refs['released_relationship_snapshot_id'],
                 'proposal_id' => (string) $record['proposal_id'],
-                'arbiter_verdict_id' => (string) $input['arbiter_verdict_id'],
+                // Derived from the bound proposal when the caller does not name it. The verdict is
+                // a FACT ABOUT THE RELEASE, not a caller's choice — deriving it means an artifact
+                // can never cite a verdict other than the one its decision record rests on.
+                'arbiter_verdict_id' => (string) ($input['arbiter_verdict_id'] ?? $record['arbiter_verdict_id']),
                 'decision_record_id' => (string) $input['decision_record_id'],
                 'source_use_profile_id' => (string) $profile['release_source_use_profile_id'],
                 'source_use_profile_digest' => (string) $profile['profile_digest'],
@@ -548,11 +785,68 @@ final class ReleaseOutput
      * a recorded fact an auditor can read — and the storage CHECK makes any other value impossible
      * to write anyway.
      */
-    public function seedVisibilityProfiles(string $tenantId): Outcome
-    {
+    public function seedVisibilityProfiles(
+        string $tenantId,
+        string $requiredPermissionKey = 'briefing.read',
+        ?array $artifactKinds = null,
+        ?string $internalScopeLens = null,
+    ): Outcome {
+        $kinds = $artifactKinds ?? ['COMPANY_SIGNAL_BRIEFING', 'BATTLECARD_BRIEFING'];
+        foreach ($kinds as $kind) {
+            if (!in_array($kind, self::ARTIFACT_KIND, true)) {
+                return Outcome::refuse('ARTIFACT_KIND_UNKNOWN', ['artifact_kind' => $kind], 'POLICY');
+            }
+        }
+
+        // Which (audience, family) rules this registration is asking for. OPERATOR_ONLY never
+        // carries a lens — the schema CHECK pins it, because a need-to-know lens is a
+        // TENANT_INTERNAL construct and an operator hold-view is not scoped by role.
+        $requested = [];
+        foreach (self::ACTIVATABLE_AUDIENCES as $audience) {
+            foreach ($kinds as $kind) {
+                $requested[] = [
+                    'audience' => $audience,
+                    'artifact_kind' => $kind,
+                    'lens' => $audience === 'TENANT_INTERNAL' ? $internalScopeLens : null,
+                ];
+            }
+        }
+
+        // PREFLIGHT BEFORE ANY WRITE. A conflict discovered on the LAST requested family would
+        // otherwise leave the audience row and the earlier families' rules standing — a silently
+        // widened authority surface created by a command that reported doing nothing. The preflight
+        // is load-bearing precisely because this also runs INSIDE a caller's transaction, where it
+        // cannot roll anything back on its own.
+        foreach ($requested as $rule) {
+            $standing = $this->db->one(
+                "SELECT required_permission_key, internal_scope_lens FROM output_access_rules
+                 WHERE tenant_id = ? AND audience_class = ? AND artifact_kind = ? AND status = 'ACTIVE'",
+                [$tenantId, $rule['audience'], $rule['artifact_kind']]
+            );
+            if ($standing === null) {
+                continue;
+            }
+            $standingLens = $standing['internal_scope_lens'] === null
+                ? null
+                : (string) $standing['internal_scope_lens'];
+            if ((string) $standing['required_permission_key'] !== $requiredPermissionKey
+                || $standingLens !== $rule['lens']
+            ) {
+                return Outcome::refuse('ACCESS_RULE_CONFLICT', [
+                    'artifact_kind' => $rule['artifact_kind'],
+                    'audience_class' => $rule['audience'],
+                ], 'POLICY');
+            }
+        }
+
         $now = $this->clock->now();
         $seeded = 0;
+        $rulesSeeded = 0;
 
+        // The AUDIENCE row is shared across families and is created once per tenant. It carries the
+        // activation permission, which is a property of the audience; WHICH PERMISSION READS WHICH
+        // FAMILY lives in the access rules below. Conflating the two is how `briefing.read` would
+        // come to govern a twin snapshot merely because P01 registered first.
         foreach (self::AUDIENCE_ORDER as $audience) {
             $existing = $this->db->one(
                 "SELECT output_visibility_profile_id FROM output_visibility_profiles
@@ -569,7 +863,7 @@ final class ReleaseOutput
                 'audience_class' => $audience,
                 'profile_version' => 1,
                 'activation_permitted' => in_array($audience, self::ACTIVATABLE_AUDIENCES, true) ? 1 : 0,
-                'required_permission_key' => 'briefing.read',
+                'required_permission_key' => $requiredPermissionKey,
                 'internal_scope_lens' => null,
                 'status' => 'ACTIVE',
                 'created_at' => $now,
@@ -578,7 +872,60 @@ final class ReleaseOutput
             $seeded++;
         }
 
-        return Outcome::ok(['tenant_id' => $tenantId, 'profiles_seeded' => $seeded]);
+        foreach ($requested as $rule) {
+            $existing = $this->db->one(
+                "SELECT output_access_rule_id FROM output_access_rules
+                 WHERE tenant_id = ? AND audience_class = ? AND artifact_kind = ? AND status = 'ACTIVE'",
+                [$tenantId, $rule['audience'], $rule['artifact_kind']]
+            );
+            if ($existing !== null) {
+                // The preflight already proved it agrees. Re-registration converges.
+                continue;
+            }
+            $this->db->insert('output_access_rules', [
+                'output_access_rule_id' => Ids::new(),
+                'schema_version' => '1',
+                'tenant_id' => $tenantId,
+                'audience_class' => $rule['audience'],
+                'artifact_kind' => $rule['artifact_kind'],
+                'rule_version' => '1',
+                'required_permission_key' => $requiredPermissionKey,
+                'internal_scope_lens' => $rule['lens'],
+                'status' => 'ACTIVE',
+                'supersedes_output_access_rule_id' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            $rulesSeeded++;
+        }
+
+        return Outcome::ok([
+            'tenant_id' => $tenantId,
+            'profiles_seeded' => $seeded,
+            'access_rules_seeded' => $rulesSeeded,
+            'required_permission_key' => $requiredPermissionKey,
+            'artifact_kinds' => $kinds,
+        ]);
+    }
+
+    /**
+     * Which permission reads this artifact family, for this audience.
+     *
+     * Default-deny on absence: a family nobody registered an access rule for is readable by nobody,
+     * rather than falling back to whatever the audience row happens to say. The audience row's
+     * permission answers "may this audience be activated at all"; it was never meant to answer
+     * "who may read a twin snapshot", and letting it do so is how one product family's registration
+     * silently grants access to another's output.
+     */
+    public function requiredPermissionFor(string $tenantId, string $audienceClass, string $artifactKind): ?string
+    {
+        $rule = $this->db->one(
+            "SELECT required_permission_key FROM output_access_rules
+             WHERE tenant_id = ? AND audience_class = ? AND artifact_kind = ? AND status = 'ACTIVE'",
+            [$tenantId, $audienceClass, $artifactKind]
+        );
+
+        return $rule === null ? null : (string) $rule['required_permission_key'];
     }
 
     /**

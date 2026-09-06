@@ -42,6 +42,8 @@ use Allfather\Loopia\Substrate\M07\Council;
 use Allfather\Loopia\Substrate\M08\Arbiter;
 use Allfather\Loopia\Substrate\M08\PolicySets;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
+use Allfather\Loopia\Substrate\M16\P02Adapter;
+use Allfather\Loopia\Substrate\M16\ReleaseOutput;
 use Allfather\Loopia\Tests\Assert;
 use Allfather\Loopia\Tests\Harness;
 use Allfather\Loopia\Tests\Seed;
@@ -245,7 +247,9 @@ Assert::case('GOLDEN P02: a curated twin version becomes released internal intel
 $twins = new EntityTwins($db, $clock);
 $stateChange = new TwinStateChange($db, $clock, $proposals, $evidence, $readiness, $council);
 $twinAdmission = new TwinAdmission($db, $clock, $arbiter, $stateChange);
-$twinRelease = new TwinRelease($db, $clock, $ledger, $proposals, $twins, $access, $entitlements);
+$m16Output = new ReleaseOutput($db, $clock, $ledger);
+$p02Adapter = new P02Adapter($db, $m16Output);
+$twinRelease = new TwinRelease($db, $clock, $ledger, $proposals, $twins, $access, $entitlements, $p02Adapter);
 $p02PolicySetId = $policySets
     ->seed(PolicySets::P02_TWIN_STATE_ADMISSION, $scope['tenant_id'], $scope['workspace_id'])
     ->value()['arbiter_policy_set_id'];

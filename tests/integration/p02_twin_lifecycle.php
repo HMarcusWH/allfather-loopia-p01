@@ -48,6 +48,8 @@ use Allfather\Loopia\Substrate\M07\Council;
 use Allfather\Loopia\Substrate\M08\Arbiter;
 use Allfather\Loopia\Substrate\M08\PolicySets;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
+use Allfather\Loopia\Substrate\M16\P02Adapter;
+use Allfather\Loopia\Substrate\M16\ReleaseOutput;
 use Allfather\Loopia\Substrate\M11\Assurance as M11Assurance;
 use Allfather\Loopia\Tests\Assert;
 use Allfather\Loopia\Tests\Harness;
@@ -77,7 +79,9 @@ $cards = new SourceCards($db, $clock);
 $twins = new EntityTwins($db, $clock);
 $stateChange = new TwinStateChange($db, $clock, $proposals, $evidence, $readiness, $council);
 $admission = new TwinAdmission($db, $clock, $arbiter, $stateChange);
-$release = new TwinRelease($db, $clock, $ledger, $proposals, $twins, $access, $entitlements);
+$m16Output = new ReleaseOutput($db, $clock, $ledger);
+$p02Adapter = new P02Adapter($db, $m16Output);
+$release = new TwinRelease($db, $clock, $ledger, $proposals, $twins, $access, $entitlements, $p02Adapter);
 
 $policySetId = (new PolicySets($db, $clock))
     ->seed(PolicySets::P02_TWIN_STATE_ADMISSION, $scope['tenant_id'], $scope['workspace_id'])
@@ -318,21 +322,102 @@ Assert::same(
     'a second release refuses by name rather than minting a second decision record',
 );
 
-// --- 2. the release does NOT route through M16 ---------------------------------------------------
+// --- 2. the release ADOPTS M16, as canonical does -----------------------------------------------
 
-Assert::case('P02: the release is M10-bound and carries no M16 artifact');
+Assert::case('P02: the released snapshot carries a governed M16 snapshot-view artifact');
 
+$artifactId = (string) $released->value()['release_artifact_id'];
+Assert::same(
+    'ENTITY_TWIN_SNAPSHOT_VIEW',
+    (string) $db->scalar(
+        'SELECT artifact_kind FROM release_artifacts WHERE release_artifact_id = ?',
+        [$artifactId]
+    ),
+    'the artifact kind is the canonical P02 entity family, not an invented one',
+);
+Assert::same(
+    $snapshotId,
+    (string) $db->scalar(
+        'SELECT released_entity_twin_snapshot_id FROM release_artifacts WHERE release_artifact_id = ?',
+        [$artifactId]
+    ),
+    'and it references the released snapshot as its consumer',
+);
+Assert::same(
+    $decisionRecordId,
+    (string) $db->scalar(
+        'SELECT decision_record_id FROM release_artifacts WHERE release_artifact_id = ?',
+        [$artifactId]
+    ),
+    'bound to the SAME M10 record the snapshot is — M16 is a projection, not a second release',
+);
+Assert::same(
+    'BROAD_INTERNAL_BI',
+    (string) $db->scalar(
+        'SELECT internal_scope_lens FROM release_artifacts WHERE release_artifact_id = ?',
+        [$artifactId]
+    ),
+    "and it carries the released snapshot's own need-to-know lens into the M16 read law",
+);
+
+// This twin's sources are a PUBLIC card-backed reference — an external basis with no governed twin
+// card — so the source-use compile HOLDS. That is a governed answer about the SOURCES, not a fault:
+// the release stands, the artifact is frozen, and only an operator can read it.
+Assert::same(
+    'HELD',
+    (string) $released->value()['artifact_outcome'],
+    'an external, cardless twin source HOLDS the artifact rather than refusing the release',
+);
+Assert::equalsList(
+    ['SOURCE_CARD_MISSING_FOR_EXTERNAL_SOURCE'],
+    $released->value()['artifact_hold_reasons'],
+    'and the hold names which law held it',
+);
+Assert::same(
+    'HELD_SOURCE_USE',
+    (string) $db->scalar(
+        'SELECT status FROM release_artifacts WHERE release_artifact_id = ?',
+        [$artifactId]
+    ),
+    'the artifact records the hold as its status',
+);
+
+// THE HOLD IS NOT SILENCE. An operator can read it; nobody wider can.
+Assert::same(
+    'PROJECTED',
+    (string) $db->scalar(
+        "SELECT status FROM customer_output_projections
+         WHERE release_artifact_id = ? AND audience_class = 'OPERATOR_ONLY'",
+        [$artifactId]
+    ),
+    'the OPERATOR_ONLY hold-view exists — a held artifact nobody could read would be pointless',
+);
 Assert::same(
     0,
-    (int) $db->scalar('SELECT COUNT(*) FROM release_artifacts'),
-    'no M16 release artifact is composed — P02 adoption is not ported, and nothing pretends it is',
+    (int) $db->scalar(
+        "SELECT COUNT(*) FROM customer_output_projections
+         WHERE release_artifact_id = ? AND audience_class = 'TENANT_INTERNAL'",
+        [$artifactId]
+    ),
+    'and NO tenant-internal projection was made — the hold is what stopped it',
 );
-Assert::false(
-    in_array('release_artifact_id', array_map(
-        static fn (array $c): string => (string) $c['Field'],
-        $db->all('SHOW COLUMNS FROM released_entity_twin_snapshots')
-    ), true),
-    'and the released row has no artifact column to bind one to — the reference is to M10',
+Assert::same(
+    0,
+    (int) $db->scalar(
+        'SELECT COUNT(*) FROM release_visibility_activations WHERE release_artifact_id = ?',
+        [$artifactId]
+    ),
+    'nothing was activated, so a cardless external source cannot become tenant-visible',
+);
+
+// THE RELEASE ITSELF IS UNAFFECTED. A hold governs the artifact's audience, not the release.
+Assert::same(
+    1,
+    (int) $db->scalar(
+        'SELECT COUNT(*) FROM released_entity_twin_snapshots WHERE released_entity_twin_snapshot_id = ?',
+        [$snapshotId]
+    ),
+    'the released snapshot stands — HELD is not a rollback',
 );
 
 // --- 3. the M10 binding floor --------------------------------------------------------------------
@@ -916,3 +1001,160 @@ foreach ([
         "{$category}: names the offending released snapshot, not just a count",
     );
 }
+
+// --- 10. the M16 outcome characterization -------------------------------------------------------
+
+Assert::case('P02 M16: a tenant-owned basis COMPOSES; a cardless external basis HOLDS');
+
+/** A twin version whose only source basis is the tenant's own material. */
+$tenantOwnedVersion = static function () use ($db, $clock, $scope, $twins): array {
+    $twinId = $twins->registerTwin(
+        $scope['tenant_id'], $scope['workspace_id'], 'CUSTOMER', 'Our own account view',
+        [], $scope['operator_id']
+    )->value()['entity_twin_id'];
+    $version = $twins->appendVersion([
+        'tenant_id' => $scope['tenant_id'],
+        'workspace_id' => $scope['workspace_id'],
+        'entity_twin_id' => $twinId,
+        'claim_ceiling' => 'INTERNAL_REVIEWED',
+        'fields' => [
+            ['field_key' => 'segment', 'field_value_safe' => 'SME', 'value_status' => 'TENANT_PROVIDED'],
+        ],
+        'uncertainty' => ['summary_safe' => 'Recorded by the tenant; no external source consulted.'],
+        // TENANT_PROVIDED_MANUAL needs no evidence or source reference — the storage CHECK permits
+        // it precisely because the tenant's own statement IS the basis.
+        'source_links' => [[
+            'source_basis' => 'TENANT_PROVIDED_MANUAL',
+            'allowed_use' => 'INTERNAL_ONLY',
+        ]],
+    ]);
+
+    return ['entity_twin_id' => $twinId, 'entity_twin_version_id' => $version->value()['entity_twin_version_id']];
+};
+
+$owned = $tenantOwnedVersion();
+$ownedFlow = $admitStateChange($owned, ['requested_visibility_scope' => 'SALES']);
+Assert::true($ownedFlow['admitted']->isOk(), 'the tenant-owned state change is admitted');
+
+$ownedReleased = $release->release([
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $scope['workspace_id'],
+    'entity_twin_state_change_proposal_id' => $ownedFlow['change_id'],
+]);
+Assert::true(
+    $ownedReleased->isOk(),
+    'and releases: ' . ($ownedReleased->isOk() ? '' : $ownedReleased->reasonCode()),
+);
+Assert::same(
+    'COMPOSED',
+    (string) $ownedReleased->value()['artifact_outcome'],
+    'a first-party basis folds at the top of the lattice and COMPOSES — it never holds itself',
+);
+
+$ownedArtifactId = (string) $ownedReleased->value()['release_artifact_id'];
+foreach (['OPERATOR_ONLY', 'TENANT_INTERNAL'] as $audience) {
+    Assert::same(
+        'PROJECTED',
+        (string) $db->scalar(
+            'SELECT status FROM customer_output_projections
+             WHERE release_artifact_id = ? AND audience_class = ?',
+            [$ownedArtifactId, $audience]
+        ),
+        "a composed artifact projects for {$audience}",
+    );
+    Assert::same(
+        'ACTIVATED',
+        (string) $db->scalar(
+            'SELECT event_kind FROM release_visibility_activations
+             WHERE release_artifact_id = ? AND audience_class = ?
+             ORDER BY event_sequence DESC LIMIT 1',
+            [$ownedArtifactId, $audience]
+        ),
+        "and its {$audience} visibility is activated",
+    );
+}
+
+// --- 11. the P02 access rule is its own family --------------------------------------------------
+
+Assert::case('P02 M16: entity_twin.read governs the P02 families, whatever registered first');
+
+foreach (['ENTITY_TWIN_SNAPSHOT_VIEW', 'ENTITY_RELATIONSHIP_SNAPSHOT_VIEW'] as $kind) {
+    foreach (['OPERATOR_ONLY', 'TENANT_INTERNAL'] as $audience) {
+        Assert::same(
+            'entity_twin.read',
+            (string) $db->scalar(
+                "SELECT required_permission_key FROM output_access_rules
+                 WHERE tenant_id = ? AND audience_class = ? AND artifact_kind = ? AND status = 'ACTIVE'",
+                [$scope['tenant_id'], $audience, $kind]
+            ),
+            "{$kind}/{$audience} is governed by entity_twin.read",
+        );
+    }
+}
+
+// The P01 families keep their own permission. One tenant, two product families, two authorities —
+// which is the whole reason the rule is keyed by artifact kind rather than by audience alone.
+$m16Output->seedVisibilityProfiles(
+    $scope['tenant_id'], 'briefing.read', ['COMPANY_SIGNAL_BRIEFING', 'BATTLECARD_BRIEFING']
+);
+Assert::same(
+    'briefing.read',
+    (string) $db->scalar(
+        "SELECT required_permission_key FROM output_access_rules
+         WHERE tenant_id = ? AND audience_class = 'TENANT_INTERNAL'
+           AND artifact_kind = 'BATTLECARD_BRIEFING' AND status = 'ACTIVE'",
+        [$scope['tenant_id']]
+    ),
+    'and the P01 briefing family keeps briefing.read, unaffected by the P02 registration',
+);
+Assert::same(
+    'entity_twin.read',
+    $m16Output->requiredPermissionFor($scope['tenant_id'], 'TENANT_INTERNAL', 'ENTITY_TWIN_SNAPSHOT_VIEW'),
+    'the twin family still answers entity_twin.read after the P01 registration ran second',
+);
+
+// A registration that would REDEFINE a standing rule is refused before it writes anything.
+Assert::same(
+    'ACCESS_RULE_CONFLICT',
+    $m16Output->seedVisibilityProfiles(
+        $scope['tenant_id'], 'something_else.read', ['ENTITY_TWIN_SNAPSHOT_VIEW']
+    )->reasonCode(),
+    'and a conflicting re-registration is refused rather than silently rebinding the family',
+);
+Assert::same(
+    'entity_twin.read',
+    $m16Output->requiredPermissionFor($scope['tenant_id'], 'TENANT_INTERNAL', 'ENTITY_TWIN_SNAPSHOT_VIEW'),
+    'the standing rule is untouched — the preflight refused BEFORE any write',
+);
+
+// --- 12. replay mints nothing twice -------------------------------------------------------------
+
+Assert::case('P02 M16: a replayed composition returns the same artifact');
+
+$artifactsBefore = (int) $db->scalar('SELECT COUNT(*) FROM release_artifacts');
+$replay = $p02Adapter->composeTwinSnapshotArtifact([
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $scope['workspace_id'],
+    'released_entity_twin_snapshot_id' => (string) $ownedReleased->value()['released_entity_twin_snapshot_id'],
+    'decision_record_id' => (string) $ownedReleased->value()['decision_record_id'],
+]);
+Assert::true($replay->isOk(), 'the replay succeeds');
+Assert::same(
+    $ownedArtifactId,
+    (string) $replay->value()['release_artifact_id'],
+    'returning the SAME artifact rather than minting a second one',
+);
+Assert::same(
+    $artifactsBefore,
+    (int) $db->scalar('SELECT COUNT(*) FROM release_artifacts'),
+    'and the artifact count is unchanged — a retry replays, it does not duplicate',
+);
+Assert::same(
+    1,
+    (int) $db->scalar(
+        "SELECT COUNT(*) FROM customer_output_projections
+         WHERE release_artifact_id = ? AND audience_class = 'TENANT_INTERNAL'",
+        [$ownedArtifactId]
+    ),
+    'nor does it mint a second projection',
+);
