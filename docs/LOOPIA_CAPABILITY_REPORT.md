@@ -34,21 +34,24 @@ nowhere else. M15 governed ingestion is present with the guarded egress path.
 | Plane | What it does |
 | --- | --- |
 | P01 | competition monitoring: sources, capture, change detection, signals, battlecards, release, surfacing, usage metering, two audits |
-| P02 | entity and relationship twins with four privacy screens — **and no governed lifecycle past a recorded version**; see `PORT_SCOPE_MATRIX.md` §3.7 |
+| P02 | entity and relationship twins with four privacy screens, governed state-change admission, M10 release, and M16 entity/relationship snapshot artifacts; runtime implemented, web surface not included |
 | P03 | catalogue, ICP, fit hypotheses, prospect queue admission, **M10 release and two-gate surfacing** |
 | P04 | stakeholder roles, role distribution, admission, release, three-gate surfacing, four audits |
 | P05 | marketing drafts, claim citations, variants, admission, internal release, three audits |
 | P07-A | consent, PII firewall, outreach admission, approval, frozen artifacts, synthetic dispatch, five audits |
 
-**Storage** — 15 migrations, MariaDB 10.11, with the invariants held as CHECK constraints and
-append-only triggers rather than as application conventions. **Loopia Företag is MariaDB 10.6**;
-10.11 is Företag Plus only. Both are now verified against a real server — see `LOOPIA_HOST_MODEL.md` §5.
+**Storage** — 18 migrations, MariaDB 10.6+ / InnoDB, with the invariants held as CHECK constraints,
+append-only triggers and the database-enforced uniqueness translations named in
+`SCHEMA_REACHABILITY.md`. **Loopia Företag is MariaDB 10.6**; 10.11 is Företag Plus only. Both are
+verified against real servers in the test matrix — see `CONFORMANCE_MATRIX.md` §1.
 
 **Provisioning** — `ops/provision-staging.php` stands a tenant up by composing the real module
-registrations for P01, P03, P04 and P05. P02 is refused: its admission policy set is not ported.
+registrations for P01, P02, P03, P04 and P05. P02 provisions the promoted entity-twin curator
+capability; offering twins remain outside the selected canonical graph.
 
-**Tests** — 3310 assertions across seven layers, executed against real MariaDB 10.6 AND 10.11, each version read back from the server the run connected to. See
-`CONFORMANCE_MATRIX.md` §1 for the breakdown and for what has NOT been verified.
+**Tests** — the strict suite runs across seven layers against BOTH MariaDB 10.6 and 10.11, with the
+server version read back from each connection rather than inferred from the requested image. The
+exact current assertion counts are in `CONFORMANCE_MATRIX.md` §1 and the PR test matrix.
 
 ## 2. What it deliberately cannot do
 
@@ -82,10 +85,10 @@ Working end to end today, given seeded authority:
 
 | Area | State |
 | --- | --- |
-| schema migrations | complete, 15 files, idempotent |
-| authority seeding | `Permissions` vocabulary + role seeds; P01 registration provisions a tenant capability |
+| schema migrations | complete, 18 files, idempotent |
+| authority seeding | `Permissions` vocabulary + role seeds; product registrations provision their selected tenant capabilities |
 | audit profiles | created on demand per category |
-| CI | defined for foundation/unit and a MariaDB-backed job |
+| CI | PHP 8.2 foundation plus full MariaDB 10.6 and 10.11 lanes |
 | runbook | `DEPLOYMENT_RUNBOOK.md` |
 | rollback | five levers, documented and tested |
 
@@ -99,20 +102,23 @@ Stated plainly, because build completion is not launch authority:
   suite fails if anything does. See `DEPLOYMENT_RUNBOOK.md` §7a for what activating it takes.
 - `OWNER_GO_GRANTED` — **false.** No owner sign-off exists.
 - `PRODUCTION_LAUNCH` — **false.** Nothing is deployed.
+- **Production tenant provisioning is not authorized by the pinned canonical identity vocabulary.**
+  Canonical currently admits TEST/DEMO/LOCAL_DEV identity classes, not projection-invented
+  `CUSTOMER` / `PRODUCTION` synonyms. `ops/provision-staging.php` therefore refuses production
+  before opening the database; a future production identity must be promoted canonically first.
 - Loopia shared hosting — **untested.** The target runtime has not run this code.
-- Hosted CI — runs the full suite on PHP 8.2.33 against MariaDB 10.11.19. It caught a
-  non-deterministic test assertion that passed in the development container; see
-  `CONFORMANCE_MATRIX.md` §1. That is the value of running on the supported floor rather than
-  on whatever the development container happens to have.
+- Hosted CI — runs PHP 8.2.33 with a full MariaDB **10.6 and 10.11 matrix**, including migration
+  idempotency and the strict suite. That is the supported-PHP-floor evidence; the development
+  container runs PHP 8.4.19.
 
 ## 6. What I would want before launch
 
 An honest list, in the order I would do it:
 
 1. **Deploy to staging on the actual Loopia host and run the suite there.** Everything in §1 is
-   verified on a development container. Shared hosting differs in PHP configuration, available
-   extensions, filesystem behaviour and MariaDB privileges, and each of those has broken a
-   deployment like this before.
+   verified in development/CI rather than on Loopia's shared host. Shared hosting differs in PHP
+   configuration, available extensions, filesystem behaviour and MariaDB privileges, and each of
+   those can invalidate an assumption that is green elsewhere.
 2. **Confirm the append-only triggers survive the host's import path.** They are the load-bearing
    half of several guarantees, and `mysqldump`/import round-trips have been known to drop
    `DELIMITER`-defined triggers.
@@ -122,8 +128,12 @@ An honest list, in the order I would do it:
    including anything the change detector classified badly.
 5. **Have somebody who did not write this read `CLAIM_CEILING.md`** and confirm the product's
    marketing does not exceed it.
+6. **Before customer production, resolve the canonical production identity/onboarding model.** Do
+   not widen tenant/workspace/environment vocabulary inside this deployment projection merely to
+   get a production row through a CHECK constraint.
 
-Items 1 and 2 are the ones I would not skip.
+Items 1 and 2 are the ones I would not skip before staging validation; item 6 is a separate
+pre-customer-production authority decision.
 
 ## 7. Console
 
