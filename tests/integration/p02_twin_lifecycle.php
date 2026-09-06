@@ -36,6 +36,7 @@ use Allfather\Loopia\Product\P01\SourceCards;
 use Allfather\Loopia\Product\P02\EntityTwins;
 use Allfather\Loopia\Product\P02\M10BindingFloor;
 use Allfather\Loopia\Product\P02\TwinAdmission;
+use Allfather\Loopia\Product\P02\TwinAssurance;
 use Allfather\Loopia\Product\P02\TwinRelease;
 use Allfather\Loopia\Product\P02\TwinStateChange;
 use Allfather\Loopia\Substrate\M02\AccessGuard;
@@ -47,6 +48,7 @@ use Allfather\Loopia\Substrate\M07\Council;
 use Allfather\Loopia\Substrate\M08\Arbiter;
 use Allfather\Loopia\Substrate\M08\PolicySets;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
+use Allfather\Loopia\Substrate\M11\Assurance as M11Assurance;
 use Allfather\Loopia\Tests\Assert;
 use Allfather\Loopia\Tests\Harness;
 use Allfather\Loopia\Tests\Seed;
@@ -546,3 +548,371 @@ Assert::same(
     $surface($stranger, 'BROAD_INTERNAL_BI')['decision'],
     'an operator with no membership is denied even though the tier now grants the permission',
 );
+
+// --- 7. the twelve audits ------------------------------------------------------------------------
+
+Assert::case('P02: the twelve audits re-scan what was actually released');
+
+$m11 = new M11Assurance($db, $clock, $ledger);
+$assurance = new TwinAssurance($db, $clock, $m11);
+$profiles = $assurance->seedProfiles($scope['tenant_id'], $scope['workspace_id']);
+
+Assert::equalsList(
+    TwinAssurance::AUDIT_CATEGORIES,
+    array_keys($profiles),
+    'all twelve profiles are seeded, one per control',
+);
+Assert::same(
+    $profiles,
+    $assurance->seedProfiles($scope['tenant_id'], $scope['workspace_id']),
+    'and seeding again converges — one profile per control per scope, not one per run',
+);
+Assert::same(
+    1,
+    (int) $db->scalar(
+        'SELECT MIN(does_not_grant_authority) FROM audit_profiles WHERE tenant_id = ?',
+        [$scope['tenant_id']]
+    ),
+    'every profile is pinned as granting no authority — assurance is not a second authority plane',
+);
+
+// The released snapshot from part 1 is clean, so every control passes over it. This is the state
+// the port ships in, and a control that could not pass would be a control nobody could satisfy.
+foreach (TwinAssurance::AUDIT_CATEGORIES as $category) {
+    $run = $assurance->runAudit(['audit_profile_id' => $profiles[$category]]);
+    Assert::true($run->isOk(), "{$category} runs: " . ($run->isOk() ? '' : $run->reasonCode()));
+    if ($category === 'RETENTION_POLICY_COVERAGE') {
+        // The one control the released twin does NOT yet satisfy: no anchor has been recorded.
+        // A retention policy nobody declared is not a retention policy.
+        Assert::same(1, $run->value()['violation_count'], 'RETENTION_POLICY_COVERAGE finds the undeclared twin');
+        continue;
+    }
+    Assert::same(
+        0,
+        $run->value()['violation_count'],
+        "{$category}: the governed release satisfies this control",
+    );
+    // A PASS is recorded as a finding too, at the lowest severity and requiring nothing. An absent
+    // row would be indistinguishable from an audit that never ran.
+    $pass = $db->one(
+        'SELECT finding_type, severity, incident_evaluation_required
+         FROM audit_findings WHERE audit_finding_id = ?',
+        [$run->value()['audit_finding_id']]
+    );
+    Assert::same('CONTROL_PASS', (string) $pass['finding_type'], "{$category}: the pass is recorded as one");
+    Assert::same('S1', (string) $pass['severity'], "{$category}: at the lowest severity");
+    Assert::same(0, (int) $pass['incident_evaluation_required'], "{$category}: and requires no evaluation");
+}
+
+$anchored = $twins->recordLedgerAnchor([
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $scope['workspace_id'],
+    'entity_twin_id' => $version['entity_twin_id'],
+    'anchor_kind' => 'RETENTION',
+    'anchor_summary_safe' => 'Twin state retained for the licence review window.',
+    'retention_policy_safe' => 'short',
+]);
+Assert::true($anchored->isOk(), 'a RETENTION anchor records');
+Assert::same(
+    0,
+    $assurance->runAudit(['audit_profile_id' => $profiles['RETENTION_POLICY_COVERAGE']])
+        ->value()['violation_count'],
+    'and the control now passes — the audit was reporting a real gap, not a defect in itself',
+);
+
+// An anchor is release-gating AUTHORITY, so it must come from inside the twin's own workspace.
+Assert::same(
+    'ENTITY_TWIN_SCOPE_MISMATCH',
+    $twins->recordLedgerAnchor([
+        'tenant_id' => $scope['tenant_id'],
+        'workspace_id' => Ids::new(),
+        'entity_twin_id' => $version['entity_twin_id'],
+        'anchor_kind' => 'RETENTION',
+        'anchor_summary_safe' => 'Declared from outside.',
+    ])->reasonCode(),
+    'a caller outside the workspace cannot declare its retention policy',
+);
+Assert::same(
+    'INVALID_ANCHOR_KIND',
+    $twins->recordLedgerAnchor([
+        'tenant_id' => $scope['tenant_id'],
+        'workspace_id' => $scope['workspace_id'],
+        'entity_twin_id' => $version['entity_twin_id'],
+        'anchor_kind' => 'WHATEVER',
+        'anchor_summary_safe' => 'Invented.',
+    ])->reasonCode(),
+    'and the anchor kinds are a closed set',
+);
+
+// --- 8. an audit that has something to find ------------------------------------------------------
+
+Assert::case('P02: an audit finds a real violation, records it, and opens an incident');
+
+// The released row is APPEND-ONLY, so the violation cannot be introduced by editing one. It is
+// introduced the way it would really arrive: a SECOND fresh release of the same version, which is
+// two current answers to one question. The state-change binding refuses this, so the fixture goes
+// through the storage gate directly — which is exactly the layer this audit exists to re-check.
+$freshRecordId = (string) Seed::governedReleaseChain($db, $clock, $scope)['release']['decision_record_id'];
+$second = $twins->releaseSnapshot([
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $scope['workspace_id'],
+    'entity_twin_version_id' => $version['entity_twin_version_id'],
+    'visibility_scope' => 'BROAD_INTERNAL_BI',
+    'release_status' => 'INTERNAL_REVIEWED',
+    'decision_record_id' => $freshRecordId,
+]);
+Assert::true($second->isOk(), 'a second fresh release of one version is storable: ' . ($second->isOk() ? '' : $second->reasonCode()));
+
+$integrity = $assurance->runAudit(['audit_profile_id' => $profiles['TWIN_STATE_VERSION_INTEGRITY']]);
+Assert::same(2, $integrity->value()['violation_count'], 'and the integrity audit finds BOTH fresh releases');
+Assert::equalsList(
+    ['MULTIPLE_FRESH_RELEASES_FOR_VERSION'],
+    $integrity->value()['reason_codes'],
+    'naming the reason rather than reporting a count',
+);
+Assert::notSame(null, $integrity->value()['incident_case_id'], 'a violation OPENS AN INCIDENT');
+Assert::same(
+    'FAIL',
+    (string) $db->scalar(
+        'SELECT decision FROM audit_check_records WHERE audit_run_id = ?',
+        [$integrity->value()['audit_run_id']]
+    ),
+    'the check record says FAIL',
+);
+Assert::same(
+    2,
+    (int) $db->scalar(
+        'SELECT COUNT(*) FROM released_entity_twin_snapshots WHERE entity_twin_version_id = ?',
+        [$version['entity_twin_version_id']]
+    ),
+    'and the audit REPAIRED NOTHING — both rows are still there, which is the whole point',
+);
+
+// The profile's category is authority for what it may conclude.
+Assert::same(
+    'AUDIT_PROFILE_CATEGORY_NOT_P02',
+    $assurance->runAudit([
+        'audit_profile_id' => $m11->createAuditProfile(
+            $scope['tenant_id'], $scope['workspace_id'], 'ledger-' . substr(Ids::new(), 0, 8),
+            'LEDGER_INTEGRITY', 'Ledger integrity'
+        ),
+    ])->reasonCode(),
+    'a profile of another category cannot back a P02 finding',
+);
+
+// --- 9. every control is proved to BITE ----------------------------------------------------------
+
+Assert::case('P02: each of the twelve audits finds the violation it exists to find');
+
+/**
+ * The violations below are written STRAIGHT INTO STORAGE, and that is the point.
+ *
+ * Every one of them is refused by the write path — `appendVersion` screens the field keys, the
+ * admission rules screen the state text, the release gate screens the statuses and the ceiling. So
+ * a fixture built through the product modules could not produce a single one, and the audits would
+ * pass vacuously forever while proving nothing.
+ *
+ * These rows are the anomaly the audits exist for: state that reached the released surface without
+ * passing the gate that should have stopped it — a future code path, a migration, a direct write.
+ * If the audit cannot see it here, it will not see it there either.
+ */
+$bypass = $makeVersion(['display_name' => 'Bypass AB']);
+$bypassSnapshotId = $twins->releaseSnapshot([
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $scope['workspace_id'],
+    'entity_twin_version_id' => $bypass['entity_twin_version_id'],
+    'visibility_scope' => 'PRODUCT',
+    'release_status' => 'INTERNAL_REVIEWED',
+    'decision_record_id' => $freshRecord(),
+])->value()['released_entity_twin_snapshot_id'];
+$twins->recordLedgerAnchor([
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $scope['workspace_id'],
+    'entity_twin_id' => $bypass['entity_twin_id'],
+    'anchor_kind' => 'RETENTION',
+    'anchor_summary_safe' => 'Retained for the licence review window.',
+]);
+
+$field = static function (string $key, string $status) use ($db, $clock, $scope, $bypass): void {
+    $db->insert('entity_twin_state_summaries', [
+        'entity_twin_state_summary_id' => Ids::new(),
+        'schema_version' => '1',
+        'tenant_id' => $scope['tenant_id'],
+        'entity_twin_version_id' => $bypass['entity_twin_version_id'],
+        'field_key' => $key,
+        'field_value_safe' => 'x',
+        'value_status' => $status,
+        'created_at' => $clock->now(),
+    ]);
+};
+$field('employee_productivity_score', 'PUBLIC_SOURCE');   // NO_EMPLOYEE_SCORING
+$field('buyer_intent', 'KNOWN_FACT');                     // BUYER_INTENT_OVERCLAIM
+$field('acquisition_rumour', 'UNSUPPORTED_CLAIM');        // TWIN_STATE_EVIDENCE_COVERAGE
+$field('internal_headcount', 'PROHIBITED');               // NO_PRIVATE_EXTERNAL_DATA
+$field('pricing_direction', 'CONFLICTING');               // TWIN_UNCERTAINTY_VISIBILITY (has_conflict = 0)
+
+$link = static function (string $basis, string $allowedUse) use ($db, $clock, $scope, $bypass): void {
+    $db->insert('entity_twin_source_links', [
+        'entity_twin_source_link_id' => Ids::new(),
+        'schema_version' => '1',
+        'tenant_id' => $scope['tenant_id'],
+        'entity_twin_version_id' => $bypass['entity_twin_version_id'],
+        // The storage CHECK requires a cited basis unless it is manual or a prior snapshot: an
+        // unsourced link cannot be written even to build a violation.
+        'source_ref_id' => $bypass['source_ref_id'],
+        'source_basis' => $basis,
+        'allowed_use' => $allowedUse,
+        'created_at' => $clock->now(),
+    ]);
+};
+$link('LICENSED_SOURCE', 'RESTRICTED');    // SOURCE_LICENSE_CONFORMANCE
+$link('TENANT_OWNED', 'INTERNAL_ONLY');    // FIRST_PARTY_EXTERNAL_BOUNDARY (the twin is a COMPETITOR)
+
+// A snapshot whose declared ceiling is one of the two WITHDRAWN values. The release gate refuses
+// this outright, so the row goes in directly — which is the only way it could ever exist.
+$db->insert('released_entity_twin_snapshots', [
+    'released_entity_twin_snapshot_id' => Ids::new(),
+    'schema_version' => '1',
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $scope['workspace_id'],
+    'entity_twin_id' => $bypass['entity_twin_id'],
+    'entity_twin_version_id' => $bypass['entity_twin_version_id'],
+    'entity_twin_uncertainty_summary_id' => (string) $db->scalar(
+        'SELECT entity_twin_uncertainty_summary_id FROM entity_twin_uncertainty_summaries
+         WHERE entity_twin_version_id = ?',
+        [$bypass['entity_twin_version_id']]
+    ),
+    'claim_ceiling' => 'RETRACTED',
+    'visibility_scope' => 'PRODUCT',
+    'snapshot_digest' => str_repeat('c', 64),
+    'release_status' => 'INTERNAL_REVIEWED',
+    'decision_record_id' => $freshRecord(),
+    'released_at' => $clock->now(),
+]);
+
+// A stakeholder role profile carrying a forbidden attribute. Nothing in this port writes these
+// tables — the control is a STANDING one, and this is what proves it is watching rather than merely
+// declared.
+$profileRowId = Ids::new();
+$db->insert('stakeholder_role_profiles', [
+    'stakeholder_role_profile_id' => $profileRowId,
+    'schema_version' => '1',
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $scope['workspace_id'],
+    'entity_twin_id' => $bypass['entity_twin_id'],
+    'display_name' => 'Finance function',
+    'business_role' => 'Finance',
+    'decision_role_category' => 'DECISION_MAKER',
+    'account_relationship' => 'PROSPECT_CONTACT',
+    'source_basis' => 'PUBLIC_SOURCE',
+    'contact_permission' => 'NO_CONTACT',
+    'visibility_scope' => 'PRODUCT',
+    'status' => 'ACTIVE',
+    'created_at' => $clock->now(),
+    'updated_at' => $clock->now(),
+]);
+$db->insert('stakeholder_role_attributes', [
+    'stakeholder_role_attribute_id' => Ids::new(),
+    'schema_version' => '1',
+    'tenant_id' => $scope['tenant_id'],
+    'stakeholder_role_profile_id' => $profileRowId,
+    'attribute_key' => 'personality_profile',
+    'attribute_value_safe' => 'x',
+    'created_at' => $clock->now(),
+]);
+
+// A released relationship snapshot citing no evidence. Same standing-control reasoning: the
+// relationship release lifecycle is not ported, so nothing else can put a row here.
+$edgeId = Ids::new();
+$db->insert('entity_relationship_edges', [
+    'relationship_edge_id' => $edgeId,
+    'schema_version' => '1',
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $scope['workspace_id'],
+    'source_entity_twin_id' => $bypass['entity_twin_id'],
+    'target_entity_twin_id' => $version['entity_twin_id'],
+    'relationship_type' => 'COMPETES_WITH',
+    'direction' => 'BIDIRECTIONAL',
+    'status' => 'ACTIVE',
+    'created_at' => $clock->now(),
+    'updated_at' => $clock->now(),
+]);
+$relVersionId = Ids::new();
+$db->insert('entity_relationship_versions', [
+    'relationship_version_id' => $relVersionId,
+    'schema_version' => '1',
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $scope['workspace_id'],
+    'relationship_edge_id' => $edgeId,
+    'version_sequence' => 1,
+    'confidence' => 'MEDIUM',
+    'freshness_observed_at' => $clock->now(),
+    'business_relevance' => 'MEDIUM',
+    'allowed_use' => 'INTERNAL_ONLY',
+    'uncertainty_summary_safe' => 'Observed from public listings only.',
+    'claim_ceiling' => 'INTERNAL_REVIEWED',
+    'version_digest' => str_repeat('d', 64),
+    'created_at' => $clock->now(),
+]);
+$db->insert('released_entity_relationship_snapshots', [
+    'released_relationship_snapshot_id' => Ids::new(),
+    'schema_version' => '1',
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $scope['workspace_id'],
+    'relationship_edge_id' => $edgeId,
+    'relationship_version_id' => $relVersionId,
+    'claim_ceiling' => 'INTERNAL_REVIEWED',
+    'visibility_scope' => 'PRODUCT',
+    'snapshot_digest' => str_repeat('e', 64),
+    'release_status' => 'INTERNAL_REVIEWED',
+    'decision_record_id' => $freshRecord(),
+    'released_at' => $clock->now(),
+]);
+
+// Every control now has something to find. NOT ONE of them may report zero.
+foreach ([
+    'TWIN_STATE_EVIDENCE_COVERAGE' => 'UNSUPPORTED_RELEASED_TWIN_CLAIM',
+    'TWIN_RELATIONSHIP_EDGE_SUPPORT' => 'RELEASED_RELATIONSHIP_EDGE_UNSUPPORTED',
+    'TWIN_UNCERTAINTY_VISIBILITY' => 'UNCERTAINTY_NOT_VISIBLE',
+    'STAKEHOLDER_PROFILE_MINIMIZATION' => 'FORBIDDEN_STAKEHOLDER_ATTRIBUTE',
+    'NO_EMPLOYEE_SCORING' => 'EMPLOYEE_SCORING_FIELD_RELEASED',
+    'NO_PRIVATE_EXTERNAL_DATA' => 'PRIVATE_EXTERNAL_DATA_RELEASED',
+    'SOURCE_LICENSE_CONFORMANCE' => 'RESTRICTED_SOURCE_RELEASED',
+    'BUYER_INTENT_OVERCLAIM' => 'BUYER_INTENT_OVERCLAIM_RELEASED',
+    'FIRST_PARTY_EXTERNAL_BOUNDARY' => 'FIRST_PARTY_DATA_ON_EXTERNAL_TWIN',
+    'RELEASE_CEILING_DECLARATION' => 'INVALID_RELEASE_CLAIM_CEILING',
+] as $category => $reasonCode) {
+    $run = $assurance->runAudit(['audit_profile_id' => $profiles[$category]])->value();
+    Assert::true($run['violation_count'] > 0, "{$category}: finds the violation planted for it");
+    Assert::equalsList([$reasonCode], $run['reason_codes'], "{$category}: names {$reasonCode}");
+    Assert::notSame(null, $run['incident_case_id'], "{$category}: opens an incident");
+
+    // The FINDING ROW carries the escalation, not just the return value. A finding that recorded a
+    // violation while marking it as needing no evaluation would be a fault filed as a formality.
+    $finding = $db->one(
+        'SELECT finding_type, severity, current_reliance_consequence, incident_evaluation_required,
+                decision_ledger_record_required
+         FROM audit_findings WHERE audit_finding_id = ?',
+        [$run['audit_finding_id']]
+    );
+    Assert::notSame('CONTROL_PASS', (string) $finding['finding_type'], "{$category}: the finding is not a pass");
+    Assert::same('S3', (string) $finding['severity'], "{$category}: recorded at S3");
+    Assert::same(
+        'INCIDENT_EVALUATION_REQUIRED',
+        (string) $finding['current_reliance_consequence'],
+        "{$category}: what is currently relied on is affected, and the finding says so",
+    );
+    Assert::same(1, (int) $finding['incident_evaluation_required'], "{$category}: requires evaluation");
+    Assert::same(
+        1,
+        (int) $finding['decision_ledger_record_required'],
+        "{$category}: and a decision-ledger record — a violation of a released claim is a ledger event",
+    );
+    Assert::true(
+        in_array($bypassSnapshotId, $run['violating_refs'], true)
+            || $category === 'TWIN_RELATIONSHIP_EDGE_SUPPORT'
+            || $category === 'STAKEHOLDER_PROFILE_MINIMIZATION'
+            || $category === 'RELEASE_CEILING_DECLARATION',
+        "{$category}: names the offending released snapshot, not just a count",
+    );
+}

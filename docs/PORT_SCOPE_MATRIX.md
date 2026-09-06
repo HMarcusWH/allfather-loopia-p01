@@ -31,7 +31,7 @@ Read from the owning current records at the pinned SHA, not from historical MVP 
 | Module | Gate act | Date | Ceiling recorded upstream | Port decision |
 | --- | --- | --- | --- | --- |
 | P01 Competition Monitoring | **GRANTED** | 2026-06-06 | `INTERNAL_DEMO_VALIDATED_WITH_LIMITATIONS` | **INCLUDE** |
-| P02 Entity Twin Network | **GRANTED with explicit limitations** | 2026-06-10 | `INTERNAL_DEMO_VALIDATED_WITH_LIMITATIONS`, **entity + relationship twins only** | **INCLUDE (bounded)** |
+| P02 Entity Twin Network | **GRANTED with explicit limitations** | 2026-06-10 | `INTERNAL_DEMO_VALIDATED_WITH_LIMITATIONS`, **entity + relationship twins only** | **INCLUDE (bounded)** — the ENTITY-twin lifecycle is ported end to end; relationship RELEASE is a separate slice and is not |
 | P02 offering twins | **NOT PROMOTED** (V1-GAP-097) | — | `PARTIAL_IMPLEMENTATION_NOT_PROMOTED` | **EXCLUDE** |
 | P02 EOM (Entity Operating Model) | `EOM_RUNTIME_STATUS=ABSENT`, `PROPOSED_ONLY` | — | outside cp11 gate | **EXCLUDE** |
 | P03 Lead Qualification | **GRANTED** | 2026-06-06 | `INTERNAL_DEMO_VALIDATED_WITH_LIMITATIONS` | **INCLUDE** |
@@ -97,7 +97,7 @@ is and is not there named in the Notes · ❌ not ported.
 | Surfacing (M12) | Core | `src/p01/surfacing.ts` | promoted | ✅ | `app/Product/P01/Surfacing.php` | three-gate default-deny |
 | Usage metering | Core | `src/p01/billing.ts` | promoted | ✅ | `app/Product/P01/Metering.php` | **RECORDING ONLY.** `no_external_charge_executed` CHECK-pinned 1, table append-only, rate snapshotted at record time. No charge, no invoice, no payment path — asserted by a tripwire over the module's executable code |
 | M11 assurance profiles | Core | `src/p01/assurance.ts` | promoted | ✅ | `app/Product/P01/Assurance.php` | freshness / diff-integrity audits |
-| Registration | Src | `src/p01/registration.ts` | promoted | ✅ | `app/Product/P01/Registration.php` | `registerCompetitionMonitor` — Valkyrie, contract, tool, M08 policy set, M16 profiles, tiers. **The only registration in the port**: P02–P07-A have none |
+| Registration | Src | `src/p01/registration.ts` | promoted | ✅ | `app/Product/P01/Registration.php` | `registerCompetitionMonitor` — Valkyrie, contract, tool, M08 policy set, M16 profiles, tiers. P02–P05 now have their own; **P07-A has none** |
 | `p01/fetch-guard.ts` | — | re-export shim | superseded | ❌ | — | **do not resurrect**; real guard is `ingestion/egress-guard.ts` |
 
 ### P02 — Entity / Company Twin (bounded to the promoted scope)
@@ -105,14 +105,16 @@ is and is not there named in the Notes · ❌ not ported.
 | Upstream object | Plane | Upstream path | Upstream status | Port | Loopia path | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | Entity twins + versions | Core | `src/p02/entity-twins.ts` | promoted | ✅ | `app/Product/P02/EntityTwins.php` | own company = `OWN_COMPANY` first-party boundary |
-| Twin state-change proposals | Core | `src/p02/twin-state-change.ts` | promoted | ❌ | — | **NOT PORTED.** No P02 function drives an M04 proposal for a twin state change |
-| Twin admission | Core | `src/p02/twin-admission.ts` | promoted | ⚠️ | `app/Substrate/M08/Verdicts.php` | The `P02_TWIN_STATE_ADMISSION` RULES are ported and evaluable; no P02 product function submits to them |
+| Twin state-change proposals | Core | `src/p02/twin-state-change.ts` | promoted | ✅ | `app/Product/P02/TwinStateChange.php` | `create` / `submit` / `openReview` — the binding, the M04 proposal freezing the requested scope into its digest, the M05 basis, the M07 `TWIN_STATE_REVIEW` |
+| Twin admission | Core | `src/p02/twin-admission.ts` | promoted | ✅ | `app/Product/P02/TwinAdmission.php`, `M08/PolicySets.php`, `M08/RuleEngine.php` | The policy set (15 rules), their evaluation, and the caller. Only `ALLOW_INFORMATIONAL_RELEASE` advances; BLOCK/QUARANTINE terminate |
 | Entity relationships | Core | `src/p02/entity-relationships.ts` | promoted | ✅ | `app/Product/P02/RelationshipTwins.php` | evidence/confidence/freshness required |
-| Relationship admission | Core | `src/p02/relationship-admission.ts` | promoted | ⚠️ | `app/Substrate/M08/Verdicts.php` | Rules ported and evaluable; no P02 product function submits to them |
-| Twin release + M10 binding floor | Core | `src/p02/twin-release.ts`, `m10-binding-floor.ts` | promoted | ❌ | — | **NOT PORTED.** The binding floor itself holds — `decision_record_id NOT NULL` is a storage constraint — but no P02 release path exists |
-| Stakeholder roles (minimized) | Core | `src/p02/stakeholder-roles.ts` | promoted | ✅ | `app/Product/P04/StakeholderRoles.php` | Ported under **P04**, where the distribution path consumes it. One implementation, not two |
-| Twin assurance (12 M11 audits) | Core | `src/p02/twin-assurance.ts` | promoted | ❌ | — | **NOT PORTED.** No P02 audit profile exists; P01, P04, P05 and P07-A have theirs |
-| Registration | Src | `src/p02/registration.ts` | promoted | ❌ | — | **NOT PORTED.** P01's registration is the only one |
+| Relationship admission | Core | `src/p02/relationship-admission.ts` | promoted | ❌ | — | **NOT PORTED.** A separate slice with its own `P02_RELATIONSHIP_STATE_ADMISSION` policy set, which is not seeded here. Relationship edges and versions are recordable; none is releasable |
+| Twin release + M10 binding floor | Core | `src/p02/twin-release.ts`, `m10-binding-floor.ts` | promoted | ✅ | `app/Product/P02/TwinRelease.php`, `M10BindingFloor.php`, `EntityTwins::releaseSnapshotTxFree` | M10 owns the release; the floor is a typed refusal BEFORE the insert. The M16 snapshot-view artifact upstream composes here is **not** ported — see the M16 row below |
+| Stakeholder roles (minimized) | Core | `src/p02/stakeholder-roles.ts` | promoted | ⚠️ | `app/Product/P04/StakeholderRoles.php` | **Corrected 2026-09-06.** P04's module writes `stakeholder_role_observations` — the distribution-side object it consumes. P02's own `stakeholder_role_profiles` / `stakeholder_role_attributes` have **no producer in this port**; the `STAKEHOLDER_PROFILE_MINIMIZATION` audit stands over them as a control with nothing yet to audit |
+| Twin assurance (12 M11 audits) | Core | `src/p02/twin-assurance.ts` | promoted | ✅ | `app/Product/P02/TwinAssurance.php` | All twelve, on the certified M11 plane. Ten have a producer in this port; `TWIN_RELATIONSHIP_EDGE_SUPPORT` and `STAKEHOLDER_PROFILE_MINIMIZATION` are STANDING controls whose subjects nothing here writes — each is proved to bite against a planted row |
+| Registration | Src | `src/p02/registration.ts` | promoted | ✅ | `app/Product/P02/Registration.php` | `registerEntityTwinCurator`. The tier grants `entity_twin.read` ONLY — upstream's wider read set names surfaces this port does not have |
+| M16 snapshot-view artifact | Core | `src/release-output/p02-adapter.ts` | promoted | ❌ | — | **NOT PORTED, deliberately.** Upstream composes it additively inside the post-M10 transaction; its documented outcome for a twin's external sources is a HELD freeze, because twin source links carry no governed card. The release is identical without it. Pinned by `tests/conformance/governed_vocabulary.php`: exactly one M16 consumer, P01 |
+| Ledger anchors | Core | `src/p02/entity-twins.ts` (`recordEntityTwinLedgerAnchor`) | promoted | ✅ | `EntityTwins::recordLedgerAnchor` | Ported because `RETENTION_POLICY_COVERAGE` audits for one. Workspace-scoped: the anchor is release-gating authority |
 | **Offering twins** | Core | `src/p02/offering-twins.ts` | **NOT PROMOTED** (V1-GAP-097) | ❌ | — | **EXCLUDED by current gate.** P03 catalogue is the MVP products/offers authority |
 
 ### P03 — Lead Qualification & Product Matching
@@ -168,24 +170,27 @@ is and is not there named in the Notes · ❌ not ported.
 
 Collected from the tables above so it can be read in one place, because a gap named only in a row
 of a long table is a gap somebody will miss. **Reduced substantially by the final pre-staging pass**
-— P03's release path, all four missing registrations and P01 metering were launch-reachable gaps
-left by the first port, and are now filled.
+— P03's release path, the P02 governed lifecycle, all five missing registrations and P01 metering
+were launch-reachable gaps left by the first port, and are now filled.
 
 | Missing | Classification | Consequence | Consequence it does NOT have |
 | --- | --- | --- | --- |
-| **P02 governed lifecycle** — state change, admission driver, release, M10 binding floor, assurance, registration | PORT_REQUIRED, **not yet done** | a twin can be registered and versioned and goes no further; P02 is **not provisionable** and `ops/provision-staging.php` refuses it | the ADMISSION RULES for twin and relationship state are in M08's kind vocabulary; what is absent is the `P02_TWIN_STATE_ADMISSION` policy-set seed, its rule evaluation, and the P02 callers |
+| **P02 relationship release lifecycle** | PORT_USEFUL_AND_COHERENT, not yet done | a relationship edge and its versions are recordable; none can be released or surfaced | it is a SEPARATE upstream slice with its own `P02_RELATIONSHIP_STATE_ADMISSION` policy set — not a hole in the twin lifecycle, which is complete. The `TWIN_RELATIONSHIP_EDGE_SUPPORT` audit already stands over the table |
+| P02 stakeholder role profiles | PORT_USEFUL_AND_COHERENT, not yet done | `stakeholder_role_profiles` and `stakeholder_role_attributes` have no producer | the `STAKEHOLDER_PROFILE_MINIMIZATION` audit is ported and proved to bite, so the control precedes the producer rather than following it |
+| P02 M16 snapshot-view artifact | **EXCLUDED, stated** | a released twin snapshot has no M16 artifact or projection | not a hole in the release: upstream composes it additively, and its documented outcome for twin sources is a held freeze. Pinned in conformance so it cannot drift into a silent adoption |
 | P03 assurance (3 M11 audits) | PORT_USEFUL_AND_COHERENT, not yet done | no post-outcome audit trail for catalogue freshness, signal-pairing freshness or the buyer-intent invariant | the buyer-intent PRIMARY gate is the M08 rule and is ported and tested; these audits are the defence-in-depth re-scan, not the gate |
 | P03 console panels | PORT_USEFUL_AND_COHERENT, not yet done | the released prospect outputs have no dedicated console surface | the two-gate read model IS ported (`P03\Release::listVisibleProspectOutputs`); what is missing is the M12 panel that renders it |
 | P02 offering twins | **EXCLUDED_BY_AUTHORITY** | none | not a gap — excluded by the upstream P02 cp11 gate (V1-GAP-097). P03 catalogue is the MVP products/offers authority |
 | P07-A channel binding | **EXCLUDED_BY_AUTHORITY / deliberate** | no `outreach_channel_bindings` row can exist | stronger than porting it inert — the port ships no producer, so there is nothing for the table's CHECK constraints to constrain |
-| P02 stakeholder roles | **ALREADY_SUBSUMED** | none | ported as `app/Product/P04/StakeholderRoles.php`, where the distribution path consumes it. One implementation, not two |
+| P02 stakeholder role OBSERVATIONS | **ALREADY_SUBSUMED** | none | ported as `app/Product/P04/StakeholderRoles.php`, writing `stakeholder_role_observations`, where the distribution path consumes it. This is a DIFFERENT object from P02's role profiles above — an earlier revision of this matrix conflated them |
 
 **None of these is a hidden capability.** Every one is an absence: no code path, no surface, no row.
 
-**Where this matters for a reader:** the port is a vertical slice, and after this pass it is deep at
-P01, P03, P04 and P05 and shallow at **P02 only**. P02 is the one module whose governed lifecycle is
-still missing, and it is marked PORT_REQUIRED rather than excluded — it is unfinished work, not a
-scope decision.
+**Where this matters for a reader:** the port is a vertical slice, and after this pass every included
+module carries its governed lifecycle end to end — proposal, review, verdict, M10 release, a gated
+surface, and an assurance re-scan. What remains above is **PORT_USEFUL_AND_COHERENT** work and one
+**stated exclusion**; none of it is a lifecycle stopping half way, and none of it is a capability
+present but ungoverned.
 
 ---
 

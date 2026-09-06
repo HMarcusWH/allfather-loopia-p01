@@ -187,9 +187,17 @@ Exit codes: 2 bad arguments, 3 database unreachable, 4 tenant key already exists
 `--allow-existing` only if minting a second set of per-tenant Valkyries is what you intend), 5 a
 module refused.
 
-**P02 is not provisionable**, and the command refuses `--modules=P02`. Its admission policy set is
-not ported, so registering the capability would establish an agent whose governed lifecycle does not
-exist. See [`PORT_SCOPE_MATRIX.md`](./PORT_SCOPE_MATRIX.md) §3.7.
+**P02 became provisionable** when its governed lifecycle was ported. It registers the ENTITY-twin
+capability: the curator, its contract, the read tool, the `P02_TWIN_STATE_ADMISSION` policy set and
+the tiers. It does NOT register offering twins, which are excluded by the upstream gate, and it does
+not reach the relationship release lifecycle, which is a separate slice this port does not have.
+See [`PORT_SCOPE_MATRIX.md`](./PORT_SCOPE_MATRIX.md) §3.7.
+
+**The P02 audit profiles are a separate operator step.** `TwinAssurance::seedProfiles($tenantId,
+$workspaceId)` creates the twelve, and provisioning does not call it — for the same reason it does
+not seed P01's, P04's or P05's: audit profiles are assurance, not registration, and folding them
+into the registration act would make one call do two different jobs. Seeding is idempotent per
+scope.
 
 **Provisioning is not activation.** It establishes capability, never authority to use it against the
 outside world: `live_read_activated` and `external_action_authorized` are restated as false on every

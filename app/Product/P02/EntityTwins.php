@@ -321,6 +321,65 @@ final class EntityTwins
     }
 
     /**
+     * The anchor kinds a twin may carry.
+     *
+     * @var list<string>
+     */
+    public const ANCHOR_KINDS = ['SOURCE', 'LEGAL', 'LICENSE', 'RETENTION', 'PRIVACY', 'FACTUAL'];
+
+    /**
+     * Record an append-only ledger anchor for a twin.
+     *
+     * An anchor is the twin's standing declaration about a whole class of question: where its
+     * material comes from, under what licence, how long it may be kept. It is not per-version,
+     * because those answers do not change when a field does.
+     *
+     * A RETENTION anchor is release-gating — `RETENTION_POLICY_COVERAGE` in {@see TwinAssurance}
+     * finds every released twin whose entity declares none. It is therefore AUTHORITY, and it must
+     * come from inside the twin's own workspace: a tenant-wide caller could otherwise declare a
+     * retention policy for a workspace it cannot see.
+     *
+     * @param array{
+     *     tenant_id: string, workspace_id: string, entity_twin_id: string, anchor_kind: string,
+     *     anchor_summary_safe: string, retention_policy_safe?: ?string
+     * } $input
+     */
+    public function recordLedgerAnchor(array $input): Outcome
+    {
+        $twin = $this->db->one(
+            'SELECT tenant_id, workspace_id FROM entity_twins WHERE entity_twin_id = ?',
+            [$input['entity_twin_id']]
+        );
+        if ($twin === null) {
+            return Outcome::refuse('ENTITY_TWIN_NOT_FOUND', [], 'PROVENANCE');
+        }
+        if ((string) $twin['tenant_id'] !== $input['tenant_id']
+            || (string) $twin['workspace_id'] !== $input['workspace_id']
+        ) {
+            return Outcome::refuse('ENTITY_TWIN_SCOPE_MISMATCH', [], 'SCOPE', 'S4');
+        }
+        if (!in_array($input['anchor_kind'], self::ANCHOR_KINDS, true)) {
+            return Outcome::refuse('INVALID_ANCHOR_KIND', [
+                'anchor_kind' => $input['anchor_kind'],
+            ], 'POLICY');
+        }
+
+        $anchorId = Ids::new();
+        $this->db->insert('entity_twin_ledger_anchors', [
+            'entity_twin_ledger_anchor_id' => $anchorId,
+            'schema_version' => '1',
+            'tenant_id' => $input['tenant_id'],
+            'entity_twin_id' => $input['entity_twin_id'],
+            'anchor_kind' => $input['anchor_kind'],
+            'anchor_summary_safe' => $input['anchor_summary_safe'],
+            'retention_policy_safe' => $input['retention_policy_safe'] ?? null,
+            'created_at' => $this->clock->now(),
+        ]);
+
+        return Outcome::ok(['entity_twin_ledger_anchor_id' => $anchorId]);
+    }
+
+    /**
      * The storage release gate — validate, then write the immutable snapshot.
      *
      * Callers that are ALREADY inside a transaction use {@see releaseSnapshotTxFree}; this wrapper
