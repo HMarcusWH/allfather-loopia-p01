@@ -13,13 +13,15 @@
   "projection_pinned_head": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
   "head_resolution": {
     "method": "git fetch origin main && git rev-parse origin/main",
-    "resolved_at": "2026-09-04",
+    "resolved_at": "2026-09-06",
     "canonical_expected": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
     "canonical_live": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
     "canonical_moved": false,
-    "projection_expected": "cd56c206f5fd2626fc649dcf5f96ae9186234405",
-    "projection_live": "cd56c206f5fd2626fc649dcf5f96ae9186234405",
-    "projection_moved": false
+    "projection_expected": "69d2e5daa4e1e185e55483dab9b6c8c2ea78b9b8",
+    "projection_live": "69d2e5daa4e1e185e55483dab9b6c8c2ea78b9b8",
+    "projection_moved": false,
+    "projection_move_note": "`projection_moved` records whether the LIVE head differed from what this file expected at resolution time, not whether the branch has ever advanced. It is false because the two agree. The expectation itself was re-based this pass: PR #2 merged as 69d2e5d, whose second parent is the audited head c412f11, and `git diff c412f11 69d2e5d` is empty — the merged tree IS the audited tree, so the merge introduced nothing that had not been reviewed. The previous value, cd56c206, was the base the PR merged INTO and is now history.",
+    "canonical_reresolved_note": "Re-fetched at the start of the repair pass. Canonical has not moved since the pin, so no AUTHORITY_CHANGE was raised and the P07-A conformance vectors generated from it speak for the pinned head."
   },
 
   "alignment_status": "PINNED_PENDING_CONFORMANCE_IMPLEMENTATION",

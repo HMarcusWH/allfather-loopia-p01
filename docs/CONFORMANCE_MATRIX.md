@@ -11,19 +11,23 @@ is not.
 ## 1. Test execution, stated truthfully
 
 **Executed in this development container** — PHP 8.4.19, against BOTH servers: MariaDB
-10.11.14-MariaDB-0ubuntu0.24.04.1 and MariaDB 10.6.28-MariaDB-ubu2204, each version read back from
-the server it ran on rather than assumed from how the run was launched:
+10.6.28-MariaDB-ubu2204 and MariaDB 10.11.19-MariaDB-ubu2204, each rebuilt from an EMPTY database
+and each version read back from the server it ran on rather than assumed from how the run was
+launched:
 
 | Layer | Files | Assertions | 10.6 | 10.11 |
 | --- | --- | --- | --- | --- |
 | foundation | 3 | 144 | PASS | PASS |
 | unit | 2 | 153 | PASS | PASS |
-| integration | 29 | 1605 | PASS | PASS |
-| conformance | 5 | 236 | PASS | PASS |
+| integration | 29 | 1607 | PASS | PASS |
+| conformance | 6 | 395 | PASS | PASS |
 | acceptance | 3 | 163 | PASS | PASS |
-| security | 12 | 716 | PASS | PASS |
+| security | 14 | 821 | PASS | PASS |
 | rollback | 1 | 27 | PASS | PASS |
-| **TOTAL** | **55** | **3044** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
+| **TOTAL** | **58** | **3310** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
+
+Migrations were applied from empty and then re-applied on both servers: 18 applied, 0 drift, then
+18 skipped, 0 drift.
 
 Run with `php tests/run.php --strict`. Under `--strict` a skip is a non-zero exit, so an
 unreachable database cannot be mistaken for a green suite.
@@ -62,7 +66,7 @@ actually got rather than the one it asked for.
 
 ## 2. Conformance cases
 
-Five files, answering five different questions.
+Six files, answering six different questions.
 
 | File | Compares | Against |
 | --- | --- | --- |
@@ -71,6 +75,21 @@ Five files, answering five different questions.
 | `governed_vocabulary.php` | the closed vocabularies, member by member and in order; and the RELEASE TOPOLOGY — that M10 owns release for every module, that M16 admits exactly four artifact kinds, that exactly TWO product families adopt it (P01 and P02, as canonical does), and that P03/P04/P05 keep their own canonical release paths | `release-output/vocabulary.ts`, `action-class.ts`, `ingestion/policy.ts`, the storage CHECKs, and the product code itself |
 | `m10_release_conformance.php` | CONF-M10-001 … CONF-M10-010: the release path's outcome and its EXACT reason code for every branch — valid ALLOW, missing verdict, non-ALLOW verdict, ALLOW routed elsewhere, invalidated verdict, unsatisfied conditions, satisfied conditions, proposal not releasable, scope mismatch, digest mismatch | `appendInternalReleaseDecisionRecord` in `m10/ledger.ts` |
 | `m10_stream_identity.php` | that a ledger scope is (tenant, workspace, **environment**): idempotency per environment, TEST/DEMO/LOCAL_DEV coexisting, the canonical default stream keys, and genesis anchors against **fixed vectors produced by the canonical TypeScript encoder** | `createDecisionLedgerStream` / `ensureActiveDecisionLedgerStream` in `m10/ledger.ts`, and `digest.ts` |
+| `p07a_delivery_conformance.php` | the P07-A synthetic dispatch end to end — dispatch outcome, final authorization and artifact state, the delivery row, every M10 record field, the reference SET by role (owner module, object type character for character, version-or-digest, verification status), the writer identity, and the `record_payload_digest` itself against **a vector produced by RUNNING canonical `dispatchOutreachSynthetic`**. Plus the port-wide object-type vocabulary | `p07/outreach-delivery.ts`, and `computeRecordPayloadDigest` in `m10/ledger.ts` |
+
+The sixth is the only one whose expected values were not written by hand.
+`ops/conformance/p07a-canonical-vectors.ts` opens a real canonical SQLite database, drives a real
+outreach through the real canonical governed path, calls the real `dispatchOutreachSynthetic`, and
+reads back what the canonical ledger recorded; the pinned digest comes out of canonical's own
+encoder. No PHP produced any value in `tests/fixtures/p07a_canonical_vectors.json`, and the fixture
+carries the canonical head it was generated at, asserted against `upstream.lock.json`, so vectors
+from a head this projection is no longer pinned to cannot pass quietly.
+
+That distinction is the point rather than a nicety. If both sides of a digest comparison are
+computed in PHP, the test asserts that the test agrees with itself — and the defect it exists to
+prevent is a record that hashes cleanly over the WRONG content. Object identifiers are per-run in
+both runtimes, so the fixture pins a fixed id per reference role and a fixed sequence number;
+everything else the digest commits to is this port's own output.
 
 The reason codes in the fourth are not normalized. Six of them distinguish six different reasons a
 release can be refused, and an operator reading a refused release needs to know whether the verdict
@@ -135,6 +154,13 @@ Recorded because a conformance document that lists only successes is not evidenc
 
 | Defect | Where | Consequence had it shipped |
 | --- | --- | --- |
+| The P07-A dispatch ran as FOUR separate transactions | P07-A | upstream opens `BEGIN IMMEDIATE` before the consent re-check and does not commit until the delivery row is in, and says why: the no-effect path must never strand a CONSUMED authorization with no truthful outcome. The port could produce both states upstream forbids — a CONSUMED authorization with nothing recorded against it, and a CONSUMED authorization with an M10 record but no delivery row. Invisible on the happy path, where a split unit and an atomic one are indistinguishable |
+| `Database::transaction()` COMMITTED a returned refusal | every composite command | the same defect one level up, and the reason the P07-A one was not a one-off. Upstream's composite commands all read `if (step !== OK) { ROLLBACK; return REJECTED; }`; this port committed whatever the callback returned, so a refusal after four of five steps left those four writes durable while the caller was told the command refused — an evidence object and a bundle with no proposal, a released briefing with both status advances and no M16 artifact |
+| The P07-A M10 record diverged from canonical in seven fields | P07-A | OUTCOME_BASIS cited an invented M09 `SYNTHETIC_DISPATCH_OUTCOME` identified by the authorization id — pointing the mandatory outcome basis at the object AUTHORIZATION_BASIS already cited; object types were upper-cased; three references carried version digests upstream does not set; the summary was paraphrased; `reason_codes` was empty; `proposal_id` was set and upstream does not set it; and severity S3 with the incident flag were absent, so a FAILED delivery was recorded as needing no operator triage. Every one is inside `record_payload_digest`, so each produced a different digest for the same governed event while verifying perfectly |
+| M10's generic append defaulted the writer to the record's own id | M10 | `recorded_by_service_identity_id ?? $recordId` satisfied NOT NULL and destroyed the column's meaning: the record claimed to have been written by itself. All three runtime callers were affected. The schema had been shaped around it — the column was CHAR(36), the width of a UUID and of a decision_record_id, because the only values it had ever held were record ids |
+| Two P02 status-history tables named their own subject as the actor | P02 | the twin's id, and the edge's id, recorded as the actor that created them. Upstream hardcodes actor type SYSTEM and defaults the id to `"system"` — and the sibling release paths in the same two files already did it correctly, so this was an inconsistency rather than a decision |
+| M03 could issue unlimited ACTIVE contracts to one Valkyrie | M03 | a contract IS an agent's permitted action classes, so two ACTIVE ones make its authority depend on which row a query returns first. There was no check and no index; upstream has both and says so in a comment on this exact rule |
+| `arbiter_policy_sets` had no scope uniqueness index at all | M08 | not even the non-unique lookup index the standing partial-index translation calls for. Two ACTIVE policy sets for one scope make ALLOW or BLOCK depend on row order |
 | M10 collapsed TEST and DEMO ledger identity | M10 | a caller asking for the DEMO ledger received the TEST one and appended DEMO history to it. Silent by construction: the chain still verified, because a hash chain has no opinion about which environment its records came from. Three faults had to coincide — the ACTIVE lookup omitted `environment_class`, the default stream key embedded tenant and workspace (so the real unique index on `(tenant, workspace, stream_key)` allowed one stream per scope for all time), and the genesis anchor digested the random stream id instead of the logical identity |
 | The M10 release path validated NOTHING, and M04 performed the RELEASED mutation | M10 / M04 | the record the console treats as PROOF of release provable by any caller willing to assemble a basis; two modules owning release, in two transactions, so a failure between them left a durable release record against a still-SUBMITTED proposal — and the retry would mint a second |
 | `ReleasePathCapability` had a public static factory | M10 | the guard on the release record type was satisfiable by any module that could name the class; the docblock claimed a strength the code did not have |
@@ -144,6 +170,14 @@ Recorded because a conformance document that lists only successes is not evidenc
 | seeded diff digest used a different projection than the detector | test seed | tests passing over state the product could not reach |
 | `issueContract` hardcoded `contract_version` to 1 | M03 | a Valkyrie could never be reissued a contract |
 | UUIDs read as phone numbers to the PII detector | `P02\PrivacyPatterns` | ~24% of safe references quoting a record id would open spurious S4 incidents — measured over 20,000 ids — teaching operators the PII audit cries wolf |
+
+The first four were all found the same way, and it is worth naming the way: by asking what happens
+when a step in the middle FAILS. Every one of them is invisible on the happy path, which is the only
+path the tests exercised, and the P07-A record divergence had a test asserting the port's own
+paraphrase of the summary — a fixture that had turned a divergence into a pinned requirement. The
+proofs are now `tests/security/p07a_dispatch_atomicity.php` (failures injected deterministically by
+trigger, not raced) and `tests/conformance/p07a_delivery_conformance.php` (expected values from
+canonical, not from PHP).
 
 The first is the one worth dwelling on. It was not found by a failing test — every test passed
 throughout, because the tests asserted the release SUCCEEDED using fabricated UUID basis rows, which
@@ -157,7 +191,7 @@ not flag, and a real phone number adjacent to a UUID still does.
 
 ## 5. Characterized divergences from canonical
 
-Three, each recorded in `PORT_SCOPE_MATRIX.md` §4.2 with its observable difference:
+Four, each recorded in `PORT_SCOPE_MATRIX.md` §4.2 with its observable difference:
 
 1. **P04 `observeRoleClass`** adds a subject-company identifier scan, placed AFTER all upstream
    guards so no upstream reason code changes.
@@ -165,6 +199,18 @@ Three, each recorded in `PORT_SCOPE_MATRIX.md` §4.2 with its observable differe
    `INVALIDATED_AT_RELEASE` is in no reliance vocabulary. Observable behaviour is identical.
 3. **P05 `captureClaimBasis`** is an addition, closing an upstream hole where the citation gate and
    the citation audit disagreed about what counts as a citation and only the audit was right.
+
+4. **`ux_arbiter_policy_sets_scope_one_active` does not defend NULL scopes.** Canonical keys it by
+   `COALESCE(tenant_id, '*'), COALESCE(workspace_id, '*'), policy_key` so that platform-wide policy
+   sets, whose scope columns are NULL, still collide with each other. MariaDB refuses a string
+   literal inside an indexable generated column (error 1901); every spelling was tried on 10.11.19
+   — COALESCE, IFNULL, CASE, CAST, CONCAT, COLLATE on the expression, COLLATE on the column,
+   VIRTUAL and STORED — and column-to-column with no literal is accepted, which identifies the
+   literal as the cause. **This is a genuine host limitation, not a preference.** It is sound only
+   while nothing writes a NULL-scoped policy set, so that is asserted rather than assumed: the sole
+   writer's scope parameters are non-nullable `string` (checked by reflection), it is the only file
+   that writes the table (checked by scan), and no such row exists (checked by query). The day
+   someone adds a platform-wide seed, this index stops covering everything — and the test says so.
 
 Plus one partial port, characterized in §4.1: adapter conformance proves identity has not drifted,
 not conformance to a harness descriptor contract.

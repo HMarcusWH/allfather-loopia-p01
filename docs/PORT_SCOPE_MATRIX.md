@@ -17,7 +17,7 @@ any conversation.
 | Repository | Expected head (task prompt) | Live head resolved | Difference |
 | --- | --- | --- | --- |
 | `HMarcusWH/Allfatherbusinessintelligence` (main) | `c6d9cf9a7a1001b001ca6118999e9cb75c831c4d` | `c6d9cf9a7a1001b001ca6118999e9cb75c831c4d` | **none** |
-| `HMarcusWH/allfather-loopia-p01` (main) | `cd56c206f5fd2626fc649dcf5f96ae9186234405` | `cd56c206f5fd2626fc649dcf5f96ae9186234405` | **none** |
+| `HMarcusWH/allfather-loopia-p01` (main) | `cd56c206f5fd2626fc649dcf5f96ae9186234405` | `69d2e5daa4e1e185e55483dab9b6c8c2ea78b9b8` | **moved** — PR #2 merged. `git diff c412f11 69d2e5d` is empty, so the merged tree is exactly the audited PR head; the merge introduced nothing unreviewed |
 
 Both resolved by `git fetch origin main && git rev-parse origin/main` against the live remotes.
 No registry snapshot was treated as authority.
@@ -336,7 +336,7 @@ the class says so rather than implying the stronger property.
 
 ### 4.2 Product-plane characterized divergences
 
-Three places where the PHP projection does not read line-for-line like upstream. Each is recorded
+Four places where the PHP projection does not read line-for-line like upstream. Each is recorded
 here rather than left for a reader to discover, and each states what the observable difference is.
 
 **P04 `observeRoleClass` — an added guard, placed last.** Upstream scans only `roleClassLabel` for
@@ -365,6 +365,27 @@ object passes the gate and fails the audit permanently. `MarketingAssets::captur
 that hole by minting exactly the shape the audit already recognizes, through the certified M05
 path. It grants no authority: the basis is an INTERNAL_DEMO derived reference over a still-relied-
 upon source, the claim must still be cited, and the audit must still accept it.
+
+**`ux_arbiter_policy_sets_scope_one_active` does not defend NULL scopes — a host limit, not a
+choice.** Canonical keys that index by `COALESCE(tenant_id, '*'), COALESCE(workspace_id, '*'),
+policy_key`, so platform-wide policy sets — whose scope columns are NULL, and NULLs never collide in
+a unique index — still collide with each other. MariaDB refuses a string literal inside an indexable
+generated column (error 1901), and every spelling was tried on 10.11.19; a column-to-column `CASE`
+with no literal is accepted, which identifies the literal as the cause.
+
+| | |
+| --- | --- |
+| canonical behavior | at most one ACTIVE policy set per scope, INCLUDING the platform-wide (NULL, NULL) scope |
+| projection behavior | at most one ACTIVE policy set per scope, for every scope this port can write |
+| reason | MariaDB cannot index a generated column whose expression contains a string literal |
+| host necessity | **yes** — verified against 10.11.19 across nine expression forms and both storage kinds |
+| effect on claims | none. The sole writer, `M08\PolicySets::seed`, takes non-nullable scope parameters, so a NULL-scoped policy set cannot be created. The gap is unreachable rather than tolerated |
+| test evidence | `tests/security/authority_uniqueness.php` — the index rejects a second ACTIVE row and a reactivation; and the unreachability is asserted three ways (reflection on the writer's parameters, a repository scan for other writers, a query for existing NULL-scoped rows) |
+
+The alternative was to weaken the invariant to what MariaDB will index without complaint — for
+instance dropping the scope from the key. That would have made the constraint pass on both servers
+and defend less. A host that cannot express a rule is a reason to record the gap and prove it
+unreachable, not a reason to restate the rule as something the host finds convenient.
 
 ### 4.3 Repaired divergences
 

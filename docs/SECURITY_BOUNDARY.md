@@ -44,6 +44,16 @@ one. The following are structural:
 | an outreach proposal cannot reach a sent state | the status vocabulary has no such member |
 | a marketing asset cannot be published | the status vocabulary has no `PUBLISHED` member |
 | one authorization cannot produce two delivery outcomes | unique index |
+| a dispatch cannot spend an authorization without recording an outcome | ONE transaction — the consent re-check, the consume, the M10 append and the delivery row are a single unit, and a failure after the consume rolls all of it back |
+
+The last one is new as of 2026-09-06 and was a real hole rather than a hardening. The port ran the
+dispatch as four separate transactions, so a failure after the consume left a CONSUMED, single-use
+authorization with no outcome recorded against it and no retry possible — a governed action spent
+with nothing to show for it. The port's own P07 assurance detects that state as
+`CONSUMED_AUTHORIZATION_WITHOUT_OUTCOME`; the audit is untouched and still needed, because detecting
+an invalid state is not the same as being unable to reach it.
+`tests/security/p07a_dispatch_atomicity.php` injects the failure at each of the two windows and
+proves the rollback, and reverting the transaction reproduces both stranded states exactly.
 
 `tests/security/p07a_artifact_chain.php` asserts the first four by attempting the mutation and
 showing the storage refuses it — which is why four of the external-effect guard audit's five arms
@@ -206,6 +216,12 @@ The consequence is stated in `docs/DEPLOYMENT_RUNBOOK.md` §6: rollback is never
   development container or in CI, so what the suite proves is that the directives are written — not
   that a host honoured them. `DEPLOYMENT_RUNBOOK.md` §3.1 carries the curls that establish it on a
   real host, and they have not been run either, because no Loopia host has served this code.
+- `ux_arbiter_policy_sets_scope_one_active` **does not defend NULL scopes**, because MariaDB will
+  not index a generated column containing a string literal (error 1901) and canonical's key uses
+  `COALESCE(tenant_id, '*')`. The gap is unreachable rather than tolerated — the sole writer takes
+  non-nullable scope parameters, asserted by reflection, by a repository scan for other writers, and
+  by a query for existing NULL-scoped rows. It stops being unreachable the day someone adds a
+  platform-wide policy seed. See `SCHEMA_REACHABILITY.md`.
 - The pre-sign-in CSRF posture is **double-submit**, which is genuinely weaker than the session
   posture that replaces it a request later. It is what is available before a session row exists;
   the `__Host-` prefix and `SameSite=Strict` are what bound it, and it is unreachable the moment a
