@@ -3,7 +3,7 @@
 Staging deployment, verification, and stand-down for the Loopia host.
 
 **Read `LOOPIA_CAPABILITY_REPORT.md` §5 first.** Nothing in this runbook constitutes launch
-authority, and the four launch flags are all false.
+authority, and the claim/authority flags remain false until their own evidence and owner acts exist.
 
 ---
 
@@ -101,8 +101,10 @@ A refusal looks like this, and is the only thing the deployment will say until i
     php ops/migrate.php status --env=.env      # report only, changes nothing
     php ops/migrate.php up --env=.env          # apply
 
-Loopia offers no shell on the production host, so `ops/migrate.php` is also what the one-shot
-maintenance route invokes. It never runs implicitly on a web request.
+Loopia **does provide an SSH shell** for web-hosting accounts, so migrations and other one-shot CLI
+maintenance can be run over SSH. What Loopia does not provide is root, a persistent custom daemon,
+or shell cron for recurring work; recurring jobs are directed to the Kundzon scheduler. The
+migrator never runs implicitly on a web request.
 
 The migrator records a content digest per migration and reports each as APPLIED, PENDING or
 DRIFTED. DRIFTED means the file changed after it was applied — the database and the repository
@@ -115,8 +117,8 @@ hand; do not re-run and hope.
 
     php tests/run.php --strict
 
-Expect 3310 passing, 0 failing, 0 skipped. Under `--strict` a skip is a non-zero exit, so an
-unreachable database cannot be mistaken for a green run.
+Expect **3323 passing, 0 failing, 0 skipped** at this repair head. Under `--strict` a skip is a
+non-zero exit, so an unreachable database cannot be mistaken for a green run.
 
 To run against a DIFFERENT server than the one `.env.testing` names — a second MariaDB version, a
 staging database — set `TEST_ENV_FILE` rather than editing `.env.testing` in place:
@@ -167,7 +169,7 @@ One command, which composes the real module registrations and decides nothing it
     php ops/provision-staging.php \
       --tenant-key=acme --workspace-key=main \
       --display-name="Acme AB" --operator-name="Ops" \
-      [--modules=P01,P03,P04,P05] [--env=path] [--dry-run]
+      [--modules=P01,P02,P03,P04,P05] [--env=path] [--dry-run]
 
 It prints the tenant, workspace and operator ids and, per module, the Valkyrie, contract, governed
 tool and policy set it established. Run `--dry-run` first: it validates the arguments and the
@@ -189,17 +191,25 @@ are the scope the capabilities are registered INTO; no module owns them and they
 It issues no UPDATE or DELETE at all, refuses an unrecognised argument rather than ignoring it, and
 refuses to run under any web SAPI before it connects to anything.
 
+**Production provisioning deliberately refuses before DB access.** The pinned canonical identity
+schema does not define `CUSTOMER` tenant/workspace types or a `PRODUCTION` environment class. This
+projection therefore uses canonical `TEST` identity vocabulary for staging/testing and does not
+promote new Core words merely to get a row through a CHECK constraint. Production customer identity
+and onboarding require an explicit canonical decision first.
+
 **It fails closed and says how far it got.** The first module refusal stops the run and reports
 which module refused, why, and what was provisioned before it — because a half-provisioned tenant is
 a real state and implying a rollback that did not happen would be worse than reporting the truth.
 Exit codes: 2 bad arguments, 3 database unreachable, 4 tenant key already exists (pass
 `--allow-existing` only if minting a second set of per-tenant Valkyries is what you intend), 5 a
-module refused.
+module refused, **6 production provisioning refused because the pinned canonical identity
+vocabulary has no production/customer classes**.
 
-**P02 became provisionable** when its governed lifecycle was ported. It registers the ENTITY-twin
-capability: the curator, its contract, the read tool, the `P02_TWIN_STATE_ADMISSION` policy set and
-the tiers. It does NOT register offering twins, which are excluded by the upstream gate, and it does
-not reach the relationship release lifecycle, which is a separate slice this port does not have.
+**P02 became provisionable** when its governed lifecycle was ported. The provisioner registers the
+ENTITY-twin curator capability: curator, contract, read tool, `P02_TWIN_STATE_ADMISSION` policy set
+and tiers. The entity **and relationship** runtime lifecycles are present, including governed
+state-change admission, M10 release and M16 snapshot composition; the relationship path is not a
+separate registration or browser surface. Offering twins remain excluded by the upstream gate.
 See [`PORT_SCOPE_MATRIX.md`](./PORT_SCOPE_MATRIX.md) §3.7.
 
 **The P02 audit profiles are a separate operator step.** `TwinAssurance::seedProfiles($tenantId,
@@ -215,7 +225,7 @@ successful run.
 Afterwards, grant the operator a role and a workspace membership, and subscribe the tenant to a
 tier — a role grant is not a purchase, and both gates are checked independently at every surface.
 
-## 6. Stand-down and rollback## 6. Stand-down and rollback
+## 6. Stand-down and rollback
 
 **Rollback is never a delete.** The storage refuses one, and the reason is that a rollback which
 destroyed the record would also destroy the proof the rollback happened. Five levers, in
@@ -242,14 +252,16 @@ than merely performed.
 ## 6a. The scheduler tick
 
 Loopia gives no daemon **and no shell cron** — verbatim from its SSH page: *"Nej. För återkommande
-jobb (cronjobb) hänvisar vi i stället till schemaläggaren i Kundzonen."* An earlier draft of this
-runbook offered a crontab line. That was wrong and is gone.
+jobb (cronjobb) hänvisar vi i stället till schemaläggaren i Kundzonen."* This is distinct from SSH
+shell access, which Loopia does provide. An earlier draft of this runbook offered a Loopia crontab
+line. That was wrong and is gone.
 
 The full capability analysis and the decision table are in
 [`LOOPIA_HOST_MODEL.md`](./LOOPIA_HOST_MODEL.md) §4. In short:
 
-**Recommended — an external scheduler over SSH.** A host you control runs the tick. Authority is
-SSH key possession; there is no HTTP credential to leak, and nothing is needed from Kundzon:
+**Available fallback — an external scheduler over SSH.** If an external scheduler is deliberately
+chosen, a host you control can run the tick. Authority is SSH key possession; this is an option, not
+an assumption or a requirement silently added to the Loopia-only deployment:
 
     */15 * * * * ssh <user>@<host> 'php ~/<domain>/worker/tick.php' >> /var/log/allfather-tick.log 2>&1
 
@@ -360,9 +372,9 @@ evidence for a decision somebody else makes.
 
 Stated so nobody assumes otherwise:
 
-- **This has never run on Loopia shared hosting.** Everything above is verified on a development
-  container with PHP 8.4.19 and MariaDB 10.11.14. §4.2 and §4.3 exist precisely because shared
-  hosting is where they are most likely to fail.
-- Hosted CI runs the full suite on PHP 8.2.33 — the supported floor — against MariaDB 10.11.19.
-  It caught one failure this development container did not; see `CONFORMANCE_MATRIX.md` §1.
+- **This has never run on Loopia shared hosting.** Development and CI verify PHP/MariaDB behavior,
+  but §4.2 and §4.3 exist precisely because the real shared host can differ in configuration,
+  privileges and import behavior.
+- Hosted CI runs the full suite on PHP 8.2.33 — the supported floor — against **both MariaDB
+  10.6.28 and 10.11.19**, with each server version read back and asserted before the suite runs.
 - No road test has been executed. No live source has been captured outside the test suite.
