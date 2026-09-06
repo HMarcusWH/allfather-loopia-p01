@@ -42,7 +42,7 @@ nowhere else. M15 governed ingestion is present with the guarded egress path.
 
 **Storage** — 15 migrations, MariaDB 10.11, with the invariants held as CHECK constraints and
 append-only triggers rather than as application conventions. **Loopia Företag is MariaDB 10.6**;
-10.11 is Företag Plus only, and 10.6 is untested — see `LOOPIA_HOST_MODEL.md` §5.
+10.11 is Företag Plus only. Both are now verified against a real server — see `LOOPIA_HOST_MODEL.md` §5.
 
 **Provisioning** — `ops/provision-staging.php` stands a tenant up by composing the real module
 registrations for P01, P03, P04 and P05. P02 is refused: its admission policy set is not ported.

@@ -20,7 +20,7 @@ configured.
 | --- | --- |
 | PHP 8.2 or later | the code uses readonly promoted properties, enums, and `WeakMap` |
 | extensions: `pdo_mysql`, `curl`, `openssl`, `mbstring`, `json` | `openssl` for credential encryption; `curl` with `CURLOPT_RESOLVE` for the pinned-address egress guard |
-| MariaDB 10.5 or later | CHECK constraints must be ENFORCED, not parsed and ignored. **Loopia Företag is 10.6; 10.11 is Företag Plus only.** Everything here is verified on 10.11 — 10.6 is untested and is an open blocker, see `LOOPIA_HOST_MODEL.md` §5 |
+| MariaDB 10.5 or later | CHECK constraints must be ENFORCED, not parsed and ignored. **Loopia Företag is 10.6; 10.11 is Företag Plus only.** BOTH are verified: CI runs the full strict suite against real 10.6 and real 10.11, and the job asserts the server version it actually got rather than the one it asked for |
 | `APP_MASTER_KEY` in server-private configuration | provider-credential encryption; never in the repository, never in the database. **Required at boot** in staging and production — a deployment without it refuses to start rather than failing at the first credential it seals |
 | `APP_ENV` set correctly | a value outside `development`/`testing`/`staging`/`production` — including unset, empty or misspelled — resolves to **production**. Getting it wrong makes the deployment stricter, never looser |
 | DB credentials via environment | `DB_HOST`/`DB_PORT` or `DB_SOCKET`, plus `DB_NAME`, `DB_USER`, `DB_PASSWORD` |

@@ -48,8 +48,15 @@ because the claim was never available to make.
 - No path activates a `CUSTOMER_VISIBLE` projection. Requesting one is refused at
   `AUDIENCE_ABOVE_SOURCE_USE_CEILING`.
 - **A released prospect output is an M10 reference, not an M16 artifact.** P03, P04 and P05 each
-  carry their own release projection; M16's frozen-artifact path is adopted by P01 only in this
-  port. All four rest on the same M10 decision record — one release authority, several projections.
+  carry their own release projection. M16's frozen-artifact path is adopted by **P01 and P02**, as
+  canonical does — four artifact kinds in total, and the two P02 kinds are governed by their own
+  access rule keyed by artifact kind, so neither adopting family inherits the other's permission.
+  Every projection rests on the same M10 decision record — one release authority, several
+  projections.
+- **A HELD artifact is a completed release, not a failed one.** When a contributing source cannot
+  clear a tenant-wide read — a twin's external references carry no governed licence card — the
+  artifact is still frozen and still M10-bound, and an operator can read it. Nothing wider is
+  projected or activated. The release itself stands: the hold is a statement about the SOURCES.
 - **Usage metering records; it does not bill.** `no_external_charge_executed` is CHECK-pinned to 1
   and the table is append-only. A usage summary is a statement of what WOULD be billed, and nobody
   is billed by it.

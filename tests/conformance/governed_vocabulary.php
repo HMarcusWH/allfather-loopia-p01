@@ -248,36 +248,62 @@ foreach ((array) $tierPermissions as $permission) {
     );
 }
 
-// ============================================================ the release topology is M10's, not M16's
+// ============================================================ the M16 adoption boundary
 
-// The Sources plane used to draw M10 -> M16 -> all five product modules. It is not the adoption
-// boundary at the pinned canonical head, and the difference matters: M10 owns release for EVERY
-// module — one authority, one place a release can be revoked from — while M16 is a PROJECTION that
-// exactly two product families adopt. Asserted here so the map cannot drift back.
+// M10 owns RELEASE for every module — one authority, one place a release can be revoked from. M16
+// is an adopted governed OUTPUT projection, and the adopting families are P01 and P02. An earlier
+// revision of this port asserted "exactly one ported family adopts M16", which was a statement
+// about the port's own omission rather than about canonical law, and the Sources plane was then
+// written to match it. Both are corrected here.
 
-// M16's artifact-kind vocabulary names P01 and P02 kinds only. A P03, P04 or P05 kind appearing
-// here would be the first sign of somebody routing a module through it.
-foreach (ReleaseOutput::ARTIFACT_KIND as $kind) {
-    Assert::true(
-        str_contains($kind, 'BRIEFING') || str_contains($kind, 'SNAPSHOT_VIEW'),
-        "M16 artifact kind {$kind} belongs to the adopted P01/P02 families",
-    );
+// THE ARTIFACT VOCABULARY IS EXACTLY FOUR KINDS. Not three, not five.
+$kinds = ReleaseOutput::ARTIFACT_KIND;
+sort($kinds);
+Assert::equalsList(
+    ['BATTLECARD_BRIEFING', 'COMPANY_SIGNAL_BRIEFING', 'ENTITY_RELATIONSHIP_SNAPSHOT_VIEW', 'ENTITY_TWIN_SNAPSHOT_VIEW'],
+    $kinds,
+    'M16 admits exactly the four canonical artifact kinds',
+);
+$storageKinds = $checkMembers('release_artifacts', 'artifact_kind');
+sort($storageKinds);
+Assert::equalsList(
+    $kinds,
+    $storageKinds,
+    'and the storage CHECK admits exactly the same four — constant and constraint agree',
+);
+
+// WHICH PRODUCT FAMILY REACHES M16, read from the source rather than from a diagram.
+$m16Consumers = [];
+foreach (glob(dirname(__DIR__, 2) . '/app/Product/*/*.php') ?: [] as $file) {
+    $source = (string) file_get_contents($file);
+    // A mention in a docblock is not an adoption. Only a constructor-injected dependency or a
+    // direct call is, which is what distinguishes "explains the boundary" from "crosses it".
+    if (preg_match('/(P02Adapter|ReleaseOutput)\s+\$/', $source) === 1) {
+        $m16Consumers[] = basename(dirname($file));
+    }
 }
-foreach (['PROSPECT', 'DISTRIBUTION', 'MARKETING', 'QUEUE'] as $unadopted) {
+$m16Consumers = array_values(array_unique($m16Consumers));
+sort($m16Consumers);
+Assert::equalsList(
+    ['P01', 'P02'],
+    $m16Consumers,
+    'exactly two product families adopt M16 — P01 and P02, as canonical does',
+);
+
+// P03, P04 and P05 use their OWN canonical release paths and must not be forced through M16.
+foreach (['P03', 'P04', 'P05'] as $unadopted) {
     Assert::false(
-        in_array(true, array_map(
-            static fn (string $k): bool => str_contains($k, $unadopted),
-            ReleaseOutput::ARTIFACT_KIND
-        ), true),
-        "and no {$unadopted} kind — P03/P04/P05 are not M16-adopted",
+        in_array($unadopted, $m16Consumers, true),
+        "{$unadopted} does not route through M16 — it has its own canonical release path",
     );
 }
 
-// Each unadopted module has its OWN release projection, and every one of them references an M10
-// decision record. That is the shape: one release authority, several projections.
+// Each module's release projection references an M10 decision record. That is the shape: ONE
+// release authority, several projections.
 foreach ([
-    'released_briefings' => 'P01 — also the M16-adopted path',
-    'released_entity_twin_snapshots' => 'P02',
+    'released_briefings' => 'P01',
+    'released_entity_twin_snapshots' => 'P02 entity',
+    'released_entity_relationship_snapshots' => 'P02 relationship',
     'released_prospect_outputs' => 'P03',
     'released_distribution_outputs' => 'P04',
     'released_marketing_assets' => 'P05',
@@ -293,27 +319,41 @@ foreach ([
     );
 }
 
-// And ONE product module constructs M16 in this port. A second one appearing is the drift this
-// assertion exists to catch — it would mean an adoption boundary moved without an owner act.
-$m16Consumers = [];
-foreach (glob(dirname(__DIR__, 2) . '/app/Product/*/*.php') ?: [] as $file) {
-    if (str_contains((string) file_get_contents($file), 'M16\\ReleaseOutput')) {
-        $m16Consumers[] = basename(dirname($file));
-    }
+// The two P02 artifact kinds are consumer-referenced by their own snapshot columns, so an artifact
+// can never claim to be about a snapshot family it does not belong to.
+foreach ([
+    'ENTITY_TWIN_SNAPSHOT_VIEW' => 'released_entity_twin_snapshot_id',
+    'ENTITY_RELATIONSHIP_SNAPSHOT_VIEW' => 'released_relationship_snapshot_id',
+] as $kind => $column) {
+    Assert::same(
+        1,
+        (int) $db->scalar(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'release_artifacts' AND COLUMN_NAME = ?",
+            [$column]
+        ),
+        "{$kind} has its own consumer reference column",
+    );
 }
+
+// The per-family access rule is what keeps two adopting families from inheriting each other's
+// permission. The table must exist AND be keyed by artifact kind — an authority row that did not
+// name its family is the under-keyed authority this boundary depends on not having.
 Assert::same(
-    ['P01'],
-    array_values(array_unique($m16Consumers)),
-    'exactly one product family reaches M16 in this port — P01, the adopted path that is ported',
+    1,
+    (int) $db->scalar(
+        "SELECT COUNT(*) FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'output_access_rules'
+           AND COLUMN_NAME = 'artifact_kind'"
+    ),
+    'output_access_rules is keyed by artifact kind, so one family cannot govern another',
 );
-// P02 is the pointed case: its release lifecycle IS ported, and upstream composes an additive M16
-// snapshot-view artifact inside the same post-M10 transaction. This port does not, and the
-// assertion above is what keeps that an honest exclusion rather than a claim — the SNAPSHOT_VIEW
-// kinds exist in M16's vocabulary and nothing here composes one.
-Assert::same(
-    0,
-    (int) $db->scalar('SELECT COUNT(*) FROM release_artifacts'),
-    'and no artifact exists on a fresh database, P02 snapshot views included',
+$ruleKinds = $checkMembers('output_access_rules', 'artifact_kind');
+sort($ruleKinds);
+Assert::equalsList(
+    $kinds,
+    $ruleKinds,
+    'and it admits the same four kinds — no family can be registered that M16 cannot produce',
 );
 
 // ============================================================ the P02 release vocabularies

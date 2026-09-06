@@ -324,12 +324,17 @@ keep straight.
 | --- | --- | --- |
 | `released_prospect_outputs` | `P03\Release::releaseProspectOutput` | reachable, no writer |
 | `usage_metering_records` | `P01\Metering::recordUsage` | reachable, no writer |
+| `entity_twin_state_change_proposals` + its transitions | `P02\TwinStateChange` | the governed twin lifecycle |
+| `entity_relationship_state_change_proposals` + its transitions | `P02\RelationshipStateChange` | the governed relationship lifecycle |
+| `released_entity_twin_snapshots` | `P02\EntityTwins::releaseSnapshotTxFree` | written only through `P02\TwinRelease` |
+| `released_entity_relationship_snapshots` | `P02\RelationshipTwins::releaseSnapshotTxFree` | written only through `P02\RelationshipRelease` |
+| `entity_twin_ledger_anchors` | `P02\EntityTwins::recordLedgerAnchor` | release-gating retention authority |
+| `output_access_rules` | `M16\ReleaseOutput::seedVisibilityProfiles` | the per-family read authority |
 
 Still reachable with **no producer**, and named here rather than left to inference:
 
 | Table | Why it has no writer |
 | --- | --- |
-| `entity_twin_state_change_proposals`, `entity_twin_state_change_status_transitions`, `entity_relationship_state_change_proposals`, `entity_relationship_state_change_status_transitions`, `released_entity_twin_snapshots`, `released_entity_relationship_snapshots` | the P02 governed lifecycle is not ported (PORT_SCOPE_MATRIX §3.7) — PORT_REQUIRED, unfinished |
 | `prospect_battlecard_briefs` | canonical's P03 release path mints no brief and carries the column NULL; the port does the same |
 | `outreach_channel_bindings` | deliberate — the port ships no producer, so no row can exist for its CHECK constraints to constrain |
 

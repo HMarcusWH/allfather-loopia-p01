@@ -126,10 +126,14 @@ approved source authority
   -> M08 Arbiter
   -> M10 canonical release decision            <- ONE release authority, for every module
        |
-       ├─ ADOPTED M16 PATH  (frozen artifact -> source-use profile -> audience projection)
-       │     └─ P01 battlecards + company-signal briefings
-       │        (canonical also adopts the P02 snapshot views; NOT PORTED here — the artifact
-       │         kinds exist in the vocabulary and no code produces them)
+       ├─ ADOPTED M16 PATH  (source-use profile -> frozen artifact -> audience projection)
+       │     ├─ P01  COMPANY_SIGNAL_BRIEFING + BATTLECARD_BRIEFING      (briefing.read)
+       │     └─ P02  ENTITY_TWIN_SNAPSHOT_VIEW                          (entity_twin.read)
+       │            ENTITY_RELATIONSHIP_SNAPSHOT_VIEW                   (entity_twin.read)
+       │        Two adopting families, each governed by its OWN access rule keyed by
+       │        artifact kind — so registration order cannot make one inherit the other's
+       │        permission. Composition rides the post-M10 transaction: REFUSED rolls the
+       │        unit back, HELD completes the release with an operator-only view.
        │
        ├─ P03 own projection -> released_prospect_outputs
        ├─ P04 own projection -> released_distribution_outputs

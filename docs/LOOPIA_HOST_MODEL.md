@@ -68,9 +68,12 @@ supported configuration to rely on.
 **Shell cron is not claimed anywhere.** The previous runbook offered a crontab line. Loopia says
 crontab is not available over SSH, so that line was wrong; it is gone.
 
-**MariaDB 10.6 is the realistic floor.** Everything in this projection is verified against 10.11
-locally and in CI. 10.11 is a **Företag Plus** feature; plain Företag is 10.6. This is recorded as
-an open blocker in §5 rather than assumed benign.
+**MariaDB 10.6 is the realistic floor, and it is verified.** 10.11 is a **Företag Plus** feature;
+plain Företag is 10.6, so proving only 10.11 would have proved the tier a customer may not be on.
+CI now runs the full strict suite against BOTH, as a matrix rather than two copied jobs, and each
+job asserts the server version it actually got rather than the one it asked for. Demonstrated on
+10.6.28: migrations apply and are idempotent, CHECK constraints ENFORCE, `SIGNAL SQLSTATE '45000'`
+append-only triggers fire, transactional rollback works, and all seven layers pass with no skips.
 
 ## 4. Scheduler transport — decision table
 
@@ -114,8 +117,9 @@ Until it is answered:
 
 1. **`LOOPIA_SCHEDULER_TRANSPORT_BLOCKER`** — the question above is unanswered. A Kundzon schedule
    may be unable to invoke the tick at all.
-2. **MariaDB 10.6 is untested.** Every result in this repository is from 10.11. The projection leans
-   on CHECK constraints (enforced since 10.2.1) and `SIGNAL SQLSTATE '45000'` triggers (since 5.5),
-   so 10.6 *should* be sufficient — but "should" is not a test result, and `LOOPIA_PROBE_001` on the
-   real host is what settles it.
-3. **Nothing has run on Loopia.** No deployment, no probe execution, no scheduled task.
+2. **Nothing has run on Loopia.** No deployment, no probe execution, no scheduled task. A container
+   running the same MariaDB version is not the same as Loopia's instance of it — the version
+   question is settled, the HOST question is not.
+
+**Closed since the previous revision:** MariaDB 10.6 was listed here as untested. It is now verified
+against a real 10.6 server in CI, on every commit, with no skips.

@@ -55,7 +55,7 @@ Three files, answering three different questions.
 | --- | --- | --- |
 | `p01_governed_transcripts.php` | normalized decision transcripts for seven bent authority states | the outcome each is required to produce |
 | `p01_source_policy_adapter.php` | every compiler fail-closed code as P01 renders it, and the closure of the map | `src/p01/capture-source.ts` |
-| `governed_vocabulary.php` | the closed vocabularies, member by member and in order; and the RELEASE TOPOLOGY — that M10 owns release for every module while M16 is a projection exactly one ported family adopts | `release-output/vocabulary.ts`, `action-class.ts`, `ingestion/policy.ts`, the storage CHECKs, and the product code itself |
+| `governed_vocabulary.php` | the closed vocabularies, member by member and in order; and the RELEASE TOPOLOGY — that M10 owns release for every module, that M16 admits exactly four artifact kinds, that exactly TWO product families adopt it (P01 and P02, as canonical does), and that P03/P04/P05 keep their own canonical release paths | `release-output/vocabulary.ts`, `action-class.ts`, `ingestion/policy.ts`, the storage CHECKs, and the product code itself |
 
 The third exists because of what the port loses at the language boundary. Upstream holds these
 vocabularies as TypeScript union types and its compiler proves exhaustively that every consumer
