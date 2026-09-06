@@ -21,8 +21,9 @@ declare(strict_types=1);
  *   come from the module registrations verbatim. Nothing here supplies a permission, a ceiling or a
  *   forbidden clause of its own.
  *
- *   IT MERGES NO RUNTIME AUTHORITY. Four separate registrations run in sequence; they do not become
- *   one registration. If a fifth module is added later it gets its own, not a parameter here.
+ *   IT MERGES NO RUNTIME AUTHORITY. Five separate product registrations currently run in sequence;
+ *   they do not become one registration. If another module is added later it gets its own
+ *   registration rather than becoming a parameter of an existing authority object.
  *
  *   IT FAILS CLOSED. The first refusal stops the run and reports which module refused and why.
  *   A half-provisioned tenant is a real state, and the report says exactly how far it got rather
@@ -115,6 +116,21 @@ if (isset($args['env'])) {
     $environment = $boot['environment'];
 }
 
+// PRODUCTION IDENTITY IS NOT OURS TO INVENT. The pinned canonical schema defines TEST/DEMO/
+// LOCAL_DEV identity vocabulary but no CUSTOMER tenant/workspace types and no PRODUCTION
+// environment_class. A deployment projection may adapt the host, not silently promote new Core
+// identity law. Unknown APP_ENV values also resolve to production in Bootstrap, so a typo reaches
+// this same fail-closed gate instead of weakening the posture.
+if ($environment === 'production') {
+    $fail(
+        'production provisioning is not available at the pinned canonical head: '
+        . 'the canonical identity vocabulary does not define CUSTOMER tenant/workspace types or a '
+        . 'PRODUCTION environment_class. Provision staging/testing only; production requires an '
+        . 'explicit canonical promotion first.',
+        6
+    );
+}
+
 // The MODULES to provision, from a closed set. P02 is provisionable now that its admission policy
 // set and governed lifecycle are ported (state change -> admission -> M10 release -> surfacing);
 // it registers the ENTITY-TWIN capability only. Offering twins remain out of scope and have no
@@ -125,7 +141,7 @@ $modules = isset($args['modules'])
     : $available;
 foreach ($modules as $module) {
     if (!in_array($module, $available, true)) {
-        $fail("module {$module} is not provisionable; available: " . implode(', ', $available));
+        $fail("module {$module} is not provisionable; available: " . implode(',', $available));
     }
 }
 
@@ -179,7 +195,10 @@ if ($existingTenant === null) {
         'tenant_key' => $args['tenant-key'],
         'schema_version' => '1',
         'display_name' => $args['display-name'],
-        'tenant_type' => $environment === 'production' ? 'CUSTOMER' : 'TEST',
+        // Staging/testing deliberately use canonical TEST identity vocabulary. This projection
+        // does not invent CUSTOMER; production provisioning is refused above until canonical
+        // promotes an appropriate customer identity vocabulary.
+        'tenant_type' => 'TEST',
         'status' => 'ACTIVE',
         'created_at' => $now,
     ]);
@@ -202,8 +221,10 @@ $db->insert('workspaces', [
     'workspace_key' => $args['workspace-key'],
     'schema_version' => '1',
     'display_name' => $args['display-name'],
-    'workspace_type' => $environment === 'production' ? 'CUSTOMER' : 'TEST',
-    'environment_class' => strtoupper($environment === 'production' ? 'PRODUCTION' : 'TEST'),
+    // Same rule for the workspace: staging/testing exercise the selected graph under canonical TEST
+    // vocabulary. CUSTOMER / PRODUCTION are not projection-owned synonyms for "real enough".
+    'workspace_type' => 'TEST',
+    'environment_class' => 'TEST',
     // CHECK-pinned to 0 in storage. Written explicitly because it is the claim this row makes.
     'external_side_effects_allowed' => 0,
     'active_v1_capability_ceiling' => 'RELEASE_INTELLIGENCE',
