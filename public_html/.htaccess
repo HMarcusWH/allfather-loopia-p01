@@ -1,0 +1,46 @@
+# The public document root — the ONLY directory a web server should ever be pointed at.
+#
+# This file is DEFENCE IN DEPTH, never the boundary itself. The boundary is the deployment layout:
+# the application, its configuration and its migrations live OUTSIDE the served directory, so a
+# misread rule here cannot expose them because they are not reachable to begin with. A deployment
+# whose safety depends on these directives being interpreted correctly has already gone wrong; see
+# the deployment runbook for the layout that makes them a second line rather than the first.
+#
+# Every directive is guarded by <IfModule>. On a host missing the module the guard is a silent
+# no-op, which is exactly why none of them may be load-bearing on their own.
+
+# No directory listings, and no content negotiation guessing an extension onto a path.
+Options -Indexes -MultiViews
+
+# Dotfiles are never served. `.env` is the one that matters and it does not belong here at all, but
+# a rule that only names `.env` would miss the next one.
+<FilesMatch "^\.">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # The two entry points and the stylesheet are served as themselves. Everything else — every
+  # console path, and anything a caller invents — is the front controller's to answer, including
+  # its 404: a 404 rendered by the application carries the same security headers every other
+  # response does, and the server's default error page carries none of them.
+  RewriteRule ^(assets/.*|index\.php|scheduler\.php)$ - [L]
+  RewriteRule ^ index.php [L]
+</IfModule>
+
+# Static assets are served by the web server itself, so the application's own headers never touch
+# them. The stylesheet is the only one, and it is still worth pinning: a text/css response that a
+# browser is willing to sniff is a text/css response that can be made to be something else.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(css|js|svg|png|jpg|jpeg|woff2?)$">
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "no-referrer"
+  </FilesMatch>
+</IfModule>

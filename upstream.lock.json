@@ -1,23 +1,111 @@
 {
-  "schema_version": "1.0",
-  "projection_id": "LOOPIA_P01",
+  "schema_version": "2.0",
+  "schema_version_note": "Schema 2.0 widens 1.0's single `module` field into the `scope` object and adds `historical_projection_id`. Version bumped explicitly rather than reinterpreting 1.0 fields.",
+
+  "projection_id": "LOOPIA_SME_MVP",
+  "historical_projection_id": "LOOPIA_P01",
+  "projection_lineage_note": "Bootstrapped as LOOPIA_P01 (P01-only). Widened by owner decision to the largest coherent, already-built, owner-gated, no-external-effect SME product slice. The repository name remains historical. See PROJECT_BOUNDARY.md.",
+
   "canonical_repository": "HMarcusWH/Allfatherbusinessintelligence",
   "registry_declared_head": null,
   "historical_base": null,
   "live_head_at_pin": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
   "projection_pinned_head": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+  "head_resolution": {
+    "method": "git fetch origin main && git rev-parse origin/main",
+    "resolved_at": "2026-09-04",
+    "canonical_expected": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+    "canonical_live": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+    "canonical_moved": false,
+    "projection_expected": "cd56c206f5fd2626fc649dcf5f96ae9186234405",
+    "projection_live": "cd56c206f5fd2626fc649dcf5f96ae9186234405",
+    "projection_moved": false
+  },
+
   "alignment_status": "PINNED_PENDING_CONFORMANCE_IMPLEMENTATION",
+
+  "scope": {
+    "product_modules": [
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "P05",
+      "P07-A_SYNTHETIC_ONLY"
+    ],
+    "substrate_dependencies": [
+      "M01",
+      "M02",
+      "M03",
+      "M04",
+      "M05",
+      "M06",
+      "M07",
+      "M08",
+      "M09",
+      "M10",
+      "M11",
+      "M12",
+      "M15",
+      "M16"
+    ],
+    "substrate_dependency_notes": {
+      "M01": "Governed invocation slice only. No host adapter or agent runtime.",
+      "M09": "Included ONLY because P07-A rides the approval / frozen-artifact / single-use-authorization plane. No live external adapter.",
+      "M15": "Ingestion and egress guard ported. Live-read activation state is inert.",
+      "M16": "TENANT_INTERNAL audience only. Every wider audience is designed-inert upstream (V1-GAP-093) and is not created here."
+    },
+    "excluded_with_authority": {
+      "P07-B": "Live external send. NOT GRANTED upstream; legal/privacy review recorded as FINAL BLOCKER. Not implemented.",
+      "P02_OFFERING_TWINS": "EXCLUDED from the P02 cp11 owner gate (V1-GAP-097); remains PARTIAL_IMPLEMENTATION_NOT_PROMOTED. P03 catalogue is the MVP products/offers authority.",
+      "P02_EOM": "Entity Operating Model: EOM_RUNTIME_STATUS=ABSENT, EOM_SCHEMA_STATUS=ABSENT upstream.",
+      "M13_M14_ADAPTIVE_CONFIG": "Not reachable from the selected product graph.",
+      "SEV_CANDIDATE_RUNTIME": "SEV_ACTIVATION=NONE upstream.",
+      "GSMC": "Beyond the selected launch graph.",
+      "MCM_HMWH_DIAGNOSTIC": "Diagnostic programme. Distinct from the M07 HMWH Council, which IS included.",
+      "ECONOMY_CLIMATE_WAR_KERNELS": "No selected product path depends on them."
+    }
+  },
+
+  "upstream_gate_authority": {
+    "P01": { "gate": "GRANTED", "date": "2026-06-06", "ceiling": "INTERNAL_DEMO_VALIDATED_WITH_LIMITATIONS" },
+    "P02": { "gate": "GRANTED_WITH_EXPLICIT_LIMITATIONS", "date": "2026-06-10", "ceiling": "INTERNAL_DEMO_VALIDATED_WITH_LIMITATIONS", "scope": "entity twins + relationship twins only" },
+    "P03": { "gate": "GRANTED", "date": "2026-06-06", "ceiling": "INTERNAL_DEMO_VALIDATED_WITH_LIMITATIONS" },
+    "P03_ICP_EXTENSION": { "gate": "GRANTED", "date": "2026-06-12", "ceiling": "INTERNAL_DEMO_VALIDATED_WITH_LIMITATIONS", "scope": "internal / no-customer-visible" },
+    "P04": { "gate": "GRANTED", "date": "2026-06-07", "ceiling": "INTERNAL_DEMO_VALIDATED_WITH_LIMITATIONS" },
+    "P05": { "gate": "GRANTED", "date": "2026-06-10", "ceiling": "INTERNAL_DEMO_VALIDATED_WITH_LIMITATIONS", "scope": "internal / no-live-effect" },
+    "P07-A": { "gate": "GRANTED", "date": "2026-06-07", "ceiling": "INTERNAL_DEMO_VALIDATED_WITH_LIMITATIONS", "scope": "synthetic dispatch only" },
+    "P07-B": { "gate": "NOT_GRANTED", "blocker": "legal/privacy review recorded as FINAL BLOCKER" },
+    "M15": { "gate": "GRANTED", "date": "2026-06-11", "reference": "R-M15-5" },
+    "M16": { "gate": "GRANTED", "date": "2026-06-12", "reference": "R-M16-5", "scope": "TENANT_INTERNAL only" }
+  },
+
   "module": "P01",
+  "module_deprecated_note": "Schema 1.0 field retained for backward compatibility with the foundation invariant tests. `scope.product_modules` is authoritative in schema 2.0.",
+
   "action_classes": ["A", "B", "C"],
+
   "runtime": {
     "language": "PHP",
+    "language_minimum": "8.2",
     "database": "MariaDB",
+    "database_minimum": "10.6",
     "target_host": "Loopia",
-    "target_surface": "platform.allfatherbi.com"
+    "target_surface": "platform.allfatherbi.com",
+    "staging_surface": "staging.allfatherbi.com",
+    "presentation_site_note": "allfatherbi.com is a separately deployed static presentation site and is NOT this application runtime."
   },
+
   "claim_boundary": {
     "road_test_001_executed": false,
+    "production_launch_authorized": false,
+    "external_action_authorized": false,
+    "live_read_activated": false,
+    "owner_go_granted": false,
     "customer_visible_output_authorized": false,
-    "external_action_authorized": false
+    "no_external_charge_executed": true,
+    "staging_deployed": false,
+    "loopia_capability_validated": false,
+    "conformance_complete": false
   }
 }

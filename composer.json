@@ -1,19 +1,39 @@
 {
   "name": "hmarcuswh/allfather-loopia-p01",
-  "description": "Governed Loopia deployment projection of Allfather BI P01.",
+  "description": "Governed Loopia deployment projection of the Allfather BI SME MVP product graph (projection LOOPIA_SME_MVP; repository name historical).",
   "type": "project",
   "private": true,
+  "license": "proprietary",
   "require": {
-    "php": ">=8.2"
+    "php": ">=8.2",
+    "ext-pdo": "*",
+    "ext-pdo_mysql": "*",
+    "ext-curl": "*",
+    "ext-openssl": "*",
+    "ext-json": "*",
+    "ext-mbstring": "*",
+    "ext-hash": "*"
   },
   "autoload": {
     "psr-4": {
-      "Allfather\\LoopiaP01\\": "app/"
+      "Allfather\\Loopia\\": "app/"
     }
   },
+  "config": {
+    "sort-packages": true,
+    "optimize-autoloader": true
+  },
   "scripts": {
-    "lint": "find app public worker ops tests -name '*.php' -print0 | xargs -0 -n1 php -l",
+    "lint": "find app public worker ops tests -name '*.php' -print0 | xargs -0 -n1 -P4 php -l > /dev/null",
     "test": "php tests/run.php",
+    "test:unit": "php tests/run.php --layer=unit",
+    "test:integration": "php tests/run.php --layer=integration",
+    "test:conformance": "php tests/run.php --layer=conformance",
+    "test:acceptance": "php tests/run.php --layer=acceptance",
+    "test:security": "php tests/run.php --layer=security",
+    "test:rollback": "php tests/run.php --layer=rollback",
+    "migrate": "php ops/migrate.php up",
+    "probe": "php ops/loopia-probe/probe.php",
     "check": [
       "@lint",
       "@test"

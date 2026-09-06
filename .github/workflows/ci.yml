@@ -10,20 +10,140 @@ permissions:
   contents: read
 
 jobs:
+  # Cheap, no-database checks. Runs first so an authority-boundary regression fails fast.
   foundation:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Show PHP runtime
-        run: php -v
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql, curl, openssl, mbstring, json
+          coverage: none
 
-      - name: Validate JSON
+      - name: Show runtime
+        run: |
+          php -v
+          php -r 'echo "curl: ", curl_version()["version"], PHP_EOL;'
+          php -r 'echo "CURLOPT_RESOLVE: ", defined("CURLOPT_RESOLVE") ? "yes" : "NO", PHP_EOL;'
+
+      - name: Validate the upstream lock
         run: php -r "json_decode(file_get_contents('upstream.lock.json'), true, 512, JSON_THROW_ON_ERROR);"
 
+      # `public` was renamed to `public_html` to match Loopia's fixed document-root name. The old
+      # path lingered here and `find` merely warned about it, so nothing under the SERVED directory
+      # was syntax-checked at all — the step stayed green by checking less. The loop below fails
+      # loudly on a missing directory, which is the behaviour that would have caught it.
       - name: PHP syntax
         run: |
-          find app public worker ops tests -name '*.php' -print0 2>/dev/null | xargs -0 -r -n1 php -l
+          set -euo pipefail
+          for dir in app public_html worker ops tests; do
+            if [ ! -d "$dir" ]; then
+              echo "PHP syntax: expected directory '$dir' is missing — refusing to lint less than intended" >&2
+              exit 1
+            fi
+          done
+          find app public_html worker ops tests -name '*.php' -print0 | xargs -0 -r -n1 php -l > /dev/null
 
+      # The authority boundary and the no-external-action structural proof. These need no database
+      # and must never be skipped.
       - name: Foundation invariants
-        run: php tests/run.php
+        run: php tests/run.php --layer=foundation --strict
+
+      - name: Unit tests
+        run: php tests/run.php --layer=unit --strict
+
+  # The layers that make a MariaDB parity claim. A result obtained against SQLite would not be a
+  # MariaDB parity claim, so this job provides a REAL MariaDB and runs --strict: a skipped
+  # database-backed test fails the build rather than quietly passing it.
+  #
+  # BOTH VERSIONS THAT MATTER, as a matrix rather than two copied jobs — two copies drift, and the
+  # one that drifts is the one nobody reads. 10.6 is Loopia Företag's actual floor; 10.11 is
+  # Företag Plus. Proving only 10.11 would be proving the tier the customer may not be on.
+  mariadb:
+    name: mariadb ${{ matrix.mariadb }}
+    runs-on: ubuntu-latest
+    strategy:
+      # Both versions always run. Failing fast here would hide whether a failure is version-specific,
+      # which is the single most useful thing this matrix can tell us.
+      fail-fast: false
+      matrix:
+        mariadb: ['10.6', '10.11']
+    services:
+      mariadb:
+        image: mariadb:${{ matrix.mariadb }}
+        env:
+          MARIADB_ROOT_PASSWORD: ci_root
+          MARIADB_DATABASE: allfather_test
+          MARIADB_USER: allfather
+          MARIADB_PASSWORD: allfather_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql, curl, openssl, mbstring, json
+          coverage: none
+
+      - name: Write the test environment
+        run: |
+          cat > .env.testing <<'ENVEOF'
+          APP_ENV=testing
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_NAME=allfather_test
+          DB_USER=allfather
+          DB_PASSWORD=allfather_ci
+          ENVEOF
+
+      # The version is RECORDED from the server, not assumed from the matrix key: a job that
+      # reported the version it asked for rather than the one it got could claim 10.6 parity while
+      # running on anything.
+      - name: Record the MariaDB version under test
+        run: |
+          php -r '$p = new PDO("mysql:host=127.0.0.1;dbname=allfather_test", "allfather", "allfather_ci");
+                  $v = $p->query("SELECT VERSION()")->fetchColumn();
+                  echo "MariaDB under test: ", $v, PHP_EOL;
+                  if (!str_starts_with($v, "${{ matrix.mariadb }}.")) {
+                      fwrite(STDERR, "Server version does not match the matrix key ${{ matrix.mariadb }}\n");
+                      exit(1);
+                  }'
+
+      - name: Apply migrations
+        run: php ops/migrate.php up --env=.env.testing
+
+      # Applying a second time must be a clean no-op, and must report no drift: a migration edited
+      # after being applied means the database and the repository disagree about the schema.
+      - name: Migrations are idempotent and undrifted
+        run: php ops/migrate.php up --env=.env.testing
+
+      - name: Migration status
+        run: php ops/migrate.php status --env=.env.testing
+
+      - name: Host capability probe
+        run: php ops/loopia-probe/probe.php --env=.env.testing
+
+      # The WHOLE suite in one step, deliberately, rather than a step per layer.
+      #
+      # Per-layer steps have to be added by hand as layers appear, so a layer whose tests exist but
+      # whose step was never added would be green by omission — the exact failure mode this
+      # repository is built to prevent. Running the suite picks up every layer that has files, now
+      # and in future, and the runner already prints per-layer results and tags each failure with
+      # its layer, so attribution is not lost.
+      #
+      # `--strict` makes a SKIP a build failure. In this job a database-backed test can only skip
+      # because MariaDB became unreachable, and a suite that quietly passes because it could not
+      # reach the database is worse than a red build.
+      - name: Full suite against real MariaDB
+        run: php tests/run.php --strict

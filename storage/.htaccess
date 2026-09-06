@@ -1,0 +1,20 @@
+# DENY EVERYTHING.
+#
+# Runtime state: logs, scheduler output, anything the application writes. None of it is content and
+# none of it should ever be reachable over HTTP — a scheduler log names job ids and reason codes, and
+# a log a caller can read is a description of a tenant's work.
+#
+# As everywhere else, this is the second line. The first is the layout: `storage/` lives outside the
+# served directory, and the guards below are silent no-ops on a host missing the module.
+
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  <IfModule mod_access_compat.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</IfModule>
+
+Options -Indexes -MultiViews

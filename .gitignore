@@ -6,6 +6,8 @@
 !.env.example
 /storage/*
 !/storage/README.md
+!/storage/.htaccess
 *.log
 .DS_Store
 Thumbs.db
+.env.testing
