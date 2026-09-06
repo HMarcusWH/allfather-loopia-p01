@@ -27,7 +27,9 @@ declare(strict_types=1);
  */
 
 use Allfather\Loopia\Core\Digest;
+use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Core\Ids;
+use Allfather\Loopia\Core\Outcome;
 use Allfather\Loopia\Product\P07A\Consent;
 use Allfather\Loopia\Product\P07A\OutreachAdmission;
 use Allfather\Loopia\Product\P07A\OutreachApproval;
@@ -637,3 +639,147 @@ Assert::same(
     ),
     'E9: and this suite left no injected trigger behind',
 );
+
+// ==================================================================================== TEST F
+// A REFUSAL RETURNED FROM INSIDE A TRANSACTION UNDOES THE TRANSACTION.
+//
+// This is the same defect as A and B, one level up, and it was everywhere. Upstream's composite
+// commands are written as `if (step.outcome !== OK) { db.exec("ROLLBACK"); return REJECTED; }` —
+// every one of them, in every module. `Database::transaction()` used to COMMIT whatever the
+// callback returned, so a refusal RETURNED after four of five steps had written left those four
+// writes durable while the caller was told the command had refused. An evidence record and a
+// bundle draft with no proposal; a released briefing with no frozen artifact. Nothing threw, so
+// nothing said so.
+//
+// The rule is tested here rather than through one composite command because it is the rule that
+// changed, and it governs every composite command in the port. That the rule is CORRECT for each
+// of them is what the other 3200 assertions check, and TEST G pins the exceptions.
+
+Assert::case('F. a refusal returned from inside a transaction rolls the transaction back');
+
+$probeSource = static fn (string $label): array => [
+    'source_ref_id' => Ids::new(),
+    'schema_version' => '1',
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $scope['workspace_id'],
+    'source_type' => 'PROJECT_CANONICAL_OBJECT',
+    'source_location_safe' => 'atomicity-probe:' . $label . ':' . Ids::new(),
+    'lawful_or_permitted_use_scope' => 'crm_outreach_execution',
+    'content_sensitivity_class' => 'INTERNAL_DEMO',
+    'status' => 'ACTIVE_FOR_CAPTURE',
+    'registered_at' => $clock->now(),
+];
+$sourceCount = static fn (): int => (int) $db->scalar('SELECT COUNT(*) FROM source_references');
+
+$beforeRefused = $sourceCount();
+$refused = $db->transaction(static function (Database $tx) use ($probeSource): Outcome {
+    $tx->insert('source_references', $probeSource('refused'));
+
+    return Outcome::refuse('PROBE_REFUSAL');
+});
+Assert::true($refused->isRefusal(), 'F1: the refusal reaches the caller');
+Assert::same('PROBE_REFUSAL', $refused->reasonCode(), 'F2: unchanged, by name');
+Assert::same(
+    $beforeRefused,
+    $sourceCount(),
+    'F3: and the write made before it is GONE — a refused command commits nothing',
+);
+
+// A FAILURE is stricter than a refusal and must not commit through a gap in the check.
+$beforeFailed = $sourceCount();
+$failed = $db->transaction(static function (Database $tx) use ($probeSource): Outcome {
+    $tx->insert('source_references', $probeSource('failed'));
+
+    return Outcome::failure('PROBE_FAILURE');
+});
+Assert::true($failed->isFailure(), 'F4: a failure reaches the caller');
+Assert::same($beforeFailed, $sourceCount(), 'F5: and its writes are gone too');
+
+// THE OPT-OUT, which is what the upstream exceptions use.
+$beforeKept = $sourceCount();
+$kept = $db->transaction(
+    static function (Database $tx) use ($probeSource): Outcome {
+        $tx->insert('source_references', $probeSource('kept'));
+
+        return Outcome::refuse('PROBE_REFUSAL_WITH_REAL_EFFECT');
+    },
+    commitOnRefusal: true
+);
+Assert::true($kept->isRefusal(), 'F6: the opt-out still refuses');
+Assert::same(
+    $beforeKept + 1,
+    $sourceCount(),
+    'F7: but KEEPS the write — which is what upstream does for a real status change',
+);
+
+// AN OK OUTCOME STILL COMMITS. Asserting only the rollbacks would pass just as well against a
+// transaction that had stopped committing anything at all.
+$beforeOk = $sourceCount();
+$ok = $db->transaction(static function (Database $tx) use ($probeSource): Outcome {
+    $tx->insert('source_references', $probeSource('ok'));
+
+    return Outcome::ok(['done' => true]);
+});
+Assert::true($ok->isOk(), 'F8: a successful unit still succeeds');
+Assert::same($beforeOk + 1, $sourceCount(), 'F9: and still commits');
+
+// NESTING. A nested refusal undoes ITS savepoint and no more, and the outer unit then decides its
+// own fate — which is how a composite command built from governed sub-commands rolls back as one.
+$beforeNested = $sourceCount();
+$nested = $db->transaction(static function (Database $tx) use ($probeSource, $db): Outcome {
+    $tx->insert('source_references', $probeSource('outer-kept'));
+    $inner = $db->transaction(static function (Database $inner) use ($probeSource): Outcome {
+        $inner->insert('source_references', $probeSource('inner-undone'));
+
+        return Outcome::refuse('INNER_REFUSAL');
+    });
+    Assert::true($inner->isRefusal(), 'F10: the inner unit refuses');
+
+    return Outcome::ok(['outer' => 'committed']);
+});
+Assert::true($nested->isOk(), 'F11: and the outer unit may still succeed');
+Assert::same(
+    $beforeNested + 1,
+    $sourceCount(),
+    'F12: with the INNER write undone and the outer one kept — a savepoint, not a whole rollback',
+);
+
+// ==================================================================================== TEST G
+// The exceptions are a closed set, and each one is upstream's.
+//
+// `commitOnRefusal: true` is how a site opts OUT of the rollback, so the set of sites that use it
+// is the set of places this port claims upstream commits a refusal. Upstream commits a refusal in
+// exactly one FILE — p07/outreach-delivery.ts, twice — plus three sites where upstream runs no
+// transaction at all and the writes therefore stand. Anything else appearing here is a divergence
+// that would look like a fix.
+
+Assert::case('G. the commit-on-refusal exceptions are a closed, upstream-justified set');
+
+$repoRootG = dirname(__DIR__, 2);
+$exceptions = [];
+foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($repoRootG . '/app')) as $file) {
+    if (!$file->isFile() || $file->getExtension() !== 'php') {
+        continue;
+    }
+    $contents = (string) file_get_contents((string) $file);
+    if ($file->getFilename() === 'Database.php') {
+        continue; // the declaration itself, not a use of it
+    }
+    $uses = preg_match_all('/commitOnRefusal:\s*true/', $contents);
+    if ($uses > 0) {
+        $exceptions[str_replace($repoRootG . '/', '', (string) $file)] = $uses;
+    }
+}
+ksort($exceptions);
+Assert::equalsList(
+    [
+        'app/Product/P02/RelationshipAdmission.php',
+        'app/Product/P02/TwinAdmission.php',
+        'app/Product/P07A/OutreachArtifacts.php',
+        'app/Product/P07A/SyntheticDelivery.php',
+        'app/Substrate/M07/Council.php',
+    ],
+    array_keys($exceptions),
+    'G1: exactly five files opt out, each for an effect upstream persists',
+);
+Assert::same(5, array_sum($exceptions), 'G2: one site each — no file quietly grew a second exception');

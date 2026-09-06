@@ -265,7 +265,11 @@ final class Council
                 'eligibility_check_id' => $eligibilityCheckId,
                 'conflict_or_separation_check' => $conflict,
             ]);
-        });
+        },
+            // Upstream writes the hmwh_eligibility_checks row and returns DENIED with NO transaction at all: the
+        // audit row IS the record that the denial happened. Rolling it back would delete the evidence
+        // of a refusal, which is the one thing an append-only eligibility ledger exists to keep.
+            commitOnRefusal: true);
     }
 
     /** Record a participant's assessment. */

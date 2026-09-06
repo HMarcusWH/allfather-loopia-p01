@@ -154,6 +154,9 @@ final class RelationshipAdmission
                 'reason_codes' => array_values($value['reason_codes']),
                 'state_change_blocked' => $terminates,
             ], 'POLICY', (string) $value['severity']);
-        });
+        },
+            // Upstream COMMITs before returning a BLOCK or QUARANTINE, exactly as the twin path does: the
+        // terminated state change is a real status change, not a half-finished admission.
+            commitOnRefusal: true);
     }
 }

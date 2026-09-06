@@ -157,7 +157,15 @@ final class SyntheticDelivery
 
         try {
             return $this->db->transaction(
-                fn (): Outcome => $this->dispatchUnit($input, $auth)
+                fn (): Outcome => $this->dispatchUnit($input, $auth),
+                // THE ONE UPSTREAM EXCEPTION, and it is upstream's own. `outreach-delivery.ts` is
+                // the only file in the selected graph that COMMITs and then refuses, and it does so
+                // twice: a consent refusal (which wrote nothing) and a consume refusal (whose
+                // EXPIRED / mutation-REVOKE transitions are "legitimate persisted effects — a real
+                // status change, not a half-finished dispatch", in its words). A post-consume
+                // failure is NOT covered by this: it throws DispatchRollback and rolls the unit
+                // back, which is the whole point of the repair.
+                commitOnRefusal: true
             );
         } catch (DispatchRollback $rollback) {
             // The unit is already rolled back. The consume did not happen, the M10 record does not
