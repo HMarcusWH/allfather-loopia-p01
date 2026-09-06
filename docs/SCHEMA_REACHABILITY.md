@@ -355,6 +355,39 @@ Applied uniformly; deviations are recorded per table in the migration files.
 | implicit rowid ordering | explicit `(created_at, <pk>)` total order | closes the upstream TF7-09 `created_at DESC LIMIT 1` ambiguity in the ported selectors |
 | no engine concept | `ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci` | transactions, FKs, row locking for job leases |
 | FK enforcement optional | `FOREIGN KEY` always declared | tenant/workspace authority chains must not be application-only |
+| partial `UNIQUE ... WHERE <predicate>` | documented in the migration; **non-unique** lookup index installed; predicate enforced in the application and proved in tests | MariaDB has no partial index. Applied to ~17 canonical partial indexes; each is named in its migration with its canonical definition and predicate |
+| partial `UNIQUE ... WHERE status = 'ACTIVE'` on `decision_ledger_streams` | a **generated column** that is `NULL` wherever the predicate excludes a row, inside an ordinary `UNIQUE` index | the exception, and deliberately so — see below |
+
+**Why one partial index gets a different translation.** The standing translation above is adequate
+where the predicate guards a preference. It is not adequate where the predicate guards whether two
+competing ledger HEADS can exist for one scope. Application enforcement of a uniqueness predicate is
+a read followed by a write, and two callers can both pass the read before either does the write — so
+"at most one ACTIVE stream" was a statement about load, not about the database.
+
+MariaDB has no partial index but it has an exact equivalent for this shape:
+
+```sql
+ALTER TABLE decision_ledger_streams
+  ADD COLUMN active_scope_guard TINYINT
+    AS (CASE WHEN status = 'ACTIVE' THEN 1 ELSE NULL END) VIRTUAL;
+
+CREATE UNIQUE INDEX ux_decision_ledger_streams_active_scope
+  ON decision_ledger_streams (tenant_id, workspace_id, environment_class, active_scope_guard);
+```
+
+NULLs are distinct in a unique index, so every non-ACTIVE row is exempt and ACTIVE rows collide
+exactly when `(tenant, workspace, environment)` repeats. It binds on `INSERT` and on an `UPDATE`
+that moves a row *into* `ACTIVE` — the second half being the one a hand-rolled check usually misses.
+Migration `140_m10_stream_identity.sql`; verified on 10.6.28 and 10.11.14.
+
+**The chain, stated without rounding up:**
+
+| Layer | What it does |
+| --- | --- |
+| canonical invariant | `UNIQUE (tenant_id, workspace_id, environment_class) WHERE status = 'ACTIVE'` |
+| MariaDB translation | generated column + `UNIQUE` index — **database-enforced**, not advisory |
+| application | `ensureActiveStream` finds, creates, and on a losing race re-finds and converges; the pre-check in `createStream` returns a named refusal instead of an exception, but is **not** the enforcement |
+| tests | `tests/conformance/m10_stream_identity.php` (identity, keys, anchors, callers) and `tests/security/m10_stream_concurrency.php` (two real connections; the index proved to reject a forged second ACTIVE row and a reactivation) |
 
 ### Append-only protections
 

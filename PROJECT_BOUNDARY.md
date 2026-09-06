@@ -178,6 +178,27 @@ What now enforces the sentence:
   `tests/conformance/m10_release_conformance.php` walks CONF-M10-001…010 against the exact
   canonical reason codes.
 
+**A ledger scope is (tenant, workspace, ENVIRONMENT).** Not (tenant, workspace) — that was a
+separate defect, fixed 2026-09-06, and it is worth stating rather than quietly correcting. The
+active-stream lookup omitted `environment_class`, so a caller asking for the DEMO ledger was handed
+the TEST one and appended DEMO history to it. Nothing reported the collapse, because a hash chain
+has no opinion about which environment its records came from: the chain still verified.
+
+A TEST ledger and a DEMO ledger for one tenant and workspace are two distinct governed histories,
+and three things now keep them apart:
+
+- every ACTIVE lookup, uniqueness check and recovery path is keyed by tenant, workspace AND
+  environment, and `ensureActiveStream` has no default environment to fall back on;
+- the default stream key is canonical — `ledger:test`, `ledger:demo`, `ledger:local_dev` — so the
+  real unique index on `(tenant, workspace, stream_key)` permits one per environment rather than
+  one per scope for all time;
+- the genesis anchor digests the environment, so the two chains differ at their roots and neither
+  can be reconstructed as the other.
+
+The canonical partial unique index behind this is **database-enforced** in MariaDB rather than
+application-enforced — see `docs/SCHEMA_REACHABILITY.md` for the translation and why this one
+partial index does not follow the standing rule.
+
 What differs between modules is what gets PROJECTED afterwards:
 an M16 artifact is frozen content with a source-use profile and an audience projection, and a P03
 released output is a reference plus a two-gate read model. Routing P03/P04/P05 through M16 to make

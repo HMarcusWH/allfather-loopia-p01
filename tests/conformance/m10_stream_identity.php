@@ -279,3 +279,57 @@ Assert::same(
     $ensureSignature->getParameters()[2]->getName(),
     'and it is the third parameter',
 );
+
+// ================================================================ no runtime caller invents an environment
+//
+// The environment must come from the governed workspace, every time. A one-off inspection of the
+// call sites proves that on the day it is read; this proves it on every run. The check is a scan
+// because the hazard is a NEW caller written later — someone reaching for M10 in a hurry, passing
+// the literal that makes the test pass locally, and shipping a wiring that appends one
+// environment's history to another's ledger.
+
+$repoRoot = dirname(__DIR__, 2);
+$runtimeFiles = [];
+foreach (['app', 'worker', 'ops', 'public_html'] as $dir) {
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($repoRoot . '/' . $dir, FilesystemIterator::SKIP_DOTS)
+    );
+    foreach ($iterator as $file) {
+        if ($file->isFile() && $file->getExtension() === 'php') {
+            $runtimeFiles[] = $file->getPathname();
+        }
+    }
+}
+Assert::true(count($runtimeFiles) > 100, 'the scan walks the runtime tree');
+
+// Positive control: the pattern must be able to find what it claims is absent.
+$literalEnvironment = "/ensureActiveStream\s*\([^;]*?['\"](LOCAL_DEV|TEST|DEMO)['\"]/s";
+Assert::same(
+    1,
+    preg_match($literalEnvironment, "\$this->ledger->ensureActiveStream(\$t, \$w, 'TEST');"),
+    'the scan pattern DOES match a hardcoded environment',
+);
+
+$hardcoded = [];
+foreach ($runtimeFiles as $path) {
+    if (preg_match($literalEnvironment, (string) file_get_contents($path)) === 1) {
+        $hardcoded[] = str_replace($repoRoot . '/', '', $path);
+    }
+}
+Assert::same(
+    [],
+    $hardcoded,
+    'no runtime file passes a literal environment to M10 — every one reads the workspace',
+);
+
+// The two runtime callers that do reach M10 both source it from `workspaces.environment_class`.
+foreach ([
+    'app/Substrate/M10/DecisionLedger.php',
+    'app/Product/P07A/SyntheticDelivery.php',
+] as $caller) {
+    Assert::contains(
+        'environment_class',
+        (string) file_get_contents($repoRoot . '/' . $caller),
+        "{$caller} reads the governed environment rather than assuming one",
+    );
+}

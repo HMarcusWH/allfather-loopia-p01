@@ -19,11 +19,11 @@ the server it ran on rather than assumed from how the run was launched:
 | foundation | 3 | 144 | PASS | PASS |
 | unit | 2 | 153 | PASS | PASS |
 | integration | 29 | 1605 | PASS | PASS |
-| conformance | 4 | 207 | PASS | PASS |
+| conformance | 5 | 236 | PASS | PASS |
 | acceptance | 3 | 163 | PASS | PASS |
-| security | 11 | 702 | PASS | PASS |
+| security | 12 | 716 | PASS | PASS |
 | rollback | 1 | 27 | PASS | PASS |
-| **TOTAL** | **53** | **3001** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
+| **TOTAL** | **55** | **3044** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
 
 Run with `php tests/run.php --strict`. Under `--strict` a skip is a non-zero exit, so an
 unreachable database cannot be mistaken for a green suite.
@@ -62,7 +62,7 @@ actually got rather than the one it asked for.
 
 ## 2. Conformance cases
 
-Four files, answering four different questions.
+Five files, answering five different questions.
 
 | File | Compares | Against |
 | --- | --- | --- |
@@ -70,6 +70,7 @@ Four files, answering four different questions.
 | `p01_source_policy_adapter.php` | every compiler fail-closed code as P01 renders it, and the closure of the map | `src/p01/capture-source.ts` |
 | `governed_vocabulary.php` | the closed vocabularies, member by member and in order; and the RELEASE TOPOLOGY — that M10 owns release for every module, that M16 admits exactly four artifact kinds, that exactly TWO product families adopt it (P01 and P02, as canonical does), and that P03/P04/P05 keep their own canonical release paths | `release-output/vocabulary.ts`, `action-class.ts`, `ingestion/policy.ts`, the storage CHECKs, and the product code itself |
 | `m10_release_conformance.php` | CONF-M10-001 … CONF-M10-010: the release path's outcome and its EXACT reason code for every branch — valid ALLOW, missing verdict, non-ALLOW verdict, ALLOW routed elsewhere, invalidated verdict, unsatisfied conditions, satisfied conditions, proposal not releasable, scope mismatch, digest mismatch | `appendInternalReleaseDecisionRecord` in `m10/ledger.ts` |
+| `m10_stream_identity.php` | that a ledger scope is (tenant, workspace, **environment**): idempotency per environment, TEST/DEMO/LOCAL_DEV coexisting, the canonical default stream keys, and genesis anchors against **fixed vectors produced by the canonical TypeScript encoder** | `createDecisionLedgerStream` / `ensureActiveDecisionLedgerStream` in `m10/ledger.ts`, and `digest.ts` |
 
 The reason codes in the fourth are not normalized. Six of them distinguish six different reasons a
 release can be refused, and an operator reading a refused release needs to know whether the verdict
@@ -134,6 +135,7 @@ Recorded because a conformance document that lists only successes is not evidenc
 
 | Defect | Where | Consequence had it shipped |
 | --- | --- | --- |
+| M10 collapsed TEST and DEMO ledger identity | M10 | a caller asking for the DEMO ledger received the TEST one and appended DEMO history to it. Silent by construction: the chain still verified, because a hash chain has no opinion about which environment its records came from. Three faults had to coincide — the ACTIVE lookup omitted `environment_class`, the default stream key embedded tenant and workspace (so the real unique index on `(tenant, workspace, stream_key)` allowed one stream per scope for all time), and the genesis anchor digested the random stream id instead of the logical identity |
 | The M10 release path validated NOTHING, and M04 performed the RELEASED mutation | M10 / M04 | the record the console treats as PROOF of release provable by any caller willing to assemble a basis; two modules owning release, in two transactions, so a failure between them left a durable release record against a still-SUBMITTED proposal — and the retry would mint a second |
 | `ReleasePathCapability` had a public static factory | M10 | the guard on the release record type was satisfiable by any module that could name the class; the docblock claimed a strength the code did not have |
 | The M16 audience ceiling was capped to match the activation policy | M16 | the stored source-use profile asserted that a licence permitting customer output does not permit it — a false claim about the SOURCES, defended in three documents as "stricter, never looser" |

@@ -176,13 +176,79 @@ and are now filled.
 
 | Missing | Classification | Consequence | Consequence it does NOT have |
 | --- | --- | --- | --- |
-| P02 stakeholder role profiles | PORT_USEFUL_AND_COHERENT, not yet done | `stakeholder_role_profiles` and `stakeholder_role_attributes` have no producer | the `STAKEHOLDER_PROFILE_MINIMIZATION` audit is ported and proved to bite, so the control precedes the producer rather than following it |
-| P03 assurance (3 M11 audits) | PORT_USEFUL_AND_COHERENT, not yet done | no post-outcome audit trail for catalogue freshness, signal-pairing freshness or the buyer-intent invariant | the buyer-intent PRIMARY gate is the M08 rule and is ported and tested; these audits are the defence-in-depth re-scan, not the gate |
+| P02 stakeholder role profiles | **STANDING_CONTROL_WITHOUT_PRODUCER** | `stakeholder_role_profiles` and `stakeholder_role_attributes` have no producer | the `STAKEHOLDER_PROFILE_MINIMIZATION` audit is ported and proved to bite, so the control precedes the producer rather than following it. No selected flow reads these tables — see §4.4 |
+| P03 assurance (3 M11 audits) | **PORT_REQUIRED_BEFORE_CUSTOMER_LAUNCH** (not before staging) | no post-outcome audit trail for catalogue freshness, signal-pairing freshness or the buyer-intent invariant | every one of the three has its PRIMARY gate ported and tested; these audits are the defence-in-depth re-scan, not the gate — see §4.4 |
 | P03 web surface | **RUNTIME_IMPLEMENTED / WEB_SURFACE_NOT_INCLUDED** | no dedicated console screen renders released prospect outputs | the two-gate read model IS ported and tested (`P03\Release::listVisibleProspectOutputs`). This is a UX scope decision for the first staging experience, NOT missing runtime and NOT a conformance gap |
 | P02 web surface | **RUNTIME_IMPLEMENTED / WEB_SURFACE_NOT_INCLUDED** | no dedicated console screen renders released twin or relationship snapshots | both two-gate read models are ported and tested (`P02\TwinRelease::listVisibleSnapshots`, `P02\RelationshipRelease::listVisibleSnapshots`), and the M16 operator hold-view is where a held artifact is read. The first staging experience for P02 is operator-assisted |
 | P02 offering twins | **EXCLUDED_BY_AUTHORITY** | none | not a gap — excluded by the upstream P02 cp11 gate (V1-GAP-097). P03 catalogue is the MVP products/offers authority |
 | P07-A channel binding | **EXCLUDED_BY_AUTHORITY / deliberate** | no `outreach_channel_bindings` row can exist | stronger than porting it inert — the port ships no producer, so there is nothing for the table's CHECK constraints to constrain |
 | P02 stakeholder role OBSERVATIONS | **ALREADY_SUBSUMED** | none | ported as `app/Product/P04/StakeholderRoles.php`, writing `stakeholder_role_observations`, where the distribution path consumes it. This is a DIFFERENT object from P02's role profiles above — an earlier revision of this matrix conflated them |
+
+### Final selected-graph gap classification
+
+Every launch-reachable object still absent from the selected SME graph, classified against the
+pinned canonical authority rather than against preference. Each answers the same seven questions:
+(1) promoted upstream? (2) does a selected product depend on it? (3) does a runtime path READ it?
+(4) does an assurance or release GATE depend on it? (5) does its absence create a false product
+claim? (6) can staging exercise the selected graph without it? (7) can customer launch honestly
+proceed without it?
+
+#### P03 assurance — `src/p03/assurance.ts` → PORT_REQUIRED_BEFORE_CUSTOMER_LAUNCH
+
+| | |
+| --- | --- |
+| 1. promoted upstream | **yes** — P03 checkpoint 6, three audit profiles on the certified M11 plane |
+| 2. selected product depends on it | **no** — no P03 module imports it |
+| 3. runtime path reads it | **no**. Grepped: no file under `src/p03/` outside `assurance.ts` itself reads `audit_runs`, `audit_findings` or calls the three audit entry points. The audits READ canonical state and RECORD their own append-only findings; canonical states outright that they "never grant authority (`audit_profiles.does_not_grant_authority` is CHECK-pinned to 1)" |
+| 4. a gate depends on it | **no**, and canonical says so for the one that matters: of `BUYER_INTENT_INVARIANT` it writes "The PRIMARY gate is the M08 `p03_buyer_intent_trigger` rule; this audit catches any item that somehow bypassed it". Of `SIGNAL_PAIRING_FRESHNESS`: "the M08 verdict already HOLDs; this is the post-outcome assurance trail" |
+| 5. absence creates a false claim | **no** — provided the primary gates are present, which they are (below) |
+| 6. staging can proceed | **yes** — `ROAD_TEST_001` is a P01 flow end to end (source card → live-read activation → capture → second capture → change detection → read the findings). It does not touch P03 |
+| 7. customer launch can proceed | **no**. These audits catch POST-outcome drift — a catalogue whose review window lapses after admission, a signal retracted after pairing. At staging an operator watching a handful of flows sees that; under continuous customer operation it accumulates unobserved. P01 and P02 both carry their assurance planes, and shipping P03 without one is an asymmetry a customer-facing deployment should not carry |
+
+All three PRIMARY gates are present in this port, which is what makes (5) and (6) true rather than
+hopeful:
+
+| Canonical audit | What it re-scans | The primary gate, ported |
+| --- | --- | --- |
+| `CATALOGUE_FRESHNESS` | catalogue past its review window, not ACTIVE, or card not `approved` | `p03_admission_catalogue_active` (M08) **and** the release-boundary source-card re-read in `P03\Release` |
+| `SIGNAL_PAIRING_FRESHNESS` | cited signal no longer RELEASED, or the pairing stale | `p03_admission_signal_released` (M08) |
+| `BUYER_INTENT_INVARIANT` | a queue item whose trigger is not a buying-trigger class AND directly observed | `p03_buyer_intent_trigger` (M08, BLOCK) — the rule canonical itself names as primary |
+
+**Not built in this pass, deliberately.** §13's test is evidence, and the evidence says B: an
+assurance capability that can remain absent for first staging while runtime behaviour stays honest.
+Porting it now would be a side quest against an instruction that forbids one.
+
+#### P03 console panels — `src/p03/console-panels.ts` → OPTIONAL_PRODUCT_POLISH for staging
+
+| | |
+| --- | --- |
+| 1. promoted upstream | **yes** — M16 cp8 |
+| 2. selected product depends on it | **no** |
+| 3. runtime path reads it | it IS the read path, but it adds none: canonical says it rides "ONLY the existing surfaces" — the two-gate `listVisibleProspectOutputs` read model (ported and tested) and the M12 display guard (ported) |
+| 4. a gate depends on it | **no**. Canonical: "No new permission …, no new authority plane, no customer-visible surface (V1-GAP-093 stands)" |
+| 5. absence creates a false claim | **no**, and the matrix says `RUNTIME_IMPLEMENTED / WEB_SURFACE_NOT_INCLUDED` rather than implying a screen exists. A foundation test pins that classification against drift |
+| 6. staging can proceed | **yes** — `ROAD_TEST_001` requires no browser inspection of P03 output. Operator access to the read model is through the tested API and the database |
+| 7. customer launch can proceed | **not decided here.** It is a UX decision about the first customer experience, not a conformance one, and it belongs to whoever scopes that experience |
+
+**Explicitly:** building this now would be a side quest. It becomes
+`PORT_REQUIRED_BEFORE_STAGING` only if the staging acceptance is rewritten to require a human
+operator to inspect P03 output through the browser. It currently is not.
+
+#### P02 stakeholder role profiles → STANDING_CONTROL_WITHOUT_PRODUCER
+
+| | |
+| --- | --- |
+| 1. promoted upstream | **yes** — `src/p02/stakeholder-roles.ts` |
+| 2. selected product depends on it | **no**. The selected consumer is P04 distribution, and it reads `stakeholder_role_observations` — a DIFFERENT object, produced here by `P04\StakeholderRoles` |
+| 3. runtime path reads it | **no**. Grepped canonical: `stakeholder_role_profiles` / `stakeholder_role_attributes` appear only in the schema, in P02's own producer, and in the P02 twin-assurance audit. **No P04 file reads them** |
+| 4. a gate depends on it | **no** — the audit stands OVER them; nothing gates on their contents |
+| 5. absence creates a false claim | **no** — nothing in this port claims a stakeholder role profile exists |
+| 6. staging can proceed | **yes** |
+| 7. customer launch can proceed | **yes** — for the selected graph. It becomes required only if a selected flow starts consuming role PROFILES rather than observations |
+
+**Left inert on purpose.** `STAKEHOLDER_PROFILE_MINIMIZATION` passes over zero rows and is proved
+to bite against a planted row, so the control is real and precedes its subject. Inventing a producer
+to give an audit something to audit would be building product to satisfy a table.
 
 ### Known deliberate divergences from canonical (stricter, never looser)
 
