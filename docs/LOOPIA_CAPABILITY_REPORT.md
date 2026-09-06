@@ -33,17 +33,21 @@ nowhere else. M15 governed ingestion is present with the guarded egress path.
 
 | Plane | What it does |
 | --- | --- |
-| P01 | competition monitoring: sources, capture, change detection, signals, battlecards, release, surfacing, two audits |
-| P02 | entity and relationship twins, with four privacy screens |
-| P03 | catalogue, ICP, fit hypotheses, prospect queue admission |
+| P01 | competition monitoring: sources, capture, change detection, signals, battlecards, release, surfacing, usage metering, two audits |
+| P02 | entity and relationship twins with four privacy screens — **and no governed lifecycle past a recorded version**; see `PORT_SCOPE_MATRIX.md` §3.7 |
+| P03 | catalogue, ICP, fit hypotheses, prospect queue admission, **M10 release and two-gate surfacing** |
 | P04 | stakeholder roles, role distribution, admission, release, three-gate surfacing, four audits |
 | P05 | marketing drafts, claim citations, variants, admission, internal release, three audits |
 | P07-A | consent, PII firewall, outreach admission, approval, frozen artifacts, synthetic dispatch, five audits |
 
 **Storage** — 15 migrations, MariaDB 10.11, with the invariants held as CHECK constraints and
-append-only triggers rather than as application conventions.
+append-only triggers rather than as application conventions. **Loopia Företag is MariaDB 10.6**;
+10.11 is Företag Plus only, and 10.6 is untested — see `LOOPIA_HOST_MODEL.md` §5.
 
-**Tests** — 2356 assertions across seven layers, all executed against MariaDB. See
+**Provisioning** — `ops/provision-staging.php` stands a tenant up by composing the real module
+registrations for P01, P03, P04 and P05. P02 is refused: its admission policy set is not ported.
+
+**Tests** — 2545 assertions across seven layers, all executed against MariaDB. See
 `CONFORMANCE_MATRIX.md` §1 for the breakdown and for what has NOT been verified.
 
 ## 2. What it deliberately cannot do

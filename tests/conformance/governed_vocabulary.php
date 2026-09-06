@@ -246,3 +246,61 @@ foreach ((array) $tierPermissions as $permission) {
         "no tier permission is an excluded one: {$permission}",
     );
 }
+
+// ============================================================ the release topology is M10's, not M16's
+
+// The Sources plane used to draw M10 -> M16 -> all five product modules. It is not the adoption
+// boundary at the pinned canonical head, and the difference matters: M10 owns release for EVERY
+// module — one authority, one place a release can be revoked from — while M16 is a PROJECTION that
+// exactly two product families adopt. Asserted here so the map cannot drift back.
+
+// M16's artifact-kind vocabulary names P01 and P02 kinds only. A P03, P04 or P05 kind appearing
+// here would be the first sign of somebody routing a module through it.
+foreach (ReleaseOutput::ARTIFACT_KIND as $kind) {
+    Assert::true(
+        str_contains($kind, 'BRIEFING') || str_contains($kind, 'SNAPSHOT_VIEW'),
+        "M16 artifact kind {$kind} belongs to the adopted P01/P02 families",
+    );
+}
+foreach (['PROSPECT', 'DISTRIBUTION', 'MARKETING', 'QUEUE'] as $unadopted) {
+    Assert::false(
+        in_array(true, array_map(
+            static fn (string $k): bool => str_contains($k, $unadopted),
+            ReleaseOutput::ARTIFACT_KIND
+        ), true),
+        "and no {$unadopted} kind — P03/P04/P05 are not M16-adopted",
+    );
+}
+
+// Each unadopted module has its OWN release projection, and every one of them references an M10
+// decision record. That is the shape: one release authority, several projections.
+foreach ([
+    'released_briefings' => 'P01 — also the M16-adopted path',
+    'released_prospect_outputs' => 'P03',
+    'released_distribution_outputs' => 'P04',
+    'released_marketing_assets' => 'P05',
+] as $table => $owner) {
+    Assert::same(
+        1,
+        (int) $db->scalar(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'decision_record_id'",
+            [$table]
+        ),
+        "{$owner}: its release projection references an M10 decision record",
+    );
+}
+
+// And ONE product module constructs M16 in this port. A second one appearing is the drift this
+// assertion exists to catch — it would mean an adoption boundary moved without an owner act.
+$m16Consumers = [];
+foreach (glob(dirname(__DIR__, 2) . '/app/Product/*/*.php') ?: [] as $file) {
+    if (str_contains((string) file_get_contents($file), 'M16\\ReleaseOutput')) {
+        $m16Consumers[] = basename(dirname($file));
+    }
+}
+Assert::same(
+    ['P01'],
+    array_values(array_unique($m16Consumers)),
+    'exactly one product family reaches M16 in this port — P01, the adopted path that is ported',
+);

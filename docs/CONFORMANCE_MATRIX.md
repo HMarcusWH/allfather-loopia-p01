@@ -14,14 +14,14 @@ is not.
 
 | Layer | Files | Assertions | Result |
 | --- | --- | --- | --- |
-| foundation | 3 | 102 | PASS |
+| foundation | 3 | 113 | PASS |
 | unit | 2 | 153 | PASS |
-| integration | 24 | 1148 | PASS |
-| conformance | 3 | 144 | PASS |
+| integration | 27 | 1313 | PASS |
+| conformance | 3 | 157 | PASS |
 | acceptance | 2 | 126 | PASS |
 | security | 10 | 656 | PASS |
 | rollback | 1 | 27 | PASS |
-| **TOTAL** | **45** | **2356** | **PASS, 0 failing, 0 skipped** |
+| **TOTAL** | **48** | **2545** | **PASS, 0 failing, 0 skipped** |
 
 Run with `php tests/run.php --strict`. Under `--strict` a skip is a non-zero exit, so an
 unreachable database cannot be mistaken for a green suite.
@@ -55,7 +55,7 @@ Three files, answering three different questions.
 | --- | --- | --- |
 | `p01_governed_transcripts.php` | normalized decision transcripts for seven bent authority states | the outcome each is required to produce |
 | `p01_source_policy_adapter.php` | every compiler fail-closed code as P01 renders it, and the closure of the map | `src/p01/capture-source.ts` |
-| `governed_vocabulary.php` | the closed vocabularies, member by member and in order | `release-output/vocabulary.ts`, `action-class.ts`, `ingestion/policy.ts`, and the storage CHECKs |
+| `governed_vocabulary.php` | the closed vocabularies, member by member and in order; and the RELEASE TOPOLOGY — that M10 owns release for every module while M16 is a projection exactly one ported family adopts | `release-output/vocabulary.ts`, `action-class.ts`, `ingestion/policy.ts`, the storage CHECKs, and the product code itself |
 
 The third exists because of what the port loses at the language boundary. Upstream holds these
 vocabularies as TypeScript union types and its compiler proves exhaustively that every consumer

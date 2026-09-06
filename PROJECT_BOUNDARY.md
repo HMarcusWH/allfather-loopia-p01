@@ -124,13 +124,34 @@ approved source authority
        -> priority queue
   -> M07 independent review
   -> M08 Arbiter
-  -> M10 canonical release decision
-  -> M16 frozen governed release/output
-       -> P01 battlecards · P02 entity intelligence · P03 prospect intelligence
-       -> P04 internal distribution · P05 internal marketing drafts
+  -> M10 canonical release decision            <- ONE release authority, for every module
+       |
+       ├─ ADOPTED M16 PATH  (frozen artifact -> source-use profile -> audience projection)
+       │     └─ P01 battlecards + company-signal briefings
+       │        (canonical also adopts the P02 snapshot views; NOT PORTED here — the artifact
+       │         kinds exist in the vocabulary and no code produces them)
+       │
+       ├─ P03 own projection -> released_prospect_outputs
+       ├─ P04 own projection -> released_distribution_outputs
+       └─ P05 own projection -> released_marketing_assets
   -> M12 authorized operator surfaces
   -> M11 audit / replay / rollback
 ```
+
+**M16 is not the universal release spine, and this diagram used to say it was.** An earlier draft
+showed M10 → M16 → all five product modules. That is not the adoption boundary at the pinned
+canonical head: M16's `ReleaseArtifactKind` vocabulary contains exactly four members, two P01 and
+two P02, and P03/P04/P05 each carry their own release projection referencing the M10 decision
+record directly.
+
+The distinction is load-bearing rather than cosmetic. **M10 owns release for every module** — one
+authority, one place a release can be revoked from. What differs is what gets PROJECTED afterwards:
+an M16 artifact is frozen content with a source-use profile and an audience projection, and a P03
+released output is a reference plus a two-gate read model. Routing P03/P04/P05 through M16 to make
+one release service out of four would re-decide an owner-gated adoption boundary and would change
+what those artifacts are.
+
+The map follows the runtime. The runtime was not changed to satisfy the map.
 
 ---
 

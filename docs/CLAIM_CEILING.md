@@ -47,6 +47,12 @@ because the claim was never available to make.
   gate as `AUDIENCE_NOT_A_PROJECTION_TARGET` rather than as a ceiling breach.
 - No path activates a `CUSTOMER_VISIBLE` projection. Requesting one is refused at
   `AUDIENCE_ABOVE_SOURCE_USE_CEILING`.
+- **A released prospect output is an M10 reference, not an M16 artifact.** P03, P04 and P05 each
+  carry their own release projection; M16's frozen-artifact path is adopted by P01 only in this
+  port. All four rest on the same M10 decision record — one release authority, several projections.
+- **Usage metering records; it does not bill.** `no_external_charge_executed` is CHECK-pinned to 1
+  and the table is append-only. A usage summary is a statement of what WOULD be billed, and nobody
+  is billed by it.
 - A release is a decision record. There is no way to release without one, which is why every
   "released" claim in this system resolves to a chain that can be verified.
 

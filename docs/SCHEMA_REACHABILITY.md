@@ -314,6 +314,27 @@ against upstream in conformance — a divergence here is an implementation choic
 
 ---
 
+### 2.2 Tables that gained a producer in the final pre-staging pass
+
+Reachability said these were in scope and the first port left them without a writer — a table with
+no producer is schema, not runtime, and the distinction is exactly what this document exists to
+keep straight.
+
+| Table | Producer now | Was |
+| --- | --- | --- |
+| `released_prospect_outputs` | `P03\Release::releaseProspectOutput` | reachable, no writer |
+| `usage_metering_records` | `P01\Metering::recordUsage` | reachable, no writer |
+
+Still reachable with **no producer**, and named here rather than left to inference:
+
+| Table | Why it has no writer |
+| --- | --- |
+| `entity_twin_state_change_proposals`, `entity_twin_state_change_status_transitions`, `entity_relationship_state_change_proposals`, `entity_relationship_state_change_status_transitions`, `released_entity_twin_snapshots`, `released_entity_relationship_snapshots` | the P02 governed lifecycle is not ported (PORT_SCOPE_MATRIX §3.7) — PORT_REQUIRED, unfinished |
+| `prospect_battlecard_briefs` | canonical's P03 release path mints no brief and carries the column NULL; the port does the same |
+| `outreach_channel_bindings` | deliberate — the port ships no producer, so no row can exist for its CHECK constraints to constrain |
+
+---
+
 ## 3. MariaDB-specific translation rules
 
 Applied uniformly; deviations are recorded per table in the migration files.

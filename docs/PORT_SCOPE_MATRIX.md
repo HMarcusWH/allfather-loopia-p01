@@ -95,7 +95,7 @@ is and is not there named in the Notes · ❌ not ported.
 | M10 release | Core | `src/p01/release.ts` | promoted | ✅ | `app/Product/P01/Release.php` | post-verdict source re-check |
 | Entitlements / tiers | Core | `src/p01/entitlements.ts` | promoted | ✅ | `app/Product/P01/Entitlements.php` | recording only |
 | Surfacing (M12) | Core | `src/p01/surfacing.ts` | promoted | ✅ | `app/Product/P01/Surfacing.php` | three-gate default-deny |
-| Usage metering | Core | `src/p01/billing.ts` | promoted | ❌ | — | **NOT PORTED.** The `usage_metering_records` table and its `no_external_charge_executed` CHECK exist in the schema; no PHP writes them. A tier is checked at every gate, so entitlement is enforced — what is missing is the RECORDING of usage, which nothing in the selected graph reads |
+| Usage metering | Core | `src/p01/billing.ts` | promoted | ✅ | `app/Product/P01/Metering.php` | **RECORDING ONLY.** `no_external_charge_executed` CHECK-pinned 1, table append-only, rate snapshotted at record time. No charge, no invoice, no payment path — asserted by a tripwire over the module's executable code |
 | M11 assurance profiles | Core | `src/p01/assurance.ts` | promoted | ✅ | `app/Product/P01/Assurance.php` | freshness / diff-integrity audits |
 | Registration | Src | `src/p01/registration.ts` | promoted | ✅ | `app/Product/P01/Registration.php` | `registerCompetitionMonitor` — Valkyrie, contract, tool, M08 policy set, M16 profiles, tiers. **The only registration in the port**: P02–P07-A have none |
 | `p01/fetch-guard.ts` | — | re-export shim | superseded | ❌ | — | **do not resurrect**; real guard is `ingestion/egress-guard.ts` |
@@ -125,10 +125,10 @@ is and is not there named in the Notes · ❌ not ported.
 | ICP profiles + versions | Core | `src/p03/icp.ts` | promoted (ICP-D5) | ✅ | `app/Product/P03/Icp.php` | excluded-segment BLOCK |
 | Prospect admission | Core | `src/p03/prospect-admission.ts` | promoted | ✅ | `app/Product/P03/ProspectQueue.php` | `submitForAdmission` / `admit`, against `P03_PROSPECT_ADMISSION` |
 | Priority outreach queue | Core | `src/p03/prospect-queue.ts` | promoted | ✅ | `app/Product/P03/ProspectQueue.php` | buyer-intent gate |
-| Prospect battlecard briefs | Core | `src/p03/release.ts` | promoted | ❌ | — | **NOT PORTED.** P03 stops at an admitted, queued prospect; no P03 release path exists |
+| Prospect battlecard briefs | Core | `src/p03/release.ts` | promoted | ✅ | `app/Product/P03/Release.php` | M10 release + the two-gate surfacing. **Its own projection, NOT M16** — canonical P03 references the decision record rather than minting an artifact. Release-boundary card re-read along the prospect→hypothesis→product→catalogue→card lineage. The `PROSPECT_BATTLECARD_BRIEF` kind is NOT minted: upstream's release path carries that column NULL |
 | M11 audit profiles | Core | `src/p03/assurance.ts` | promoted | ❌ | — | **NOT PORTED.** |
 | Console panels | Core | `src/p03/console-panels.ts` | promoted | ❌ | — | **NOT PORTED.** The console surfaces P01, P04 and P05 output; P03 has no panel |
-| Registration | Src | `src/p03/registration.ts` | promoted | ❌ | — | **NOT PORTED.** |
+| Registration | Src | `src/p03/registration.ts` | promoted | ✅ | `app/Product/P03/Registration.php` | `registerLeadQualification` — M03 Valkyrie + contract, M06 tool (platform row, converged), M08 policy set, two tiers |
 
 ### P04 — Intelligence Distribution (internal only)
 
@@ -139,7 +139,7 @@ is and is not there named in the Notes · ❌ not ported.
 | Release + three-gate visibility + ack | Core | `src/p04/release.ts` | promoted | ✅ | `app/Product/P04/Release.php` | delivery-assurance-only ack |
 | Stakeholder ROLE_CLASS observation | Core | `src/p04/stakeholder-roles.ts` | promoted | ✅ | `app/Product/P04/StakeholderRoles.php` | `subject_kind` storage-pinned `ROLE_CLASS` |
 | M11 audits incl. no-covert-telemetry | Core | `src/p04/assurance.ts` | promoted | ✅ | `app/Product/P04/Assurance.php` | |
-| Registration | Src | `src/p04/registration.ts` | promoted | ❌ | — | **NOT PORTED.** |
+| Registration | Src | `src/p04/registration.ts` | promoted | ✅ | `app/Product/P04/Registration.php` | `registerIntelligenceDistribution` — contract forbids covert stakeholder scoring and external message delivery explicitly |
 
 ### P05 — Marketing Customization (internal drafts only)
 
@@ -149,7 +149,7 @@ is and is not there named in the Notes · ❌ not ported.
 | Admission | Core | `src/p05/marketing-admission.ts` | promoted | ✅ | `app/Product/P05/MarketingAdmission.php` | uncited-claim + forbidden-pattern BLOCK |
 | Internal release + surfacing | Core | `src/p05/marketing-release.ts` | promoted | ✅ | `app/Product/P05/Release.php` | |
 | M11 assurance | Core | `src/p05/assurance.ts` | promoted | ✅ | `app/Product/P05/Assurance.php` | |
-| Registration | Src | `src/p05/registration.ts` | promoted | ❌ | — | **NOT PORTED.** |
+| Registration | Src | `src/p05/registration.ts` | promoted | ✅ | `app/Product/P05/Registration.php` | `registerMarketingCustomization` — contract forbids EXTERNAL_PUBLISH and DARK_PATTERN |
 
 ### P07-A — Synthetic outreach preparation (NO live send)
 
@@ -166,26 +166,30 @@ is and is not there named in the Notes · ❌ not ported.
 
 ### 3.7 What the product port does NOT contain
 
-Collected from the tables above so it can be read in one place, because a gap named only in a
-row of a long table is a gap somebody will miss.
+Collected from the tables above so it can be read in one place, because a gap named only in a row
+of a long table is a gap somebody will miss. **Reduced substantially by the final pre-staging pass**
+— P03's release path, all four missing registrations and P01 metering were launch-reachable gaps
+left by the first port, and are now filled.
 
-| Missing | Consequence | Consequence it does NOT have |
-| --- | --- | --- |
-| P01 usage metering | usage is not recorded | entitlement is still enforced — every gate checks the tier; what is missing is the record, which nothing in the selected graph reads |
-| P02 twin state-change, twin release, twin assurance, registration | a twin can be registered and versioned, and goes no further | the ADMISSION rules for both twin and relationship state are ported and evaluable in M08; what is absent is a P02 caller for them |
-| P03 release, assurance, console panels, registration | P03 stops at an admitted, queued prospect | the buyer-intent gate, the ICP block and the fit scoring are all present and tested — the qualification law is ported, its downstream is not |
-| P02–P07-A registration | only P01 can be provisioned end to end | the other modules' tables, policy sets and admission rules exist; there is no one-call tenant setup for them |
-| P07-A channel binding | no `outreach_channel_bindings` row can exist | this is DELIBERATE and stronger than the alternative — the port ships no producer, so there is nothing for the table's CHECK constraints to constrain |
+| Missing | Classification | Consequence | Consequence it does NOT have |
+| --- | --- | --- | --- |
+| **P02 governed lifecycle** — state change, admission driver, release, M10 binding floor, assurance, registration | PORT_REQUIRED, **not yet done** | a twin can be registered and versioned and goes no further; P02 is **not provisionable** and `ops/provision-staging.php` refuses it | the ADMISSION RULES for twin and relationship state are in M08's kind vocabulary; what is absent is the `P02_TWIN_STATE_ADMISSION` policy-set seed, its rule evaluation, and the P02 callers |
+| P03 assurance (3 M11 audits) | PORT_USEFUL_AND_COHERENT, not yet done | no post-outcome audit trail for catalogue freshness, signal-pairing freshness or the buyer-intent invariant | the buyer-intent PRIMARY gate is the M08 rule and is ported and tested; these audits are the defence-in-depth re-scan, not the gate |
+| P03 console panels | PORT_USEFUL_AND_COHERENT, not yet done | the released prospect outputs have no dedicated console surface | the two-gate read model IS ported (`P03\Release::listVisibleProspectOutputs`); what is missing is the M12 panel that renders it |
+| P02 offering twins | **EXCLUDED_BY_AUTHORITY** | none | not a gap — excluded by the upstream P02 cp11 gate (V1-GAP-097). P03 catalogue is the MVP products/offers authority |
+| P07-A channel binding | **EXCLUDED_BY_AUTHORITY / deliberate** | no `outreach_channel_bindings` row can exist | stronger than porting it inert — the port ships no producer, so there is nothing for the table's CHECK constraints to constrain |
+| P02 stakeholder roles | **ALREADY_SUBSUMED** | none | ported as `app/Product/P04/StakeholderRoles.php`, where the distribution path consumes it. One implementation, not two |
 
-**None of these is a hidden capability.** Every one is an absence: no code path, no surface, no
-row. The one that is a deliberate exclusion rather than an unfinished port — the channel binding —
-is marked as such, and the P07-B hard exclusion below is separate from it and unaffected.
+**None of these is a hidden capability.** Every one is an absence: no code path, no surface, no row.
 
-Where this matters for a reader: the port is a **vertical slice**, deepest at P01 and P04/P05, and
-progressively shallower through P02 and P03. It is not a uniform port of five modules, and the
-tables above no longer suggest that it is.
+**Where this matters for a reader:** the port is a vertical slice, and after this pass it is deep at
+P01, P03, P04 and P05 and shallow at **P02 only**. P02 is the one module whose governed lifecycle is
+still missing, and it is marked PORT_REQUIRED rather than excluded — it is unfinished work, not a
+scope decision.
 
 ---
+
+## 4. Substrate families — port scope by reachability---
 
 ## 4. Substrate families — port scope by reachability
 
