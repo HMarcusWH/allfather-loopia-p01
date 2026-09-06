@@ -85,6 +85,8 @@ $card = $cards->project([
     'allowed_use_class' => 'derived_summary_allowed',
     'license_class' => 'OPEN_CC0',
     'review_status' => 'approved',
+    // A customer catalogue is the TENANT's own material; the card must say so.
+    'data_ownership' => 'TENANT_OWNED',
 ]);
 Assert::same('PROJECTED', $card['outcome'], 'the tenant\'s own catalogue source is admissible');
 
@@ -117,6 +119,8 @@ $otherApproved = $cards->project([
     'allowed_use_class' => 'derived_summary_allowed',
     'license_class' => 'OPEN_CC0',
     'review_status' => 'approved',
+    // A customer catalogue is the TENANT's own material; the card must say so.
+    'data_ownership' => 'TENANT_OWNED',
 ]);
 Assert::same(
     'SOURCE_CARD_REFERENCE_MISMATCH',

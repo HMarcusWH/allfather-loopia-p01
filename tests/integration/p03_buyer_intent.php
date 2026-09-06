@@ -69,6 +69,8 @@ $card = $cards->project([
     'allowed_use_class' => 'derived_summary_allowed',
     'license_class' => 'OPEN_CC0',
     'review_status' => 'approved',
+    // A customer catalogue is the TENANT's own material; the card must say so.
+    'data_ownership' => 'TENANT_OWNED',
 ]);
 $catalogueId = $catalogue->registerCatalogue(
     $scope['tenant_id'], $scope['workspace_id'], 'main', 'Main',

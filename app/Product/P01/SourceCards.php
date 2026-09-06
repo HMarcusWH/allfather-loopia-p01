@@ -168,6 +168,12 @@ final class SourceCards
                 // blocked or silently allowed: the observation was real, but its currency is not
                 // established, and "we saw this at some point" is a hypothesis about now.
                 'stale_output_behavior' => $card['stale_output_behavior'] ?? 'downgrade_to_hypothesis',
+                // WHOSE material this is. It defaults to PUBLIC because the P01 sources this
+                // function was written for are somebody else's public pages; a tenant's OWN
+                // catalogue must declare `TENANT_OWNED`, and P03 refuses a catalogue card that
+                // does not. Defaulting the other way would let any public card stand as authority
+                // over a tenant's own product list.
+                'data_ownership' => $card['data_ownership'] ?? 'PUBLIC',
                 'created_at' => $now,
             ]);
         });

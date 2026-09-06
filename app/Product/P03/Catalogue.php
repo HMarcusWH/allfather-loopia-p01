@@ -46,7 +46,7 @@ final class Catalogue
         string $status = 'ACTIVE',
     ): Outcome {
         $card = $this->db->one(
-            'SELECT tenant_id, source_ref_id, review_status FROM source_license_cards
+            'SELECT tenant_id, source_ref_id, review_status, data_ownership FROM source_license_cards
              WHERE source_license_card_id = ?',
             [$sourceLicenseCardId]
         );
@@ -60,6 +60,16 @@ final class Catalogue
             return Outcome::refuse('SOURCE_CARD_NOT_APPROVED', [
                 'review_status' => (string) $card['review_status'],
             ], 'POLICY');
+        }
+        // A CUSTOMER CATALOGUE IS THE TENANT'S OWN MATERIAL. A card describing somebody else's
+        // public page cannot be the authority for a tenant's product list — and the distinction
+        // matters downstream, because a released prospect output rests on this lineage and P03's
+        // release boundary re-reads it. Ordered here, between approval and reference-match, so the
+        // reason code a caller gets names the most fundamental failure first.
+        if ((string) $card['data_ownership'] !== 'TENANT_OWNED') {
+            return Outcome::refuse('SOURCE_CARD_NOT_TENANT_OWNED', [
+                'data_ownership' => (string) $card['data_ownership'],
+            ], 'POLICY', 'S4');
         }
         // The card must describe THIS reference. Otherwise an approved card for one source could
         // stand as the authority for a catalogue drawn from another.
