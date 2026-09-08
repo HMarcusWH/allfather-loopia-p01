@@ -1,0 +1,1 @@
+import { ReadPanel } from "../../app/read-panel.jsx"; import { READS } from "../../data/surface-reads.js"; export function RelationshipContext({datasource}){return <ReadPanel datasource={datasource} readId={READS.P02_RELATION_INDEX} title="Relationship snapshots" icon="route"/>;}

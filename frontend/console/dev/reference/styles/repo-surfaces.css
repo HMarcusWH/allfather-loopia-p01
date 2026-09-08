@@ -1,0 +1,80 @@
+/* Allfather BI — repo surfaces (MCM Diagnostics + Migration Readiness) styles.
+   `rs-` prefix. Read-only readout treatment; reuses panelwrap / ov-phead /
+   rm-preview chrome from the shared stylesheets. */
+
+.rs-root { display: flex; flex-direction: column; gap: 14px; }
+.rs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+@media (max-width: 1100px) { .rs-grid { grid-template-columns: 1fr; } }
+.rs-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+/* ── MCM diagnostic flow rail ── */
+.rs-flow { display: flex; flex-direction: column; padding: 12px 14px; }
+.rs-fs { position: relative; display: flex; gap: 12px; padding: 9px 0; }
+.rs-fs-spine { position: absolute; left: 11px; top: 32px; bottom: -8px; width: 1.5px; background: var(--abi-border-subtle); }
+.rs-fs-node { position: relative; z-index: 1; width: 23px; height: 23px; flex: none; border-radius: 999px; display: grid; place-items: center;
+  font-family: var(--font-display); font-size: 10.5px; font-weight: 700; color: var(--fc); border: 1px solid var(--fc);
+  background: color-mix(in oklab, var(--fc) 10%, var(--abi-layer-01)); margin-top: 1px; }
+.rs-fs-main { flex: 1; min-width: 0; }
+.rs-fs-hd { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.rs-fs-name { font-family: var(--font-display); font-size: 12.5px; font-weight: 600; color: var(--abi-text-primary); }
+.rs-fs-gate { font-size: 8.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fc);
+  border: 1px solid var(--fc); border-radius: 999px; padding: 2px 8px; }
+.rs-fs-note { font-size: 10.5px; line-height: 1.5; color: var(--abi-text-muted); margin-top: 3px; }
+
+/* ── pins / chips ── */
+.rs-pins { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 14px 12px; }
+.rs-pin { font-size: 9.5px; font-weight: 600; color: var(--abi-block-red); border: 1px solid var(--abi-red-line);
+  background: var(--abi-red-fill); border-radius: 999px; padding: 3px 10px; }
+
+/* ── MCM fixture cases ── */
+.rs-cases { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; padding: 12px 14px; }
+@media (max-width: 700px) { .rs-cases { grid-template-columns: 1fr; } }
+.rs-case { border: 1px solid var(--abi-border-subtle); border-radius: 9px; background: var(--abi-layer-01); padding: 9px 11px; }
+.rs-case.neg { border-style: dashed; border-color: var(--abi-violet-line); }
+.rs-case-hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 3px; }
+.rs-case-id { font-size: 10px; font-weight: 700; color: var(--abi-evidence-cyan); }
+.rs-case-neg { font-size: 8px; font-weight: 700; letter-spacing: .07em; color: var(--abi-governance-violet);
+  border: 1px solid var(--abi-violet-line); background: var(--abi-violet-fill); border-radius: 999px; padding: 1px 7px; }
+.rs-case-lb { font-size: 11px; font-weight: 600; color: var(--abi-text-primary); }
+.rs-case-v { font-size: 10px; color: var(--abi-text-muted); margin-top: 2px; }
+
+/* ── migration phase ladder ── */
+.rs-phases { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; }
+.rs-ph { display: flex; gap: 12px; border: 1px solid var(--abi-border-subtle); border-left: 3px solid var(--pc);
+  border-radius: 10px; background: var(--abi-layer-01); padding: 10px 13px; }
+.rs-ph-id { flex: none; font-size: 10px; font-weight: 700; color: var(--pc); padding-top: 2px; min-width: 34px; }
+.rs-ph-main { flex: 1; min-width: 0; }
+.rs-ph-hd { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 3px; }
+.rs-ph-name { font-family: var(--font-display); font-size: 12.5px; font-weight: 600; color: var(--abi-text-primary); }
+.rs-ph-state { font-size: 8.5px; font-weight: 700; letter-spacing: .06em; color: var(--pc); border: 1px solid var(--pc);
+  border-radius: 999px; padding: 2px 8px; }
+.rs-ph-note { font-size: 10.5px; line-height: 1.5; color: var(--abi-text-muted); }
+
+/* ── sweep audit findings ── */
+.rs-findings { display: grid; grid-template-columns: 1fr; gap: 7px; padding: 12px 14px; }
+.rs-f { display: flex; gap: 9px; align-items: center; border: 1px solid var(--abi-border-subtle); border-radius: 9px;
+  background: var(--abi-layer-01); padding: 8px 11px; }
+.rs-f-id { flex: none; font-size: 10px; font-weight: 700; }
+.rs-f.repaired .rs-f-id { color: var(--abi-success-green); }
+.rs-f.open .rs-f-id { color: var(--abi-ops-amber); }
+.rs-f-note { font-size: 10.5px; color: var(--abi-text-muted); line-height: 1.45; flex: 1; min-width: 0; }
+.rs-f-st { flex: none; font-size: 8px; font-weight: 700; letter-spacing: .07em; border-radius: 999px; padding: 2px 7px; border: 1px solid; }
+.rs-f.repaired .rs-f-st { color: var(--abi-success-green); border-color: var(--abi-green-line); background: var(--abi-green-fill); }
+.rs-f.open .rs-f-st { color: var(--abi-ops-amber); border-color: var(--abi-amber-line); background: var(--abi-amber-fill); }
+
+/* ── law + gate summary + proof ── */
+.rs-law { display: flex; gap: 9px; align-items: flex-start; border: 1px solid var(--abi-border-subtle);
+  background: var(--abi-layer-01); border-radius: 11px; padding: 11px 13px; }
+.rs-law svg { flex: none; margin-top: 2px; color: var(--abi-text-muted); }
+.rs-law p { margin: 0; font-size: 10.5px; line-height: 1.55; color: var(--abi-text-muted); }
+.rs-law .mono { overflow-wrap: anywhere; }
+.rs-gate { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; border: 1px solid var(--abi-green-line);
+  background: var(--abi-green-fill); border-radius: 12px; padding: 11px 15px; }
+.rs-gate-tag { display: inline-flex; align-items: center; gap: 7px; font-family: var(--font-display);
+  font-size: 12.5px; font-weight: 700; color: var(--abi-success-green); }
+.rs-gate-v { font-size: 11px; color: var(--abi-text-primary); font-weight: 600; }
+.rs-gate-x { font-size: 10.5px; color: var(--abi-text-secondary); }
+.rs-gate-aud { margin-left: auto; font-size: 9.5px; color: var(--abi-text-muted); }
+.rs-proof { display: flex; align-items: flex-start; gap: 8px; font-family: var(--font-mono); font-size: 10px; line-height: 1.5;
+  color: var(--abi-text-muted); border: 1px dashed var(--abi-border-strong); border-radius: 9px; padding: 8px 12px; }
+.rs-proof svg { flex: none; margin-top: 1px; color: var(--abi-evidence-cyan); }

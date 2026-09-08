@@ -1,0 +1,1 @@
+export const evidence = Object.freeze({ rows:[{id:"EB-0204",name:"Safe evidence bundle reference",state:"READY",owner:"M05"}], columns:[{key:"id",label:"Evidence"},{key:"name",label:"Reference"},{key:"state",label:"State"},{key:"owner",label:"Owner"}], tableTitle:"Safe evidence references" });

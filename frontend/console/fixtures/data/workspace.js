@@ -1,0 +1,1 @@
+export const workspace = Object.freeze({ tenant_label: "Nordvik Industrier AB", workspace_label: "Competitive Intelligence", operator_label: "Fixture Operator", environment_label: "TEST / DEV FIXTURE", data_class: "DEV fixture", as_of: "2026-08-28" });

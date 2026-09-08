@@ -39,8 +39,9 @@ Every inclusion is bound to a recorded upstream owner gate. See
 [`docs/PORT_SCOPE_MATRIX.md`](./docs/PORT_SCOPE_MATRIX.md).
 
 **Inclusion is not uniform depth.** This is a vertical slice: deepest at P01, P04 and P05, and
-progressively shallower through P02 and P03 — P02 stops after twins and versions, P03 after an
-admitted prospect, and neither has a release path or an audit profile. What is present and what is
+progressively shallower through P02 and P03 — P02 stops at the promoted entity/relationship twin
+slice and has released snapshot paths, while P03 includes governed released prospect outputs. P03
+still lacks the full assurance/audit profile used by the deeper slices. What is present and what is
 absent per object is in [`PORT_SCOPE_MATRIX.md`](./docs/PORT_SCOPE_MATRIX.md) §3, with the gaps
 collected in §3.7.
 

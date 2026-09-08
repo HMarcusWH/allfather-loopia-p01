@@ -1,0 +1,23 @@
+{
+  "name": "@allfather/loopia-operator-console",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@10.9.2",
+  "engines": {
+    "node": "22.16.0"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "build": "node build.mjs",
+    "check": "npm test && npm run build"
+  },
+  "dependencies": {
+    "lucide-react": "0.544.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.9"
+  }
+}

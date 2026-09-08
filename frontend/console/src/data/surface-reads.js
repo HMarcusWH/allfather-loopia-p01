@@ -1,0 +1,52 @@
+export const READS = Object.freeze({
+  CONTEXT: "m12.consoleContext",
+  OVERVIEW_PULSE: "operator.overviewPulse",
+  ATTENTION_QUEUE: "operator.attentionQueue",
+  P01_BATTLECARDS: "p01.releasedBattlecards",
+  P01_SOURCE_WATCH: "p01.sourceWatch",
+  P01_CHANGE_FEED: "p01.changeFeed",
+  P01_ASSURANCE: "m11.p01Assurance",
+  P02_ENTITY_INDEX: "p02.entitySnapshots",
+  P02_RELATION_INDEX: "p02.relationshipSnapshots",
+  P02_ENTITY_DETAIL: "p02.entityContextDetail",
+  P03_QUEUE: "p03.priorityQueue",
+  P03_WATCH: "p03.monitoredProspects",
+  P03_BATTLECARDS: "p03.prospectBattlecards",
+  P04_DISTRIBUTIONS: "p04.roleDistributions",
+  P04_COORDINATION: "p04.coordinationStatus",
+  P05_DRAFTS: "p05.internalMarketingDrafts",
+  P05_ASSURANCE: "m11.p05Assurance",
+  SOURCE_P01: "p01.sourceOperations",
+  SOURCE_M05: "m05.safeEvidenceIndex",
+  SOURCE_M15: "m15.ingestionStatus",
+  INGESTION_CANDIDATES: "m15.candidates",
+  EVIDENCE_INDEX: "m05.safeEvidenceIndex",
+  MISSIONS: "m04.missions",
+  REVIEW: "m07.reviewSessions",
+  ARBITER: "m08.admissibility",
+  LEDGER: "m10.decisions",
+  RELEASE: "m16.consoleRenderableOutputs",
+  ACCESS: "m02.access",
+  CONTRACTS: "m03.contracts",
+  GATEWAY: "m06.gatewayStatus",
+  HOST: "m01.hostStatus",
+  CONSOLE_STATE: "m12.consoleState",
+  AUDIT: "m11.auditReplay",
+  P07A_STATUS: "p07a.syntheticStatus"
+});
+
+const meta = [
+  [READS.CONTEXT,"M12","LIVE_NEEDS_SCOPE_PARITY",false],
+  [READS.OVERVIEW_PULSE,"M12","NEEDS_READ_MODEL",false], [READS.ATTENTION_QUEUE,"M12","NEEDS_READ_MODEL",false],
+  [READS.P01_BATTLECARDS,"P01","LIVE_WRAPPABLE",true], [READS.P01_SOURCE_WATCH,"P01","NEEDS_READ_MODEL",false], [READS.P01_CHANGE_FEED,"P01/M05","NEEDS_READ_MODEL",false], [READS.P01_ASSURANCE,"M11","NEEDS_READ_MODEL",true],
+  [READS.P02_ENTITY_INDEX,"P02","LIVE_WRAPPABLE_INDEX",true], [READS.P02_RELATION_INDEX,"P02","LIVE_WRAPPABLE_INDEX",true], [READS.P02_ENTITY_DETAIL,"P02","NEEDS_READ_MODEL",true],
+  [READS.P03_QUEUE,"P03","LIVE_WRAPPABLE_INDEX",true], [READS.P03_WATCH,"P03","LIVE_WRAPPABLE_INDEX",true], [READS.P03_BATTLECARDS,"P03","NEEDS_READ_MODEL",true],
+  [READS.P04_DISTRIBUTIONS,"P04","LIVE_WRAPPABLE",true], [READS.P04_COORDINATION,"P04","NEEDS_READ_MODEL",true],
+  [READS.P05_DRAFTS,"P05","LIVE_WRAPPABLE",true], [READS.P05_ASSURANCE,"M11","NEEDS_READ_MODEL",true],
+  [READS.SOURCE_P01,"P01","NEEDS_READ_MODEL",false], [READS.SOURCE_M05,"M05","NEEDS_READ_MODEL",true], [READS.SOURCE_M15,"M15","NEEDS_READ_MODEL",false], [READS.INGESTION_CANDIDATES,"M15","NEEDS_READ_MODEL",false], [READS.EVIDENCE_INDEX,"M05","NEEDS_READ_MODEL",true],
+  [READS.MISSIONS,"M04","NEEDS_READ_MODEL",true], [READS.REVIEW,"M07","NEEDS_READ_MODEL",true], [READS.ARBITER,"M08","NEEDS_READ_MODEL",true], [READS.LEDGER,"M10","LIVE_NEEDS_ENV_PIN",true], [READS.RELEASE,"M16","NEEDS_ADAPTER",true],
+  [READS.ACCESS,"M02","NEEDS_READ_MODEL",false], [READS.CONTRACTS,"M03","NEEDS_READ_MODEL",false], [READS.GATEWAY,"M06","NEEDS_READ_MODEL",false], [READS.HOST,"M01","NEEDS_READ_MODEL",false], [READS.CONSOLE_STATE,"M12","NEEDS_READ_MODEL",false], [READS.AUDIT,"M11","NEEDS_READ_MODEL",true],
+  [READS.P07A_STATUS,"P07-A/M10/M11","NEEDS_READ_MODEL",true]
+];
+export const READ_META = Object.freeze(Object.fromEntries(meta.map(([id,owner,status,auditedDisplay]) => [id,Object.freeze({id,owner,status,auditedDisplay})])));
+export function readMeta(id){ return READ_META[id] ?? Object.freeze({id,owner:"UNKNOWN",status:"UNKNOWN_READ",auditedDisplay:false}); }

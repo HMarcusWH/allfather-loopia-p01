@@ -1,0 +1,1 @@
+export const missions = Object.freeze({ rows:[{id:"MSN-0407",name:"Competition monitoring",state:"ACTIVE",owner:"M04"}], columns:[{key:"id",label:"Mission"},{key:"name",label:"Assignment"},{key:"state",label:"State"},{key:"owner",label:"Owner"}], tableTitle:"Mission scope" });

@@ -1,0 +1,1 @@
+export const system = Object.freeze({ summary:{title:"Phase 1 normalized source",body:"Build-side source exists; authenticated shell, live reads, commands and customer visibility remain later phases."} });

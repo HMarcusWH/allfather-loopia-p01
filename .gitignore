@@ -11,3 +11,5 @@
 .DS_Store
 Thumbs.db
 .env.testing
+/frontend/console/node_modules/
+/frontend/console/dist/

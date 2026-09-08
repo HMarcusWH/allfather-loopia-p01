@@ -1,0 +1,3 @@
+import test from "node:test"; import assert from "node:assert/strict"; import { READS,READ_META } from "../src/data/surface-reads.js"; import { transportPolicyFor } from "../src/data/http-client.js";
+test("owner-safe screen splits are distinct read descriptors",()=>{for(const pair of [[READS.P01_BATTLECARDS,READS.P01_SOURCE_WATCH],[READS.P02_ENTITY_INDEX,READS.P02_ENTITY_DETAIL],[READS.P03_QUEUE,READS.P03_BATTLECARDS],[READS.P04_DISTRIBUTIONS,READS.P04_COORDINATION],[READS.P05_DRAFTS,READS.P05_ASSURANCE]])assert.notEqual(...pair);});
+test("audited-display reads disable prefetch and transparent retry",()=>{const p=transportPolicyFor(READ_META[READS.P01_BATTLECARDS]);assert.equal(p.allowPrefetch,false);assert.equal(p.transparentRetry,"NEVER");});
