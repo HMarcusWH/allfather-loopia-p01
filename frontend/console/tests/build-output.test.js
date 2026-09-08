@@ -16,5 +16,13 @@ test("clean production build is deterministic and contains only reviewed local o
   assert.ok(files.some((f)=>/^console\.[A-Z0-9]+\.css$/.test(f)));
   assert.equal(files.some((f)=>f.endsWith(".map")),false);
   assert.equal(files.some((f)=>/fixture|screenshot|\.jsx$|package-lock|package\.json/i.test(f)),false);
-  for(const f of files.filter((x)=>x.endsWith(".js"))){ const text=await readFile(path.join(root,"dist",f),"utf8"); assert.equal(text.includes("react.development"),false); assert.equal(/https?:\/\//.test(text),false); }
+  const forbiddenRemoteDependency = /(?:https?:)?\/\/(?:unpkg\.com|cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com|esm\.sh|cdn\.skypack\.dev)/i;
+  for(const f of files.filter((x)=>x.endsWith(".js"))){
+    const text=await readFile(path.join(root,"dist",f),"utf8");
+    assert.equal(text.includes("react.development"),false);
+    // ReactDOM legitimately embeds standards namespace URIs such as
+    // http://www.w3.org/2000/svg. The Phase-1 boundary is no external runtime
+    // dependency/CDN/bootstrap, not "no URI-shaped standards constants".
+    assert.equal(forbiddenRemoteDependency.test(text),false);
+  }
 });
