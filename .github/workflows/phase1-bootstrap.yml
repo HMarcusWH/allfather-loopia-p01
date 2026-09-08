@@ -23,7 +23,6 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Reconstruct the one transfer-damaged chunk from independently staged pieces.
           test "$(find .phase1/bootstrap -maxdepth 1 -type f -name 'part-*.b64' | wc -l)" -eq 14
           head -c 5000 .phase1/repair08/seg-00 > /tmp/part-08.b64
           cat .phase1/repair08/seg-01 .phase1/repair08/seg-02 .phase1/repair08/seg-03 >> /tmp/part-08.b64
@@ -31,7 +30,6 @@ jobs:
           echo "0a7a415766ca6a3b2f111746bc5405e785fa66acd5149f74ebdb4126add3c9ce  /tmp/part-08.b64" | sha256sum -c -
           cp /tmp/part-08.b64 .phase1/bootstrap/part-08.b64
 
-          # The complete transferred Base64 stream is the source-of-transfer integrity gate.
           cat .phase1/bootstrap/part-*.b64 > /tmp/phase1-build.b64
           echo "eb3e27fdf79b2c41496941d56da85efa66c4f457e1292a7174471fd9a793d8b1  /tmp/phase1-build.b64" | sha256sum -c -
           base64 -d /tmp/phase1-build.b64 > /tmp/phase1-build.tar.xz
@@ -41,19 +39,15 @@ jobs:
           rm -rf /tmp/phase1-stage
           mkdir -p /tmp/phase1-stage
           tar -xJf /tmp/phase1-build.tar.xz -C /tmp/phase1-stage
-
-          # Bind the archive to the locally audited machine manifest before touching the repo tree.
           echo "96bfe3b06dd2c3d7e346969024b28ef2c5ae4b291736a8fde2b6cfefbde3e015  /tmp/phase1-stage/PHASE1_FILE_MANIFEST.json" | sha256sum -c -
 
           python3 - <<'PY'
-          import hashlib, json, pathlib, shutil, sys
+          import hashlib, json, pathlib, shutil
 
           stage = pathlib.Path('/tmp/phase1-stage')
           repo = pathlib.Path.cwd()
-          manifest_path = stage / 'PHASE1_FILE_MANIFEST.json'
-          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          manifest = json.loads((stage / 'PHASE1_FILE_MANIFEST.json').read_text(encoding='utf-8'))
           files = manifest.get('files', [])
-
           if len(files) != 176:
               raise SystemExit(f'Expected 176 repository files, got {len(files)}')
           adds = sum(1 for item in files if item.get('operation') == 'ADD')
@@ -62,60 +56,39 @@ jobs:
               raise SystemExit(f'Unexpected operation counts: ADD={adds} MODIFY={modifies}')
 
           expected_repo = {item['path'] for item in files}
-          package_meta = {
-              'PHASE1_AUDIT_REPORT.md',
-              'PHASE1_FILE_MANIFEST.json',
-              'README_PHASE1_UX_PACKAGE.md',
-          }
-          actual_archive_files = {
-              p.relative_to(stage).as_posix()
-              for p in stage.rglob('*') if p.is_file()
-          }
-          expected_archive_files = expected_repo | package_meta
-          if actual_archive_files != expected_archive_files:
-              missing = sorted(expected_archive_files - actual_archive_files)
-              extra = sorted(actual_archive_files - expected_archive_files)
-              raise SystemExit(f'Archive file-set mismatch; missing={missing} extra={extra}')
+          package_meta = {'PHASE1_AUDIT_REPORT.md','PHASE1_FILE_MANIFEST.json','README_PHASE1_UX_PACKAGE.md'}
+          actual_archive_files = {p.relative_to(stage).as_posix() for p in stage.rglob('*') if p.is_file()}
+          if actual_archive_files != expected_repo | package_meta:
+              raise SystemExit('Archive file-set mismatch')
 
-          def sha256(path: pathlib.Path) -> str:
+          def sha256(path):
               h = hashlib.sha256()
-              with path.open('rb') as f:
+              with open(path, 'rb') as f:
                   for chunk in iter(lambda: f.read(1024 * 1024), b''):
                       h.update(chunk)
               return h.hexdigest()
 
           for item in files:
-              rel = item['path']
-              src = stage / rel
-              actual = sha256(src)
-              expected = item['target_sha256']
-              if actual != expected:
-                  raise SystemExit(f'Payload hash mismatch for {rel}: {actual} != {expected}')
-
-          # Only repository-target files are materialized. Package-only audit metadata stays out.
-          for item in files:
-              rel = item['path']
-              src = stage / rel
-              dst = repo / rel
+              src = stage / item['path']
+              if sha256(src) != item['target_sha256']:
+                  raise SystemExit(f"Payload hash mismatch for {item['path']}")
+              dst = repo / item['path']
               dst.parent.mkdir(parents=True, exist_ok=True)
               shutil.copyfile(src, dst)
 
-          # Re-verify after copy into the branch worktree.
           for item in files:
-              rel = item['path']
-              actual = sha256(repo / rel)
-              expected = item['target_sha256']
-              if actual != expected:
-                  raise SystemExit(f'Worktree hash mismatch for {rel}: {actual} != {expected}')
-
-          print('Verified and materialized 176 repository files: 172 ADD / 4 MODIFY')
+              if sha256(repo / item['path']) != item['target_sha256']:
+                  raise SystemExit(f"Worktree hash mismatch for {item['path']}")
+          print('Verified and staged 176 repository files: 172 ADD / 4 MODIFY')
           PY
 
-          # Bootstrap transport is one-use and must not survive in the final branch tree.
+          # Remove non-workflow bootstrap transport. GitHub's Actions token cannot
+          # modify workflow files, so workflow changes are finalized by the authenticated
+          # GitHub connector after this verified materialization commit lands.
           rm -rf .phase1
-          rm -f .github/workflows/phase1-bootstrap.yml
+          git checkout HEAD -- .github/workflows/ci.yml .github/workflows/phase1-bootstrap.yml
 
-      - name: Commit materialized Phase 1 build
+      - name: Commit materialized non-workflow payload
         shell: bash
         run: |
           set -euo pipefail
@@ -123,5 +96,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --cached --quiet && { echo "No materialized changes found"; exit 1; }
-          git commit -m "Add Phase 1 Operator Console UX build [phase1-bootstrap-complete]"
+          git commit -m "Add Phase 1 Operator Console UX source payload [bootstrap-complete]"
           git push origin HEAD:phase1-ux-operator-console
