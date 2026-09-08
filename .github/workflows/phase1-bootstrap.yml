@@ -18,57 +18,26 @@ jobs:
           ref: phase1-ux-operator-console
           fetch-depth: 0
 
-      - name: Verify, repair chunk 08, and reconstruct audited Phase 1 payload
+      - name: Diagnose decoded payload after verified transfer
         shell: bash
         run: |
           set -euo pipefail
           test "$(find .phase1/bootstrap -maxdepth 1 -type f -name 'part-*.b64' | wc -l)" -eq 14
-          test -f .phase1/repair08/seg-00
-          test -f .phase1/repair08/seg-01
-          test -f .phase1/repair08/seg-02
-          test -f .phase1/repair08/seg-03
-
-          echo "d643f1f762bf268e5f27f5cee0a998b2b1b6cd17e2831af34d7abc9e4ebb7213  .phase1/bootstrap/part-00.b64" | sha256sum -c -
-          echo "0573392c13ca4f0c3e1971d719b94c4028d8804f6b0bde85cd44aea005775f60  .phase1/bootstrap/part-01.b64" | sha256sum -c -
-          echo "e9472bd338871f5a90fdddd3a9ad94f9a1fe39cd6b807b707b0a6a9777bf6883  .phase1/bootstrap/part-02.b64" | sha256sum -c -
-          echo "7b0f71369bc44f89120f3471b4d648b0697ed548c22cc49880da28873926c70b  .phase1/bootstrap/part-03.b64" | sha256sum -c -
-          echo "8cb3a1c8caa076a65148f1b8b78263b58292b09ff92d9a36fa29b3308d95ac1f  .phase1/bootstrap/part-04.b64" | sha256sum -c -
-          echo "bd9cc80a47b36527d36e12b3cf1fa2cf5d35f0d1facfe127a601a8a0ad6d6e34  .phase1/bootstrap/part-05.b64" | sha256sum -c -
-          echo "73d95dd97e99c72d3e04606ec68203104caada897f6e55e1e63dada18805de4a  .phase1/bootstrap/part-06.b64" | sha256sum -c -
-          echo "fdf2d9c36b43da218f58ef0a9f65a18cc3edf4300f5f51bf1b8eeb726c194953  .phase1/bootstrap/part-07.b64" | sha256sum -c -
-          echo "c2f838dbf1afa09d12286be9a9dd670c01692c9d7e2ba8a3de957bd7d3b0da0a  .phase1/bootstrap/part-09.b64" | sha256sum -c -
-          echo "40f892a9e2b3411ca13330627c063377b7d538a7d08f44e449681a7965a81869  .phase1/bootstrap/part-10.b64" | sha256sum -c -
-          echo "20206f10e8e331b9dbf7ced98aed215c7eb8732b22869a1d2c68fef18777e997  .phase1/bootstrap/part-11.b64" | sha256sum -c -
-          echo "9a44d3cb99b56cae0327273a75141ff7362bd68430813c6128525b359246f525  .phase1/bootstrap/part-12.b64" | sha256sum -c -
-          echo "1c4342327da2dfb3172ac4b971ceee35a705a6916bca4a3100191332875d8bc5  .phase1/bootstrap/part-13.b64" | sha256sum -c -
-
-          # The connector-added corruption in part-08 was isolated to the transfer copy.
-          # Rebuild the exact 19,000-byte source chunk from the retained prefix plus the
-          # three independently transferred continuation segments, then require the
-          # original source SHA-256 before allowing any decode/extract step.
           head -c 5000 .phase1/repair08/seg-00 > /tmp/part-08.b64
           cat .phase1/repair08/seg-01 .phase1/repair08/seg-02 .phase1/repair08/seg-03 >> /tmp/part-08.b64
           test "$(wc -c < /tmp/part-08.b64)" -eq 19000
           echo "0a7a415766ca6a3b2f111746bc5405e785fa66acd5149f74ebdb4126add3c9ce  /tmp/part-08.b64" | sha256sum -c -
           cp /tmp/part-08.b64 .phase1/bootstrap/part-08.b64
-
           cat .phase1/bootstrap/part-*.b64 > /tmp/phase1-build.b64
           echo "eb3e27fdf79b2c41496941d56da85efa66c4f457e1292a7174471fd9a793d8b1  /tmp/phase1-build.b64" | sha256sum -c -
           base64 -d /tmp/phase1-build.b64 > /tmp/phase1-build.tar.xz
-          echo "24da56dd1c67f9c854ac3b9bb5b7a42d65d45c9db0c089f7dffa850e6c3bf5fe  /tmp/phase1-build.tar.xz" | sha256sum -c -
-          tar -tJf /tmp/phase1-build.tar.xz >/dev/null
-          tar -xJf /tmp/phase1-build.tar.xz -C .
+          echo "ACTUAL_TAR_SHA256=$(sha256sum /tmp/phase1-build.tar.xz | awk '{print $1}')"
+          echo "ACTUAL_TAR_BYTES=$(wc -c < /tmp/phase1-build.tar.xz)"
+          tar -tJf /tmp/phase1-build.tar.xz >/tmp/phase1-tar-list.txt
+          echo "ARCHIVE_ENTRY_COUNT=$(wc -l < /tmp/phase1-tar-list.txt)"
+          echo "ARCHIVE_TOP_LEVEL:"
+          sed -n '1,25p' /tmp/phase1-tar-list.txt
+          echo "Diagnostic complete; materialization intentionally withheld in this run."
 
-          rm -rf .phase1
-          rm -f .github/workflows/phase1-bootstrap.yml
-
-      - name: Commit materialized Phase 1 build
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --cached --quiet && { echo "No materialized changes found"; exit 1; }
-          git commit -m "Add Phase 1 Operator Console UX build [phase1-bootstrap-complete]"
-          git push origin HEAD:phase1-ux-operator-console
+      - name: Stop before materialization
+        run: exit 1
