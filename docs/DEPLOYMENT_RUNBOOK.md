@@ -117,7 +117,7 @@ hand; do not re-run and hope.
 
     php tests/run.php --strict
 
-Expect **3323 passing, 0 failing, 0 skipped** at this repair head. Under `--strict` a skip is a
+Expect **3325 passing, 0 failing, 0 skipped** at this repair head. Under `--strict` a skip is a
 non-zero exit, so an unreachable database cannot be mistaken for a green run.
 
 To run against a DIFFERENT server than the one `.env.testing` names — a second MariaDB version, a

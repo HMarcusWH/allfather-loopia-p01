@@ -17,14 +17,14 @@ launched:
 
 | Layer | Files | Assertions | 10.6 | 10.11 |
 | --- | --- | --- | --- | --- |
-| foundation | 3 | 157 | PASS | PASS |
+| foundation | 3 | 159 | PASS | PASS |
 | unit | 2 | 153 | PASS | PASS |
 | integration | 29 | 1607 | PASS | PASS |
 | conformance | 6 | 395 | PASS | PASS |
 | acceptance | 3 | 163 | PASS | PASS |
 | security | 14 | 821 | PASS | PASS |
 | rollback | 1 | 27 | PASS | PASS |
-| **TOTAL** | **58** | **3323** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
+| **TOTAL** | **58** | **3325** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
 
 Migrations were applied from empty and then re-applied on both servers: 18 applied, 0 drift, then
 18 skipped, 0 drift.
