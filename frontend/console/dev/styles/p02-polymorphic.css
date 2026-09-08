@@ -1,0 +1,289 @@
+/* DEV_ONLY reference normalized from MVP4::console/p02-polymorphic.css; never in production graph. */
+/* Allfather BI — Polymorphic Database (PDB) control-plane OVERLAY styles.
+   Visual law: the admitted P02 graph is solid + authoritative; everything PDB
+   is CANDIDATE/control-plane — dashed, tinted, plane-tagged, gate-chipped, and
+   can never read as admitted runtime truth. Composes with p02.css + tokens. */
+
+/* tone helpers (shared) */
+.pdb-root .tone-cyan   { color: var(--abi-evidence-cyan); }
+.pdb-root .tone-amber  { color: var(--abi-ops-amber); }
+.pdb-root .tone-green  { color: var(--abi-success-green); }
+.pdb-root .tone-violet { color: var(--abi-governance-violet); }
+.pdb-root .tone-gold   { color: var(--abi-authority-gold); }
+.pdb-root .tone-red    { color: var(--abi-block-red); }
+
+/* plane badges */
+.pdb-srcbadge, .pdb-opsbadge, .pdb-corebadge, .pdb-simbadge {
+  font-size: 9px; font-weight: 700; letter-spacing: .06em; padding: 2px 7px; border-radius: 999px;
+  border: 1px solid; display: inline-block; }
+.pdb-srcbadge  { color: var(--abi-evidence-cyan);     border-color: var(--abi-cyan-line);   background: var(--abi-cyan-fill); }
+.pdb-opsbadge  { color: var(--abi-ops-amber);         border-color: var(--abi-amber-line);  background: var(--abi-amber-fill); }
+.pdb-corebadge { color: var(--abi-authority-gold);    border-color: var(--abi-gold-line);   background: var(--abi-gold-fill); }
+.pdb-simbadge  { color: var(--abi-governance-violet); border-color: var(--abi-violet-line); background: var(--abi-violet-fill); }
+
+.pdb-root { display: flex; flex-direction: column; gap: 14px; }
+
+/* ── Classification bar ───────────────────────────────────────────────── */
+.pdb-classbar { display: flex; justify-content: space-between; align-items: center; gap: 18px; flex-wrap: wrap;
+  padding: 13px 16px; border-radius: 12px; background: var(--abi-layer-02);
+  border: 1px solid var(--abi-border-subtle); border-left: 3px solid var(--abi-governance-violet); }
+.pdb-cb-l { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pdb-cb-tag { display: inline-flex; align-items: center; gap: 7px; font-family: var(--font-display); font-size: 14px;
+  font-weight: 600; color: var(--abi-text-primary); }
+.pdb-cb-tag svg { color: var(--abi-governance-violet); }
+.pdb-cb-class { font-size: 10px; font-weight: 700; letter-spacing: .07em; color: var(--abi-governance-violet);
+  border: 1px solid var(--abi-violet-line); background: var(--abi-violet-fill); padding: 4px 10px; border-radius: 999px; }
+.pdb-cb-schema { font-size: 11px; color: var(--abi-text-secondary); border: 1px solid var(--abi-border-subtle);
+  padding: 3px 9px; border-radius: 6px; }
+.pdb-cb-r { display: flex; gap: 22px; }
+.pdb-cb-cell { display: flex; flex-direction: column; gap: 3px; }
+.pdb-cb-v { font-size: 11.5px; color: var(--abi-text-secondary); }
+
+/* ── Inert pin strip ──────────────────────────────────────────────────── */
+.pdb-frozen { display: flex; gap: 8px; align-items: flex-start; font-size: 11px; line-height: 1.5;
+  color: var(--abi-evidence-cyan); padding: 8px 10px; border-radius: 8px; background: var(--abi-cyan-fill);
+  border: 1px solid var(--abi-cyan-line); }
+.pdb-frozen svg { flex: none; margin-top: 1px; }
+.pdb-pins { padding: 13px 16px; border-radius: 12px; background: var(--abi-layer-01);
+  border: 1px solid var(--abi-border-subtle); display: flex; flex-direction: column; gap: 10px; }
+.pdb-pins-hd { display: flex; gap: 9px; align-items: flex-start; font-size: 12.5px; line-height: 1.5;
+  color: var(--abi-text-secondary); }
+.pdb-pins-hd svg { color: var(--abi-block-red); flex: none; margin-top: 1px; }
+.pdb-pins-hd b { color: var(--abi-text-primary); }
+.pdb-pins-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.pdb-pin { font-size: 10px; color: var(--abi-block-red); border: 1px solid var(--abi-red-line);
+  background: var(--abi-red-fill); padding: 3px 8px; border-radius: 6px; }
+.pdb-gate-note { font-size: 11px; line-height: 1.5; color: var(--abi-text-muted);
+  border-top: 1px solid var(--abi-border-subtle); padding-top: 9px; }
+
+/* ── Plane legend ─────────────────────────────────────────────────────── */
+.pdb-legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.pdb-plane { padding: 11px 13px; border-radius: 10px; background: var(--abi-layer-02);
+  border: 1px solid var(--abi-border-subtle); border-top: 2px solid var(--pt); display: flex; flex-direction: column; gap: 6px; }
+.pdb-plane-hd { display: flex; align-items: center; gap: 7px; }
+.pdb-plane-hd svg { color: var(--pt); }
+.pdb-plane-key { font-size: 11px; font-weight: 700; letter-spacing: .07em; color: var(--pt); }
+.pdb-plane-desc { font-size: 11px; line-height: 1.45; color: var(--abi-text-secondary); }
+.pdb-plane-tables { font-size: 9.5px; line-height: 1.5; color: var(--abi-text-muted); }
+
+/* ── Toggle bar ───────────────────────────────────────────────────────── */
+.pdb-toggles { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 9px 12px; border-radius: 10px; background: var(--abi-layer-01); border: 1px solid var(--abi-border-subtle); }
+.pdb-toggles-lbl { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase; color: var(--abi-text-muted); margin-right: 4px; }
+.pdb-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--abi-text-secondary);
+  background: var(--abi-layer-02); border: 1px solid var(--abi-border-subtle); padding: 6px 11px; border-radius: 999px;
+  cursor: pointer; transition: all 160ms cubic-bezier(0.2,0,0,1); font-family: inherit; }
+.pdb-toggle:hover { border-color: var(--abi-border-strong); }
+.pdb-toggle.on { color: var(--abi-text-primary); border-color: var(--abi-violet-line); background: var(--abi-violet-fill); }
+.pdb-toggle.on svg { color: var(--abi-governance-violet); }
+
+/* ── Main split ───────────────────────────────────────────────────────── */
+.pdb-main { display: grid; grid-template-columns: 1.35fr 1fr; gap: 14px; align-items: start; }
+.pdb-col-l, .pdb-col-r { display: flex; flex-direction: column; gap: 14px; }
+.pdb-empty { display: flex; align-items: center; justify-content: center; gap: 9px; padding: 40px;
+  color: var(--abi-text-muted); font-size: 12px; border: 1px dashed var(--abi-border-subtle); border-radius: 12px; }
+@media (max-width: 1100px) { .pdb-main { grid-template-columns: 1fr; } .pdb-legend { grid-template-columns: 1fr; } }
+
+/* ── Candidate graph (dashed = candidate, never admitted) ─────────────── */
+.pdb-graph-wrap { border: 1px solid var(--abi-border-subtle); border-radius: 12px; background: var(--abi-layer-01); overflow: hidden; }
+.pdb-graph { position: relative; height: 340px; margin: 4px; border-radius: 8px;
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 23px, rgba(76,201,240,0.04) 23px, rgba(76,201,240,0.04) 24px),
+    var(--abi-bg); }
+.pdb-graph-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pdb-edge { stroke: var(--abi-evidence-cyan); stroke-width: 1.4; stroke-dasharray: 5 4; opacity: .55; }
+.pdb-edge.held { stroke: var(--abi-ops-amber); stroke-dasharray: 2 5; opacity: .7; }
+.pdb-edge-lbl { position: absolute; transform: translate(-50%, -50%); font-family: var(--font-mono); font-size: 8.5px;
+  letter-spacing: .04em; color: var(--abi-evidence-cyan); background: var(--abi-bg); padding: 1px 5px; border-radius: 4px;
+  border: 1px dashed var(--abi-cyan-line); white-space: nowrap; }
+.pdb-edge-lbl.held { color: var(--abi-ops-amber); border-color: var(--abi-amber-line); }
+.pdb-node { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 8px;
+  padding: 7px 11px 7px 8px; border-radius: 10px; background: var(--abi-layer-02); border: 1.5px dashed var(--nt);
+  cursor: pointer; max-width: 220px; transition: all 160ms cubic-bezier(0.2,0,0,1); font-family: inherit; text-align: left; }
+.pdb-node:hover { background: var(--abi-layer-03); }
+.pdb-node.sel { box-shadow: 0 0 0 2px var(--nt); }
+.pdb-node.own { border-style: solid; background: var(--abi-layer-03); }
+.pdb-node.held { opacity: .82; }
+.pdb-node-ic { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 7px;
+  background: var(--abi-layer-01); border: 1px solid var(--abi-border-subtle); color: var(--nt); flex: none; }
+.pdb-node-tx { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.pdb-node-name { font-size: 11.5px; font-weight: 600; color: var(--abi-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pdb-node-kind { font-size: 8.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--abi-text-muted); }
+.pdb-node-badge { font-size: 8px; font-weight: 700; letter-spacing: .05em; padding: 2px 5px; border-radius: 4px;
+  border: 1px solid currentColor; flex: none; }
+.pdb-graph-foot { display: flex; align-items: flex-start; gap: 7px; padding: 9px 13px; font-size: 10.5px; line-height: 1.45;
+  color: var(--abi-text-muted); border-top: 1px solid var(--abi-border-subtle); }
+.pdb-graph-foot svg { color: var(--abi-evidence-cyan); flex: none; margin-top: 1px; }
+
+/* ── Drawers (shared) ─────────────────────────────────────────────────── */
+.pdb-drawer .pdb-drawer-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.pdb-sub { font-size: 9.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--abi-text-muted); margin-top: 4px; }
+.pdb-sel-note { font-size: 11.5px; line-height: 1.5; color: var(--abi-text-secondary);
+  padding: 9px 11px; border-radius: 8px; background: var(--abi-cyan-fill); border: 1px solid var(--abi-cyan-line); }
+
+/* sources */
+.pdb-src-list { display: flex; flex-direction: column; gap: 7px; }
+.pdb-src { padding: 8px 10px; border-radius: 8px; background: var(--abi-layer-01); border: 1px solid var(--abi-border-subtle); }
+.pdb-src-top { display: flex; justify-content: space-between; align-items: center; }
+.pdb-src-id { font-size: 10px; color: var(--abi-evidence-cyan); }
+.pdb-src-side { font-size: 9px; letter-spacing: .05em; text-transform: uppercase; color: var(--abi-text-muted); }
+.pdb-src-label { font-size: 11.5px; color: var(--abi-text-primary); margin: 3px 0; }
+.pdb-src-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pdb-tag-auth { font-size: 8.5px; font-weight: 700; letter-spacing: .04em; color: var(--abi-evidence-cyan);
+  border: 1px solid var(--abi-cyan-line); padding: 1px 6px; border-radius: 999px; }
+.pdb-tag-lic { font-size: 8.5px; color: var(--abi-text-muted); }
+.pdb-src-fresh { font-size: 9px; color: var(--abi-success-green); margin-left: auto; }
+
+/* claims */
+.pdb-claims { display: flex; flex-direction: column; gap: 6px; }
+.pdb-claim { padding: 8px 10px; border-radius: 8px; background: var(--abi-layer-01);
+  border: 1px solid var(--abi-border-subtle); border-left: 2px solid var(--abi-text-muted); }
+.pdb-claim.cls-conflicting { border-left-color: var(--abi-ops-amber); }
+.pdb-claim.cls-unknown { border-left-color: var(--abi-text-muted); border-style: dashed; }
+.pdb-claim.cls-inferred-hypothesis { border-left-color: var(--abi-governance-violet); }
+.pdb-claim.cls-known-fact { border-left-color: var(--abi-success-green); }
+.pdb-claim-top { display: flex; align-items: center; gap: 8px; }
+.pdb-claim-id { font-size: 9.5px; color: var(--abi-text-muted); }
+.pdb-claim-cls { font-size: 8.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.pdb-claim-cls.cls-known_fact { color: var(--abi-success-green); }
+.pdb-claim-cls.cls-tenant_provided { color: var(--abi-evidence-cyan); }
+.pdb-claim-cls.cls-inferred_hypothesis { color: var(--abi-governance-violet); }
+.pdb-claim-cls.cls-conflicting { color: var(--abi-ops-amber); }
+.pdb-claim-cls.cls-unknown { color: var(--abi-text-muted); }
+.pdb-claim-cls.cls-sufficiency { color: var(--abi-text-secondary); }
+.pdb-claim-txt { font-size: 11.5px; line-height: 1.45; color: var(--abi-text-primary); margin: 4px 0 3px; }
+.pdb-claim-out { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--abi-text-secondary); }
+.pdb-claim-out svg { color: var(--abi-text-muted); }
+.pdb-claim-src { font-size: 9px; color: var(--abi-text-muted); margin-left: auto; }
+
+/* traits */
+.pdb-traits { display: flex; flex-direction: column; gap: 4px; }
+.pdb-trait { display: grid; grid-template-columns: 1.3fr 1fr auto; gap: 8px; align-items: center;
+  padding: 5px 9px; border-radius: 6px; background: var(--abi-layer-01); border: 1px solid var(--abi-border-subtle); }
+.pdb-trait-k { font-size: 9.5px; color: var(--abi-text-secondary); }
+.pdb-trait-v { font-size: 10.5px; color: var(--abi-text-primary); }
+.pdb-trait-st { font-size: 9px; font-weight: 700; color: var(--abi-text-muted); justify-self: end; }
+.pdb-trait.st-candidate { border-left: 2px solid var(--abi-evidence-cyan); }
+.pdb-trait.st-held { border-left: 2px solid var(--abi-ops-amber); }
+.pdb-trait.st-held .pdb-trait-st { color: var(--abi-ops-amber); }
+.pdb-trait.st-rejected { opacity: .55; border-left: 2px solid var(--abi-block-red); }
+.pdb-trait.st-rejected .pdb-trait-v { text-decoration: line-through; }
+.pdb-trait.st-unknown { border-left: 2px dashed var(--abi-text-muted); }
+
+/* decision links */
+.pdb-dl-list { display: flex; flex-direction: column; gap: 7px; }
+.pdb-dl { padding: 8px 10px; border-radius: 8px; background: var(--abi-layer-01); border: 1px solid var(--abi-border-subtle); }
+.pdb-dl-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.pdb-dl-subj { font-size: 11px; font-weight: 600; color: var(--abi-text-primary); }
+.pdb-dl-route { font-size: 9.5px; color: var(--abi-evidence-cyan); margin: 4px 0 2px; }
+.pdb-dl-rec { font-size: 10px; color: var(--abi-text-muted); }
+
+/* config proposals */
+.pdb-cfg-list { display: flex; flex-direction: column; gap: 6px; }
+.pdb-cfg { padding: 7px 10px; border-radius: 8px; background: var(--abi-layer-01);
+  border: 1px solid var(--abi-border-subtle); border-left: 2px solid var(--abi-governance-violet); }
+.pdb-cfg.st-held { border-left-color: var(--abi-ops-amber); }
+.pdb-cfg.st-rejected { border-left-color: var(--abi-block-red); opacity: .62; }
+.pdb-cfg-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pdb-cfg-fam { font-size: 10px; color: var(--abi-text-primary); }
+.pdb-cfg-tier { font-size: 9px; color: var(--abi-text-muted); border: 1px solid var(--abi-border-subtle); padding: 1px 6px; border-radius: 999px; }
+.pdb-cfg-st { font-size: 8.5px; font-weight: 700; letter-spacing: .04em; margin-left: auto; }
+.pdb-cfg-st.st-proposed { color: var(--abi-governance-violet); }
+.pdb-cfg-st.st-held { color: var(--abi-ops-amber); }
+.pdb-cfg-st.st-rejected { color: var(--abi-block-red); }
+.pdb-cfg-note { font-size: 10.5px; line-height: 1.45; color: var(--abi-text-secondary); margin-top: 3px; }
+
+/* dry-run */
+.pdb-dryrun { padding: 10px 11px; border-radius: 8px; background: var(--abi-layer-01); border: 1px solid var(--abi-amber-line); }
+.pdb-dr-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 10px; color: var(--abi-ops-amber); margin-bottom: 7px; }
+.pdb-dr-hash { color: var(--abi-text-muted); }
+.pdb-overlay { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; counter-reset: ov; }
+.pdb-overlay li { font-size: 9.5px; line-height: 1.5; color: var(--abi-text-secondary); padding: 2px 0 2px 16px; position: relative; }
+.pdb-overlay li::before { counter-increment: ov; content: counter(ov); position: absolute; left: 0; top: 2px;
+  font-size: 8px; color: var(--abi-text-muted); }
+.pdb-reject { display: flex; gap: 7px; align-items: flex-start; margin-top: 8px; padding-top: 8px;
+  border-top: 1px solid var(--abi-border-subtle); font-size: 10.5px; line-height: 1.5; color: var(--abi-text-secondary); }
+.pdb-reject svg { color: var(--abi-block-red); flex: none; margin-top: 1px; }
+
+/* gates */
+.pdb-gates { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.pdb-gate { padding: 9px 11px; border-radius: 8px; background: var(--abi-layer-01);
+  border: 1px solid var(--abi-border-subtle); border-left: 3px solid var(--gt); }
+.pdb-gate-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.pdb-gate-lbl { font-size: 11.5px; font-weight: 600; color: var(--abi-text-primary); }
+.pdb-gate-chip { font-size: 8.5px; font-weight: 700; letter-spacing: .05em; padding: 3px 8px; border-radius: 999px;
+  border: 1px solid currentColor; white-space: nowrap; }
+.pdb-gate-chip.tone-green  { color: var(--abi-success-green);     background: var(--abi-green-fill); }
+.pdb-gate-chip.tone-red    { color: var(--abi-block-red);         background: var(--abi-red-fill); }
+.pdb-gate-chip.tone-amber  { color: var(--abi-ops-amber);         background: var(--abi-amber-fill); }
+.pdb-gate-chip.tone-cyan   { color: var(--abi-evidence-cyan);     background: var(--abi-cyan-fill); }
+.pdb-gate-chip.tone-violet { color: var(--abi-governance-violet); background: var(--abi-violet-fill); }
+.pdb-gate-note2 { font-size: 10.5px; line-height: 1.5; color: var(--abi-text-muted); margin-top: 4px; }
+
+/* simulation */
+.pdb-sim-note { display: flex; gap: 8px; align-items: flex-start; font-size: 11px; line-height: 1.5;
+  color: var(--abi-text-secondary); padding: 9px 11px; border-radius: 8px; background: var(--abi-violet-fill);
+  border: 1px solid var(--abi-violet-line); }
+.pdb-sim-note svg { color: var(--abi-governance-violet); flex: none; margin-top: 1px; }
+.pdb-sim-note b { color: var(--abi-text-primary); }
+.pdb-sim-ready { display: flex; flex-wrap: wrap; gap: 6px; }
+.pdb-ready-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: var(--abi-success-green);
+  border: 1px solid var(--abi-green-line); background: var(--abi-green-fill); padding: 3px 9px; border-radius: 999px; }
+.pdb-sim-blocked { display: flex; flex-direction: column; gap: 6px; }
+.pdb-sb { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 10px;
+  border-radius: 8px; background: var(--abi-layer-01); border: 1px solid var(--abi-red-line); }
+.pdb-sb-ref { font-size: 11px; color: var(--abi-text-primary); }
+.pdb-sb-miss { display: inline-flex; align-items: center; gap: 5px; font-size: 9.5px; color: var(--abi-block-red); white-space: nowrap; }
+.pdb-audit { display: flex; gap: 8px; align-items: flex-start; font-size: 10.5px; line-height: 1.5;
+  color: var(--abi-text-muted); padding: 8px 10px; border-radius: 8px; border: 1px dashed var(--abi-border-subtle); }
+.pdb-audit svg { color: var(--abi-text-secondary); flex: none; margin-top: 1px; }
+.pdb-audit b { color: var(--abi-text-secondary); }
+.pdb-s11 { display: flex; flex-direction: column; gap: 4px; padding: 9px 11px; border-radius: 8px;
+  background: var(--abi-layer-01); border: 1px dashed var(--abi-amber-line); }
+.pdb-s11-state { font-size: 10.5px; font-weight: 700; color: var(--abi-ops-amber); }
+.pdb-s11-scope { font-size: 10.5px; line-height: 1.45; color: var(--abi-text-muted); }
+
+/* activation-preflight chain */
+.pdb-chain-note { display: flex; gap: 7px; align-items: flex-start; font-size: 10.5px; line-height: 1.5;
+  color: var(--abi-text-secondary); }
+.pdb-chain-note svg { color: var(--abi-ops-amber); flex: none; margin-top: 1px; }
+.pdb-chain { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.pdb-rung { display: grid; grid-template-columns: auto 1fr auto; gap: 9px; align-items: center;
+  padding: 6px 10px; border-radius: 7px; background: var(--abi-layer-01);
+  border: 1px solid var(--abi-border-subtle); border-left: 2px dashed var(--abi-ops-amber); }
+.pdb-rung-id { font-size: 9.5px; color: var(--abi-ops-amber); white-space: nowrap; }
+.pdb-rung-lbl { font-size: 10.5px; line-height: 1.4; color: var(--abi-text-secondary); }
+.pdb-rung-state { font-size: 8px; font-weight: 700; letter-spacing: .05em; color: var(--abi-ops-amber);
+  border: 1px solid var(--abi-amber-line); background: var(--abi-amber-fill); padding: 2px 6px; border-radius: 999px;
+  white-space: nowrap; justify-self: end; }
+
+/* core-boundary config versions */
+.pdb-cv-list { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.pdb-cv { padding: 9px 11px; border-radius: 8px; background: var(--abi-layer-01);
+  border: 1px solid var(--abi-border-subtle); border-left: 3px solid var(--abi-authority-gold); }
+.pdb-cv-top { display: flex; align-items: center; gap: 10px; }
+.pdb-cv-id { font-size: 10px; color: var(--abi-authority-gold); }
+.pdb-cv-fam { font-size: 9.5px; color: var(--abi-text-muted); margin-left: auto; }
+.pdb-cv-foot { display: flex; align-items: center; gap: 8px; margin: 5px 0; flex-wrap: wrap; }
+.pdb-cv-status { font-size: 9px; font-weight: 700; letter-spacing: .04em; color: var(--abi-success-green);
+  border: 1px solid var(--abi-green-line); background: var(--abi-green-fill); padding: 2px 7px; border-radius: 999px; }
+.pdb-cv-inactive { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; color: var(--abi-block-red);
+  border: 1px solid var(--abi-red-line); background: var(--abi-red-fill); padding: 2px 7px; border-radius: 999px; }
+.pdb-cv-reflbl { font-size: 9px; letter-spacing: .04em; text-transform: uppercase; color: var(--abi-text-muted); }
+.pdb-cv-note { font-size: 10.5px; line-height: 1.45; color: var(--abi-text-muted); }
+
+/* ── P02 mode switch ──────────────────────────────────────────────────── */
+.p02-modesw { display: flex; gap: 8px; }
+.p02-mode { flex: 1; display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+  padding: 10px 14px; border-radius: 10px; background: var(--abi-layer-01); border: 1px solid var(--abi-border-subtle);
+  cursor: pointer; transition: all 160ms cubic-bezier(0.2,0,0,1); font-family: inherit; position: relative; }
+.p02-mode > svg { position: absolute; top: 11px; right: 13px; color: var(--abi-text-muted); }
+.p02-mode { padding-right: 36px; font-size: 13px; font-weight: 600; color: var(--abi-text-secondary); }
+.p02-mode:hover { border-color: var(--abi-border-strong); }
+.p02-mode.on { color: var(--abi-text-primary); border-color: var(--abi-cyan-line); background: var(--abi-cyan-fill); }
+.p02-mode.on > svg { color: var(--abi-evidence-cyan); }
+.p02-mode.pdb.on { border-color: var(--abi-violet-line); background: var(--abi-violet-fill); }
+.p02-mode.pdb.on > svg { color: var(--abi-governance-violet); }
+.p02-mode-sub { font-size: 9.5px; font-weight: 500; letter-spacing: .03em; text-transform: uppercase; color: var(--abi-text-muted); }

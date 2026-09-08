@@ -1,0 +1,1 @@
+import { ReadPanel } from "../../app/read-panel.jsx"; import { READS } from "../../data/surface-reads.js"; export function MonitoredProspects({datasource}){return <ReadPanel datasource={datasource} readId={READS.P03_WATCH} title="Monitored prospects" icon="eye"/>;}

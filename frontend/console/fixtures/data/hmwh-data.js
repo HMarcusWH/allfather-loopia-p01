@@ -1,0 +1,1 @@
+export const review = Object.freeze({ rows:[{id:"REV-0418",name:"Competition relevance review",state:"COMPLETE",owner:"M07"}], columns:[{key:"id",label:"Review"},{key:"name",label:"Subject"},{key:"state",label:"State"},{key:"owner",label:"Owner"}], tableTitle:"Council reviews" });

@@ -1,0 +1,1 @@
+export const p07a = Object.freeze({ summary:{title:"P07-A synthetic boundary",body:"Reference fixture only. Synthetic/no-external-effect status has no production navigation until a dedicated safe read exists."} });

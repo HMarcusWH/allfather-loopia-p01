@@ -1,0 +1,1 @@
+import { ReadPanel } from "../../app/read-panel.jsx"; import { READS } from "../../data/surface-reads.js"; export function ProspectBattlecard({datasource}){return <ReadPanel datasource={datasource} readId={READS.P03_BATTLECARDS} title="Prospect battlecards" icon="shield-check"/>;}

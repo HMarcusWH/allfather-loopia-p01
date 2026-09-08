@@ -1,0 +1,1 @@
+export const attention = Object.freeze({ rows:[{id:"ATTN-01",name:"Evidence condition unresolved",state:"HOLD",owner:"M08"},{id:"ATTN-02",name:"Source rights review",state:"REVIEW_REQUIRED",owner:"M05"}], columns:[{key:"id",label:"Item"},{key:"name",label:"Attention"},{key:"state",label:"State"},{key:"owner",label:"Owner"}], tableTitle:"Attention projection" });

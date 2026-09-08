@@ -73,7 +73,7 @@ foreach (['.env', '.env.testing', '.env.example', 'composer.json'] as $mustNotBe
 // port does not have — git carries no empty directory, so the assertion passed on a developer
 // machine that happened to have one and failed in every fresh clone. A test that asserts the shape
 // of somebody's working copy is worse than no test, because it is green where it matters least.
-foreach (['app', 'database', 'ops', 'worker', 'tests', 'storage', 'docs'] as $private) {
+foreach (['app', 'database', 'ops', 'frontend', 'worker', 'tests', 'storage', 'docs'] as $private) {
     Assert::true(
         is_dir($root . '/' . $private),
         "{$private}/ exists as a sibling of the served directory",

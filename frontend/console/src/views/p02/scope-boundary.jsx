@@ -1,0 +1,1 @@
+import { BoundaryNote } from "../../primitives/index.jsx"; export function P02ScopeBoundary(){return <BoundaryNote title="P02 selected scope">Entity + relationship twins only. Offering twins, stakeholder-profile producer state and polymorphic/PDB remain excluded.</BoundaryNote>;}

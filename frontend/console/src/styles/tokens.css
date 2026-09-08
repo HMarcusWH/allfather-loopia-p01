@@ -1,0 +1,237 @@
+/* =====================================================================
+   ALLFATHER BI — Control Substrate v1
+   Foundational tokens: color, typography, spacing, elevation, radius
+   ---------------------------------------------------------------------
+   Source of truth: Allfather BI Design Guidelines & Brand Identity v0.1
+   Brand thesis: a governed intelligence console — Nordic institutional
+   command center. Calm, evidence-led, auditable, operator-first.
+   Typography uses local/system font stacks only; no network font dependency.
+   ===================================================================== */
+
+
+:root {
+  /* ---------------------------------------------------------------
+     1. COLOR — neutral dark layers as the operating environment.
+     Saturated accents are RESERVED for authority, evidence,
+     governance and lifecycle state. Never hand-pick per screen.
+     --------------------------------------------------------------- */
+
+  /* Surface ladder (dark, layered) */
+  --abi-bg:            #080A0D;  /* Void / app shell background        */
+  --abi-layer-01:      #11151B;  /* Carbon graphite — base panels/rail */
+  --abi-layer-02:      #171D26;  /* Raised surface — cards / active    */
+  --abi-layer-03:      #1D2430;  /* Panel surface — nested panels      */
+  --abi-border-subtle: #2A3442;  /* Border steel — rules, dividers     */
+  --abi-border-strong: #3A4759;  /* Brighter rule for emphasis/hover   */
+
+  /* Text */
+  --abi-text-primary:   #EEF2F6; /* Primary text on dark               */
+  --abi-text-secondary: #9AA7B5; /* Secondary text                     */
+  --abi-text-muted:     #667384; /* Low-priority metadata              */
+
+  /* Role accents — each maps to a plane / function */
+  --abi-authority-gold:  #D6A84F; /* Core: authority, approval, canon  */
+  --abi-evidence-cyan:   #4CC9F0; /* Sources: evidence, provenance     */
+  --abi-governance-violet:#8B7CF6;/* Governance: HMWH, Arbiter, policy */
+  --abi-ops-amber:       #F5A524; /* Ops: pending, held, attention     */
+  --abi-success-green:   #39D98A; /* Ops: allowed, passed, completed   */
+  --abi-block-red:       #FF4D5E; /* Ops: blocked, failed, unsafe      */
+
+  /* Accent tints — translucent fills for chips / badge backgrounds.
+     Use over the surface ladder; keeps state color as a secondary cue. */
+  --abi-gold-fill:    rgba(214,168,79,0.12);
+  --abi-gold-line:    rgba(214,168,79,0.40);
+  --abi-cyan-fill:    rgba(76,201,240,0.12);
+  --abi-cyan-line:    rgba(76,201,240,0.40);
+  --abi-violet-fill:  rgba(139,124,246,0.14);
+  --abi-violet-line:  rgba(139,124,246,0.42);
+  --abi-amber-fill:   rgba(245,165,36,0.13);
+  --abi-amber-line:   rgba(245,165,36,0.42);
+  --abi-green-fill:   rgba(57,217,138,0.13);
+  --abi-green-line:   rgba(57,217,138,0.42);
+  --abi-red-fill:     rgba(255,77,94,0.13);
+  --abi-red-line:     rgba(255,77,94,0.45);
+  --abi-neutral-fill: rgba(154,167,181,0.10);
+
+  /* ---------------------------------------------------------------
+     2. THREE-PLANE GRAMMAR — semantic aliases.
+     Core = runtime law. Sources = evidence authority. Ops = change.
+     --------------------------------------------------------------- */
+  --plane-core:    var(--abi-authority-gold);
+  --plane-sources: var(--abi-evidence-cyan);
+  --plane-ops:     var(--abi-ops-amber);
+
+  /* ---------------------------------------------------------------
+     3. TYPOGRAPHY
+     --------------------------------------------------------------- */
+  --font-display: 'Arial Narrow', 'Aptos Display', 'Segoe UI', system-ui, sans-serif;
+  --font-body:    'Aptos', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono:    ui-monospace, 'Cascadia Mono', 'SFMono-Regular', Consolas, monospace;
+
+  /* Weights */
+  --fw-regular: 400;
+  --fw-medium:  500;
+  --fw-semibold:600;
+  --fw-bold:    700;
+
+  /* Type scale — sober, technical. Sizes in rem (root 16px). */
+  --fs-display: 2.75rem;  /* 44px — marketing hero / big numerals     */
+  --fs-h1:      2rem;     /* 32px                                     */
+  --fs-h2:      1.5rem;   /* 24px                                     */
+  --fs-h3:      1.25rem;  /* 20px                                     */
+  --fs-h4:      1.0625rem;/* 17px — card titles                       */
+  --fs-body:    0.9375rem;/* 15px — default UI text                   */
+  --fs-sm:      0.8125rem;/* 13px — secondary / dense rows            */
+  --fs-xs:      0.6875rem;/* 11px — labels, chips, metadata           */
+  --fs-mono:    0.8125rem;/* 13px — IDs, hashes, ledger refs          */
+
+  --lh-tight:   1.15;
+  --lh-snug:    1.35;
+  --lh-normal:  1.55;
+
+  /* Authority-label tracking (used on uppercase metadata labels) */
+  --tracking-label: 0.08em;
+  --tracking-wide:  0.14em;
+
+  /* ---------------------------------------------------------------
+     4. SPACING — 4px base grid
+     --------------------------------------------------------------- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10:40px;
+  --sp-12:48px;
+  --sp-16:64px;
+
+  /* ---------------------------------------------------------------
+     5. RADIUS
+     --------------------------------------------------------------- */
+  --abi-radius-card: 14px;  /* artifact cards, panels                 */
+  --abi-radius-md:   10px;  /* inputs, buttons, nested blocks         */
+  --abi-radius-sm:   6px;   /* small controls, evidence tiles         */
+  --abi-radius-chip: 999px; /* status badges, pills                   */
+
+  /* ---------------------------------------------------------------
+     6. ELEVATION / SHADOW — restrained. Depth via layering + thin
+     borders first; shadow second.
+     --------------------------------------------------------------- */
+  --abi-shadow-panel: 0 18px 40px rgba(0,0,0,0.28);
+  --abi-shadow-raised:0 8px 20px rgba(0,0,0,0.22);
+  --abi-shadow-pop:   0 24px 60px rgba(0,0,0,0.45);
+  --abi-shadow-inset: inset 0 1px 0 rgba(255,255,255,0.03);
+
+  /* Authority hairlines — the signature "thin authority line" */
+  --abi-line-gold:   inset 0 0 0 1px var(--abi-gold-line);
+  --abi-line-top-gold: inset 0 1px 0 0 var(--abi-authority-gold);
+
+  /* ---------------------------------------------------------------
+     7. MOTION — clarify authority/state/lineage; never decorative.
+     --------------------------------------------------------------- */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit:     cubic-bezier(0.4, 0, 1, 1);
+  --dur-fast:   120ms;
+  --dur-normal: 200ms;
+  --dur-slow:   320ms;
+}
+
+/* =====================================================================
+   SEMANTIC ELEMENT DEFAULTS
+   Apply .abi-scope (or use on <body>) to inherit the console baseline.
+   ===================================================================== */
+.abi-scope,
+body.abi-scope {
+  background: var(--abi-bg);
+  color: var(--abi-text-primary);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  font-weight: var(--fw-regular);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.abi-scope h1, .abi-h1 {
+  font-family: var(--font-display);
+  font-size: var(--fs-h1);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.01em;
+  color: var(--abi-text-primary);
+  margin: 0;
+}
+.abi-scope h2, .abi-h2 {
+  font-family: var(--font-display);
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+  letter-spacing: -0.005em;
+  color: var(--abi-text-primary);
+  margin: 0;
+}
+.abi-scope h3, .abi-h3 {
+  font-family: var(--font-display);
+  font-size: var(--fs-h3);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+  color: var(--abi-text-primary);
+  margin: 0;
+}
+.abi-h4 {
+  font-family: var(--font-display);
+  font-size: var(--fs-h4);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+  color: var(--abi-text-primary);
+  margin: 0;
+}
+.abi-display {
+  font-family: var(--font-display);
+  font-size: var(--fs-display);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.02em;
+  color: var(--abi-text-primary);
+  margin: 0;
+}
+.abi-scope p, .abi-body {
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  color: var(--abi-text-secondary);
+  margin: 0;
+  text-wrap: pretty;
+}
+
+/* Authority label — the small uppercase metadata label used on every
+   artifact card (plane, owner, route, etc). */
+.abi-label {
+  font-family: var(--font-body);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--abi-text-muted);
+}
+
+/* Mono — IDs, hashes, ledger references, schema keys. */
+.abi-mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  letter-spacing: 0;
+  color: var(--abi-text-secondary);
+  font-feature-settings: 'zero' 1, 'ss01' 1;
+}
+
+/* Code/ID emphasis on dark */
+.abi-code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  color: var(--abi-evidence-cyan);
+  background: var(--abi-cyan-fill);
+  border: 1px solid var(--abi-cyan-line);
+  border-radius: var(--abi-radius-sm);
+  padding: 1px 6px;
+}
