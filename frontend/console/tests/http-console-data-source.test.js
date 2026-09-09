@@ -1,0 +1,61 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { HttpConsoleDataSource, LIVE_READ_IDS } from "../src/data/http-console-data-source.js";
+import { READS, readMeta } from "../src/data/surface-reads.js";
+import { PROJECTION } from "../src/data/response-types.js";
+import { READ_TRANSPORT, transportPolicyFor } from "../src/data/http-client.js";
+
+function jsonResponse(status,payload){return {status,headers:{get:(name)=>name.toLowerCase()==="content-type"?"application/json; charset=utf-8":null},json:async()=>payload};}
+function envelope(source,data,state="READY"){return {source,as_of:"2026-09-10T00:00:00Z",access:{decision:"VISIBLE",required_permission:null,reason_codes:["GRANTED"]},projection:{state,stale_status:"CURRENT"},owner_state:"VISIBLE",reason_codes:["GRANTED"],data};}
+
+test("production datasource exposes only the explicit PR6 read allowlist",()=>{
+  assert.deepEqual(new Set(LIVE_READ_IDS),new Set([READS.CONTEXT,READS.P01_BATTLECARDS,READS.P02_ENTITY_INDEX,READS.P02_RELATION_INDEX,READS.P03_QUEUE,READS.P03_WATCH,READS.P04_DISTRIBUTIONS,READS.P05_DRAFTS,READS.LEDGER]));
+  assert.equal(LIVE_READ_IDS.includes(READS.P03_BATTLECARDS),false);
+  assert.equal(LIVE_READ_IDS.includes(READS.OVERVIEW_PULSE),false);
+});
+
+test("P02 forwards only its explicit visibility lens and never caller scope",async()=>{
+  const calls=[];
+  const fetchImpl=async(url,options)=>{calls.push({url,options});return jsonResponse(200,envelope(READS.P02_ENTITY_INDEX,[{entity_twin_id:"e1"}]));};
+  const ds=new HttpConsoleDataSource({fetchImpl});
+  const result=await ds.readDescriptor(READS.P02_ENTITY_INDEX,{visibility_scope:"SALES",tenant_id:"attacker",workspace_id:"other"});
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].url,"/console/api/v1/p02/entities?visibility_scope=SALES");
+  assert.equal(calls[0].options.method,"GET");
+  assert.equal(calls[0].options.credentials,"same-origin");
+  assert.equal(calls[0].options.redirect,"manual");
+  assert.equal(result.projection.state,PROJECTION.READY);
+  assert.equal(result.data.rows[0].entity_twin_id,"e1");
+});
+
+test("P04 forwards only target_org_role",async()=>{
+  let called="";
+  const ds=new HttpConsoleDataSource({fetchImpl:async(url)=>{called=url;return jsonResponse(200,envelope(READS.P04_DISTRIBUTIONS,[],"EMPTY"));}});
+  const result=await ds.readDescriptor(READS.P04_DISTRIBUTIONS,{target_org_role:"SALES",operator_id:"spoof"});
+  assert.equal(called,"/console/api/v1/p04/distributions?target_org_role=SALES");
+  assert.equal(result.projection.state,PROJECTION.EMPTY);
+});
+
+test("authentication failure and malformed transport fail visibly closed",async()=>{
+  const unauth=new HttpConsoleDataSource({fetchImpl:async()=>jsonResponse(401,{status:"UNAUTHENTICATED",reason_codes:["AUTHENTICATION_REQUIRED"]})});
+  const r=await unauth.readDescriptor(READS.P01_BATTLECARDS);
+  assert.equal(r.projection.state,PROJECTION.UNAVAILABLE);
+  assert.deepEqual(r.reason_codes,["AUTHENTICATION_REQUIRED"]);
+  const html=new HttpConsoleDataSource({fetchImpl:async()=>({status:200,headers:{get:()=>"text/html"},json:async()=>({})})});
+  const bad=await html.readDescriptor(READS.P01_BATTLECARDS);
+  assert.deepEqual(bad.reason_codes,["NON_JSON_READ_RESPONSE"]);
+});
+
+test("unknown/deferred descriptors never become generic endpoints",async()=>{
+  let calls=0;
+  const ds=new HttpConsoleDataSource({fetchImpl:async()=>{calls++;return jsonResponse(200,{});}});
+  const result=await ds.readDescriptor(READS.P03_BATTLECARDS);
+  assert.equal(calls,0);
+  assert.equal(result.projection.state,PROJECTION.UNAVAILABLE);
+});
+
+test("audited display policy remains no-prefetch and no-transparent-retry",()=>{
+  assert.deepEqual(transportPolicyFor(readMeta(READS.LEDGER)),READ_TRANSPORT.AUDITED_DISPLAY);
+  assert.equal(READ_TRANSPORT.AUDITED_DISPLAY.allowPrefetch,false);
+  assert.equal(READ_TRANSPORT.AUDITED_DISPLAY.transparentRetry,"NEVER");
+});
