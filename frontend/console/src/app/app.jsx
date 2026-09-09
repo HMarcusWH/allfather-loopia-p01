@@ -26,5 +26,5 @@ export function ConsoleApp({datasource}){
 
   const navigate=(next)=>{ if(!ids.includes(next)) return; setRoute(next); writeView(next); };
   const View=useMemo(()=>ROUTES[route]??ROUTES[fallback]??ROUTES.overview,[route,fallback]);
-  return <Shell current={route} onNavigate={navigate} navigation={navigation}><View datasource={datasource}/></Shell>;
+  return <Shell datasource={datasource} current={route} onNavigate={navigate} navigation={navigation}><View datasource={datasource}/></Shell>;
 }
