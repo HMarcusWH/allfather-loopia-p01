@@ -51,6 +51,34 @@ exactly that reason: deployment is a copy into `<domain>/`, with no rename, no s
       public_html/                <- the ONLY web-served directory; the name is fixed by Loopia
         index.php  scheduler.php  assets/  .htaccess
 
+#### Build and stage the Operator Console before copying
+
+`public_html/assets/operator-console/` is generated deployment output and is intentionally
+Git-ignored. A fresh checkout therefore does **not** contain the authenticated React bundle until
+the frontend build is validated and staged. The qualified frontend toolchain for this PR is
+**Node v22.16.0 / npm 10.9.2**.
+
+Run this from the repository checkout **before** `rsync`:
+
+    cd frontend/console
+    node --version    # expect v22.16.0
+    npm --version     # expect 10.9.2
+    npm ci
+    npm test
+    npm run build
+    npm run stage
+    cd ../..
+    test -f public_html/assets/operator-console/manifest.json
+
+`npm run stage` validates the private build output and publishes only the reviewed content-hashed
+JS/CSS/SVG set into `public_html/assets/operator-console/`, writing `manifest.json` last. Git ignore
+status does not affect `rsync`: once staged, the generated directory is part of the deployment
+working tree and is copied with the rest of `public_html/`.
+
+If this stage is absent or invalid, `/console/app` returns **503 by design** rather than guessing a
+bundle filename. Do not work around that refusal by committing generated assets or by adding an
+unhashed fallback; rebuild and stage the deployment working tree instead.
+
 **Deploy over SSH** (available on all three tiers), from a checkout on your own machine:
 
     rsync -av --delete       --exclude '.git' --exclude 'tests' --exclude '.env'       ./ <user>@<host>:~/<domain>/

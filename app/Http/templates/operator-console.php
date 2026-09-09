@@ -11,7 +11,7 @@ use Allfather\Loopia\Http\View;
 <link rel="stylesheet" href="<?= View::e($styleUrl) ?>">
 </head>
 <body>
-<div id="root"></div>
+<div id="root" data-allfather-console></div>
 <script type="module" src="<?= View::e($scriptUrl) ?>"></script>
 </body>
 </html>

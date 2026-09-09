@@ -105,7 +105,7 @@ try {
     Assert::same(200, $shell->status, 'an authenticated operator can render the React shell without inventing workspace scope');
     Assert::contains('/assets/operator-console/console.A1B2C3D4.js', $shell->body, 'the shell references the validated hashed module script');
     Assert::contains('/assets/operator-console/console.E5F6G7H8.css', $shell->body, 'and the validated hashed stylesheet');
-    Assert::contains('<div id="root"></div>', $shell->body, 'the standalone document exposes the React mount only');
+    Assert::contains('<div id="root" data-allfather-console></div>', $shell->body, 'the standalone document exposes the exact production React mount contract');
     Assert::same(
         "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
         $shell->headers['Content-Security-Policy'],

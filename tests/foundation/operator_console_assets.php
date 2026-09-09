@@ -101,9 +101,13 @@ try {
     $template = (string) file_get_contents($root . '/app/Http/templates/operator-console.php');
     Assert::contains('<script type="module" src="<?= View::e($scriptUrl) ?>"></script>', $template, 'the shell loads one escaped external module script');
     Assert::contains('<link rel="stylesheet" href="<?= View::e($styleUrl) ?>">', $template, 'and one escaped external stylesheet');
+    Assert::contains('<div id="root" data-allfather-console></div>', $template, 'the PHP shell emits the mount selector required by the production entry point');
     Assert::false(str_contains($template, 'style='), 'the React document contains no inline style attribute');
     Assert::false(str_contains($template, '<script>'), 'the React document contains no inline script block');
     Assert::false(str_contains($template, 'http://') || str_contains($template, 'https://'), 'the React document names no remote origin');
+
+    $entrySource = (string) file_get_contents($root . '/frontend/console/src/index.jsx');
+    Assert::contains('document.querySelector("[data-allfather-console]")', $entrySource, 'the production entry point retains the same mount selector the PHP shell emits');
 
     $controller = (string) file_get_contents($root . '/app/Http/Controllers/OperatorConsoleController.php');
     foreach (['Database', 'AccessGuard', 'Entitlements', 'Product\\P0', 'SELECT ', 'INSERT ', 'UPDATE ', 'DELETE '] as $forbidden) {
@@ -121,6 +125,19 @@ try {
     $kernelSource = (string) file_get_contents($root . '/app/Http/Kernel.php');
     Assert::false(str_contains($kernelSource, "'/console/app'"), 'the React shell is not added to the Kernel public-path allowlist');
     Assert::contains('/public_html/assets/operator-console/', (string) file_get_contents($root . '/.gitignore'), 'generated staged assets are ignored rather than treated as source');
+
+    $runbook = (string) file_get_contents($root . '/docs/DEPLOYMENT_RUNBOOK.md');
+    $stageCommand = strpos($runbook, 'npm run stage');
+    $rsyncCommand = strpos($runbook, 'rsync -av --delete');
+    Assert::true(
+        is_int($stageCommand) && is_int($rsyncCommand) && $stageCommand < $rsyncCommand,
+        'the deployment runbook stages the generated Operator Console assets before rsync copies the deployment tree',
+    );
+    Assert::contains(
+        'test -f public_html/assets/operator-console/manifest.json',
+        $runbook,
+        'the deployment runbook refuses to proceed without the staged Operator Console manifest',
+    );
 } finally {
     $removeTree($tmp);
 }
