@@ -67,7 +67,13 @@ $console = new ConsoleController($context, $decisions, $view);
 $kernel = new Kernel($db, $clock, $auth, $view);
 $kernel->route('GET', '/console', $console->workspace(...));
 $kernel->route('GET', '/console/api/v1/context', $reads->context(...), 'JSON_401');
+$kernel->route('GET', '/console/api/v1/p01/battlecards', $reads->p01Battlecards(...), 'JSON_401');
 $kernel->route('GET', '/console/api/v1/p02/entities', $reads->p02Entities(...), 'JSON_401');
+$kernel->route('GET', '/console/api/v1/p02/relationships', $reads->p02Relationships(...), 'JSON_401');
+$kernel->route('GET', '/console/api/v1/p03/priority-queue', $reads->p03PriorityQueue(...), 'JSON_401');
+$kernel->route('GET', '/console/api/v1/p03/monitored', $reads->p03Monitored(...), 'JSON_401');
+$kernel->route('GET', '/console/api/v1/p04/distributions', $reads->p04Distributions(...), 'JSON_401');
+$kernel->route('GET', '/console/api/v1/p05/drafts', $reads->p05Drafts(...), 'JSON_401');
 $kernel->route('GET', '/console/api/v1/m10/decisions', $reads->decisions(...), 'JSON_401');
 
 $request = static fn (string $path, array $query = [], array $cookies = []): Request => Request::fromGlobals(
@@ -81,10 +87,22 @@ $anonymousHtml = $kernel->handle($request('/console'));
 Assert::same(303, $anonymousHtml->status, 'ordinary authenticated HTML still redirects unidentified callers');
 Assert::same('/login', $anonymousHtml->headers['Location'], 'HTML authentication behavior is unchanged');
 
-$anonymousApi = $kernel->handle($request('/console/api/v1/context'));
-Assert::same(401, $anonymousApi->status, 'browser API returns JSON 401 instead of a login redirect');
-Assert::true(str_contains($anonymousApi->headers['Content-Type'], 'application/json'), 'API authentication failure is JSON');
-Assert::same('AUTHENTICATION_REQUIRED', json_decode($anonymousApi->body, true, 512, JSON_THROW_ON_ERROR)['reason_codes'][0]);
+foreach ([
+    '/console/api/v1/context',
+    '/console/api/v1/p01/battlecards',
+    '/console/api/v1/p02/entities',
+    '/console/api/v1/p02/relationships',
+    '/console/api/v1/p03/priority-queue',
+    '/console/api/v1/p03/monitored',
+    '/console/api/v1/p04/distributions',
+    '/console/api/v1/p05/drafts',
+    '/console/api/v1/m10/decisions',
+] as $apiPath) {
+    $anonymousApi = $kernel->handle($request($apiPath));
+    Assert::same(401, $anonymousApi->status, "{$apiPath} returns JSON 401 instead of a login redirect");
+    Assert::true(str_contains($anonymousApi->headers['Content-Type'], 'application/json'), "{$apiPath} authentication failure is JSON");
+    Assert::same('AUTHENTICATION_REQUIRED', json_decode($anonymousApi->body, true, 512, JSON_THROW_ON_ERROR)['reason_codes'][0]);
+}
 
 $signedIn = $auth->authenticate($user['email'], $user['password'], '203.0.113.66', 'console-read-api-test');
 Assert::true($signedIn->isOk(), 'test operator receives a real session');
@@ -108,6 +126,7 @@ Assert::true($demoStream->isOk(), 'a second ACTIVE DEMO stream may coexist in th
 $contextResponse = $kernel->handle($request('/console/api/v1/context', [
     'tenant_id' => 'caller-controlled-tenant',
     'workspace_id' => 'caller-controlled-workspace',
+    'operator_id' => 'caller-controlled-operator',
 ], $cookies));
 Assert::same(200, $contextResponse->status, 'context uses server session scope even when scope-like query keys are supplied');
 $contextBody = json_decode($contextResponse->body, true, 512, JSON_THROW_ON_ERROR);
@@ -115,6 +134,8 @@ Assert::same('m12.consoleContext', $contextBody['source']);
 Assert::same('TEST', $contextBody['data']['workspace']['environment_class']);
 Assert::true(in_array('browser-reader', $contextBody['data']['roles'], true), 'M12 context is rebuilt from current membership');
 Assert::false(str_contains($contextResponse->body, 'caller-controlled-tenant'), 'caller tenant input is not reflected into the governed context');
+Assert::false(str_contains($contextResponse->body, 'caller-controlled-workspace'), 'caller workspace input is not reflected into the governed context');
+Assert::false(str_contains($contextResponse->body, 'caller-controlled-operator'), 'caller operator input is not reflected into the governed context');
 
 $ledgerResponse = $kernel->handle($request('/console/api/v1/m10/decisions', ['environment_class' => 'DEMO'], $cookies));
 Assert::same(200, $ledgerResponse->status, 'authorized decision read succeeds');
@@ -129,6 +150,22 @@ $p02Body = json_decode($p02MissingLens->body, true, 512, JSON_THROW_ON_ERROR);
 Assert::same('p02.entitySnapshots', $p02Body['source']);
 Assert::same('DENIED', $p02Body['access']['decision']);
 Assert::same(['VISIBILITY_RULE_MISSING'], $p02Body['reason_codes']);
+
+foreach ([
+    ['/console/api/v1/p01/battlecards', [], 'p01.releasedBattlecards'],
+    ['/console/api/v1/p02/relationships', ['visibility_scope' => 'SALES'], 'p02.relationshipSnapshots'],
+    ['/console/api/v1/p03/priority-queue', [], 'p03.priorityQueue'],
+    ['/console/api/v1/p03/monitored', [], 'p03.monitoredProspects'],
+    ['/console/api/v1/p04/distributions', ['target_org_role' => 'SALES'], 'p04.roleDistributions'],
+    ['/console/api/v1/p05/drafts', [], 'p05.internalMarketingDrafts'],
+] as [$path, $query, $source]) {
+    $response = $kernel->handle($request($path, $query, $cookies));
+    Assert::same(403, $response->status, "{$path} preserves the owner M02/tier denial rather than treating it as empty");
+    $body = json_decode($response->body, true, 512, JSON_THROW_ON_ERROR);
+    Assert::same($source, $body['source'], "{$path} reports the exact read descriptor source");
+    Assert::same('DENIED', $body['access']['decision'], "{$path} exposes owner denial as denial");
+    Assert::same(null, $body['data'], "{$path} returns no partial governed rows on denial");
+}
 
 $noBattlecard = $kernel->handle($request('/console/api/v1/p03/battlecards', [], $cookies));
 Assert::same(404, $noBattlecard->status, 'PR6 does not invent a P03 battlecard route');
