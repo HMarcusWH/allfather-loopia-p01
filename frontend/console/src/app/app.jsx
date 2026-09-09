@@ -22,9 +22,9 @@ export function ConsoleApp({datasource}){
   const [route,setRoute]=useState(()=>requestedView(ids)??fallback);
 
   useEffect(()=>{ if(ids.length&&!ids.includes(route)){ setRoute(fallback); writeView(fallback,{replace:true}); } },[ids,route,fallback]);
-  useEffect(()=>{ const handler=()=>{ const next=requestedView(ids); if(next) setRoute(next); }; globalThis.addEventListener?.("popstate",handler); return()=>globalThis.removeEventListener?.("popstate",handler); },[ids]);
+  useEffect(()=>{ const handler=()=>setRoute(requestedView(ids)??fallback); globalThis.addEventListener?.("popstate",handler); return()=>globalThis.removeEventListener?.("popstate",handler); },[ids,fallback]);
 
-  const navigate=(next)=>{ if(!ids.includes(next)) return; setRoute(next); writeView(next); };
+  const navigate=(next)=>{ if(!ids.includes(next)||next===route) return; setRoute(next); writeView(next); };
   const View=useMemo(()=>ROUTES[route]??ROUTES[fallback]??ROUTES.overview,[route,fallback]);
   return <Shell datasource={datasource} current={route} onNavigate={navigate} navigation={navigation}><View datasource={datasource}/></Shell>;
 }
