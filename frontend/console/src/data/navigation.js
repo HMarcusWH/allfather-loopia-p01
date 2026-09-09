@@ -10,3 +10,4 @@ export const NAVIGATION_ALLOWLIST=Object.freeze([
 export const STATIC_NAV_IDS=Object.freeze(NAVIGATION_ALLOWLIST.flatMap(g=>g.items.map(x=>x.id)));
 export function buildNavigation({adapterReadIds=[],usableIds=null}={}){ const adapters=new Set(adapterReadIds); const usable=usableIds==null?null:new Set(usableIds); return Object.freeze(NAVIGATION_ALLOWLIST.map(g=>Object.freeze({...g,items:Object.freeze(g.items.filter(item=>(usable==null||usable.has(item.id))&&item.reads.some(r=>adapters.has(r))))})).filter(g=>g.items.length)); }
 export function navigationIds(groups){ return Object.freeze(groups.flatMap(g=>g.items.map(x=>x.id))); }
+export function firstNavigationId(groups,fallback=null){ return groups?.[0]?.items?.[0]?.id??fallback; }
