@@ -81,7 +81,17 @@ unhashed fallback; rebuild and stage the deployment working tree instead.
 
 **Deploy over SSH** (available on all three tiers), from a checkout on your own machine:
 
-    rsync -av --delete       --exclude '.git' --exclude 'tests' --exclude '.env'       ./ <user>@<host>:~/<domain>/
+    rsync -av --delete \
+      --exclude '.git' \
+      --exclude 'tests' \
+      --exclude '.env' \
+      --exclude 'frontend/console/node_modules' \
+      --exclude 'frontend/console/dist' \
+      ./ <user>@<host>:~/<domain>/
+
+`rsync` does not honor `.gitignore`. The private frontend dependency tree and private `dist/` build
+therefore stay explicitly excluded, while the validated staged assets under
+`public_html/assets/operator-console/` remain included in the deployment.
 
 `.env` is excluded deliberately and uploaded once, by hand, with its own permissions. A deploy that
 overwrites configuration is a deploy that can silently change which database it points at.

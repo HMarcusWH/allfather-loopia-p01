@@ -138,6 +138,20 @@ try {
         $runbook,
         'the deployment runbook refuses to proceed without the staged Operator Console manifest',
     );
+    Assert::contains(
+        "--exclude 'frontend/console/node_modules'",
+        $runbook,
+        'the deployment rsync excludes the frontend dependency tree produced by npm ci',
+    );
+    Assert::contains(
+        "--exclude 'frontend/console/dist'",
+        $runbook,
+        'the deployment rsync excludes the private frontend build output',
+    );
+    Assert::false(
+        str_contains($runbook, "--exclude 'public_html/assets/operator-console'"),
+        'the deployment rsync still includes the validated staged public Operator Console assets',
+    );
 } finally {
     $removeTree($tmp);
 }
