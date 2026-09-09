@@ -36,7 +36,7 @@ test("P04 forwards only target_org_role",async()=>{
   assert.equal(result.projection.state,PROJECTION.EMPTY);
 });
 
-test("authentication failure and malformed transport fail visibly closed",async()=>{
+test("authentication failure, malformed transport and unexpected status fail visibly closed",async()=>{
   const unauth=new HttpConsoleDataSource({fetchImpl:async()=>jsonResponse(401,{status:"UNAUTHENTICATED",reason_codes:["AUTHENTICATION_REQUIRED"]})});
   const r=await unauth.readDescriptor(READS.P01_BATTLECARDS);
   assert.equal(r.projection.state,PROJECTION.UNAVAILABLE);
@@ -44,6 +44,9 @@ test("authentication failure and malformed transport fail visibly closed",async(
   const html=new HttpConsoleDataSource({fetchImpl:async()=>({status:200,headers:{get:()=>"text/html"},json:async()=>({})})});
   const bad=await html.readDescriptor(READS.P01_BATTLECARDS);
   assert.deepEqual(bad.reason_codes,["NON_JSON_READ_RESPONSE"]);
+  const odd=new HttpConsoleDataSource({fetchImpl:async()=>jsonResponse(418,envelope(READS.P01_BATTLECARDS,[]))});
+  const unexpected=await odd.readDescriptor(READS.P01_BATTLECARDS);
+  assert.deepEqual(unexpected.reason_codes,["UNEXPECTED_READ_STATUS"]);
 });
 
 test("unknown/deferred descriptors never become generic endpoints",async()=>{
