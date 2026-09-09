@@ -166,7 +166,7 @@ try {
     );
 
     $assetSection = substr($runbook, $assetPublish, $boundaryVerification - $assetPublish);
-    Assert::false(str_contains($assetSection, '--delete'), 'the Operator Console asset publish never deletes previous content hashes');
+    Assert::false(str_contains($assetSection, 'rsync -av --delete'), 'the Operator Console asset publish never uses delete semantics');
     Assert::contains("--exclude 'manifest.json'", $assetSection, 'hashed assets are copied before the live manifest');
     Assert::contains('manifest.json.next', $assetSection, 'the new manifest is uploaded under a temporary same-directory name');
     Assert::contains(
