@@ -10,6 +10,8 @@
   "scripts": {
     "test": "node --test tests/*.test.js",
     "build": "node build.mjs",
+    "stage": "node stage-assets.mjs",
+    "build:stage": "npm run build && npm run stage",
     "check": "npm test && npm run build"
   },
   "dependencies": {

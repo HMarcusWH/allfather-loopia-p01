@@ -14,7 +14,9 @@ require __DIR__ . '/../app/autoload.php';
 use Allfather\Loopia\Auth\Authenticator;
 use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Db\Database;
+use Allfather\Loopia\Http\ConsoleAssetManifest;
 use Allfather\Loopia\Http\Controllers\ConsoleController;
+use Allfather\Loopia\Http\Controllers\OperatorConsoleController;
 use Allfather\Loopia\Http\Controllers\SessionController;
 use Allfather\Loopia\Http\Controllers\SurfaceController;
 use Allfather\Loopia\Http\Controllers\WorkspaceController;
@@ -94,6 +96,14 @@ $console = new ConsoleController(
 );
 $kernel->route('GET', '/console', $console->workspace(...));
 $kernel->route('GET', '/console/decisions', $console->decisions(...));
+
+// PR5 presentation shell only. The controller receives no product service, no M02 guard, no
+// entitlement resolver and no database handle; governed browser reads remain deliberately unwired.
+$operatorConsole = new OperatorConsoleController(
+    new ConsoleAssetManifest($root . '/public_html/assets/operator-console'),
+    $view,
+);
+$kernel->route('GET', '/console/app', $operatorConsole->shell(...));
 
 $surfaces = new SurfaceController(
     new Surfacing($db, $access, $ledger, $entitlements),

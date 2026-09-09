@@ -13,3 +13,4 @@ Thumbs.db
 .env.testing
 /frontend/console/node_modules/
 /frontend/console/dist/
+/public_html/assets/operator-console/

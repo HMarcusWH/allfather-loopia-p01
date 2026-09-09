@@ -27,17 +27,17 @@ Options -Indexes -MultiViews
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
-  # The two entry points and the stylesheet are served as themselves. Everything else — every
-  # console path, and anything a caller invents — is the front controller's to answer, including
-  # its 404: a 404 rendered by the application carries the same security headers every other
-  # response does, and the server's default error page carries none of them.
+  # The entry points and the intentionally public asset tree are served as themselves. Everything
+  # else — every console path, and anything a caller invents — is the front controller's to answer,
+  # including its 404: a 404 rendered by the application carries the same security headers every
+  # other application response does, while the server's default error page carries none of them.
   RewriteRule ^(assets/.*|index\.php|scheduler\.php)$ - [L]
   RewriteRule ^ index.php [L]
 </IfModule>
 
 # Static assets are served by the web server itself, so the application's own headers never touch
-# them. The stylesheet is the only one, and it is still worth pinning: a text/css response that a
-# browser is willing to sniff is a text/css response that can be made to be something else.
+# them. PR5 adds content-hashed local JS/CSS/SVG below assets/operator-console/; the directives were
+# already shaped for those types and do not need to widen the public route set.
 <IfModule mod_headers.c>
   <FilesMatch "\.(css|js|svg|png|jpg|jpeg|woff2?)$">
     Header always set X-Content-Type-Options "nosniff"

@@ -51,9 +51,84 @@ exactly that reason: deployment is a copy into `<domain>/`, with no rename, no s
       public_html/                <- the ONLY web-served directory; the name is fixed by Loopia
         index.php  scheduler.php  assets/  .htaccess
 
-**Deploy over SSH** (available on all three tiers), from a checkout on your own machine:
+#### Build and stage the Operator Console before copying
 
-    rsync -av --delete       --exclude '.git' --exclude 'tests' --exclude '.env'       ./ <user>@<host>:~/<domain>/
+`public_html/assets/operator-console/` is generated deployment output and is intentionally
+Git-ignored. A fresh checkout therefore does **not** contain the authenticated React bundle until
+the frontend build is validated and staged. The qualified frontend toolchain for this PR is
+**Node v22.16.0 / npm 10.9.2**.
+
+Run this from the repository checkout **before** `rsync`:
+
+    cd frontend/console
+    node --version    # expect v22.16.0
+    npm --version     # expect 10.9.2
+    npm ci
+    npm test
+    npm run build
+    npm run stage
+    cd ../..
+    test -f public_html/assets/operator-console/manifest.json
+
+`npm run stage` validates the private build output and publishes only the reviewed content-hashed
+JS/CSS/SVG set into `public_html/assets/operator-console/`, writing `manifest.json` last. The staged
+directory is then published separately from the whole-tree deployment below so the application's
+`rsync --delete` can never remove a still-referenced content hash during a release.
+
+If this stage is absent or invalid, `/console/app` returns **503 by design** rather than guessing a
+bundle filename. Do not work around that refusal by committing generated assets or by adding an
+unhashed fallback; rebuild and stage the deployment working tree instead.
+
+#### Deploy the application tree
+
+**Deploy over SSH** (available on all three tiers), from a checkout on your own machine. The general
+deployment deliberately excludes the Operator Console asset directory; that subtree has its own
+manifest-last publish step immediately below.
+
+    rsync -av --delete \
+      --exclude '.git' \
+      --exclude 'tests' \
+      --exclude '.env' \
+      --exclude 'frontend/console/node_modules' \
+      --exclude 'frontend/console/dist' \
+      --exclude 'public_html/assets/operator-console' \
+      ./ <user>@<host>:~/<domain>/
+
+`rsync` does not honor `.gitignore`. The private frontend dependency tree and private `dist/` build
+therefore stay explicitly excluded. The staged Operator Console subtree is also excluded here for a
+different reason: the root `--delete` must not prune the previous content-hashed bundle while an old
+manifest or already-served HTML can still refer to it.
+
+#### Publish Operator Console assets manifest-last
+
+Publish the content-hashed files first **without `--delete`**, then publish the manifest to a
+same-directory temporary name and replace the live manifest with one remote `mv`:
+
+    ssh <user>@<host> 'mkdir -p ~/<domain>/public_html/assets/operator-console'
+
+    rsync -av \
+      --exclude 'manifest.json' \
+      public_html/assets/operator-console/ \
+      <user>@<host>:~/<domain>/public_html/assets/operator-console/
+
+    rsync -av \
+      public_html/assets/operator-console/manifest.json \
+      <user>@<host>:~/<domain>/public_html/assets/operator-console/manifest.json.next
+
+    ssh <user>@<host> \
+      'test -f ~/<domain>/public_html/assets/operator-console/manifest.json.next && \
+       mv ~/<domain>/public_html/assets/operator-console/manifest.json.next \
+          ~/<domain>/public_html/assets/operator-console/manifest.json'
+
+This ordering is the deployment invariant: **old manifest + old hashes remain valid; new hashes are
+copied; only then does the manifest switch to the new hashes.** The final `mv` is within one remote
+directory/filesystem, so consumers never observe a partially copied manifest. If either asset copy
+fails, the old live manifest remains untouched and still names files that were not deleted.
+
+Old content-hashed assets are deliberately retained during the deployment. Do **not** add `--delete`
+to the asset publish step and do not prune old hashes in the same release. Cleanup is a separate,
+later maintenance act after the new deployment has been verified and any previously served page has
+had time to age out.
 
 `.env` is excluded deliberately and uploaded once, by hand, with its own permissions. A deploy that
 overwrites configuration is a deploy that can silently change which database it points at.
