@@ -83,6 +83,14 @@ a:hover, a:focus-visible { text-decoration: underline; }
 }
 .rail__link { display: block; padding: 5px 0; color: var(--text-dim); font-size: 13px; }
 .rail__link[aria-current="page"] { color: var(--text); border-left: 2px solid var(--authority); padding-left: 8px; margin-left: -10px; }
+.rail__button {
+  width: 100%;
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
 
 /* A nav item hidden by entitlement is a CONVENIENCE, never a permission. The note says so on the
    page, because an operator who thinks the menu is the boundary will eventually test it. */

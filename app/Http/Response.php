@@ -8,9 +8,9 @@ namespace Allfather\Loopia\Http;
  * One outbound response, with the security headers set in the constructor rather than by whoever
  * remembers.
  *
- * The CSP is deliberately strict: no inline script, no external origin, nothing framed. The console
- * loads one stylesheet and no JavaScript at all — a governance surface that cannot execute
- * arbitrary script is a governance surface with one fewer way to lie about what it shows.
+ * The server-rendered surfaces keep the original no-script CSP. The authenticated React shell has
+ * one separate response profile that permits only same-origin script/style/image/connect sources;
+ * widening that one route must never silently widen login or the governed SSR surfaces with it.
  */
 final class Response
 {
@@ -40,6 +40,21 @@ final class Response
         return new self($status, $body, [
             'Content-Type' => 'text/html; charset=utf-8',
             ...self::securityHeaders(),
+            ...$extra,
+        ]);
+    }
+
+    /**
+     * The authenticated React shell. This profile is deliberately NOT the default HTML profile.
+     * No inline script/style, no eval, no CDN and no cross-origin API are permitted.
+     *
+     * @param array<string, string> $extra
+     */
+    public static function operatorConsoleHtml(string $body, int $status = 200, array $extra = []): self
+    {
+        return new self($status, $body, [
+            'Content-Type' => 'text/html; charset=utf-8',
+            ...self::operatorConsoleSecurityHeaders(),
             ...$extra,
         ]);
     }
@@ -80,7 +95,7 @@ final class Response
     private static function securityHeaders(): array
     {
         return [
-            // No script at all, inline or otherwise. The console is server-rendered.
+            // No script at all, inline or otherwise. The server-rendered console stays scriptless.
             'Content-Security-Policy' =>
                 "default-src 'none'; style-src 'self'; img-src 'self'; form-action 'self'; "
                 . "base-uri 'none'; frame-ancestors 'none'",
@@ -88,6 +103,19 @@ final class Response
             'Referrer-Policy' => 'no-referrer',
             // A governance console shows decisions that change. A cached page could show a viewer a
             // release that has since been withdrawn.
+            'Cache-Control' => 'no-store, private',
+        ];
+    }
+
+    /** @return array<string, string> */
+    private static function operatorConsoleSecurityHeaders(): array
+    {
+        return [
+            'Content-Security-Policy' =>
+                "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; "
+                . "form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+            'X-Content-Type-Options' => 'nosniff',
+            'Referrer-Policy' => 'no-referrer',
             'Cache-Control' => 'no-store, private',
         ];
     }
