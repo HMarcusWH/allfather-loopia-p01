@@ -16,6 +16,7 @@ const ENDPOINTS=Object.freeze({
   [READS.P05_DRAFTS]: "/console/api/v1/p05/drafts",
   [READS.LEDGER]: "/console/api/v1/m10/decisions"
 });
+const EXPECTED_STATUSES=Object.freeze(new Set([200,403,409,503]));
 export const LIVE_READ_IDS=Object.freeze(Object.keys(ENDPOINTS));
 
 function failureEnvelope(source,reason){
@@ -37,6 +38,7 @@ export class HttpConsoleDataSource extends ConsoleDataSource {
     try {
       const {status,payload}=await getJsonRead(endpoint,{query:queryFor(readId,query),signal:options.signal,fetchImpl:this.fetchImpl});
       if(status===401) return failureEnvelope(readId,"AUTHENTICATION_REQUIRED");
+      if(!EXPECTED_STATUSES.has(status)) return failureEnvelope(readId,"UNEXPECTED_READ_STATUS");
       if(!isEnvelope(payload,readId)) return failureEnvelope(readId,"INVALID_READ_ENVELOPE");
       return adaptLiveRead(readId,payload);
     } catch (error) {
