@@ -18,9 +18,10 @@ async function graph(entry) {
   }
   await visit(entry); return [...seen];
 }
-test("production graph cannot enter fixture, dev or deferred trees", async () => {
+test("production graph uses HTTP datasource and cannot enter fixture, dev or deferred trees", async () => {
   const files=await graph(path.join(root,"src/index.jsx"));
   for(const file of files){ const rel=path.relative(root,file).replaceAll(path.sep,"/"); assert.ok(!rel.startsWith("fixtures/"),rel); assert.ok(!rel.startsWith("dev/"),rel); assert.ok(!rel.startsWith("deferred/"),rel); }
-  assert.ok(files.some((f)=>f.endsWith("canonical-console-data-source.js")));
+  assert.ok(files.some((f)=>f.endsWith("http-console-data-source.js")));
   assert.ok(!files.some((f)=>f.endsWith("fixture-console-data-source.js")));
+  assert.ok(!files.some((f)=>f.endsWith("canonical-console-data-source.js")));
 });
