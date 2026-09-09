@@ -60,7 +60,7 @@ foreach (['P01_BATTLECARDS','P02_ENTITY_INDEX','P02_RELATION_INDEX','P03_QUEUE',
     Assert::contains("READS.{$read}", $httpDatasource, "HTTP datasource explicitly maps {$read}");
 }
 Assert::false(str_contains($httpDatasource, 'P03_BATTLECARDS]:'), 'HTTP datasource contains no P03 battlecard endpoint mapping');
-Assert::false(str_contains($httpDatasource, 'OVERVIEW_PULSE]:'), 'unimplemented Overview read is not live-mapped');
-Assert::contains('[READS.LEDGER,"M10","LIVE_WIRED_ENV_PINNED",true]', $meta, 'metadata states the exact repaired M10 condition');
+Assert::false(str_contains($httpDatasource, 'OVERVIEW_PULSE]:'), 'unimplemented Overview read is not browser-mapped');
+Assert::contains('[READS.LEDGER,"M10","OWNER_READ_WIRED_ENV_PINNED",true]', $meta, 'metadata states the exact repaired M10 browser-read condition without implying source activation');
 Assert::contains('[READS.P03_BATTLECARDS,"P03","NEEDS_READ_MODEL",true]', $meta, 'deferred P03 battlecard stays explicitly unavailable');
 Assert::contains('[READS.OVERVIEW_PULSE,"M12","NEEDS_READ_MODEL",false]', $meta, 'Overview remains unavailable rather than being fabricated');
