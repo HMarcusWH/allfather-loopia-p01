@@ -1,0 +1,134 @@
+<?php
+
+declare(strict_types=1);
+
+use Allfather\Loopia\Auth\Authenticator;
+use Allfather\Loopia\Http\Controllers\ConsoleController;
+use Allfather\Loopia\Http\Controllers\ConsoleReadController;
+use Allfather\Loopia\Http\Csrf;
+use Allfather\Loopia\Http\Kernel;
+use Allfather\Loopia\Http\ReadAdapters\ConsoleContextAdapter;
+use Allfather\Loopia\Http\ReadAdapters\DecisionLedgerAdapter;
+use Allfather\Loopia\Http\Request;
+use Allfather\Loopia\Http\View;
+use Allfather\Loopia\Product\P01\Entitlements;
+use Allfather\Loopia\Product\P01\Surfacing;
+use Allfather\Loopia\Product\P02\EntityTwins;
+use Allfather\Loopia\Product\P02\RelationshipRelease;
+use Allfather\Loopia\Product\P02\RelationshipTwins;
+use Allfather\Loopia\Product\P02\TwinRelease;
+use Allfather\Loopia\Product\P03\Release as P03Release;
+use Allfather\Loopia\Product\P04\Release as P04Release;
+use Allfather\Loopia\Product\P05\Release as P05Release;
+use Allfather\Loopia\Substrate\M02\AccessGuard;
+use Allfather\Loopia\Substrate\M10\DecisionLedger;
+use Allfather\Loopia\Substrate\M11\Assurance;
+use Allfather\Loopia\Substrate\M12\Console;
+use Allfather\Loopia\Substrate\M16\P02Adapter;
+use Allfather\Loopia\Substrate\M16\ReleaseOutput;
+use Allfather\Loopia\Tests\Assert;
+use Allfather\Loopia\Tests\Harness;
+use Allfather\Loopia\Tests\Seed;
+
+$db = Harness::freshDb();
+if ($db === null) {
+    Assert::skip(Harness::unavailableReason());
+    return;
+}
+$clock = Harness::clock();
+$scope = Seed::tenantWorkspace($db, $clock, 'browser-read');
+$role = Seed::role($db, $clock, 'browser-reader', ['decision.read']);
+Seed::membership($db, $clock, $scope['tenant_id'], $scope['workspace_id'], $scope['operator_id'], $role['role_id']);
+$user = Seed::platformUser($db, $clock, $scope['tenant_id'], $scope['operator_id'], 'browser-read@example.test');
+
+$auth = new Authenticator($db, $clock);
+$access = new AccessGuard($db, $clock);
+$ledger = new DecisionLedger($db, $clock);
+$assurance = new Assurance($db, $clock, $ledger);
+$entitlements = new Entitlements($db, $clock);
+$m12 = new Console($db, $clock, $access, $ledger, $assurance);
+$context = new ConsoleContextAdapter($db, $m12, $assurance);
+$decisions = new DecisionLedgerAdapter($db, $clock, $access, $ledger);
+$view = new View(dirname(__DIR__, 2) . '/app/Http/templates');
+
+$releaseOutput = new ReleaseOutput($db, $clock, $ledger);
+$p02Adapter = new P02Adapter($db, $releaseOutput);
+$reads = new ConsoleReadController(
+    $context,
+    $decisions,
+    new Surfacing($db, $access, $ledger, $entitlements),
+    new TwinRelease($db, $clock, $ledger, new EntityTwins($db, $clock), $access, $entitlements, $p02Adapter),
+    new RelationshipRelease($db, $clock, $ledger, new RelationshipTwins($db, $clock), $access, $entitlements, $p02Adapter),
+    new P03Release($db, $clock, $ledger, $access, $entitlements),
+    new P04Release($db, $clock, $ledger, $access, $entitlements),
+    new P05Release($db, $clock, $ledger, $access, $entitlements),
+);
+$console = new ConsoleController($context, $decisions, $view);
+$kernel = new Kernel($db, $clock, $auth, $view);
+$kernel->route('GET', '/console', $console->workspace(...));
+$kernel->route('GET', '/console/api/v1/context', $reads->context(...), 'JSON_401');
+$kernel->route('GET', '/console/api/v1/p02/entities', $reads->p02Entities(...), 'JSON_401');
+$kernel->route('GET', '/console/api/v1/m10/decisions', $reads->decisions(...), 'JSON_401');
+
+$request = static fn (string $path, array $query = [], array $cookies = []): Request => Request::fromGlobals(
+    ['REQUEST_METHOD' => 'GET', 'REQUEST_URI' => $path, 'REMOTE_ADDR' => '203.0.113.66'],
+    $query,
+    [],
+    $cookies,
+);
+
+$anonymousHtml = $kernel->handle($request('/console'));
+Assert::same(303, $anonymousHtml->status, 'ordinary authenticated HTML still redirects unidentified callers');
+Assert::same('/login', $anonymousHtml->headers['Location'], 'HTML authentication behavior is unchanged');
+
+$anonymousApi = $kernel->handle($request('/console/api/v1/context'));
+Assert::same(401, $anonymousApi->status, 'browser API returns JSON 401 instead of a login redirect');
+Assert::true(str_contains($anonymousApi->headers['Content-Type'], 'application/json'), 'API authentication failure is JSON');
+Assert::same('AUTHENTICATION_REQUIRED', json_decode($anonymousApi->body, true, 512, JSON_THROW_ON_ERROR)['reason_codes'][0]);
+
+$signedIn = $auth->authenticate($user['email'], $user['password'], '203.0.113.66', 'console-read-api-test');
+Assert::true($signedIn->isOk(), 'test operator receives a real session');
+$tokens = $signedIn->value();
+$cookies = ['af_session' => $tokens['session_token'], Csrf::COOKIE_NAME => $tokens['csrf_token']];
+
+$noWorkspace = $kernel->handle($request('/console/api/v1/context', [], $cookies));
+Assert::same(409, $noWorkspace->status, 'authenticated API distinguishes missing workspace from authorization denial');
+$noWorkspaceBody = json_decode($noWorkspace->body, true, 512, JSON_THROW_ON_ERROR);
+Assert::same('m12.consoleContext', $noWorkspaceBody['source']);
+Assert::same(['NO_ACTIVE_WORKSPACE'], $noWorkspaceBody['reason_codes']);
+
+$selected = $auth->setActiveWorkspace($tokens['session_id'], $scope['workspace_id']);
+Assert::true($selected->isOk(), 'active workspace is selected through the real authenticator gate');
+
+$testStream = $ledger->createStream($scope['tenant_id'], $scope['workspace_id'], 'TEST');
+Assert::true($testStream->isOk(), 'TEST decision stream exists');
+$demoStream = $ledger->createStream($scope['tenant_id'], $scope['workspace_id'], 'DEMO');
+Assert::true($demoStream->isOk(), 'a second ACTIVE DEMO stream may coexist in the same tenant/workspace');
+
+$contextResponse = $kernel->handle($request('/console/api/v1/context', [
+    'tenant_id' => 'caller-controlled-tenant',
+    'workspace_id' => 'caller-controlled-workspace',
+], $cookies));
+Assert::same(200, $contextResponse->status, 'context uses server session scope even when scope-like query keys are supplied');
+$contextBody = json_decode($contextResponse->body, true, 512, JSON_THROW_ON_ERROR);
+Assert::same('m12.consoleContext', $contextBody['source']);
+Assert::same('TEST', $contextBody['data']['workspace']['environment_class']);
+Assert::true(in_array('browser-reader', $contextBody['data']['roles'], true), 'M12 context is rebuilt from current membership');
+Assert::false(str_contains($contextResponse->body, 'caller-controlled-tenant'), 'caller tenant input is not reflected into the governed context');
+
+$ledgerResponse = $kernel->handle($request('/console/api/v1/m10/decisions', ['environment_class' => 'DEMO'], $cookies));
+Assert::same(200, $ledgerResponse->status, 'authorized decision read succeeds');
+$ledgerBody = json_decode($ledgerResponse->body, true, 512, JSON_THROW_ON_ERROR);
+Assert::same('m10.decisions', $ledgerBody['source']);
+Assert::same('TEST', $ledgerBody['data']['environment_class'], 'workspace environment pins the ledger even when caller requests DEMO');
+Assert::same('EMPTY', $ledgerBody['projection']['state'], 'an authorized empty ledger is EMPTY rather than denied');
+
+$p02MissingLens = $kernel->handle($request('/console/api/v1/p02/entities', [], $cookies));
+Assert::same(403, $p02MissingLens->status, 'P02 requires an explicit visibility lens');
+$p02Body = json_decode($p02MissingLens->body, true, 512, JSON_THROW_ON_ERROR);
+Assert::same('p02.entitySnapshots', $p02Body['source']);
+Assert::same('DENIED', $p02Body['access']['decision']);
+Assert::same(['VISIBILITY_RULE_MISSING'], $p02Body['reason_codes']);
+
+$noBattlecard = $kernel->handle($request('/console/api/v1/p03/battlecards', [], $cookies));
+Assert::same(404, $noBattlecard->status, 'PR6 does not invent a P03 battlecard route');
