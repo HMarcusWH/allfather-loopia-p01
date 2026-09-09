@@ -128,29 +128,67 @@ try {
 
     $runbook = (string) file_get_contents($root . '/docs/DEPLOYMENT_RUNBOOK.md');
     $stageCommand = strpos($runbook, 'npm run stage');
-    $rsyncCommand = strpos($runbook, 'rsync -av --delete');
+    $applicationDeploy = strpos($runbook, '#### Deploy the application tree');
+    $assetPublish = strpos($runbook, '#### Publish Operator Console assets manifest-last');
+    $boundaryVerification = strpos($runbook, '**Do not symlink a separate directory into the document root.**');
     Assert::true(
-        is_int($stageCommand) && is_int($rsyncCommand) && $stageCommand < $rsyncCommand,
-        'the deployment runbook stages the generated Operator Console assets before rsync copies the deployment tree',
+        is_int($stageCommand)
+        && is_int($applicationDeploy)
+        && is_int($assetPublish)
+        && is_int($boundaryVerification)
+        && $stageCommand < $applicationDeploy
+        && $applicationDeploy < $assetPublish
+        && $assetPublish < $boundaryVerification,
+        'the runbook orders staging, application deployment and manifest-last asset publication explicitly',
     );
     Assert::contains(
         'test -f public_html/assets/operator-console/manifest.json',
         $runbook,
         'the deployment runbook refuses to proceed without the staged Operator Console manifest',
     );
+
+    $applicationSection = substr($runbook, $applicationDeploy, $assetPublish - $applicationDeploy);
+    Assert::contains('rsync -av --delete', $applicationSection, 'the general application deployment retains its closed-tree delete behavior');
     Assert::contains(
         "--exclude 'frontend/console/node_modules'",
-        $runbook,
-        'the deployment rsync excludes the frontend dependency tree produced by npm ci',
+        $applicationSection,
+        'the application rsync excludes the frontend dependency tree produced by npm ci',
     );
     Assert::contains(
         "--exclude 'frontend/console/dist'",
-        $runbook,
-        'the deployment rsync excludes the private frontend build output',
+        $applicationSection,
+        'the application rsync excludes the private frontend build output',
     );
-    Assert::false(
-        str_contains($runbook, "--exclude 'public_html/assets/operator-console'"),
-        'the deployment rsync still includes the validated staged public Operator Console assets',
+    Assert::contains(
+        "--exclude 'public_html/assets/operator-console'",
+        $applicationSection,
+        'the application rsync cannot delete a still-referenced Operator Console content hash',
+    );
+
+    $assetSection = substr($runbook, $assetPublish, $boundaryVerification - $assetPublish);
+    Assert::false(str_contains($assetSection, '--delete'), 'the Operator Console asset publish never deletes previous content hashes');
+    Assert::contains("--exclude 'manifest.json'", $assetSection, 'hashed assets are copied before the live manifest');
+    Assert::contains('manifest.json.next', $assetSection, 'the new manifest is uploaded under a temporary same-directory name');
+    Assert::contains(
+        'mv ~/<domain>/public_html/assets/operator-console/manifest.json.next',
+        $assetSection,
+        'the live manifest is switched only by a final remote rename',
+    );
+    $assetCopy = strpos($assetSection, "--exclude 'manifest.json'");
+    $manifestNext = strpos($assetSection, 'manifest.json.next');
+    $manifestMove = strpos($assetSection, 'mv ~/<domain>/public_html/assets/operator-console/manifest.json.next');
+    Assert::true(
+        is_int($assetCopy)
+        && is_int($manifestNext)
+        && is_int($manifestMove)
+        && $assetCopy < $manifestNext
+        && $manifestNext < $manifestMove,
+        'new hashes arrive before the temporary manifest and the manifest rename is last',
+    );
+    Assert::contains(
+        'Old content-hashed assets are deliberately retained during the deployment.',
+        $assetSection,
+        'the runbook makes old-hash retention an explicit release invariant rather than an accident',
     );
 } finally {
     $removeTree($tmp);
