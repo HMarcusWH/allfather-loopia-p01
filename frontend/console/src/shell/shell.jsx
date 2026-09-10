@@ -20,7 +20,7 @@ function ContextBoundary({context,state}){
   }
   if(state===CONTEXT_STATE.NO_ACTIVE_WORKSPACE){
     return <Panel title="Select a workspace" eyebrow="M12" icon="panels-top-left" meta="WORKSPACE REQUIRED">
-      <div className="read-state"><StatusBadge tone="amber">Workspace required</StatusBadge><span>Choose an active governed workspace before opening browser reads.</span>{reasons.length?<code>{reasons.join(" · ")}</code>:null}<a href="/console">Open workspace selector</a></div>
+      <div className="read-state"><StatusBadge tone="amber">Workspace required</StatusBadge><span>Choose an active governed workspace before opening browser reads.</span>{reasons.length?<code>{reasons.join(" · ")}</code>:null}<a href="/console/workspaces">Open workspace selector</a></div>
     </Panel>;
   }
   if(state===CONTEXT_STATE.DENIED){
