@@ -28,6 +28,21 @@ final class ConsoleContextAdapter
 
         $tenantId = (string) $session['tenant_id'];
         $operatorId = (string) $session['operator_id'];
+
+        // Session resolution revalidates the account, but tenant lifecycle is a separate M02 gate.
+        // A session issued while the tenant was ACTIVE must not keep presentation context visible
+        // after the tenant is suspended or retired. Check the current tenant state before reading
+        // workspace metadata, rebuilding M12 projections, or exposing assurance information.
+        $tenant = $this->db->one('SELECT status FROM tenants WHERE tenant_id = ?', [$tenantId]);
+        if ($tenant === null || (string) $tenant['status'] !== 'ACTIVE') {
+            return [
+                'decision' => 'DENIED',
+                'required_permission' => null,
+                'reason_codes' => ['TENANT_NOT_ACTIVE'],
+                'data' => null,
+            ];
+        }
+
         $workspace = $this->db->one(
             "SELECT display_name, environment_class, active_v1_capability_ceiling, external_side_effects_allowed
              FROM workspaces WHERE tenant_id = ? AND workspace_id = ? AND status = 'ACTIVE'",

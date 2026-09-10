@@ -155,6 +155,22 @@ $db->run("UPDATE roles SET status = 'ACTIVE' WHERE role_id = ?", [$role['role_id
 $restoredContext = $kernel->handle($request('/console/api/v1/context', [], $cookies));
 Assert::same(200, $restoredContext->status, 'reactivating the role restores context on the next regenerated read');
 
+// Tenant lifecycle is an independent M02 gate. An already-issued session can still resolve while
+// its tenant is suspended or retired, so browser context must re-check tenant state before it
+// exposes workspace metadata, roles, permissions, or assurance gaps.
+foreach (['SUSPENDED', 'RETIRED'] as $inactiveTenantStatus) {
+    $db->run('UPDATE tenants SET status = ? WHERE tenant_id = ?', [$inactiveTenantStatus, $scope['tenant_id']]);
+    $inactiveTenantContext = $kernel->handle($request('/console/api/v1/context', [], $cookies));
+    Assert::same(403, $inactiveTenantContext->status, "{$inactiveTenantStatus} tenant cannot retain browser context through an existing session");
+    $inactiveTenantBody = json_decode($inactiveTenantContext->body, true, 512, JSON_THROW_ON_ERROR);
+    Assert::same('DENIED', $inactiveTenantBody['access']['decision'], "{$inactiveTenantStatus} tenant context is an explicit denial");
+    Assert::same(['TENANT_NOT_ACTIVE'], $inactiveTenantBody['reason_codes'], "{$inactiveTenantStatus} tenant preserves the M02 lifecycle reason");
+    Assert::same(null, $inactiveTenantBody['data'], "{$inactiveTenantStatus} tenant context leaks no governed presentation data");
+}
+$db->run("UPDATE tenants SET status = 'ACTIVE' WHERE tenant_id = ?", [$scope['tenant_id']]);
+$tenantRestoredContext = $kernel->handle($request('/console/api/v1/context', [], $cookies));
+Assert::same(200, $tenantRestoredContext->status, 'reactivating the tenant restores context on the next read');
+
 $ledgerResponse = $kernel->handle($request('/console/api/v1/m10/decisions', ['environment_class' => 'DEMO'], $cookies));
 Assert::same(200, $ledgerResponse->status, 'authorized decision read succeeds');
 $ledgerBody = json_decode($ledgerResponse->body, true, 512, JSON_THROW_ON_ERROR);
