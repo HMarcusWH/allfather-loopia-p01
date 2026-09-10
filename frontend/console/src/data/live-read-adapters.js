@@ -30,12 +30,18 @@ const columns = Object.freeze({
 
 export function adaptLiveRead(readId,envelope){
   if(!envelope || envelope.source!==readId) return envelope;
-  if(envelope.projection?.state!==PROJECTION.READY) return envelope;
-  if(readId===READS.CONTEXT) return envelope;
-  if(readId===READS.LEDGER){
+  const state=envelope.projection?.state;
+
+  // Ledger integrity is material even when the stream currently has zero rows. Preserve the
+  // server-recomputed verification/environment summary for EMPTY as well as READY so the React
+  // console does not collapse an integrity result into a generic empty-state message.
+  if(readId===READS.LEDGER && (state===PROJECTION.READY || state===PROJECTION.EMPTY)){
     const data=envelope.data??{};
     return {...envelope,data:{rows:data.rows??[],columns:columns[readId],summary:{title:"Ledger integrity",body:`${data.environment_class??"UNKNOWN"} · ${data.verification??"NO STREAM"}`}}};
   }
+
+  if(state!==PROJECTION.READY) return envelope;
+  if(readId===READS.CONTEXT) return envelope;
   if(Array.isArray(envelope.data)) return {...envelope,data:{rows:envelope.data,columns:columns[readId]??[]}};
   return envelope;
 }

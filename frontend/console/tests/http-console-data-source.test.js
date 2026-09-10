@@ -9,9 +9,11 @@ function jsonResponse(status,payload){return {status,headers:{get:(name)=>name.t
 function envelope(source,data,state="READY"){return {source,as_of:"2026-09-10T00:00:00Z",access:{decision:"VISIBLE",required_permission:null,reason_codes:["GRANTED"]},projection:{state,stale_status:"CURRENT"},owner_state:"VISIBLE",reason_codes:["GRANTED"],data};}
 
 test("production datasource exposes only the explicit PR6 read allowlist",()=>{
+  const ds=new HttpConsoleDataSource({fetchImpl:async()=>jsonResponse(503,{})});
   assert.deepEqual(new Set(LIVE_READ_IDS),new Set([READS.CONTEXT,READS.P01_BATTLECARDS,READS.P02_ENTITY_INDEX,READS.P02_RELATION_INDEX,READS.P03_QUEUE,READS.P03_WATCH,READS.P04_DISTRIBUTIONS,READS.P05_DRAFTS,READS.LEDGER]));
   assert.equal(LIVE_READ_IDS.includes(READS.P03_BATTLECARDS),false);
   assert.equal(LIVE_READ_IDS.includes(READS.OVERVIEW_PULSE),false);
+  assert.deepEqual(ds.getUsableNavigationIds(),[],"production has no unconditional usable route before context permissions are resolved");
 });
 
 test("P02 forwards only its explicit visibility lens and never caller scope",async()=>{
@@ -34,6 +36,15 @@ test("P04 forwards only target_org_role",async()=>{
   const result=await ds.readDescriptor(READS.P04_DISTRIBUTIONS,{target_org_role:"SALES",operator_id:"spoof"});
   assert.equal(called,"/console/api/v1/p04/distributions?target_org_role=SALES");
   assert.equal(result.projection.state,PROJECTION.EMPTY);
+});
+
+test("empty ledger preserves the server-recomputed integrity summary",async()=>{
+  const ds=new HttpConsoleDataSource({fetchImpl:async()=>jsonResponse(200,envelope(READS.LEDGER,{environment_class:"TEST",rows:[],verification:"PASS"},"EMPTY"))});
+  const result=await ds.readDescriptor(READS.LEDGER);
+  assert.equal(result.projection.state,PROJECTION.EMPTY);
+  assert.deepEqual(result.data.rows,[]);
+  assert.equal(result.data.summary.title,"Ledger integrity");
+  assert.equal(result.data.summary.body,"TEST · PASS");
 });
 
 test("authentication failure, malformed transport and unexpected status fail visibly closed",async()=>{

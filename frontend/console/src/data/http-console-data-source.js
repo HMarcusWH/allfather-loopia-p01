@@ -48,5 +48,7 @@ export class HttpConsoleDataSource extends ConsoleDataSource {
   }
   async query(collectionName){ return unavailableCollectionPage(`console.collection.${collectionName}`); }
   getAdapterAvailability(){ return LIVE_READ_IDS; }
-  getUsableNavigationIds(){ return null; }
+  // Production navigation has no unconditional usable routes. ConsoleApp derives the usability
+  // filter from the current M12 context permissions before choosing a route.
+  getUsableNavigationIds(){ return Object.freeze([]); }
 }
