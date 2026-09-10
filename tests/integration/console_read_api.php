@@ -101,7 +101,11 @@ foreach ([
     $anonymousApi = $kernel->handle($request($apiPath));
     Assert::same(401, $anonymousApi->status, "{$apiPath} returns JSON 401 instead of a login redirect");
     Assert::true(str_contains($anonymousApi->headers['Content-Type'], 'application/json'), "{$apiPath} authentication failure is JSON");
-    Assert::same('AUTHENTICATION_REQUIRED', json_decode($anonymousApi->body, true, 512, JSON_THROW_ON_ERROR)['reason_codes'][0]);
+    Assert::same(
+        'AUTHENTICATION_REQUIRED',
+        json_decode($anonymousApi->body, true, 512, JSON_THROW_ON_ERROR)['reason_codes'][0],
+        "{$apiPath} names the authentication failure explicitly",
+    );
 }
 
 $signedIn = $auth->authenticate($user['email'], $user['password'], '203.0.113.66', 'console-read-api-test');
@@ -112,8 +116,8 @@ $cookies = ['af_session' => $tokens['session_token'], Csrf::COOKIE_NAME => $toke
 $noWorkspace = $kernel->handle($request('/console/api/v1/context', [], $cookies));
 Assert::same(409, $noWorkspace->status, 'authenticated API distinguishes missing workspace from authorization denial');
 $noWorkspaceBody = json_decode($noWorkspace->body, true, 512, JSON_THROW_ON_ERROR);
-Assert::same('m12.consoleContext', $noWorkspaceBody['source']);
-Assert::same(['NO_ACTIVE_WORKSPACE'], $noWorkspaceBody['reason_codes']);
+Assert::same('m12.consoleContext', $noWorkspaceBody['source'], 'missing-workspace response keeps the context descriptor source');
+Assert::same(['NO_ACTIVE_WORKSPACE'], $noWorkspaceBody['reason_codes'], 'missing-workspace response carries only the named reason');
 
 $selected = $auth->setActiveWorkspace($tokens['session_id'], $scope['workspace_id']);
 Assert::true($selected->isOk(), 'active workspace is selected through the real authenticator gate');
@@ -130,26 +134,40 @@ $contextResponse = $kernel->handle($request('/console/api/v1/context', [
 ], $cookies));
 Assert::same(200, $contextResponse->status, 'context uses server session scope even when scope-like query keys are supplied');
 $contextBody = json_decode($contextResponse->body, true, 512, JSON_THROW_ON_ERROR);
-Assert::same('m12.consoleContext', $contextBody['source']);
-Assert::same('TEST', $contextBody['data']['workspace']['environment_class']);
+Assert::same('m12.consoleContext', $contextBody['source'], 'visible context reports the exact read descriptor source');
+Assert::same('TEST', $contextBody['data']['workspace']['environment_class'], 'context reports the server-selected workspace environment');
 Assert::true(in_array('browser-reader', $contextBody['data']['roles'], true), 'M12 context is rebuilt from current membership');
 Assert::false(str_contains($contextResponse->body, 'caller-controlled-tenant'), 'caller tenant input is not reflected into the governed context');
 Assert::false(str_contains($contextResponse->body, 'caller-controlled-workspace'), 'caller workspace input is not reflected into the governed context');
 Assert::false(str_contains($contextResponse->body, 'caller-controlled-operator'), 'caller operator input is not reflected into the governed context');
 
+// A membership can remain ACTIVE while its role lifecycle is no longer ACTIVE. M02 refuses that
+// role for permission grants; browser context must not expose the stale role, its permissions, or
+// workspace metadata merely because M12's regenerable projection still contains the membership.
+$db->run("UPDATE roles SET status = 'SUSPENDED' WHERE role_id = ?", [$role['role_id']]);
+$suspendedRoleContext = $kernel->handle($request('/console/api/v1/context', [], $cookies));
+Assert::same(403, $suspendedRoleContext->status, 'an inactive role cannot keep browser context visible through an active membership');
+$suspendedRoleBody = json_decode($suspendedRoleContext->body, true, 512, JSON_THROW_ON_ERROR);
+Assert::same('DENIED', $suspendedRoleBody['access']['decision'], 'inactive-role context is an explicit denial');
+Assert::same(['WORKSPACE_MEMBERSHIP_REQUIRED'], $suspendedRoleBody['reason_codes'], 'inactive-role context names the missing active role-backed membership');
+Assert::same(null, $suspendedRoleBody['data'], 'inactive-role context leaks no workspace metadata or stale permissions');
+$db->run("UPDATE roles SET status = 'ACTIVE' WHERE role_id = ?", [$role['role_id']]);
+$restoredContext = $kernel->handle($request('/console/api/v1/context', [], $cookies));
+Assert::same(200, $restoredContext->status, 'reactivating the role restores context on the next regenerated read');
+
 $ledgerResponse = $kernel->handle($request('/console/api/v1/m10/decisions', ['environment_class' => 'DEMO'], $cookies));
 Assert::same(200, $ledgerResponse->status, 'authorized decision read succeeds');
 $ledgerBody = json_decode($ledgerResponse->body, true, 512, JSON_THROW_ON_ERROR);
-Assert::same('m10.decisions', $ledgerBody['source']);
+Assert::same('m10.decisions', $ledgerBody['source'], 'decision response reports the exact ledger descriptor source');
 Assert::same('TEST', $ledgerBody['data']['environment_class'], 'workspace environment pins the ledger even when caller requests DEMO');
 Assert::same('EMPTY', $ledgerBody['projection']['state'], 'an authorized empty ledger is EMPTY rather than denied');
 
 $p02MissingLens = $kernel->handle($request('/console/api/v1/p02/entities', [], $cookies));
 Assert::same(403, $p02MissingLens->status, 'P02 requires an explicit visibility lens');
 $p02Body = json_decode($p02MissingLens->body, true, 512, JSON_THROW_ON_ERROR);
-Assert::same('p02.entitySnapshots', $p02Body['source']);
-Assert::same('DENIED', $p02Body['access']['decision']);
-Assert::same(['VISIBILITY_RULE_MISSING'], $p02Body['reason_codes']);
+Assert::same('p02.entitySnapshots', $p02Body['source'], 'P02 lens denial reports the exact entity descriptor source');
+Assert::same('DENIED', $p02Body['access']['decision'], 'missing P02 lens is an explicit denial');
+Assert::same(['VISIBILITY_RULE_MISSING'], $p02Body['reason_codes'], 'missing P02 lens preserves the owner visibility reason');
 
 foreach ([
     ['/console/api/v1/p01/battlecards', [], 'p01.releasedBattlecards'],

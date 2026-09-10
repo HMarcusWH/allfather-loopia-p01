@@ -44,9 +44,46 @@ final class ConsoleContextAdapter
              WHERE tenant_id = ? AND workspace_id = ? AND operator_id = ?',
             [$tenantId, (string) $workspaceId, $operatorId]
         );
+        if ($projection === null) {
+            return ['decision' => 'UNAVAILABLE', 'reason_codes' => ['CONTEXT_PROJECTION_UNAVAILABLE']];
+        }
 
-        $roles = $projection === null ? [] : json_decode((string) $projection['visible_role_summaries'], true, 512, JSON_THROW_ON_ERROR);
-        $permissions = $projection === null ? [] : json_decode((string) $projection['visible_permission_summaries'], true, 512, JSON_THROW_ON_ERROR);
+        $projectedRoles = json_decode((string) $projection['visible_role_summaries'], true, 512, JSON_THROW_ON_ERROR);
+        $projectedPermissions = json_decode((string) $projection['visible_permission_summaries'], true, 512, JSON_THROW_ON_ERROR);
+        $at = (string) $projection['generated_at'];
+        $scopeArgs = [$operatorId, (string) $workspaceId, $tenantId, $at, $at];
+
+        // M12 is a regenerable presentation projection, not authority. Role lifecycle can change
+        // independently of an ACTIVE membership, so the browser adapter revalidates the role
+        // status before allowing that projection to expose workspace context or permissions. The
+        // shape mirrors M02's active-membership/active-operator/ACTIVE-role contract and then
+        // intersects with the just-built projection: presentation can only become narrower here.
+        $activeRoles = array_column($this->db->all(
+            "SELECT DISTINCT r.role_key FROM workspace_memberships m
+             JOIN roles r ON r.role_id = m.role_id
+             JOIN operators o ON o.operator_id = m.principal_id AND o.tenant_id = m.tenant_id
+             WHERE m.principal_id = ? AND m.workspace_id = ? AND m.tenant_id = ?
+               AND m.principal_type = 'OPERATOR' AND m.status = 'ACTIVE'
+               AND o.status = 'ACTIVE' AND r.status = 'ACTIVE'
+               AND m.valid_from <= ? AND (m.valid_until IS NULL OR m.valid_until > ?)
+             ORDER BY r.role_key",
+            $scopeArgs
+        ), 'role_key');
+        $activePermissions = array_column($this->db->all(
+            "SELECT DISTINCT rp.permission_key FROM workspace_memberships m
+             JOIN role_permissions rp ON rp.role_id = m.role_id
+             JOIN roles r ON r.role_id = m.role_id
+             JOIN operators o ON o.operator_id = m.principal_id AND o.tenant_id = m.tenant_id
+             WHERE m.principal_id = ? AND m.workspace_id = ? AND m.tenant_id = ?
+               AND m.principal_type = 'OPERATOR' AND m.status = 'ACTIVE'
+               AND o.status = 'ACTIVE' AND r.status = 'ACTIVE'
+               AND m.valid_from <= ? AND (m.valid_until IS NULL OR m.valid_until > ?)
+             ORDER BY rp.permission_key",
+            $scopeArgs
+        ), 'permission_key');
+
+        $roles = array_values(array_unique(array_intersect($projectedRoles, $activeRoles)));
+        $permissions = array_values(array_unique(array_intersect($projectedPermissions, $activePermissions)));
         if ($roles === []) {
             return [
                 'decision' => 'DENIED',
@@ -69,7 +106,7 @@ final class ConsoleContextAdapter
             'decision' => 'VISIBLE',
             'required_permission' => null,
             'reason_codes' => ['GRANTED'],
-            'as_of' => $projection === null ? null : (string) $projection['generated_at'],
+            'as_of' => (string) $projection['generated_at'],
             'data' => [
                 'workspace' => [
                     'display_name' => (string) $workspace['display_name'],
