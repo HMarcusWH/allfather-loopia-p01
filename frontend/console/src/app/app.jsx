@@ -57,5 +57,5 @@ export function ConsoleApp({datasource}){
 
   const navigate=(next)=>{ if(!ids.includes(next)||next===route) return; setRoute(next); writeView(next); };
   const View=useMemo(()=>route?ROUTES[route]??null:null,[route]);
-  return <Shell datasource={datasource} context={context} current={route} onNavigate={navigate} navigation={navigation}>{View?<View datasource={datasource}/>:null}</Shell>;
+  return <Shell datasource={datasource} context={context} current={route} onNavigate={navigate} navigation={navigation}>{View?<View datasource={datasource} permissionKeys={contextPermissions??[]}/>:null}</Shell>;
 }

@@ -10,15 +10,27 @@ export const NAVIGATION_ALLOWLIST=Object.freeze([
 ]);
 
 // Usability only. These keys mirror the permissions required by the already-wired owner reads;
-// they never replace the backend owner checks. A route is shown when the current M12 context has
-// at least one permission capable of making some live read on that screen useful.
+// they never replace the backend owner checks. Read-level mapping is explicit so a multi-read route
+// can avoid issuing a sibling request that the current context cannot use.
+export const READ_USABILITY_PERMISSION=Object.freeze({
+  [READS.P01_BATTLECARDS]:"battlecard.read",
+  [READS.P02_ENTITY_INDEX]:"entity_twin.read",
+  [READS.P02_RELATION_INDEX]:"entity_twin.read",
+  [READS.P03_QUEUE]:"priority_outreach_queue.read",
+  [READS.P03_WATCH]:"prospect.read",
+  [READS.P04_DISTRIBUTIONS]:"role_briefing.read",
+  [READS.P05_DRAFTS]:"marketing_asset.read",
+  [READS.LEDGER]:"decision.read"
+});
+
+const permissionsForReads=(...readIds)=>Object.freeze([...new Set(readIds.map(id=>READ_USABILITY_PERMISSION[id]).filter(Boolean))]);
 export const ROUTE_USABILITY_PERMISSIONS=Object.freeze({
-  p01:Object.freeze(["battlecard.read"]),
-  p02:Object.freeze(["entity_twin.read"]),
-  p03:Object.freeze(["priority_outreach_queue.read","prospect.read"]),
-  p04:Object.freeze(["role_briefing.read"]),
-  p05:Object.freeze(["marketing_asset.read"]),
-  ledger:Object.freeze(["decision.read"])
+  p01:permissionsForReads(READS.P01_BATTLECARDS),
+  p02:permissionsForReads(READS.P02_ENTITY_INDEX,READS.P02_RELATION_INDEX),
+  p03:permissionsForReads(READS.P03_QUEUE,READS.P03_WATCH),
+  p04:permissionsForReads(READS.P04_DISTRIBUTIONS),
+  p05:permissionsForReads(READS.P05_DRAFTS),
+  ledger:permissionsForReads(READS.LEDGER)
 });
 
 export const STATIC_NAV_IDS=Object.freeze(NAVIGATION_ALLOWLIST.flatMap(g=>g.items.map(x=>x.id)));
@@ -27,6 +39,12 @@ export function buildNavigation({adapterReadIds=[],usableIds=null}={}){
   const adapters=new Set(adapterReadIds);
   const usable=usableIds==null?null:new Set(usableIds);
   return Object.freeze(NAVIGATION_ALLOWLIST.map(g=>Object.freeze({...g,items:Object.freeze(g.items.filter(item=>(usable==null||usable.has(item.id))&&item.reads.some(r=>adapters.has(r))))})).filter(g=>g.items.length));
+}
+
+export function readUsableForPermissions(readId,permissionKeys=[]){
+  const required=READ_USABILITY_PERMISSION[readId];
+  if(!required) return false;
+  return new Set(Array.isArray(permissionKeys)?permissionKeys:[]).has(required);
 }
 
 export function usableNavigationIdsForPermissions(permissionKeys=[]){

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { STATIC_NAV_IDS,buildNavigation,firstNavigationId,navigationIds,usableNavigationIdsForPermissions } from "../src/data/navigation.js";
+import { STATIC_NAV_IDS,buildNavigation,firstNavigationId,navigationIds,readUsableForPermissions,usableNavigationIdsForPermissions } from "../src/data/navigation.js";
 import { READS } from "../src/data/surface-reads.js";
 
 test("static product allowlist excludes prohibited surfaces",()=>{
@@ -33,4 +33,12 @@ test("current context permissions narrow wired navigation without granting autho
   });
   assert.deepEqual(navigationIds(nav),["ledger"]);
   assert.equal(firstNavigationId(nav),"ledger","a decision-only operator lands on the ledger rather than a denied product route");
+});
+
+test("multi-read routes gate each live read by its exact owner permission",()=>{
+  assert.equal(readUsableForPermissions(READS.P03_QUEUE,["priority_outreach_queue.read"]),true);
+  assert.equal(readUsableForPermissions(READS.P03_WATCH,["priority_outreach_queue.read"]),false);
+  assert.equal(readUsableForPermissions(READS.P03_QUEUE,["prospect.read"]),false);
+  assert.equal(readUsableForPermissions(READS.P03_WATCH,["prospect.read"]),true);
+  assert.equal(readUsableForPermissions(READS.P03_BATTLECARDS,["prospect_battlecard.read"]),false,"deferred reads never become usable merely because a permission key exists");
 });
