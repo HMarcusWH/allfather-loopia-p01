@@ -94,9 +94,10 @@ $granted = $accounts->addRoleMembership(
 );
 Assert::true($granted->isOk(), 'the role membership is initially granted');
 $membershipId = (string) $granted->value()['membership_id'];
+$expiredAt = $clock->now();
 $db->run(
     "UPDATE workspace_memberships SET valid_until = ? WHERE membership_id = ?",
-    [$clock->now(), $membershipId]
+    [$expiredAt, $membershipId]
 );
 $current = $accounts->addRoleMembership(
     $scope['tenant_id'],
@@ -107,7 +108,7 @@ $current = $accounts->addRoleMembership(
 Assert::true($current->isRefusal(), 'an ACTIVE membership whose validity window ended is not convergence');
 Assert::same('MEMBERSHIP_NOT_CURRENT', $current->reasonCode(), 'the time-invalid membership is refused by name');
 Assert::same(
-    $clock->now(),
+    $expiredAt,
     (string) $db->scalar('SELECT valid_until FROM workspace_memberships WHERE membership_id = ?', [$membershipId]),
     'the expired validity boundary is preserved rather than rewritten',
 );
