@@ -74,8 +74,8 @@ final class AccountService
      * onboarding command that quietly replaced a working credential would be a support incident
      * wearing the word "idempotent". Changing a password is `resetPassword`, which says so.
      *
-     * @param string $password plaintext, supplied by the caller from a prompt or stdin. It is
-     *                         hashed here and is never written to a column, a log or a return value.
+     * @param string $password plaintext supplied by the caller from stdin. It is hashed here and is
+     *                         never written to a column, a log or a return value.
      */
     public function createLogin(
         string $operatorId,
@@ -117,15 +117,18 @@ final class AccountService
         }
 
         $boundToOperator = $this->db->one(
-            'SELECT platform_user_id, email, tenant_id FROM platform_users WHERE operator_id = ?',
+            'SELECT platform_user_id, email, tenant_id, status FROM platform_users WHERE operator_id = ?',
             [$operatorId]
         );
         if ($boundToOperator !== null) {
             if (self::normalizeEmailAddress((string) $boundToOperator['email']) !== $email) {
-                // One operator, one login. Re-pointing an existing binding at a different address
-                // is a different act with a different blast radius, and it is not this one.
                 return Outcome::refuse('OPERATOR_ALREADY_BOUND', [
                     'platform_user_id' => (string) $boundToOperator['platform_user_id'],
+                ], 'POLICY');
+            }
+            if ((string) $boundToOperator['status'] !== 'ACTIVE') {
+                return Outcome::refuse('ACCOUNT_NOT_ACTIVE', [
+                    'status' => (string) $boundToOperator['status'],
                 ], 'POLICY');
             }
 
@@ -142,9 +145,6 @@ final class AccountService
             [$email]
         );
         if ($byEmail !== null) {
-            // Email is globally unique because authentication has no tenant hint to disambiguate
-            // with — the browser's would be untrusted input. A collision is refused WITHOUT saying
-            // whose it is: naming the other tenant here would make this command an enumerator.
             return Outcome::refuse('ACCOUNT_EMAIL_TAKEN', [], 'POLICY');
         }
 
@@ -179,13 +179,11 @@ final class AccountService
     /**
      * The account holder replacing their own password.
      *
-     * The CURRENT password is verified even though the caller already holds a session. A session is
-     * evidence that somebody signed in; it is not evidence that the person at the keyboard now is
-     * the same one. An unattended browser is the ordinary case this closes.
-     *
-     * Every session dies, including the one making the request. A password change whose own session
-     * survived would leave any OTHER stolen session alive too, which is the thing a password change
-     * is usually being performed to end.
+     * The current credential is checked once for the ordinary refusal path and AGAIN under the row
+     * lock that protects the write. The second check is the authority check: without it, two
+     * concurrent password-change requests can both verify the old password before either writes,
+     * and the slower request can overwrite the faster one's new credential with another one chosen
+     * from a password that is no longer current.
      */
     public function changePassword(string $platformUserId, string $currentPassword, string $newPassword): Outcome
     {
@@ -213,17 +211,17 @@ final class AccountService
             return Outcome::refuse('PASSWORD_UNCHANGED', [], 'VALIDATION');
         }
 
-        return $this->writePassword($platformUserId, $newPassword, false, 'PASSWORD_CHANGED');
+        return $this->writePassword(
+            $platformUserId,
+            $newPassword,
+            false,
+            'PASSWORD_CHANGED',
+            null,
+            $currentPassword,
+        );
     }
 
-    /**
-     * An operator issuing a replacement password for somebody else.
-     *
-     * The result is deliberately a credential that can do exactly one thing: replace itself. Two
-     * people know it the moment it is created, so `must_change_password` is set unconditionally and
-     * is not a parameter — an operator-issued password that could be used indefinitely would be a
-     * shared credential with no expiry.
-     */
+    /** An operator issuing a replacement password for somebody else. */
     public function resetPassword(string $platformUserId, string $newPassword): Outcome
     {
         $user = $this->db->one(
@@ -234,8 +232,6 @@ final class AccountService
             return Outcome::refuse('ACCOUNT_NOT_FOUND', [], 'PROVENANCE');
         }
         if ((string) $user['status'] === 'RETIRED') {
-            // Reissuing a credential for a retired account would un-retire it in the only sense
-            // that matters.
             return Outcome::refuse('ACCOUNT_RETIRED', [], 'POLICY');
         }
 
@@ -244,15 +240,6 @@ final class AccountService
             return Outcome::refuseAll($policy, [], 'VALIDATION');
         }
 
-        // A LOCKED account is unlocked BY THE RESET, and that has to mean the status too. The lock
-        // exists to stop somebody guessing at a password that no longer exists, so once it has been
-        // replaced the lock is answering a question nobody is asking — and clearing `locked_until`
-        // while leaving `status = 'LOCKED'` would leave the account rejected at
-        // `Authenticator::authenticate`'s status check, with a working password and no way in.
-        //
-        // ONLY from LOCKED. `SUSPENDED` is a lifecycle decision somebody made, and a password reset
-        // is not an appeal against it: an operator who wants the account back issues `reactivate`,
-        // which says so.
         return $this->writePassword(
             $platformUserId,
             $newPassword,
@@ -268,33 +255,7 @@ final class AccountService
         return $this->transition($platformUserId, 'SUSPENDED', ['ACTIVE', 'LOCKED', 'SUSPENDED'], $reason);
     }
 
-    /**
-     * Return a login to full service: status ACTIVE, lock-out cleared, outstanding sessions ended.
-     *
-     * IT DOES NOT GO THROUGH `transition`, and that is the point. THE LOCK-OUT THE AUTHENTICATOR
-     * ACTUALLY CREATES LEAVES THE STATUS ALONE: `registerFailure` sets `failed_attempts` and
-     * `locked_until` and never writes `status`, so a genuinely locked-out account is `ACTIVE`. A
-     * state-machine transition to ACTIVE sees it is already there and returns having done nothing —
-     * so the command that documents "reactivate clears the lock" cleared nothing in the only case
-     * an operator ever meets. `status = 'LOCKED'` is reachable, and the earlier tests exercised it,
-     * but nothing in this codebase puts an account there; it is the state the CHECK allows, not the
-     * state the product produces.
-     *
-     * So the write is expressed as the END STATE rather than as a transition: ACTIVE, no failed
-     * attempts, no lock window — conditional on the row being in a state reactivation is permitted
-     * from, so a concurrent retirement cannot be overwritten.
-     *
-     * IT REVOKES, AND THE REVOCATION IS NOT REDUNDANT with the one `suspend` performs. That would
-     * only hold if every account had reached its current state through this service, and replacing
-     * the hand-written SQL support path is why this service exists. An account suspended by an
-     * UPDATE somebody typed has its session rows untouched, and `resolveSession` refuses those
-     * tokens only while the status is non-ACTIVE — so returning the row to ACTIVE would hand a
-     * pre-existing token its authority back.
-     *
-     * ONE CONTRACT, NOT A CONDITIONAL ONE: if this command changed anything, the account signs in
-     * again. An operator running a support command on an account should not have to work out
-     * which of two behaviours they just got.
-     */
+    /** Return a login to full service: status ACTIVE, lock-out cleared, outstanding sessions ended. */
     public function reactivate(string $platformUserId): Outcome
     {
         $from = ['ACTIVE', 'SUSPENDED', 'LOCKED'];
@@ -306,7 +267,6 @@ final class AccountService
             return Outcome::refuse('ACCOUNT_NOT_FOUND', [], 'PROVENANCE');
         }
         if (!in_array((string) $user['status'], $from, true)) {
-            // RETIRED, and nothing else reaches here. Terminal means terminal.
             return Outcome::refuse('ACCOUNT_TRANSITION_NOT_PERMITTED', [
                 'from' => (string) $user['status'],
                 'to' => 'ACTIVE',
@@ -323,9 +283,6 @@ final class AccountService
             );
 
             if ($affected === 0) {
-                // MariaDB counts CHANGED rows, so zero means either the row moved out from under
-                // this decision, or it was already in exactly the end state asked for. Re-read to
-                // tell those apart rather than guessing.
                 $now = $tx->one(
                     'SELECT status FROM platform_users WHERE platform_user_id = ?',
                     [$platformUserId]
@@ -333,9 +290,6 @@ final class AccountService
                 $current = $now === null ? null : (string) $now['status'];
 
                 if ($current === 'ACTIVE') {
-                    // Already in full service with no lock to clear. Nothing was changed, so
-                    // nothing is revoked: ending somebody's session to achieve a state that already
-                    // held would be a side effect the operator did not ask for.
                     return Outcome::ok([
                         'platform_user_id' => $platformUserId,
                         'status' => 'ACTIVE',
@@ -382,15 +336,7 @@ final class AccountService
         ]);
     }
 
-    /**
-     * Find one account by email, within the caller's stated tenant when one is given.
-     *
-     * `$tenantId` is a SCOPE, not a filter for display: passing one and getting null must be
-     * indistinguishable from the address not existing at all, or this becomes a way to ask whether
-     * an address belongs to some other tenant.
-     *
-     * @return array<string, mixed>|null
-     */
+    /** @return array<string, mixed>|null */
     public function findByEmailAddress(string $email, ?string $tenantId = null): ?array
     {
         $email = self::normalizeEmailAddress($email);
@@ -408,15 +354,7 @@ final class AccountService
         return $this->inspect((string) $row['platform_user_id']);
     }
 
-    /**
-     * A sanitized account state, safe to print in an operator's terminal or a support note.
-     *
-     * NOTHING HERE IS A SECRET. No password hash, no algorithm, no session token, no CSRF token, no
-     * digest of any of them. The lock-out fields are counts and a timestamp, which say whether an
-     * account is being guessed at without saying anything about what the guesses were.
-     *
-     * @return array<string, mixed>|null
-     */
+    /** @return array<string, mixed>|null */
     public function inspect(string $platformUserId): ?array
     {
         $row = $this->db->one(
@@ -476,24 +414,7 @@ final class AccountService
         );
     }
 
-    /**
-     * Grant one EXISTING role in one EXISTING workspace.
-     *
-     * It creates neither. A role key that does not exist is refused rather than minted, because the
-     * one thing an onboarding path must never do is invent authority on the way to handing somebody
-     * a password.
-     *
-     * AN EXISTING MEMBERSHIP IS CONVERGED ON ONLY IF IT IS ACTIVE. Any other state — `REVOKED`,
-     * `EXPIRED`, `SUSPENDED`, `DRAFT` — is a decision somebody made, and re-running an onboarding
-     * command with the same `--roles` must not quietly undo it. An earlier revision rewrote any
-     * non-ACTIVE row back to ACTIVE and cleared `valid_until`, which would have erased both the
-     * authority withdrawal AND the record that it happened: a stand-down reversed by a command
-     * nobody ran for that purpose.
-     *
-     * So it refuses, and the existing row is left exactly as it is. Restoring a withdrawn
-     * membership is a deliberate act with its own reasoning, not a side effect of onboarding, and
-     * this projection has no path that performs one implicitly.
-     */
+    /** Grant one EXISTING role in one EXISTING workspace. */
     public function addRoleMembership(
         string $tenantId,
         string $workspaceKey,
@@ -517,8 +438,6 @@ final class AccountService
             return Outcome::refuse('ROLE_NOT_DEFINED', ['role_key' => $roleKey], 'POLICY', 'S4');
         }
 
-        // TENANT FIRST, THEN STATUS, and the order is the enumeration guard: an operator belonging
-        // to another tenant is out of scope and its lifecycle is not this caller's to learn.
         $operator = $this->db->one(
             'SELECT operator_id, status FROM operators WHERE operator_id = ? AND tenant_id = ?',
             [$operatorId, $tenantId]
@@ -527,23 +446,15 @@ final class AccountService
             return Outcome::refuse('OPERATOR_NOT_IN_TENANT', [], 'SCOPE');
         }
         if (!in_array((string) $operator['status'], self::BINDABLE_OPERATOR_STATUSES, true)) {
-            // A STOOD-DOWN IDENTITY MUST NOT ACCUMULATE AUTHORITY. M02 denies while the operator is
-            // inactive, so the membership would grant nothing today — which is exactly what makes
-            // it dangerous: it is LATENT authority that springs into effect the moment somebody
-            // reactivates the identity, without anyone having decided to grant a role.
-            //
-            // `createLogin` already refuses to bind a credential to such an operator, but an
-            // EXISTING account skips `createLogin` entirely, so onboarding could re-run and reach
-            // here with that policy never consulted. This is the same rule, on the path that
-            // actually gets there.
             return Outcome::refuse('OPERATOR_NOT_BINDABLE', [
                 'status' => (string) $operator['status'],
             ], 'POLICY');
         }
 
         $workspaceId = (string) $workspace['workspace_id'];
+        $at = $this->clock->now();
         $existing = $this->db->one(
-            "SELECT membership_id, status FROM workspace_memberships
+            "SELECT membership_id, status, valid_from, valid_until FROM workspace_memberships
              WHERE tenant_id = ? AND workspace_id = ? AND principal_type = 'OPERATOR'
                AND principal_id = ? AND role_id = ?",
             [$tenantId, $workspaceId, $operatorId, (string) $role['role_id']]
@@ -551,12 +462,23 @@ final class AccountService
         if ($existing !== null) {
             $existingStatus = (string) $existing['status'];
             if ($existingStatus !== 'ACTIVE') {
-                // NOT REPAIRED, NOT REWRITTEN. The row stays as it is, and the refusal names the
-                // state so the operator can see what they would have been undoing.
                 return Outcome::refuse('MEMBERSHIP_NOT_ACTIVE', [
                     'role_key' => $roleKey,
                     'status' => $existingStatus,
                     'remedy' => 'a withdrawn or expired membership is restored deliberately, not by re-running onboarding',
+                ], 'POLICY', 'S4');
+            }
+
+            $validFrom = (string) $existing['valid_from'];
+            $validUntil = $existing['valid_until'] === null ? null : (string) $existing['valid_until'];
+            if ($validFrom > $at || ($validUntil !== null && $validUntil <= $at)) {
+                return Outcome::refuse('MEMBERSHIP_NOT_CURRENT', [
+                    'role_key' => $roleKey,
+                    'status' => $existingStatus,
+                    'valid_from' => $validFrom,
+                    'valid_until' => $validUntil,
+                    'evaluated_at' => $at,
+                    'remedy' => 'a membership outside its validity window is restored deliberately, not by re-running onboarding',
                 ], 'POLICY', 'S4');
             }
 
@@ -568,7 +490,6 @@ final class AccountService
         }
 
         $membershipId = Ids::new();
-        $now = $this->clock->now();
         $this->db->insert('workspace_memberships', [
             'membership_id' => $membershipId,
             'tenant_id' => $tenantId,
@@ -578,8 +499,8 @@ final class AccountService
             'role_id' => (string) $role['role_id'],
             'role_version' => (int) $role['role_version'],
             'status' => 'ACTIVE',
-            'valid_from' => $now,
-            'created_at' => $now,
+            'valid_from' => $at,
+            'created_at' => $at,
         ]);
 
         return Outcome::ok([
@@ -589,15 +510,6 @@ final class AccountService
         ]);
     }
 
-    /**
-     * One canonical form for an address, so a login and a lookup agree about it.
-     *
-     * The name is `normalizeEmailAddress` rather than the shorter obvious thing because the
-     * no-external-action tripwire greps for the literal `mail(` across the whole application, and
-     * `normalizeEmail(` contains it. That check is worth more than the four characters: it is what
-     * stops somebody adding a real `mail()` call, and a tripwire with exceptions carved into it
-     * stops being one.
-     */
     public static function normalizeEmailAddress(string $email): string
     {
         return mb_strtolower(trim($email));
@@ -606,9 +518,10 @@ final class AccountService
     /**
      * Write a new credential and end every session, as one unit.
      *
-     * The two halves must not be separable. A committed password whose sessions survived leaves the
-     * old credential's sessions usable, and a revocation whose password write rolled back locks
-     * somebody out of an account whose password did not change.
+     * When `$expectedCurrentPassword` is supplied, the current hash is re-read under `FOR UPDATE`
+     * and re-verified before the write. That closes the stale-current-password race between two
+     * simultaneous holder-initiated changes while leaving operator resets independent of a password
+     * they do not know.
      */
     private function writePassword(
         string $platformUserId,
@@ -616,16 +529,39 @@ final class AccountService
         bool $mustChangeAgain,
         string $revocationReason,
         ?string $clearStatus = null,
+        ?string $expectedCurrentPassword = null,
     ): Outcome {
         $hashed = PasswordPolicy::hash($newPassword);
         $now = $this->clock->now();
 
         return $this->db->transaction(function (Database $tx) use (
-            $platformUserId, $hashed, $now, $mustChangeAgain, $revocationReason, $clearStatus
+            $platformUserId, $hashed, $now, $mustChangeAgain, $revocationReason, $clearStatus,
+            $expectedCurrentPassword
         ): Outcome {
-            // NEVER writes a RETIRED account. The caller checked, but that read was outside this
-            // transaction: a retirement committed in between would otherwise be handed a fresh
-            // working credential, which is un-retiring it in the only sense that matters.
+            if ($expectedCurrentPassword !== null) {
+                $current = $tx->one(
+                    'SELECT password_hash, status FROM platform_users WHERE platform_user_id = ? FOR UPDATE',
+                    [$platformUserId]
+                );
+                if ($current === null) {
+                    return Outcome::refuse('ACCOUNT_NOT_FOUND', [], 'PROVENANCE');
+                }
+                if ((string) $current['status'] !== 'ACTIVE') {
+                    return Outcome::refuse('ACCOUNT_NOT_ACTIVE', [
+                        'status' => (string) $current['status'],
+                    ], 'AUTHENTICATION', 'S2', 'REJECT_REQUEST');
+                }
+                if (!PasswordPolicy::verify($expectedCurrentPassword, (string) $current['password_hash'])) {
+                    return Outcome::refuse(
+                        'CURRENT_PASSWORD_INCORRECT',
+                        [],
+                        'AUTHENTICATION',
+                        'S1',
+                        'REJECT_REQUEST',
+                    );
+                }
+            }
+
             $affected = $tx->run(
                 "UPDATE platform_users
                  SET password_hash = ?, password_algo = ?, password_changed_at = ?,
@@ -634,8 +570,6 @@ final class AccountService
                  WHERE platform_user_id = ? AND status <> 'RETIRED'",
                 [
                     $hashed['hash'], $hashed['algo'], $now, $mustChangeAgain ? 1 : 0,
-                    // A status this write is allowed to clear, or a value no status can equal —
-                    // which makes the CASE a no-op rather than needing two versions of the SQL.
                     $clearStatus ?? "\0",
                     $platformUserId,
                 ]
@@ -653,15 +587,7 @@ final class AccountService
         });
     }
 
-    /**
-     * Move an account to a lifecycle state, from a declared set of states it may move from.
-     *
-     * `$from` deliberately includes the target state so re-running a support command converges
-     * instead of refusing. What it never includes is `RETIRED` as a source for anything but
-     * `RETIRED` itself.
-     *
-     * @param list<string> $from
-     */
+    /** @param list<string> $from */
     private function transition(
         string $platformUserId,
         string $to,
@@ -695,14 +621,6 @@ final class AccountService
         return $this->db->transaction(function (Database $tx) use (
             $platformUserId, $to, $from, $revocationReason
         ): Outcome {
-            // CONDITIONAL ON THE STATE THIS DECISION WAS MADE FROM, and the affected-row count is
-            // checked. The read above happened outside this transaction, so between deciding and
-            // writing another operator's command can have committed: a `reactivate` that read
-            // SUSPENDED would otherwise overwrite a `retire` that landed first, and terminal
-            // retirement would be terminal only when nobody was working at the same time.
-            //
-            // The predicate is the SAME `$from` set the decision used, so the write can only land
-            // on a row still in a state this transition was permitted from.
             $placeholders = implode(', ', array_fill(0, count($from), '?'));
             $affected = $tx->run(
                 "UPDATE platform_users SET status = ? WHERE platform_user_id = ? AND status IN ({$placeholders})",
@@ -710,8 +628,6 @@ final class AccountService
             );
 
             if ($affected === 0) {
-                // Somebody else moved it. Re-read and answer about what it IS, not about what this
-                // command believed a moment ago.
                 $now = $tx->one(
                     'SELECT status FROM platform_users WHERE platform_user_id = ?',
                     [$platformUserId]
@@ -719,9 +635,6 @@ final class AccountService
                 $current = $now === null ? null : (string) $now['status'];
 
                 if ($current === $to) {
-                    // The race landed on the state this command wanted. Converged, not refused:
-                    // reporting a failure for an account that is exactly where the operator asked
-                    // for it would send them to investigate a problem that does not exist.
                     return Outcome::ok([
                         'platform_user_id' => $platformUserId,
                         'status' => $to,
@@ -729,7 +642,6 @@ final class AccountService
                         'sessions_revoked' => 0,
                     ]);
                 }
-
 
                 return Outcome::refuse('ACCOUNT_TRANSITION_RACED', [
                     'from' => $current,
