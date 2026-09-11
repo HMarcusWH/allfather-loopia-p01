@@ -4,19 +4,23 @@ declare(strict_types=1);
 
 require __DIR__ . '/../app/autoload.php';
 
+use Allfather\Loopia\Auth\AccountService;
 use Allfather\Loopia\Auth\Authenticator;
 use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Http\ConsoleAssetManifest;
+use Allfather\Loopia\Http\Controllers\AccountController;
 use Allfather\Loopia\Http\Controllers\ConsoleController;
 use Allfather\Loopia\Http\Controllers\ConsoleReadController;
 use Allfather\Loopia\Http\Controllers\OperatorConsoleController;
 use Allfather\Loopia\Http\Controllers\SessionController;
+use Allfather\Loopia\Http\Controllers\SupportController;
 use Allfather\Loopia\Http\Controllers\SurfaceController;
 use Allfather\Loopia\Http\Controllers\WorkspaceController;
 use Allfather\Loopia\Http\Kernel;
 use Allfather\Loopia\Http\ReadAdapters\ConsoleContextAdapter;
 use Allfather\Loopia\Http\ReadAdapters\DecisionLedgerAdapter;
+use Allfather\Loopia\Http\ReadAdapters\SupportContextAdapter;
 use Allfather\Loopia\Http\Request;
 use Allfather\Loopia\Http\Response;
 use Allfather\Loopia\Http\View;
@@ -83,6 +87,20 @@ $kernel->route('POST', '/logout', $session->logout(...));
 $workspaces = new WorkspaceController($db, $auth, $view);
 $kernel->route('GET', '/console/workspaces', $workspaces->choose(...));
 $kernel->route('POST', '/console/workspace', $workspaces->select(...));
+
+// The account lifecycle surfaces. `/account/password` is the ONE authenticated path reachable while
+// `must_change_password` is set, which is why it is a server-rendered form rather than a screen in
+// the React shell: the shell's own route is behind the same gate.
+$accounts = new AccountService($db, $clock, $auth);
+$account = new AccountController($accounts, $view);
+$kernel->route('GET', '/account', $account->show(...));
+$kernel->route('GET', '/account/password', $account->showPasswordForm(...));
+$kernel->route('POST', '/account/password', $account->changePassword(...));
+
+// Help and support. It holds no database handle and no governed service — one session-scoped read
+// through its adapter, and two non-secret configuration keys.
+$support = new SupportController($view, $env, new SupportContextAdapter($db), $boot['environment']);
+$kernel->route('GET', '/support', $support->show(...));
 
 $contextAdapter = new ConsoleContextAdapter($db, $m12, $assurance);
 $decisionAdapter = new DecisionLedgerAdapter($db, $clock, $access, $ledger);

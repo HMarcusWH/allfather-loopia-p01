@@ -18,7 +18,7 @@ function writeView(id,{replace=false}={}){
   globalThis.history[replace?"replaceState":"pushState"]({},"",url);
 }
 
-export function ConsoleApp({datasource}){
+export function ConsoleApp({datasource,csrfToken}){
   const context=useConsoleRead(datasource,READS.CONTEXT);
   const contextReady=context.projection?.state===PROJECTION.READY;
   const contextPermissions=contextReady&&Array.isArray(context.data?.permissions)?context.data.permissions:null;
@@ -57,5 +57,5 @@ export function ConsoleApp({datasource}){
 
   const navigate=(next)=>{ if(!ids.includes(next)||next===route) return; setRoute(next); writeView(next); };
   const View=useMemo(()=>route?ROUTES[route]??null:null,[route]);
-  return <Shell datasource={datasource} context={context} current={route} onNavigate={navigate} navigation={navigation}>{View?<View datasource={datasource} permissionKeys={contextPermissions??[]}/>:null}</Shell>;
+  return <Shell datasource={datasource} context={context} csrfToken={csrfToken} current={route} onNavigate={navigate} navigation={navigation}>{View?<View datasource={datasource} permissionKeys={contextPermissions??[]}/>:null}</Shell>;
 }
