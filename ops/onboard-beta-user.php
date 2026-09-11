@@ -37,16 +37,13 @@ declare(strict_types=1);
  *   create authority on the way to handing somebody a password.
  *
  *   IT PUTS NO PASSWORD ON ARGV. Not as `--password`, which is refused by name with the reason.
- *   The value is read from a silent prompt or from stdin, is handed straight to the hasher, and
- *   appears in no output, no log and no JSON result.
+ *   The value is read from stdin, is handed straight to the hasher, and appears in no output, no
+ *   log and no JSON result.
  *
  *   IT AUTHORIZES NOTHING EXTERNAL. Onboarding a partner does not activate live read, does not
  *   enable an external action, and does not change a claim-boundary flag. The result restates it.
  */
 
-// CLI ONLY, refused BEFORE anything is loaded. Onboarding mints a credential; it must never be
-// reachable over HTTP, and living outside the document root is a property of a deployment's
-// configuration rather than of this file.
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
     exit(1);
@@ -107,8 +104,6 @@ $auth = new Authenticator($db, $clock);
 $accounts = new AccountService($db, $clock, $auth);
 $beta = new BetaBundle($db, new Entitlements($db, $clock));
 
-// --- the scope must already exist ------------------------------------------------------------------
-
 $tenant = $db->one(
     'SELECT tenant_id, status FROM tenants WHERE tenant_key = ?',
     [$args['tenant-key']]
@@ -132,22 +127,21 @@ if ((string) $workspace['status'] !== 'ACTIVE') {
     $fail("workspace '{$args['workspace-key']}' is {$workspace['status']}, not ACTIVE", 4);
 }
 
-// The roles are checked BEFORE anything is written. Discovering an unknown role key after the
-// login exists leaves a half-onboarded partner, and the operator has to work out which half.
+// Resolve the exact ACTIVE role version the service will use, once, before any write. The map is
+// also used by the membership preflight so `--dry-run` checks the same role_id as the real grant.
+$roleDefinitions = [];
 foreach ($roleKeys as $roleKey) {
     $defined = $db->one(
-        "SELECT role_id FROM roles WHERE role_key = ? AND status = 'ACTIVE'",
+        "SELECT role_id, role_version FROM roles WHERE role_key = ? AND status = 'ACTIVE'
+         ORDER BY role_version DESC LIMIT 1",
         [$roleKey]
     );
     if ($defined === null) {
         $fail("role '{$roleKey}' is not an ACTIVE role. This command grants existing roles; it does not create them.", 4);
     }
+    $roleDefinitions[$roleKey] = (string) $defined['role_id'];
 }
 
-// The tier definition is checked before anything is written too, for the same reason — and through
-// the READ-ONLY inspection, not `ensureTier`, because `ensureTier` CREATES the tier when it is
-// absent. Using it here would mean a --dry-run had added a row to the platform's global commercial
-// catalogue and then reported that nothing was written.
 $tierCheck = $beta->inspectTier();
 if ($tierCheck->isRefusal()) {
     $fail(sprintf(
@@ -163,15 +157,7 @@ if ($tierCheck->isRefusal()) {
 $emailAddress = AccountService::normalizeEmailAddress($args['email']);
 $existingAccount = $accounts->findByEmailAddress($emailAddress);
 
-// EVERY CHECK THAT CAN BE MADE WITHOUT WRITING IS MADE HERE, before the first write and before the
-// operator is asked for a password. Discovering a bad address after the tenant has been subscribed
-// leaves a commercial change behind for an onboarding that failed — and with
-// --replace-live-subscription it would have cancelled the tenant's previous subscription to get
-// there. The transaction below is the second half of the same rule; this half is what stops the
-// operator typing a password for a run that was never going to work.
 if ($existingAccount !== null && (string) $existingAccount['tenant_id'] !== $tenantId) {
-    // The address exists in ANOTHER tenant. Refused without confirming whose — naming it would make
-    // this command an enumerator over the deployment's other tenants.
     $fail('that address already has a login outside this tenant', 5);
 }
 if (!str_contains($emailAddress, '@') || $emailAddress === '') {
@@ -180,10 +166,14 @@ if (!str_contains($emailAddress, '@') || $emailAddress === '') {
 if (trim($args['display-name']) === '') {
     $fail('--display-name cannot be blank', 2);
 }
+if ($existingAccount !== null && (string) $existingAccount['status'] !== 'ACTIVE') {
+    $fail(sprintf(
+        'the platform account behind that address is %s, not ACTIVE. Reactivation is a deliberate '
+        . 'support act; a RETIRED account is terminal and cannot be onboarded again.',
+        (string) $existingAccount['status'],
+    ), 5);
+}
 
-// THE COMMERCIAL CONFLICT IS KNOWABLE NOW. `subscribeTenant` refuses a tenant already on a
-// different live tier, and that is a read: a preflight that exits before looking is a preflight
-// that says DRY_RUN_OK for a run which then refuses on its first statement.
 $liveSubscription = $db->one(
     "SELECT ts.tenant_subscription_id, ts.status, st.tier_key
      FROM tenant_subscriptions ts
@@ -203,10 +193,8 @@ if ($liveSubscription !== null
     ), 5);
 }
 
-// AND SO IS THE MEMBERSHIP STATE. `addRoleMembership` refuses a membership that exists in any state
-// but ACTIVE, and refuses an operator that is not ACTIVE — both reads, both knowable before the
-// first write. Only reachable when the account already exists, because until then there is no
-// operator for a membership to belong to.
+// Mirror the service's current-membership rule as well as the status rule. M02 treats ACTIVE as
+// necessary but not sufficient: valid_from must have arrived and valid_until must still be ahead.
 if ($existingAccount !== null) {
     $existingOperatorId = (string) $existingAccount['operator_id'];
 
@@ -218,21 +206,33 @@ if ($existingAccount !== null) {
         ), 5);
     }
 
+    $at = $clock->now();
     foreach ($roleKeys as $roleKey) {
         $membership = $db->one(
-            "SELECT m.status FROM workspace_memberships m
-             JOIN roles r ON r.role_id = m.role_id
-             JOIN workspaces w ON w.workspace_id = m.workspace_id AND w.tenant_id = m.tenant_id
-             WHERE m.tenant_id = ? AND w.workspace_key = ? AND m.principal_type = 'OPERATOR'
-               AND m.principal_id = ? AND r.role_key = ?",
-            [$tenantId, $args['workspace-key'], $existingOperatorId, $roleKey]
+            "SELECT status, valid_from, valid_until FROM workspace_memberships
+             WHERE tenant_id = ? AND workspace_id = ? AND principal_type = 'OPERATOR'
+               AND principal_id = ? AND role_id = ?",
+            [$tenantId, (string) $workspace['workspace_id'], $existingOperatorId, $roleDefinitions[$roleKey]]
         );
-        if ($membership !== null && (string) $membership['status'] !== 'ACTIVE') {
+        if ($membership === null) {
+            continue;
+        }
+        if ((string) $membership['status'] !== 'ACTIVE') {
             $fail(sprintf(
                 "the '%s' membership already exists and is %s. A withdrawn or expired membership is "
                 . 'restored deliberately, not by re-running onboarding.',
                 $roleKey,
                 (string) $membership['status'],
+            ), 5);
+        }
+
+        $validFrom = (string) $membership['valid_from'];
+        $validUntil = $membership['valid_until'] === null ? null : (string) $membership['valid_until'];
+        if ($validFrom > $at || ($validUntil !== null && $validUntil <= $at)) {
+            $fail(sprintf(
+                "the '%s' membership is ACTIVE but outside its validity window. A withdrawn or expired "
+                . 'membership is restored deliberately, not by re-running onboarding.',
+                $roleKey,
             ), 5);
         }
     }
@@ -247,8 +247,6 @@ if (isset($args['dry-run'])) {
         'workspace_id' => (string) $workspace['workspace_id'],
         'tier_key' => BetaBundle::TIER_KEY,
         'tier_permissions' => BetaBundle::PERMISSIONS,
-        // Whether the tier would be CREATED by a real run, which is the thing a dry run must be
-        // able to say without having done it.
         'tier_exists' => $tierCheck->value()['subscription_tier_id'] !== null,
         'live_subscription_tier_key' => $liveSubscription === null
             ? null
@@ -257,46 +255,58 @@ if (isset($args['dry-run'])) {
             && (string) $liveSubscription['tier_key'] !== BetaBundle::TIER_KEY,
         'roles' => $roleKeys,
         'account_exists' => $existingAccount !== null,
+        'account_status' => $existingAccount['status'] ?? null,
         'password_required' => $existingAccount === null,
     ]);
 }
 
-// --- the credential ---------------------------------------------------------------------------------
-
-// Read BEFORE any write, so an operator who abandons the prompt leaves nothing behind.
 $password = $existingAccount === null
     ? BetaCli::readPassword(isset($args['password-stdin']), 'open this account', $fail)
     : null;
 
 if ($password !== null) {
-    // The policy the account service would apply, applied here too — so a password that is going to
-    // be refused is refused before the tenant's commercial state is touched.
     $policy = PasswordPolicy::validate($password);
     if ($policy !== []) {
         $fail('the password was not accepted: ' . implode(', ', $policy), 2);
     }
 }
 
-// --- ONE UNIT ---------------------------------------------------------------------------------------
-//
-// Subscription, operator, login and role memberships commit together or not at all. Onboarding that
-// failed halfway used to leave a beta subscription, an orphan operator and no login — a state an
-// operator then has to recognise and unpick by hand, which is the thing this command exists to
-// avoid. `Database::transaction` rolls back on a refused Outcome, so every refusal below undoes the
-// writes that preceded it.
-
 /** @var array<string, mixed> $result */
 $result = $db->transaction(static function (Database $tx) use (
     $beta, $accounts, $clock, $args, $tenantId, $emailAddress, $existingAccount,
     $password, $roleKeys
 ): Outcome {
+    // Revalidate an existing identity inside the write unit BEFORE changing the subscription. The
+    // preflight is for operator feedback; this lock is the authority check that closes the race
+    // between a successful dry/read phase and a concurrent suspend/retire.
+    if ($existingAccount !== null) {
+        $current = $tx->one(
+            'SELECT u.status AS account_status, o.status AS operator_status
+             FROM platform_users u
+             JOIN operators o ON o.operator_id = u.operator_id
+             WHERE u.platform_user_id = ? AND u.tenant_id = ? FOR UPDATE',
+            [(string) $existingAccount['platform_user_id'], $tenantId]
+        );
+        if ($current === null) {
+            return Outcome::refuse('ACCOUNT_NOT_FOUND', [], 'PROVENANCE');
+        }
+        if ((string) $current['account_status'] !== 'ACTIVE') {
+            return Outcome::refuse('ACCOUNT_NOT_ACTIVE', [
+                'status' => (string) $current['account_status'],
+            ], 'POLICY');
+        }
+        if ((string) $current['operator_status'] !== 'ACTIVE') {
+            return Outcome::refuse('OPERATOR_NOT_BINDABLE', [
+                'status' => (string) $current['operator_status'],
+            ], 'POLICY');
+        }
+    }
+
     $subscription = $beta->subscribeTenant($tenantId, isset($args['replace-live-subscription']));
     if ($subscription->isRefusal()) {
         return $subscription;
     }
 
-    // An operator is the scope a login acts as, not a policy any module owns — the same reason
-    // `ops/provision-staging.php` writes this row directly and nothing else it touches.
     $operatorId = $existingAccount !== null ? (string) $existingAccount['operator_id'] : null;
     if ($operatorId === null) {
         $operatorId = Ids::new();
@@ -354,9 +364,6 @@ if ($result->isRefusal()) {
 
 $operatorId = (string) $result->value()['operator_id'];
 $platformUserId = (string) $result->value()['platform_user_id'];
-
-// --- what happened, sanitized --------------------------------------------------------------------------
-
 $state = $accounts->inspect($platformUserId);
 
 BetaCli::emit([
@@ -372,9 +379,6 @@ BetaCli::emit([
     'account_created' => $existingAccount === null,
     'subscription' => [
         'tier_key' => BetaBundle::TIER_KEY,
-        // The row's OWN status, not the constant a NEW subscription would have been created with —
-        // a tenant already on the beta tier as ACTIVE is correctly subscribed, and reporting TRIAL
-        // for it would tell an operator something untrue on the run least likely to be checked.
         'status' => $result->value()['subscription_status'] ?? null,
         'monthly_fee_minor_units' => BetaBundle::MONTHLY_FEE_MINOR_UNITS,
         'tenant_subscription_id' => $result->value()['tenant_subscription_id'] ?? null,
@@ -382,8 +386,6 @@ BetaCli::emit([
         'permissions' => BetaBundle::PERMISSIONS,
     ],
     'roles_granted' => $roleKeys,
-    // Restated on every successful run, because a command that hands somebody a working login is
-    // exactly where "so we are live now" starts.
     'live_read_activated' => false,
     'external_action_authorized' => false,
     'customer_visible_output_authorized' => false,
