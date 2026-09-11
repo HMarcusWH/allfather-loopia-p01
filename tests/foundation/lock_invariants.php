@@ -10,6 +10,7 @@ declare(strict_types=1);
  * because flipping a boolean in a JSON file looks harmless.
  */
 
+use Allfather\Loopia\Ops\DeploymentEvidence;
 use Allfather\Loopia\Tests\Assert;
 
 $root = dirname(__DIR__, 2);
@@ -43,20 +44,12 @@ Assert::same(false, $lock['head_resolution']['projection_moved'] ?? null, 'proje
 Assert::equalsList(['A', 'B', 'C'], $lock['action_classes'] ?? null, 'action ceiling remains exactly A/B/C');
 
 // --- the claim boundary ---------------------------------------------------------------------
-// Every one of these is an owner act recorded upstream. Finishing the port moves none of them.
 
-$mustBeFalse = [
-    'road_test_001_executed',
-    'production_launch_authorized',
-    'external_action_authorized',
-    'live_read_activated',
-    'owner_go_granted',
-    'customer_visible_output_authorized',
-    'staging_deployed',
-    'conformance_complete',
-    'loopia_capability_validated',
-];
-foreach ($mustBeFalse as $key) {
+// THE PERMANENT AUTHORITY LOCKS. Each is an owner act recorded upstream, and no work done in this
+// repository moves one — not finishing the port, not deploying to staging, not qualifying the host,
+// not a green suite. There is no evidence that could support one, which is why they are asserted
+// flatly here rather than against the evidence registry.
+foreach (DeploymentEvidence::PERMANENT_AUTHORITY_LOCKS as $key) {
     Assert::same(false, $lock['claim_boundary'][$key] ?? true, "claim_boundary.{$key} must remain false");
 }
 Assert::same(
@@ -64,6 +57,22 @@ Assert::same(
     $lock['claim_boundary']['no_external_charge_executed'] ?? false,
     'no_external_charge_executed must remain true',
 );
+
+// THE EVIDENCE-BACKED OPERATIONAL STATES are a different kind of statement and are held by a
+// different rule, in `deployment_evidence_boundary.php`: each MAY become true, and only while
+// `deployment-evidence.json` carries a record supporting it.
+//
+// This file used to hold all nine with one rule — every one false, forever — which was right while
+// nothing had been deployed and would become dishonest the day staging actually happened, because
+// somebody would have had to edit a tripwire in order to record the truth. What is asserted here is
+// only that each one is DECLARED, so a state cannot quietly leave the lock and stop being checked
+// by either file. See `docs/DEPLOYMENT_EVIDENCE_MODEL.md`.
+foreach (DeploymentEvidence::EVIDENCE_BACKED_CLAIMS as $key) {
+    Assert::true(
+        is_bool($lock['claim_boundary'][$key] ?? null),
+        "claim_boundary.{$key} is declared, and its truth is decided by the evidence registry",
+    );
+}
 
 // --- scope ------------------------------------------------------------------------------------
 
