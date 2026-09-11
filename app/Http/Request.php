@@ -10,6 +10,10 @@ namespace Allfather\Loopia\Http;
  * Superglobals are read HERE and nowhere else, so every other layer receives values through a typed
  * surface rather than reaching for `$_GET` wherever it happens to need one. That is not tidiness:
  * it means there is a single place to audit for what the outside world can influence.
+ *
+ * The support reference is issued here for the same reason. It is the one field on this object the
+ * caller did NOT supply — an inbound `X-Request-ID` is never read — so the single place that reads
+ * the outside world is also the single place that decides what this request is called.
  */
 final class Request
 {
@@ -26,6 +30,7 @@ final class Request
         public readonly array $cookies,
         public readonly string $ip,
         public readonly ?string $userAgent,
+        public readonly string $requestId,
     ) {
     }
 
@@ -45,6 +50,10 @@ final class Request
             // would let anybody choose the address their login attempts are rate-limited against.
             (string) ($server['REMOTE_ADDR'] ?? '0.0.0.0'),
             isset($server['HTTP_USER_AGENT']) ? (string) $server['HTTP_USER_AGENT'] : null,
+            // SERVER-ISSUED, always. `$server['HTTP_X_REQUEST_ID']` is deliberately not consulted:
+            // a caller who could name their own request could collide two deliberately, or plant a
+            // reference that looks like somebody else's in an operator's logs.
+            RequestId::issue(),
         );
     }
 

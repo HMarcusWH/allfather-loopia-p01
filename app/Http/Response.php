@@ -34,6 +34,22 @@ final class Response
         return new self($this->status, $this->body, $this->headers, [...$this->cookies, $setCookieValue]);
     }
 
+    /**
+     * The same response with one more header — a NEW response, never a mutation.
+     *
+     * Immutability is what keeps the constructor's security headers meaningful: a response that
+     * could be edited in place is a response whose CSP a later layer could quietly relax. Callers
+     * get a copy or nothing.
+     *
+     * An existing name is overwritten rather than duplicated, because a header map holds one value
+     * per name and two `Content-Security-Policy` headers are resolved by the browser taking the
+     * INTERSECTION — a rule nobody wrote.
+     */
+    public function withHeader(string $name, string $value): self
+    {
+        return new self($this->status, $this->body, [...$this->headers, $name => $value], $this->cookies);
+    }
+
     /** @param array<string, string> $extra */
     public static function html(string $body, int $status = 200, array $extra = []): self
     {
