@@ -101,13 +101,56 @@ try {
     $template = (string) file_get_contents($root . '/app/Http/templates/operator-console.php');
     Assert::contains('<script type="module" src="<?= View::e($scriptUrl) ?>"></script>', $template, 'the shell loads one escaped external module script');
     Assert::contains('<link rel="stylesheet" href="<?= View::e($styleUrl) ?>">', $template, 'and one escaped external stylesheet');
-    Assert::contains('<div id="root" data-allfather-console></div>', $template, 'the PHP shell emits the mount selector required by the production entry point');
+    // PR7 widened the mount element by exactly one attribute: the session's own CSRF token, so the
+    // shell's sign-out control can stay a POST. The assertion is tightened rather than relaxed —
+    // the selector must still be there, the token must be ESCAPED, and the element must carry
+    // nothing else, because a second data attribute is how governed data would start crossing into
+    // the document instead of being fetched through an owner-gated read.
+    Assert::contains(
+        '<div id="root" data-allfather-console data-csrf-token="<?= View::e($csrfToken) ?>"></div>',
+        $template,
+        'the PHP shell emits the mount selector plus exactly one escaped CSRF attribute',
+    );
+    preg_match_all('/data-[a-z-]+/', $template, $dataAttributes);
+    Assert::equalsList(
+        ['data-allfather-console', 'data-csrf-token'],
+        array_values(array_unique($dataAttributes[0])),
+        'and no other data attribute — the shell fetches governed data, it is never handed any',
+    );
+    Assert::false(
+        str_contains($template, '$session') || str_contains($template, 'tenant') || str_contains($template, 'operator_id'),
+        'the shell document names no session, tenant or operator value',
+    );
     Assert::false(str_contains($template, 'style='), 'the React document contains no inline style attribute');
     Assert::false(str_contains($template, '<script>'), 'the React document contains no inline script block');
     Assert::false(str_contains($template, 'http://') || str_contains($template, 'https://'), 'the React document names no remote origin');
 
     $entrySource = (string) file_get_contents($root . '/frontend/console/src/index.jsx');
     Assert::contains('document.querySelector("[data-allfather-console]")', $entrySource, 'the production entry point retains the same mount selector the PHP shell emits');
+    Assert::contains('mount.dataset.csrfToken', $entrySource, 'and reads the CSRF token from that element rather than from any global');
+
+    // The sign-out control is a FORM POST carrying the session token. Not a fetch, not a GET link,
+    // and not a button that calls something: the CSP permits `form-action 'self'` and nothing that
+    // would make the other shapes work, so this is the shape that keeps the boundary intact.
+    $utilities = (string) file_get_contents($root . '/frontend/console/src/shell/utilities.jsx');
+    Assert::contains('method="post" action="/logout"', $utilities, 'sign-out remains a POST to /logout');
+    Assert::contains('name="csrf_token"', $utilities, 'carrying the session CSRF token');
+    Assert::false(str_contains($utilities, 'fetch('), 'the shell utilities perform no scripted request');
+    foreach (['/console/workspaces', '/account', '/support'] as $utilityPath) {
+        Assert::contains(
+            'href="' . $utilityPath . '"',
+            $utilities,
+            "the persistent console utilities link to the server-rendered {$utilityPath}",
+        );
+    }
+
+    // They live OUTSIDE the context boundary. An operator whose context is denied or unresolved is
+    // exactly the operator who needs to change workspace, read support, or sign out.
+    $shellSource = (string) file_get_contents($root . '/frontend/console/src/shell/shell.jsx');
+    Assert::true(
+        strpos($shellSource, '<ShellUtilities') < strpos($shellSource, '<div className="shell-main">'),
+        'the utilities render in the rail itself, not behind the context-dependent main content',
+    );
 
     $controller = (string) file_get_contents($root . '/app/Http/Controllers/OperatorConsoleController.php');
     foreach (['Database', 'AccessGuard', 'Entitlements', 'Product\\P0', 'SELECT ', 'INSERT ', 'UPDATE ', 'DELETE '] as $forbidden) {
