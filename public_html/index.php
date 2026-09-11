@@ -4,20 +4,26 @@ declare(strict_types=1);
 
 require __DIR__ . '/../app/autoload.php';
 
+use Allfather\Loopia\Auth\AccountService;
 use Allfather\Loopia\Auth\Authenticator;
 use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Http\ConsoleAssetManifest;
+use Allfather\Loopia\Http\Controllers\AccountController;
 use Allfather\Loopia\Http\Controllers\ConsoleController;
 use Allfather\Loopia\Http\Controllers\ConsoleReadController;
 use Allfather\Loopia\Http\Controllers\OperatorConsoleController;
 use Allfather\Loopia\Http\Controllers\SessionController;
+use Allfather\Loopia\Http\Controllers\SupportController;
 use Allfather\Loopia\Http\Controllers\SurfaceController;
 use Allfather\Loopia\Http\Controllers\WorkspaceController;
 use Allfather\Loopia\Http\Kernel;
 use Allfather\Loopia\Http\ReadAdapters\ConsoleContextAdapter;
 use Allfather\Loopia\Http\ReadAdapters\DecisionLedgerAdapter;
+use Allfather\Loopia\Http\ReadAdapters\SupportContextAdapter;
 use Allfather\Loopia\Http\Request;
+use Allfather\Loopia\Http\RequestId;
+use Allfather\Loopia\Http\RequestLog;
 use Allfather\Loopia\Http\Response;
 use Allfather\Loopia\Http\View;
 use Allfather\Loopia\Product\P01\Entitlements;
@@ -39,13 +45,35 @@ use Allfather\Loopia\Support\Bootstrap;
 
 $root = dirname(__DIR__);
 
+// BUILT BEFORE ANYTHING CAN FAIL, and deliberately before configuration is even read.
+//
+// Reading the superglobals needs no configuration, so the request can exist before the two failures
+// below — a misconfigured deployment and an unreachable database — which happen before a Kernel
+// does. Those are exactly the two a stuck partner is most likely to be looking at when they go
+// hunting for something to quote, so a reference that existed for every response EXCEPT them would
+// be a feature that works whenever it does not matter.
+//
+// Building it here rather than issuing a bare id also means these branches can record through the
+// same sanitized sink every other response uses: a reference nobody can look up is not a reference,
+// it is a string that invites a question with no answer.
+$request = Request::fromGlobals($_SERVER, $_GET, $_POST, $_COOKIE);
+
+/** Emit one pre-Kernel failure: stamped, recorded, and carrying no detail a caller should not have. */
+$earlyFailure = static function (Response $response) use ($request): void {
+    $stamped = $response->withHeader(RequestId::HEADER, $request->requestId);
+    RequestLog::record($request->requestId, $request->method, $request->path, $stamped->status);
+    $stamped->send();
+};
+
 try {
     $boot = Bootstrap::load($root);
 } catch (\RuntimeException $error) {
-    http_response_code(503);
-    header('Content-Type: application/json; charset=utf-8', true);
-    header('Cache-Control: no-store, private', true);
-    echo json_encode(['status' => 'MISCONFIGURED', 'detail' => $error->getMessage()], JSON_THROW_ON_ERROR);
+    // The detail names MISSING CONFIGURATION KEYS, never their values — see Bootstrap, which is
+    // explicit that the key names are already public in .env.example and the values never appear.
+    $earlyFailure(Response::json(
+        ['status' => 'MISCONFIGURED', 'detail' => $error->getMessage()],
+        503,
+    ));
     return;
 }
 $env = $boot['env'];
@@ -61,7 +89,7 @@ try {
         $env->get('DB_SOCKET'),
     );
 } catch (\Throwable) {
-    Response::json(['status' => 'UNAVAILABLE'], 503)->send();
+    $earlyFailure(Response::json(['status' => 'UNAVAILABLE'], 503));
     return;
 }
 
@@ -83,6 +111,20 @@ $kernel->route('POST', '/logout', $session->logout(...));
 $workspaces = new WorkspaceController($db, $auth, $view);
 $kernel->route('GET', '/console/workspaces', $workspaces->choose(...));
 $kernel->route('POST', '/console/workspace', $workspaces->select(...));
+
+// The account lifecycle surfaces. `/account/password` is the ONE authenticated path reachable while
+// `must_change_password` is set, which is why it is a server-rendered form rather than a screen in
+// the React shell: the shell's own route is behind the same gate.
+$accounts = new AccountService($db, $clock, $auth);
+$account = new AccountController($accounts, $view);
+$kernel->route('GET', '/account', $account->show(...));
+$kernel->route('GET', '/account/password', $account->showPasswordForm(...));
+$kernel->route('POST', '/account/password', $account->changePassword(...));
+
+// Help and support. It holds no database handle and no governed service — one session-scoped read
+// through its adapter, and two non-secret configuration keys.
+$support = new SupportController($view, $env, new SupportContextAdapter($db), $boot['environment']);
+$kernel->route('GET', '/support', $support->show(...));
 
 $contextAdapter = new ConsoleContextAdapter($db, $m12, $assurance);
 $decisionAdapter = new DecisionLedgerAdapter($db, $clock, $access, $ledger);
@@ -125,4 +167,4 @@ $kernel->route('GET', '/healthz', static fn (): Response => Response::json([
     'external_effect' => false,
 ]));
 
-$kernel->handle(Request::fromGlobals($_SERVER, $_GET, $_POST, $_COOKIE))->send();
+$kernel->handle($request)->send();

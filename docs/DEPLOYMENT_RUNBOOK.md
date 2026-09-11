@@ -261,6 +261,14 @@ configuration and writes nothing.
 | M16 | the tenant's output visibility profiles (P01 registration; internal permitted, every wider audience seeded explicitly as not permitted) |
 | Entitlement | the commercial tiers — platform rows, created once per deployment |
 
+**The authority vocabulary is seeded first.** Permissions and roles are GLOBAL — the shared
+vocabulary every membership resolves against, not tenant-owned data — so `M02\Seed` runs before the
+module registrations and reports how many of each it created. It is idempotent, ported verbatim from
+canonical, and structurally unable to create an excluded permission. Before it was wired here, a
+freshly provisioned deployment had no roles at all, and granting one meant writing SQL or inventing
+a role: the two things this projection exists to make unnecessary. Seeding creates no authority — a
+role is inert until a membership grants it.
+
 **What the command itself writes:** the tenant, workspace and operator rows, and nothing else. Those
 are the scope the capabilities are registered INTO; no module owns them and they must exist first.
 It issues no UPDATE or DELETE at all, refuses an unrecognised argument rather than ignoring it, and
@@ -297,7 +305,111 @@ scope.
 outside world: `live_read_activated` and `external_action_authorized` are restated as false on every
 successful run.
 
-Afterwards, grant the operator a role and a workspace membership, and subscribe the tenant to a
+## 5a. Onboard a beta partner
+
+Provisioning establishes the tenant. Onboarding gives one invited person a way in. One command, and
+no hand-written SQL at any step:
+
+    read -rs -p 'Initial password: ' PW; echo
+    printf '%s\n' "$PW" | php ops/onboard-beta-user.php \
+      --tenant-key=acme --workspace-key=main \
+      --email=partner@example.com --display-name="A Partner" --operator-name="A Partner" \
+      --roles=ROLE_COMPETITION_MONITOR,ROLE_MARKETING_CUSTOMIZER \
+      --password-stdin [--env=path] [--dry-run]
+
+It creates the governed operator if there is none, ensures the `LOOPIA_SME_BETA` tier exists exactly
+as declared, subscribes the tenant to it as a `TRIAL`, creates the platform login, grants the named
+EXISTING roles, and marks an initial password change required. Run `--dry-run` first: it validates
+the scope, the role keys and the tier definition and writes nothing.
+
+**The password never touches the command line.** `--password` is refused by name, with the reason:
+anything on argv is in the process list and in the shell history file. `--password-stdin` is the
+only way in — see §5b for why there is no interactive prompt. The value appears in no output, no log
+and no JSON result.
+
+**It grants only what already exists.** A role key that is not an ACTIVE role is refused rather than
+created — checked before anything is written, so an unknown role key cannot leave a half-onboarded
+partner. `--roles` names roles from the canonical M02 set seeded in step 5.
+
+**`--dry-run` mirrors every refusal the real run can know in advance**, which for a preflight is the
+only useful definition of one: scope, role keys, tier definition, address, display name, the
+tenant's live subscription conflict, the governed operator's lifecycle, and the state of any
+membership the requested roles already have. It creates nothing — not even the beta tier, which
+`inspectTier` judges read-only.
+
+**A stood-down identity accumulates no authority.** A membership is granted only to an `ACTIVE`
+operator. M02 denies while the operator is inactive, so a membership granted then would be latent
+authority springing into effect the moment somebody reinstates the identity — with nobody having
+decided to grant a role. An existing account skips `createLogin`, so this rule lives on the grant
+path where the re-run actually reaches it.
+
+**A withdrawn membership is not restored by a re-run.** Only `ACTIVE` is idempotent convergence;
+`REVOKED`, `EXPIRED`, `SUSPENDED` and `DRAFT` are refused with the row left exactly as it is, status
+and `valid_until` both, so the withdrawal and the record of it survive.
+
+**The beta tier is exactly six read permissions** — `battlecard.read`, `entity_twin.read`,
+`marketing_asset.read`, `priority_outreach_queue.read`, `prospect.read`, `role_briefing.read` — at
+zero charge. A tier already present under that key with a different permission set, status or price
+is REFUSED rather than reused or repaired. A tenant already on a different live subscription is
+refused too; `--replace-live-subscription` transitions the old one to `CANCELLED` transactionally,
+and is the only way to do it.
+
+**The two gates stay independent.** The tier is a commercial gate in front of M02, never a second
+authority: a partner whose role lacks a permission is denied whatever the tier says, and a tenant
+whose tier lacks one is denied whatever the role says.
+
+## 5b. Support a beta partner
+
+    php ops/manage-beta-user.php <command> --email=partner@example.com \
+      [--tenant-key=acme] [--password-stdin] [--reason=...] [--env=path]
+
+| Command | Effect |
+| --- | --- |
+| `inspect` | sanitized account state, memberships and commercial state |
+| `suspend` | stops sign-in; every live session ends in the same transaction |
+| `reactivate` | returns the account to full service — status `ACTIVE`, lock-out cleared, outstanding sessions ended so it signs in again |
+| `reset-password` | issues a replacement password and requires the holder to change it again |
+| `revoke-sessions` | ends every live session, leaving the lifecycle state alone |
+| `retire` | terminal — no transition out of it exists |
+
+**Two locks, and `reactivate` owns one.** `platform_users.failed_attempts` / `locked_until` is the
+account lock, and reactivate clears it. `auth_attempts` additionally rate-limits an ADDRESS for
+fifteen minutes, and that ledger is append-only by trigger — nothing clears it, deliberately. A
+partner who still cannot sign in straight after a reactivation is waiting out a window that expires
+by itself, not sitting behind a reactivation that did not work. The normal failed-login path never
+writes `status = 'LOCKED'`: a locked-out account is `ACTIVE` with a lock window, which is why
+reactivate is expressed as an end state rather than as a status transition.
+
+**The password is read from stdin and nowhere else.** There is no interactive prompt: PHP has no
+portable way to suppress terminal echo — the readline trick works on some builds and displays the
+password on others — and shelling out to `stty` is process execution, which the no-external-action
+tripwire forbids across this codebase. A prompt that might show the password is worse than none, so
+the command refuses and names the flag. Use your shell's own no-echo read, which is a mechanism you
+can inspect:
+
+    read -rs -p 'Password: ' PW; echo
+    printf '%s\n' "$PW" | php ops/onboard-beta-user.php ... --password-stdin
+
+or pipe straight from a secret manager, which is better again because the value never enters a
+shell variable.
+
+`--tenant-key` is a SCOPE, not a filter: an address outside the named tenant reports exactly as an
+address that does not exist, so the command cannot be used to ask whether somebody has a login
+elsewhere in the deployment. Every command emits identifiers, lifecycle states, counts and
+timestamps — never a password, hash, algorithm, session token, CSRF token or provider credential.
+
+**A partner's first sign-in lands on `/account/password`.** The redirect is a courtesy; the
+enforcement is a Kernel gate between routing and dispatch, so `/console`, `/console/app`, the
+workspace routes and every JSON read refuse until the password is replaced — the JSON reads with a
+distinct `PASSWORD_CHANGE_REQUIRED` status and no data envelope at all.
+
+**Every response carries `X-Request-ID`**, an opaque 22-character reference that encodes nothing
+about the tenant, workspace, user, address or time. It is shown on the authenticated `/support` page
+and on safe error pages, so a partner can report a failure by quoting it rather than describing it.
+Set `SUPPORT_CONTACT_TEXT` in `.env` or the support page will say no contact is configured; set
+`APP_RELEASE_REF` to the deployed SHA so a report and a build agree about which code produced it.
+
+Afterwards, grant the operator any further roles and workspace memberships, and confirm the tenant's
 tier — a role grant is not a purchase, and both gates are checked independently at every surface.
 
 ## 6. Stand-down and rollback

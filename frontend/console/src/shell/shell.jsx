@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import logoLockup from "../assets/logo-lockup.svg";
 import { Navigation } from "./navigation.jsx";
 import { CommandPalette } from "./command-palette.jsx";
+import { ShellUtilities } from "./utilities.jsx";
 import { Icon } from "../primitives/icons.jsx";
 import { Panel, StatusBadge } from "../primitives/index.jsx";
 import { CONTEXT_STATE, classifyContextEnvelope } from "../data/context-state.js";
@@ -39,7 +40,7 @@ function NoUsableSurfaces(){
   </Panel>;
 }
 
-export function Shell({datasource,current,onNavigate,navigation,context,children}){
+export function Shell({datasource,current,onNavigate,navigation,context,csrfToken,children}){
   const [palette,setPalette]=useState(false);
   const contextState=classifyContextEnvelope(context);
   const contextReady=contextState===CONTEXT_STATE.READY;
@@ -76,6 +77,11 @@ export function Shell({datasource,current,onNavigate,navigation,context,children
     <aside className="rail">
       <div className="brand"><img src={logoLockup} alt="Allfather BI"/></div>
       <Navigation current={current} onNavigate={onNavigate} navigation={navigation}/>
+      {/* OUTSIDE the navigation, and outside the context boundary above it. These four are the
+          things an operator needs precisely when the console cannot resolve context — a denied
+          session still has to be able to choose a workspace, read the support page, or sign out.
+          Rendering them inside `Navigation` would make them disappear in exactly that case. */}
+      <ShellUtilities csrfToken={csrfToken}/>
       <div className="rail-foot"><span className="rail-boundary">Internal presentation only</span><span>No control grants authority.</span></div>
     </aside>
     <div className="shell-main">

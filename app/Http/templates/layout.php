@@ -38,6 +38,17 @@ use Allfather\Loopia\Http\View;
       <a class="rail__link" href="/console/marketing"<?= ($nav['current'] ?? '') === 'marketing' ? ' aria-current="page"' : '' ?>>Marketing drafts</a>
     </div>
 
+    <div class="rail__group">
+      <p class="rail__label">Your account</p>
+      <a class="rail__link" href="/account"<?= ($nav['current'] ?? '') === 'account' ? ' aria-current="page"' : '' ?>>Account</a>
+      <a class="rail__link" href="/support"<?= ($nav['current'] ?? '') === 'support' ? ' aria-current="page"' : '' ?>>Help &amp; support</a>
+    </div>
+
+    <!--
+      Sign-out is a POST carrying the session's own CSRF token, and stays one. A GET link would be
+      a link any page on the internet could make somebody follow — and "it is only a logout" is how
+      that argument starts every time.
+    -->
     <form method="post" action="/logout" class="rail__group">
       <input type="hidden" name="csrf_token" value="<?= View::e($session['csrf_token'] ?? '') ?>">
       <button class="rail__link rail__button" type="submit">Sign out</button>

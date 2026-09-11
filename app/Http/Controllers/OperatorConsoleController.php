@@ -14,7 +14,12 @@ use Allfather\Loopia\Http\View;
  *
  * There is deliberately no product service, database handle, M02 guard, entitlement resolver or
  * browser-read adapter in this controller. Identity is supplied by the existing Kernel session
- * boundary; governed reads remain unwired until the dedicated browser-read integration phase.
+ * boundary; governed reads are made by the browser against the explicit read routes, each of which
+ * re-runs the owner gate server-side.
+ *
+ * The ONE value it passes into the document is the session's own CSRF token, so the shell's
+ * sign-out control can stay the POST it has always been rather than being weakened to a GET link
+ * for the convenience of a React button.
  */
 final class OperatorConsoleController
 {
@@ -52,6 +57,11 @@ final class OperatorConsoleController
         return Response::operatorConsoleHtml($this->view->partial('operator-console', [
             'scriptUrl' => $assets['script'],
             'styleUrl' => $assets['style'],
+            // The SESSION's CSRF token, and only when the caller's cookie verified against the
+            // session's stored digest — the Kernel sets `csrf_token` on the session exactly then.
+            // Absent, this renders empty and the shell's sign-out POST is refused with a 403 the
+            // operator can act on, which is the fail-closed direction.
+            'csrfToken' => (string) ($session['csrf_token'] ?? ''),
         ]));
     }
 }

@@ -1,0 +1,611 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * The platform-login lifecycle, against real MariaDB.
+ *
+ * Every claim here is one a support procedure depends on, and each has a failure mode that is
+ * invisible until it matters:
+ *
+ *   A SUSPENSION THAT LEFT SESSIONS ALIVE looks like a suspension for twelve hours.
+ *   A REACTIVATION THAT RESTORED THEM hands back a token issued under circumstances that have gone.
+ *   A RETIREMENT THAT CAN BE UNDONE by the reactivate command is a long suspension wearing the word.
+ *   A RESET THAT DID NOT REQUIRE A CHANGE leaves a credential two people know, indefinitely.
+ *   A CROSS-TENANT BINDING gives a login a governance identity in a tenant it does not belong to.
+ */
+
+use Allfather\Loopia\Auth\AccountService;
+use Allfather\Loopia\Auth\Authenticator;
+use Allfather\Loopia\Core\Ids;
+use Allfather\Loopia\Tests\Assert;
+use Allfather\Loopia\Tests\Harness;
+use Allfather\Loopia\Tests\Seed;
+
+$db = Harness::freshDb();
+if ($db === null) {
+    Assert::skip(Harness::unavailableReason());
+
+    return;
+}
+
+$clock = Harness::clock();
+$auth = new Authenticator($db, $clock);
+$accounts = new AccountService($db, $clock, $auth);
+
+$scope = Seed::tenantWorkspace($db, $clock, 'lifecycle');
+$workspaceKey = (string) $db->scalar(
+    'SELECT workspace_key FROM workspaces WHERE workspace_id = ?',
+    [$scope['workspace_id']]
+);
+$ip = '198.51.100.7';
+$strong = 'correct horse battery staple';
+
+/** Sign in and return the session token, or null when authentication refused. */
+$signIn = static function (string $email, string $password) use ($auth, $ip): ?string {
+    $result = $auth->authenticate($email, $password, $ip);
+
+    return $result->isOk() ? (string) $result->value()['session_token'] : null;
+};
+
+// ============================================================ creating a login
+
+$operatorId = Seed::operator($db, $clock, $scope['tenant_id'], 'Invited partner');
+$created = $accounts->createLogin($operatorId, 'Partner@Example.Test', 'Invited partner', $strong);
+Assert::true($created->isOk(), 'a login is created for an existing governed operator');
+$platformUserId = (string) $created->value()['platform_user_id'];
+
+$state = $accounts->inspect($platformUserId);
+Assert::same('partner@example.test', $state['email'], 'the address is normalized, so a login and a lookup agree');
+Assert::same('ACTIVE', $state['status'], 'the account is active');
+Assert::same(true, $state['must_change_password'], 'and an operator-issued password must be replaced before use');
+Assert::same($scope['tenant_id'], $state['tenant_id'], 'the login is in the operator\'s own tenant');
+Assert::same($operatorId, $state['operator_id'], 'and bound to the operator, which is what governance records');
+
+// THE CREDENTIAL IS NOT IN THE REPORT. `inspect` is what the support CLI prints.
+$encoded = json_encode($state, JSON_THROW_ON_ERROR);
+foreach (['password_hash', 'password_algo', 'token', 'csrf', 'secret'] as $leak) {
+    Assert::false(stripos($encoded, $leak) !== false, "the account report carries no {$leak}");
+}
+Assert::false(
+    str_contains($encoded, (string) $db->scalar(
+        'SELECT password_hash FROM platform_users WHERE platform_user_id = ?',
+        [$platformUserId]
+    )),
+    'and not the stored hash under any other key either',
+);
+
+// ============================================================ what creating a login refuses
+
+// A SECOND LOGIN FOR ONE OPERATOR. One login, one operator, in both directions.
+Assert::same(
+    'OPERATOR_ALREADY_BOUND',
+    $accounts->createLogin($operatorId, 'second@example.test', 'Second', $strong)->reasonCode(),
+    'one operator cannot acquire a second login',
+);
+// The same operator and the same address converges instead — an onboarding command must be re-runnable.
+$converged = $accounts->createLogin($operatorId, 'partner@example.test', 'Invited partner', $strong);
+Assert::true($converged->isOk(), 'the same operator and address converge');
+Assert::same(false, $converged->value()['created'] ?? null, 'without creating anything');
+
+// A CROSS-TENANT BINDING. The FK proves both rows exist; it does not prove they belong together.
+$otherTenant = Seed::tenantWorkspace($db, $clock, 'elsewhere');
+$foreignOperator = Seed::operator($db, $clock, $otherTenant['tenant_id'], 'Somebody else');
+$crossTenant = $accounts->createLogin($foreignOperator, 'partner@example.test', 'Collision', $strong);
+Assert::true($crossTenant->isRefusal(), 'a taken address is refused across tenants');
+Assert::same('ACCOUNT_EMAIL_TAKEN', $crossTenant->reasonCode(), 'as a collision');
+// WITHOUT NAMING WHOSE. A refusal that identified the other tenant would make this an enumerator.
+Assert::false(
+    str_contains(json_encode($crossTenant->detail, JSON_THROW_ON_ERROR), $scope['tenant_id']),
+    'and the refusal names no other tenant — it would otherwise be an enumeration surface',
+);
+
+// AN OPERATOR THAT IS NOT ACTIVE. Binding a credential to a stood-down identity mints a login
+// whose governance identity is already gone.
+$suspendedOperator = Seed::operator($db, $clock, $scope['tenant_id'], 'Stood down');
+$db->run("UPDATE operators SET status = 'SUSPENDED' WHERE operator_id = ?", [$suspendedOperator]);
+Assert::same(
+    'OPERATOR_NOT_BINDABLE',
+    $accounts->createLogin($suspendedOperator, 'stooddown@example.test', 'Stood down', $strong)->reasonCode(),
+    'a credential is not bound to a suspended operator',
+);
+
+// AN OPERATOR THAT DOES NOT EXIST is refused rather than created on the way past.
+Assert::same(
+    'OPERATOR_NOT_FOUND',
+    $accounts->createLogin(Ids::new(), 'ghost@example.test', 'Ghost', $strong)->reasonCode(),
+    'an operator that does not exist is not invented',
+);
+
+// A WEAK PASSWORD is refused by the existing policy, not by a second one invented here.
+Assert::same(
+    'PASSWORD_TOO_SHORT',
+    $accounts->createLogin(
+        Seed::operator($db, $clock, $scope['tenant_id'], 'Short'),
+        'short@example.test',
+        'Short',
+        'abc',
+    )->reasonCode(),
+    'the existing password policy is the one that applies',
+);
+
+// ============================================================ the forced first change
+
+$token = $signIn('partner@example.test', $strong);
+Assert::notSame(null, $token, 'correct credentials authenticate even under the change requirement');
+$resolved = $auth->resolveSession((string) $token);
+Assert::true($resolved->isOk(), 'and a session resolves');
+Assert::same(
+    true,
+    $resolved->value()['must_change_password'],
+    'carrying the lifecycle state, re-read on every request rather than captured at sign-in',
+);
+
+// The holder replaces it. Every session dies — including this one, which is the point.
+$newPassword = 'a different long passphrase';
+$changed = $accounts->changePassword($platformUserId, $strong, $newPassword);
+Assert::true($changed->isOk(), 'the holder replaces the password');
+Assert::true(($changed->value()['sessions_revoked'] ?? 0) >= 1, 'and every live session is revoked with it');
+Assert::same(
+    false,
+    $accounts->inspect($platformUserId)['must_change_password'],
+    'the requirement is cleared by the change that satisfies it',
+);
+Assert::true(
+    $auth->resolveSession((string) $token)->isRefusal(),
+    'the session that made the change no longer resolves — a change whose own session survived would leave stolen ones alive too',
+);
+Assert::same(null, $signIn('partner@example.test', $strong), 'the old password is gone');
+$token = $signIn('partner@example.test', $newPassword);
+Assert::notSame(null, $token, 'and the new one works');
+
+// The current password is verified even though a session exists. A session proves somebody signed
+// in; it does not prove the person at the keyboard now is the same one.
+Assert::same(
+    'CURRENT_PASSWORD_INCORRECT',
+    $accounts->changePassword($platformUserId, 'not the password', 'yet another long passphrase')->reasonCode(),
+    'a change without the current password is refused',
+);
+Assert::same(
+    'PASSWORD_UNCHANGED',
+    $accounts->changePassword($platformUserId, $newPassword, $newPassword)->reasonCode(),
+    'and re-setting the same password is not a change',
+);
+Assert::true(
+    $auth->resolveSession((string) $token)->isOk(),
+    'and a refused change revokes nothing — the session that attempted it survives',
+);
+
+// ============================================================ the operator-issued reset
+
+$issued = 'an operator issued passphrase';
+$reset = $accounts->resetPassword($platformUserId, $issued);
+Assert::true($reset->isOk(), 'an operator issues a replacement password');
+Assert::true(($reset->value()['sessions_revoked'] ?? 0) >= 1, 'every live session ends with it');
+Assert::true(
+    $auth->resolveSession((string) $token)->isRefusal(),
+    'the holder is signed out immediately, not at the next expiry',
+);
+Assert::same(
+    true,
+    $accounts->inspect($platformUserId)['must_change_password'],
+    'and the requirement returns — two people know this password until it is replaced',
+);
+
+// It is not a parameter. There is no call shape that issues a password somebody else chose without
+// also requiring it to be replaced.
+$resetMethod = new ReflectionMethod(AccountService::class, 'resetPassword');
+Assert::same(2, $resetMethod->getNumberOfParameters(), 'the reset takes no flag that could switch the requirement off');
+
+$token = $signIn('partner@example.test', $issued);
+Assert::notSame(null, $token, 'the issued password signs in');
+
+// ============================================================ suspension
+
+$suspended = $accounts->suspend($platformUserId);
+Assert::true($suspended->isOk(), 'the account is suspended');
+Assert::true(($suspended->value()['sessions_revoked'] ?? 0) >= 1, 'and its live sessions end in the same transaction');
+Assert::true(
+    $auth->resolveSession((string) $token)->isRefusal(),
+    'an already-issued session stops resolving immediately',
+);
+Assert::same(null, $signIn('partner@example.test', $issued), 'and a suspended account cannot sign in');
+
+// The revocation is recorded, not merely implied by the status check.
+Assert::same(
+    0,
+    (int) $db->scalar(
+        'SELECT COUNT(*) FROM platform_sessions WHERE platform_user_id = ? AND revoked_at IS NULL',
+        [$platformUserId]
+    ),
+    'no session row is left unrevoked',
+);
+
+// ============================================================ reactivation revokes what it finds
+
+// THE CASE THE "suspend already revoked them" ASSUMPTION MISSES. An account can reach SUSPENDED or
+// LOCKED by a path that did NOT revoke anything — a hand-written UPDATE, which is exactly the
+// support path this service exists to replace, so rows in that shape predate it by definition.
+// `resolveSession` refuses such a token only while the status is non-ACTIVE, so a reactivation that
+// revoked nothing would hand a pre-existing session its authority straight back.
+$staleOperator = Seed::operator($db, $clock, $scope['tenant_id'], 'Stale session holder');
+$staleAccount = $accounts->createLogin($staleOperator, 'stale@example.test', 'Stale session holder', $strong, false);
+$staleId = (string) $staleAccount->value()['platform_user_id'];
+$staleToken = $signIn('stale@example.test', $strong);
+Assert::notSame(null, $staleToken, 'the account holds a live session');
+
+// Suspended the way it used to be done: the status moves, the session rows are untouched.
+$db->run("UPDATE platform_users SET status = 'SUSPENDED' WHERE platform_user_id = ?", [$staleId]);
+Assert::same(
+    1,
+    (int) $db->scalar(
+        'SELECT COUNT(*) FROM platform_sessions WHERE platform_user_id = ? AND revoked_at IS NULL',
+        [$staleId]
+    ),
+    'the hand-written suspension left the session row unrevoked',
+);
+Assert::true($auth->resolveSession((string) $staleToken)->isRefusal(), 'the token is refused while the account is suspended');
+
+Assert::true($accounts->reactivate($staleId)->isOk(), 'the account is reactivated through the service');
+Assert::same(
+    0,
+    (int) $db->scalar(
+        'SELECT COUNT(*) FROM platform_sessions WHERE platform_user_id = ? AND revoked_at IS NULL',
+        [$staleId]
+    ),
+    'and reactivation revoked the session it found, whatever put the account into that state',
+);
+Assert::true(
+    $auth->resolveSession((string) $staleToken)->isRefusal(),
+    'so the pre-existing token stays dead rather than becoming valid again with the status',
+);
+Assert::notSame(null, $signIn('stale@example.test', $strong), 'the holder signs in again, which is how they come back');
+
+// ============================================================ the lockout the product ACTUALLY makes
+
+// `registerFailure` sets `failed_attempts` and `locked_until` and NEVER writes `status`, so a
+// genuinely locked-out account is ACTIVE. A reactivation expressed as a state-machine transition to
+// ACTIVE would see it is already there and do nothing — clearing the lock in the only case an
+// operator ever meets is the whole job, so this is driven through real failed authentications
+// rather than by manufacturing a status the product never produces.
+$lockoutOperator = Seed::operator($db, $clock, $scope['tenant_id'], 'Locked out for real');
+$lockoutAccount = $accounts->createLogin($lockoutOperator, 'lockedout@example.test', 'Locked out for real', $strong, false);
+$lockoutId = (string) $lockoutAccount->value()['platform_user_id'];
+
+// A live session first, so the revocation half is observable too.
+$lockoutToken = $signIn('lockedout@example.test', $strong);
+Assert::notSame(null, $lockoutToken, 'the account holds a live session before the lockout');
+
+// Ten wrong passwords from one address: the authenticator's own path, not a hand-written UPDATE.
+// A distinct peer address keeps this clear of the per-IP ceiling the other cases share.
+for ($attempt = 0; $attempt < 10; $attempt++) {
+    $auth->authenticate('lockedout@example.test', 'not the password at all', '198.51.100.99');
+}
+$lockedState = $accounts->inspect($lockoutId);
+Assert::same('ACTIVE', $lockedState['status'], 'the real lockout leaves the status ACTIVE — nothing writes LOCKED');
+Assert::true($lockedState['failed_attempts'] >= 10, 'the attempt counter is at its ceiling');
+Assert::notSame(null, $lockedState['locked_until'], 'and a lock window is set');
+Assert::same(
+    null,
+    $signIn('lockedout@example.test', $strong),
+    'so the CORRECT password no longer signs in — this is the state an operator is asked to clear',
+);
+
+Assert::true($accounts->reactivate($lockoutId)->isOk(), 'reactivate accepts an ACTIVE-but-locked account');
+$clearedState = $accounts->inspect($lockoutId);
+Assert::same('ACTIVE', $clearedState['status'], 'it stays ACTIVE');
+Assert::same(0, $clearedState['failed_attempts'], 'the attempt counter is cleared');
+Assert::same(null, $clearedState['locked_until'], 'and so is the lock window');
+Assert::true(
+    $auth->resolveSession((string) $lockoutToken)->isRefusal(),
+    'the session outstanding across the lockout is ended too — one contract, not a conditional one',
+);
+// AND THE ACCOUNT LOCK IS NOT THE ONLY LOCK. `auth_attempts` rate-limits an address for fifteen
+// minutes independently of the account row, and that ledger is APPEND-ONLY — triggers refuse both
+// UPDATE and DELETE — so no operator command clears it, deliberately. An operator who reactivates
+// and hears "still cannot sign in" is meeting this, not a failed reactivation, and the distinction
+// matters because the remedy is to wait rather than to do anything.
+$stillLimited = $auth->authenticate('lockedout@example.test', $strong, '198.51.100.99');
+Assert::true($stillLimited->isRefusal(), 'the rate-limit window survives the reactivation');
+Assert::same(
+    'AUTH_RATE_LIMITED',
+    $stillLimited->reasonCode(),
+    'and says so distinctly — this is a window expiring, not an account still locked',
+);
+Assert::same(
+    0,
+    $accounts->inspect($lockoutId)['failed_attempts'],
+    'while the account lock itself stays cleared, which is the part reactivate owns',
+);
+
+// The window is self-expiring, which is the whole reason nothing needs to erase it.
+$clock->advanceMs(16 * 60 * 1000);
+Assert::notSame(
+    null,
+    $signIn('lockedout@example.test', $strong),
+    'once the window passes the holder signs in again with their own password',
+);
+
+// Nothing to do is not a failure, and does not end anybody's session.
+$settled = $signIn('lockedout@example.test', $strong);
+$noop = $accounts->reactivate($lockoutId);
+Assert::true($noop->isOk(), 'reactivating an account already in full service converges');
+Assert::same(false, $noop->value()['changed'] ?? null, 'reporting that it changed nothing');
+Assert::same(0, $noop->value()['sessions_revoked'] ?? null, 'and revoking nothing');
+Assert::true(
+    $auth->resolveSession((string) $settled)->isOk(),
+    'a session is not ended to reach a state that already held',
+);
+
+// ============================================================ reactivation restores nothing
+
+$revokedBefore = (int) $db->scalar(
+    'SELECT COUNT(*) FROM platform_sessions WHERE platform_user_id = ? AND revoked_at IS NOT NULL',
+    [$platformUserId]
+);
+Assert::true($accounts->reactivate($platformUserId)->isOk(), 'the account returns to service');
+Assert::same(
+    $revokedBefore,
+    (int) $db->scalar(
+        'SELECT COUNT(*) FROM platform_sessions WHERE platform_user_id = ? AND revoked_at IS NOT NULL',
+        [$platformUserId]
+    ),
+    'and every previously revoked session stays revoked — revocation is a decision, not a side effect',
+);
+Assert::true($auth->resolveSession((string) $token)->isRefusal(), 'the old token is still dead');
+$token = $signIn('partner@example.test', $issued);
+Assert::notSame(null, $token, 'the account signs in again, which is how it comes back');
+
+// A locked account is unlocked by reactivation, or the first mistyped password would re-lock it.
+$db->run(
+    "UPDATE platform_users SET status = 'LOCKED', failed_attempts = 10, locked_until = ? WHERE platform_user_id = ?",
+    ['2099-01-01T00:00:00.000Z', $platformUserId]
+);
+Assert::true($accounts->reactivate($platformUserId)->isOk(), 'a locked account is reactivated');
+$unlocked = $accounts->inspect($platformUserId);
+Assert::same(0, $unlocked['failed_attempts'], 'and its attempt counter is cleared');
+Assert::same(null, $unlocked['locked_until'], 'along with the lock itself');
+
+// ============================================================ revoking sessions alone
+
+$token = $signIn('partner@example.test', $issued);
+$revoked = $accounts->revokeSessions($platformUserId);
+Assert::true($revoked->isOk(), 'sessions can be revoked without a lifecycle change');
+Assert::true($auth->resolveSession((string) $token)->isRefusal(), 'the session is gone');
+Assert::same('ACTIVE', $accounts->inspect($platformUserId)['status'], 'and the account is still ACTIVE');
+Assert::notSame(null, $signIn('partner@example.test', $issued), 'so the holder can sign in again');
+
+// ============================================================ retirement is terminal
+
+$token = $signIn('partner@example.test', $issued);
+Assert::true($accounts->retire($platformUserId)->isOk(), 'the account is retired');
+Assert::true($auth->resolveSession((string) $token)->isRefusal(), 'its sessions end');
+Assert::same(null, $signIn('partner@example.test', $issued), 'and it can no longer authenticate');
+
+// THE HALF THAT MATTERS: the same command that undoes a suspension must not undo this.
+$resurrect = $accounts->reactivate($platformUserId);
+Assert::true($resurrect->isRefusal(), 'a retired account is NOT reactivated');
+Assert::same('ACCOUNT_TRANSITION_NOT_PERMITTED', $resurrect->reasonCode(), 'the transition is refused by name');
+Assert::same('RETIRED', $accounts->inspect($platformUserId)['status'], 'and it stays retired');
+Assert::same(
+    'ACCOUNT_RETIRED',
+    $accounts->resetPassword($platformUserId, 'yet another long passphrase')->reasonCode(),
+    'nor is it un-retired by reissuing a credential for it',
+);
+Assert::same(null, $signIn('partner@example.test', $issued), 'it remains unable to sign in');
+
+// ============================================================ a reset unlocks a LOCKED account
+
+// The lock exists to stop somebody guessing at a password. Once the password has been REPLACED the
+// lock is answering a question nobody is asking — and clearing `locked_until` while leaving
+// `status = 'LOCKED'` would leave the holder with a working password and no way in, because
+// `authenticate` refuses on the status before it ever looks at the credential.
+$lockedOperator = Seed::operator($db, $clock, $scope['tenant_id'], 'Locked out');
+$lockedAccount = $accounts->createLogin($lockedOperator, 'locked@example.test', 'Locked out', $strong);
+Assert::true($lockedAccount->isOk(), 'an account exists to be locked');
+$lockedId = (string) $lockedAccount->value()['platform_user_id'];
+$db->run(
+    "UPDATE platform_users SET status = 'LOCKED', failed_attempts = 10, locked_until = ?
+     WHERE platform_user_id = ?",
+    ['2099-01-01T00:00:00.000Z', $lockedId]
+);
+Assert::same(null, $signIn('locked@example.test', $strong), 'a LOCKED account cannot sign in');
+
+$unlockPassword = 'an operator issued unlock passphrase';
+Assert::true($accounts->resetPassword($lockedId, $unlockPassword)->isOk(), 'an operator resets its password');
+$unlockedState = $accounts->inspect($lockedId);
+Assert::same('ACTIVE', $unlockedState['status'], 'and the reset returns it to ACTIVE, as the lock no longer means anything');
+Assert::same(0, $unlockedState['failed_attempts'], 'clearing the attempt counter');
+Assert::same(null, $unlockedState['locked_until'], 'and the lock window');
+Assert::same(true, $unlockedState['must_change_password'], 'while still requiring the holder to choose their own');
+Assert::notSame(null, $signIn('locked@example.test', $unlockPassword), 'the holder can now sign in');
+
+// SUSPENDED IS NOT CLEARED BY A RESET. That is a lifecycle decision somebody made, and reissuing a
+// credential is not an appeal against it.
+$suspendedOperator = Seed::operator($db, $clock, $scope['tenant_id'], 'Suspended holder');
+$suspendedAccount = $accounts->createLogin($suspendedOperator, 'suspended@example.test', 'Suspended holder', $strong);
+$suspendedId = (string) $suspendedAccount->value()['platform_user_id'];
+Assert::true($accounts->suspend($suspendedId)->isOk(), 'the account is suspended');
+Assert::true(
+    $accounts->resetPassword($suspendedId, 'another operator issued passphrase')->isOk(),
+    'its password can still be reset',
+);
+Assert::same(
+    'SUSPENDED',
+    $accounts->inspect($suspendedId)['status'],
+    'and it stays SUSPENDED — a password reset does not undo a suspension',
+);
+Assert::same(
+    null,
+    $signIn('suspended@example.test', 'another operator issued passphrase'),
+    'so it still cannot sign in',
+);
+
+// ============================================================ a login cannot outrun a password change
+
+// The hash is verified before the session-issuing transaction opens, so without a re-check under a
+// row lock a change committing in between would revoke every session that EXISTS and leave the one
+// inserted a moment later alive — authenticated with the password that was just replaced.
+//
+// Proved by moving the password between the verify and the insert: the session must not be issued.
+$raceOperator = Seed::operator($db, $clock, $scope['tenant_id'], 'Race probe');
+$racePassword = 'the password being replaced';
+$raceAccount = $accounts->createLogin($raceOperator, 'race@example.test', 'Race probe', $racePassword, false);
+$raceId = (string) $raceAccount->value()['platform_user_id'];
+
+$sessionsBefore = (int) $db->scalar(
+    'SELECT COUNT(*) FROM platform_sessions WHERE platform_user_id = ?',
+    [$raceId]
+);
+// The change lands between the credential read and the session insert. Committed on its own
+// connection so it is genuinely visible to the login's transaction rather than part of it.
+$db->run(
+    'UPDATE platform_users SET password_hash = ?, password_algo = ? WHERE platform_user_id = ?',
+    [...array_values(\Allfather\Loopia\Auth\PasswordPolicy::hash('the password that replaced it')), $raceId]
+);
+Assert::same(null, $signIn('race@example.test', $racePassword), 'the replaced password no longer authenticates');
+Assert::same(
+    $sessionsBefore,
+    (int) $db->scalar('SELECT COUNT(*) FROM platform_sessions WHERE platform_user_id = ?', [$raceId]),
+    'and no session row was left behind by the attempt — the unit rolled back',
+);
+Assert::notSame(
+    null,
+    $signIn('race@example.test', 'the password that replaced it'),
+    'while the current password still works',
+);
+
+// ============================================================ role membership grants nothing new
+
+$freshOperator = Seed::operator($db, $clock, $scope['tenant_id'], 'Role probe');
+Assert::same(
+    'ROLE_NOT_DEFINED',
+    $accounts->addRoleMembership($scope['tenant_id'], $workspaceKey, $freshOperator, 'role_that_does_not_exist')->reasonCode(),
+    'an unknown role key is refused, never minted — onboarding must not create authority',
+);
+
+Seed::role($db, $clock, 'beta_console_reader', ['battlecard.read']);
+$granted = $accounts->addRoleMembership($scope['tenant_id'], $workspaceKey, $freshOperator, 'beta_console_reader');
+Assert::true($granted->isOk(), 'an existing role is granted');
+Assert::same(true, $granted->value()['created'] ?? null, 'creating the membership');
+$regranted = $accounts->addRoleMembership($scope['tenant_id'], $workspaceKey, $freshOperator, 'beta_console_reader');
+Assert::same(false, $regranted->value()['created'] ?? null, 'and re-granting converges rather than duplicating');
+Assert::same(
+    1,
+    (int) $db->scalar(
+        "SELECT COUNT(*) FROM workspace_memberships
+         WHERE tenant_id = ? AND principal_id = ? AND principal_type = 'OPERATOR'",
+        [$scope['tenant_id'], $freshOperator]
+    ),
+    'one membership, not two',
+);
+
+// A STOOD-DOWN IDENTITY ACCUMULATES NO AUTHORITY. M02 denies while the operator is inactive, which
+// is what makes the membership dangerous rather than harmless: it is latent, and it takes effect
+// the moment somebody reactivates the identity, with nobody having decided to grant a role.
+// `createLogin` already refuses to bind to such an operator, but an EXISTING account skips
+// `createLogin` entirely — so this is the same rule on the path that actually reaches it.
+foreach (['SUSPENDED', 'REVOKED', 'RETIRED', 'DRAFT'] as $operatorStatus) {
+    $standDownOperator = Seed::operator($db, $clock, $scope['tenant_id'], "Stood down {$operatorStatus}");
+    $db->run('UPDATE operators SET status = ? WHERE operator_id = ?', [$operatorStatus, $standDownOperator]);
+
+    $granted = $accounts->addRoleMembership($scope['tenant_id'], $workspaceKey, $standDownOperator, 'beta_console_reader');
+    Assert::true($granted->isRefusal(), "a {$operatorStatus} operator receives no membership");
+    Assert::same('OPERATOR_NOT_BINDABLE', $granted->reasonCode(), "named as unbindable: {$operatorStatus}");
+    Assert::same(
+        0,
+        (int) $db->scalar(
+            "SELECT COUNT(*) FROM workspace_memberships
+             WHERE tenant_id = ? AND principal_id = ? AND principal_type = 'OPERATOR'",
+            [$scope['tenant_id'], $standDownOperator]
+        ),
+        "and no membership row exists to spring into effect later: {$operatorStatus}",
+    );
+}
+
+// AN INACTIVE MEMBERSHIP IS NOT QUIETLY RESURRECTED. `REVOKED` and `EXPIRED` are decisions somebody
+// made, and re-running onboarding with the same --roles must not undo one — that would erase both
+// the authority withdrawal and the record that it happened.
+foreach (['REVOKED', 'EXPIRED', 'SUSPENDED', 'DRAFT'] as $inactiveStatus) {
+    $db->run(
+        "UPDATE workspace_memberships SET status = ?, valid_until = ?
+         WHERE tenant_id = ? AND principal_id = ? AND principal_type = 'OPERATOR'",
+        [$inactiveStatus, '2026-06-01T00:00:00.000Z', $scope['tenant_id'], $freshOperator]
+    );
+
+    $regrant = $accounts->addRoleMembership($scope['tenant_id'], $workspaceKey, $freshOperator, 'beta_console_reader');
+    Assert::true($regrant->isRefusal(), "a {$inactiveStatus} membership is not re-granted by re-running onboarding");
+    Assert::same('MEMBERSHIP_NOT_ACTIVE', $regrant->reasonCode(), "and the refusal names it: {$inactiveStatus}");
+    Assert::same(
+        $inactiveStatus,
+        (string) $db->scalar(
+            "SELECT status FROM workspace_memberships
+             WHERE tenant_id = ? AND principal_id = ? AND principal_type = 'OPERATOR'",
+            [$scope['tenant_id'], $freshOperator]
+        ),
+        "the existing row is left exactly as it was: {$inactiveStatus}",
+    );
+    Assert::same(
+        '2026-06-01T00:00:00.000Z',
+        (string) $db->scalar(
+            "SELECT valid_until FROM workspace_memberships
+             WHERE tenant_id = ? AND principal_id = ? AND principal_type = 'OPERATOR'",
+            [$scope['tenant_id'], $freshOperator]
+        ),
+        "including the validity window that recorded the withdrawal: {$inactiveStatus}",
+    );
+    // And it grants nothing: M02 resolves memberships by ACTIVE status, so the operator is still denied.
+    $probe = (new \Allfather\Loopia\Substrate\M02\AccessGuard($db, $clock))->evaluate(
+        'OPERATOR',
+        $freshOperator,
+        $scope['tenant_id'],
+        $scope['workspace_id'],
+        'battlecard.read',
+        'membership_regrant_probe',
+    );
+    Assert::notSame('ALLOW', $probe['decision'], "and no authority is restored: {$inactiveStatus}");
+}
+
+// Returned to ACTIVE by a deliberate act, re-granting converges again.
+$db->run(
+    "UPDATE workspace_memberships SET status = 'ACTIVE', valid_until = NULL
+     WHERE tenant_id = ? AND principal_id = ? AND principal_type = 'OPERATOR'",
+    [$scope['tenant_id'], $freshOperator]
+);
+Assert::true(
+    $accounts->addRoleMembership($scope['tenant_id'], $workspaceKey, $freshOperator, 'beta_console_reader')->isOk(),
+    'an ACTIVE membership still converges — that is the only state re-running may treat as idempotent',
+);
+
+// CROSS-TENANT, both ways round.
+Assert::same(
+    'OPERATOR_NOT_IN_TENANT',
+    $accounts->addRoleMembership($scope['tenant_id'], $workspaceKey, $foreignOperator, 'beta_console_reader')->reasonCode(),
+    'an operator from another tenant cannot be given a membership here',
+);
+Assert::same(
+    'WORKSPACE_NOT_FOUND_IN_SCOPE',
+    $accounts->addRoleMembership($otherTenant['tenant_id'], $workspaceKey, $foreignOperator, 'beta_console_reader')->reasonCode(),
+    'and a workspace key resolves only inside its own tenant',
+);
+
+// ============================================================ lookup is scoped, not filtered
+
+Assert::notSame(null, $accounts->findByEmailAddress('partner@example.test'), 'an account is found by address');
+Assert::notSame(
+    null,
+    $accounts->findByEmailAddress('partner@example.test', $scope['tenant_id']),
+    'and inside its own tenant',
+);
+// A SCOPE, NOT A FILTER: out of scope is indistinguishable from absent, or the support command
+// becomes a way to ask whether an address exists in some other tenant.
+Assert::same(
+    null,
+    $accounts->findByEmailAddress('partner@example.test', $otherTenant['tenant_id']),
+    'an address outside the named tenant reads exactly as an address that does not exist',
+);
+Assert::same(
+    null,
+    $accounts->findByEmailAddress('nobody@example.test', $otherTenant['tenant_id']),
+    'which is the same answer an absent address gets',
+);

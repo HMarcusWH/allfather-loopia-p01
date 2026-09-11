@@ -21,7 +21,12 @@ use Allfather\Loopia\Db\Database;
  *  - session id rotates on login, so a pre-set session cookie cannot be fixated;
  *  - a failed login is indistinguishable from an unknown account, in both response and timing;
  *  - attempts are rate limited per email AND per IP, both recorded as digests;
- *  - the active workspace lives in the session row, never in a request parameter.
+ *  - the active workspace lives in the session row, never in a request parameter;
+ *  - the account lifecycle is re-read on every session resolution, so a suspension or an
+ *    operator-issued reset takes effect on the next request rather than at the next sign-in;
+ *  - the credential is re-verified UNDER A ROW LOCK in the same transaction that inserts the
+ *    session, so a password change committing mid-login cannot leave behind a session issued
+ *    against the password it replaced.
  */
 final class Authenticator
 {
@@ -58,7 +63,8 @@ final class Authenticator
         }
 
         $user = $this->db->one(
-            'SELECT platform_user_id, tenant_id, operator_id, password_hash, status, locked_until, failed_attempts
+            'SELECT platform_user_id, tenant_id, operator_id, password_hash, status, locked_until,
+                    failed_attempts, must_change_password
              FROM platform_users WHERE email = ?',
             [$email]
         );
@@ -99,12 +105,40 @@ final class Authenticator
         $sessionId = Ids::new();
         $expires = self::plusSeconds($now, self::SESSION_TTL_SECONDS);
 
-        $this->db->transaction(function (Database $tx) use (
+        $issued = $this->db->transaction(function (Database $tx) use (
             $user, $sessionId, $sessionToken, $csrfToken, $now, $expires, $userAgent, $ipDigest, $password
-        ): void {
+        ): Outcome {
+            // THE CREDENTIAL IS RE-VERIFIED HERE, UNDER A ROW LOCK, and this is the whole point of
+            // the transaction rather than a belt-and-braces extra.
+            //
+            // The hash verified above was read with no transaction open. Between that read and this
+            // insert, a password change can commit — and a password change revokes every session
+            // that EXISTS when it runs. A session inserted a moment later would not exist yet, so it
+            // would survive: a live session authenticated with a password that has just been
+            // replaced, on an account that is ACTIVE and no longer flagged, which
+            // `resolveSession` would go on accepting for twelve hours.
+            //
+            // `FOR UPDATE` is what closes it. The password change holds this row's lock for its own
+            // update, so this read waits for that commit and then sees the NEW hash, and the verify
+            // below fails. Ordered the other way, the change blocks until this session is inserted
+            // and then revokes it like any other.
+            $current = $tx->one(
+                'SELECT password_hash, status FROM platform_users WHERE platform_user_id = ? FOR UPDATE',
+                [$user['platform_user_id']]
+            );
+            if ($current === null
+                || (string) $current['status'] !== 'ACTIVE'
+                || !PasswordPolicy::verify($password, (string) $current['password_hash'])
+            ) {
+                // The credential changed under us. Refusing rolls the unit back and is reported to
+                // the caller exactly as any other bad credential — because from their side, the
+                // password they presented is no longer this account's password.
+                return Outcome::refuse('AUTH_CREDENTIAL_CHANGED', [], 'AUTHENTICATION', 'S1', 'REJECT_REQUEST');
+            }
+
             // Upgrade the stored hash opportunistically: the only moment the plaintext is
             // available is right here, immediately after a successful verify.
-            if (PasswordPolicy::needsRehash((string) $user['password_hash'])) {
+            if (PasswordPolicy::needsRehash((string) $current['password_hash'])) {
                 $rehashed = PasswordPolicy::hash($password);
                 $tx->run(
                     'UPDATE platform_users SET password_hash = ?, password_algo = ? WHERE platform_user_id = ?',
@@ -132,7 +166,17 @@ final class Authenticator
                 'last_seen_at' => $now,
                 'expires_at' => $expires,
             ]);
+
+            return Outcome::ok(null);
         });
+
+        if (!$issued->isOk()) {
+            $this->recordAttempt($emailDigest, $ipDigest, 'BAD_CREDENTIALS', $now);
+
+            // The SAME reason code an ordinary wrong password gets. That the race happened is not
+            // the caller's to know, and a distinct code would tell an attacker their timing landed.
+            return Outcome::refuse('AUTH_INVALID_CREDENTIALS', [], 'AUTHENTICATION', 'S1', 'REJECT_REQUEST');
+        }
 
         $this->recordAttempt($emailDigest, $ipDigest, 'SUCCEEDED', $now);
 
@@ -143,6 +187,10 @@ final class Authenticator
             'platform_user_id' => (string) $user['platform_user_id'],
             'tenant_id' => (string) $user['tenant_id'],
             'operator_id' => (string) $user['operator_id'],
+            // Correct credentials, and still not a general-purpose session: the caller is holding a
+            // password somebody else may also know until they replace it. The Kernel's lifecycle
+            // gate is what enforces that; this is how the sign-in surface knows where to send them.
+            'must_change_password' => (int) $user['must_change_password'] === 1,
         ]);
     }
 
@@ -158,7 +206,7 @@ final class Authenticator
         $row = $this->db->one(
             'SELECT s.session_id, s.platform_user_id, s.tenant_id, s.active_workspace_id,
                     s.csrf_token_hash, s.expires_at, s.revoked_at,
-                    u.operator_id, u.display_name, u.status
+                    u.operator_id, u.display_name, u.status, u.must_change_password
              FROM platform_sessions s
              JOIN platform_users u ON u.platform_user_id = s.platform_user_id
              WHERE s.token_hash = ?',
@@ -192,6 +240,10 @@ final class Authenticator
             'active_workspace_id' => $row['active_workspace_id'] === null ? null : (string) $row['active_workspace_id'],
             'csrf_token_hash' => (string) $row['csrf_token_hash'],
             'display_name' => (string) $row['display_name'],
+            // Read on EVERY request rather than captured at sign-in. An operator-issued reset sets
+            // this on an account whose session is already live, and a flag the session remembered
+            // from login would leave that session exempt from the gate it just became subject to.
+            'must_change_password' => (int) $row['must_change_password'] === 1,
         ]);
     }
 

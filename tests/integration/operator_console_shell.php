@@ -105,13 +105,34 @@ try {
     Assert::same(200, $shell->status, 'an authenticated operator can render the React shell without inventing workspace scope');
     Assert::contains('/assets/operator-console/console.A1B2C3D4.js', $shell->body, 'the shell references the validated hashed module script');
     Assert::contains('/assets/operator-console/console.E5F6G7H8.css', $shell->body, 'and the validated hashed stylesheet');
-    Assert::contains('<div id="root" data-allfather-console></div>', $shell->body, 'the standalone document exposes the exact production React mount contract');
+    // PR7 added exactly one attribute to the mount element: the SESSION's own CSRF token, so the
+    // shell's sign-out control stays a POST. Asserted against the rendered document rather than the
+    // template, which is the half that proves the value actually reaching the browser is this
+    // session's and not some other source's.
+    Assert::contains('<div id="root" data-allfather-console data-csrf-token="', $shell->body, 'the standalone document exposes the production React mount contract');
+    preg_match('/data-csrf-token="([^"]*)"/', $shell->body, $renderedCsrf);
+    Assert::same(
+        $tokens['csrf_token'],
+        $renderedCsrf[1] ?? '',
+        'carrying the session\'s own CSRF token — the value the server stored a digest of, not a fresh one',
+    );
     Assert::same(
         "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
         $shell->headers['Content-Security-Policy'],
         'the successful shell receives the dedicated strict React CSP',
     );
-    Assert::false(str_contains($shell->body, 'csrf_token'), 'the shell embeds no CSRF/session bootstrap material');
+    // The claim this used to make — "no CSRF material at all" — is no longer true and is narrowed
+    // rather than dropped, because the narrower claim is the one that matters. What must never be
+    // in the document is the SESSION TOKEN: the CSRF value is scoped to this session and useless
+    // without the cookie, while the session token IS the credential.
+    Assert::false(str_contains($shell->body, $tokens['session_token']), 'the shell never embeds the session token');
+    Assert::same(
+        1,
+        substr_count($shell->body, 'csrf'),
+        'and carries exactly one CSRF-bearing attribute — no second bootstrap channel',
+    );
+    Assert::false(str_contains($shell->body, 'window.'), 'no global bootstrap object is written into the document');
+    Assert::false(str_contains($shell->body, '<script>'), 'and no inline script block carries anything');
     Assert::false(str_contains($shell->body, (string) $scope['tenant_id']), 'the shell embeds no tenant identifier');
     Assert::false(str_contains($shell->body, (string) $scope['workspace_id']), 'the shell embeds no workspace identifier');
 
