@@ -21,7 +21,9 @@ use Allfather\Loopia\Db\Database;
  *  - session id rotates on login, so a pre-set session cookie cannot be fixated;
  *  - a failed login is indistinguishable from an unknown account, in both response and timing;
  *  - attempts are rate limited per email AND per IP, both recorded as digests;
- *  - the active workspace lives in the session row, never in a request parameter.
+ *  - the active workspace lives in the session row, never in a request parameter;
+ *  - the account lifecycle is re-read on every session resolution, so a suspension or an
+ *    operator-issued reset takes effect on the next request rather than at the next sign-in.
  */
 final class Authenticator
 {
@@ -58,7 +60,8 @@ final class Authenticator
         }
 
         $user = $this->db->one(
-            'SELECT platform_user_id, tenant_id, operator_id, password_hash, status, locked_until, failed_attempts
+            'SELECT platform_user_id, tenant_id, operator_id, password_hash, status, locked_until,
+                    failed_attempts, must_change_password
              FROM platform_users WHERE email = ?',
             [$email]
         );
@@ -143,6 +146,10 @@ final class Authenticator
             'platform_user_id' => (string) $user['platform_user_id'],
             'tenant_id' => (string) $user['tenant_id'],
             'operator_id' => (string) $user['operator_id'],
+            // Correct credentials, and still not a general-purpose session: the caller is holding a
+            // password somebody else may also know until they replace it. The Kernel's lifecycle
+            // gate is what enforces that; this is how the sign-in surface knows where to send them.
+            'must_change_password' => (int) $user['must_change_password'] === 1,
         ]);
     }
 
@@ -158,7 +165,7 @@ final class Authenticator
         $row = $this->db->one(
             'SELECT s.session_id, s.platform_user_id, s.tenant_id, s.active_workspace_id,
                     s.csrf_token_hash, s.expires_at, s.revoked_at,
-                    u.operator_id, u.display_name, u.status
+                    u.operator_id, u.display_name, u.status, u.must_change_password
              FROM platform_sessions s
              JOIN platform_users u ON u.platform_user_id = s.platform_user_id
              WHERE s.token_hash = ?',
@@ -192,6 +199,10 @@ final class Authenticator
             'active_workspace_id' => $row['active_workspace_id'] === null ? null : (string) $row['active_workspace_id'],
             'csrf_token_hash' => (string) $row['csrf_token_hash'],
             'display_name' => (string) $row['display_name'],
+            // Read on EVERY request rather than captured at sign-in. An operator-issued reset sets
+            // this on an account whose session is already live, and a flag the session remembered
+            // from login would leave that session exempt from the gate it just became subject to.
+            'must_change_password' => (int) $row['must_change_password'] === 1,
         ]);
     }
 

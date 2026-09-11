@@ -106,6 +106,10 @@ a:hover, a:focus-visible { text-decoration: underline; }
 .page__head { margin: 0 0 20px; }
 .page__title { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
 .page__lede { color: var(--text-dim); margin: 0; max-width: 70ch; }
+/* The support reference and other safe operational context. Dimmer than the lede on purpose: it
+   is there to be quoted when something goes wrong, not read when nothing has. */
+.page__meta { color: var(--text-faint); margin: 12px 0 0; max-width: 70ch; font-size: 13px; }
+.page__meta code { color: var(--text-dim); word-break: break-all; }
 
 .section { margin: 28px 0 0; }
 .section__title {
@@ -212,6 +216,13 @@ td.mono { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
   border: 0; border-radius: 4px;
 }
 .button:hover { filter: brightness(1.08); }
+/* A secondary action that must stay reachable without competing with the primary one — signing out
+   from the forced password-change page, where it is the only other thing an account may do. */
+.button--quiet {
+  background: transparent; color: var(--text-dim);
+  border: 1px solid var(--line);
+}
+.button--quiet:hover { color: var(--text); filter: none; }
 
 .login { display: grid; place-items: center; min-height: 100vh; padding: 24px; }
 .login__card { width: 100%; max-width: 380px; }

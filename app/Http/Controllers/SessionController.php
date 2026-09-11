@@ -79,10 +79,18 @@ final class SessionController
 
         $token = (string) $result->value()['session_token'];
 
+        // WHERE a successful sign-in lands depends on the account's lifecycle. An account holding a
+        // password an operator issued goes to the password surface — which is a COURTESY, not the
+        // enforcement: the Kernel's gate refuses every other path regardless of where this redirect
+        // points, so a future change here cannot open a bypass.
+        $destination = ($result->value()['must_change_password'] ?? false) === true
+            ? '/account/password'
+            : '/console';
+
         // BOTH cookies rotate here: the session token, and the CSRF token whose digest the
         // authenticator has just written into the session row. From this point the weaker
         // pre-auth posture is unreachable for this caller — the session is the authority.
-        return Response::redirect('/console', [
+        return Response::redirect($destination, [
             // HttpOnly so no script can read it — and the console runs no script at all. SameSite
             // strict because a governance console has no cross-site flow worth supporting.
             'Set-Cookie' => sprintf(
