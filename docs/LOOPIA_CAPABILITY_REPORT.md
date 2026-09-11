@@ -40,7 +40,7 @@ nowhere else. M15 governed ingestion is present with the guarded egress path.
 | P05 | marketing drafts, claim citations, variants, admission, internal release, three audits |
 | P07-A | consent, PII firewall, outreach admission, approval, frozen artifacts, synthetic dispatch, five audits |
 
-**Storage** — 18 migrations, MariaDB 10.6+ / InnoDB, with the invariants held as CHECK constraints,
+**Storage** — 19 migrations, MariaDB 10.6+ / InnoDB, with the invariants held as CHECK constraints,
 append-only triggers and the database-enforced uniqueness translations named in
 `SCHEMA_REACHABILITY.md`. **Loopia Företag is MariaDB 10.6**; 10.11 is Företag Plus only. Both are
 verified against real servers in the test matrix — see `CONFORMANCE_MATRIX.md` §1.
@@ -85,7 +85,7 @@ Working end to end today, given seeded authority:
 
 | Area | State |
 | --- | --- |
-| schema migrations | complete, 18 files, idempotent |
+| schema migrations | complete, 19 files, idempotent |
 | authority seeding | `Permissions` vocabulary + role seeds; product registrations provision their selected tenant capabilities |
 | audit profiles | created on demand per category |
 | CI | PHP 8.2 foundation plus full MariaDB 10.6 and 10.11 lanes |
