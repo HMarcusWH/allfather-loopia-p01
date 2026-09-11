@@ -57,6 +57,7 @@ use Allfather\Loopia\Product\P02\Registration as P02Registration;
 use Allfather\Loopia\Product\P03\Registration as P03Registration;
 use Allfather\Loopia\Product\P04\Registration as P04Registration;
 use Allfather\Loopia\Product\P05\Registration as P05Registration;
+use Allfather\Loopia\Substrate\M02\Seed as M02Seed;
 use Allfather\Loopia\Substrate\M03\Eligibility;
 use Allfather\Loopia\Substrate\M03\Registry as M03Registry;
 use Allfather\Loopia\Substrate\M06\Registry as ToolRegistry;
@@ -233,6 +234,25 @@ $db->insert('workspaces', [
     'created_by_operator_id' => $operatorId,
 ]);
 
+// --- the platform authority vocabulary ---------------------------------------------------------------
+// Permissions and roles are GLOBAL, not tenant-owned: they are the shared vocabulary every
+// membership resolves against. `M02\Seed` is where that vocabulary is defined, ported verbatim from
+// canonical, idempotent, and structurally unable to create an excluded permission.
+//
+// It was written and never wired, which is why a freshly provisioned deployment had no roles at all
+// and an operator had only two ways to grant one: write SQL, or invent a role. Both are exactly what
+// this projection is built to make unnecessary. Running the canonical seeder here creates no
+// authority — a role is inert until a membership grants it, and the set is canonical rather than
+// ours — it just materialises the vocabulary the registrations and the onboarding command both
+// assume already exists.
+$vocabulary = (new M02Seed($db, $clock))->ensureVocabulary();
+fwrite(STDERR, sprintf(
+    'provision: authority vocabulary — %d permissions and %d roles created (existing ones reused)%s',
+    $vocabulary['permissions'],
+    $vocabulary['roles'],
+    PHP_EOL,
+));
+
 // --- the module registrations, each making its own decisions ----------------------------------------
 $m03 = new M03Registry($db, $clock);
 $eligibility = new Eligibility($db, $clock);
@@ -292,6 +312,11 @@ echo json_encode([
     'tenant_id' => $tenantId,
     'workspace_id' => $workspaceId,
     'operator_id' => $operatorId,
+    'authority_vocabulary' => [
+        'permissions_created' => $vocabulary['permissions'],
+        'roles_created' => $vocabulary['roles'],
+        'role_keys' => array_keys(\Allfather\Loopia\Substrate\M02\Permissions::ROLES),
+    ],
     'modules' => array_map(
         static fn (array $r): array => [
             'valkyrie_id' => $r['valkyrie_id'] ?? null,
