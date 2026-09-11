@@ -23,6 +23,7 @@ use Allfather\Loopia\Http\ReadAdapters\DecisionLedgerAdapter;
 use Allfather\Loopia\Http\ReadAdapters\SupportContextAdapter;
 use Allfather\Loopia\Http\Request;
 use Allfather\Loopia\Http\RequestId;
+use Allfather\Loopia\Http\RequestLog;
 use Allfather\Loopia\Http\Response;
 use Allfather\Loopia\Http\View;
 use Allfather\Loopia\Product\P01\Entitlements;
@@ -44,26 +45,35 @@ use Allfather\Loopia\Support\Bootstrap;
 
 $root = dirname(__DIR__);
 
-// ISSUED BEFORE ANYTHING CAN FAIL, and deliberately before configuration is even read.
+// BUILT BEFORE ANYTHING CAN FAIL, and deliberately before configuration is even read.
 //
-// The Kernel stamps every response it produces, but the two failures below happen BEFORE a Kernel
-// or a Request exists — and they are a misconfigured deployment and an unreachable database, which
-// are exactly the two a beta partner is most likely to be looking at when they go hunting for
-// something to quote. A reference that existed for every response except the ones that most need
-// it would be a feature that works whenever it does not matter.
+// Reading the superglobals needs no configuration, so the request can exist before the two failures
+// below — a misconfigured deployment and an unreachable database — which happen before a Kernel
+// does. Those are exactly the two a stuck partner is most likely to be looking at when they go
+// hunting for something to quote, so a reference that existed for every response EXCEPT them would
+// be a feature that works whenever it does not matter.
 //
-// The Request issued further down adopts this same value, so one request has one reference however
-// far it gets.
-$requestId = RequestId::issue();
+// Building it here rather than issuing a bare id also means these branches can record through the
+// same sanitized sink every other response uses: a reference nobody can look up is not a reference,
+// it is a string that invites a question with no answer.
+$request = Request::fromGlobals($_SERVER, $_GET, $_POST, $_COOKIE);
+
+/** Emit one pre-Kernel failure: stamped, recorded, and carrying no detail a caller should not have. */
+$earlyFailure = static function (Response $response) use ($request): void {
+    $stamped = $response->withHeader(RequestId::HEADER, $request->requestId);
+    RequestLog::record($request->requestId, $request->method, $request->path, $stamped->status);
+    $stamped->send();
+};
 
 try {
     $boot = Bootstrap::load($root);
 } catch (\RuntimeException $error) {
-    http_response_code(503);
-    header('Content-Type: application/json; charset=utf-8', true);
-    header('Cache-Control: no-store, private', true);
-    header(RequestId::HEADER . ': ' . $requestId, true);
-    echo json_encode(['status' => 'MISCONFIGURED', 'detail' => $error->getMessage()], JSON_THROW_ON_ERROR);
+    // The detail names MISSING CONFIGURATION KEYS, never their values — see Bootstrap, which is
+    // explicit that the key names are already public in .env.example and the values never appear.
+    $earlyFailure(Response::json(
+        ['status' => 'MISCONFIGURED', 'detail' => $error->getMessage()],
+        503,
+    ));
     return;
 }
 $env = $boot['env'];
@@ -79,9 +89,7 @@ try {
         $env->get('DB_SOCKET'),
     );
 } catch (\Throwable) {
-    Response::json(['status' => 'UNAVAILABLE'], 503)
-        ->withHeader(RequestId::HEADER, $requestId)
-        ->send();
+    $earlyFailure(Response::json(['status' => 'UNAVAILABLE'], 503));
     return;
 }
 
@@ -159,4 +167,4 @@ $kernel->route('GET', '/healthz', static fn (): Response => Response::json([
     'external_effect' => false,
 ]));
 
-$kernel->handle(Request::fromGlobals($_SERVER, $_GET, $_POST, $_COOKIE, $requestId))->send();
+$kernel->handle($request)->send();

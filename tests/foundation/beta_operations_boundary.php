@@ -406,6 +406,27 @@ Assert::contains(
     $accountService,
     'and a write that matched nothing is reported, never assumed to have happened',
 );
+
+// Reactivation revokes rather than assuming a prior revocation. "suspend already did it" holds only
+// if every SUSPENDED row got there through this service — and replacing the hand-SQL path is why
+// this service exists, so rows that did not predate it by definition.
+Assert::false(
+    str_contains($accountService, "'ACTIVE', ['SUSPENDED', 'LOCKED', 'ACTIVE'], null"),
+    'reactivation does not pass a null revocation reason',
+);
+Assert::contains(
+    "'ACCOUNT_REACTIVATED',",
+    $accountService,
+    'it revokes every outstanding session as part of the transition',
+);
+
+// An inactive membership is a decision. Re-running onboarding must not rewrite one back to ACTIVE:
+// that erases the authority withdrawal AND the record of it.
+Assert::contains('MEMBERSHIP_NOT_ACTIVE', $accountService, 'a non-ACTIVE membership is refused');
+Assert::false(
+    str_contains($accountService, "UPDATE workspace_memberships SET status = 'ACTIVE'"),
+    'and never rewritten back to ACTIVE by a grant',
+);
 // The credential write carries the same protection against the one transition that must never be
 // undone: a retirement committed between the check and the write must not receive a fresh password.
 Assert::contains(
@@ -426,6 +447,21 @@ Assert::contains(
 Assert::true(
     strpos($authenticatorSource, 'FOR UPDATE') < strpos($authenticatorSource, "insert('platform_sessions'"),
     'and the re-verify happens BEFORE the session insert, inside the same transaction',
+);
+
+// The front controller's two pre-Kernel failures record through the SAME sink, not just the header.
+// They return before `Kernel::handle`, so a reference stamped there and recorded nowhere would be
+// unresolvable for exactly the startup failures the reference exists for.
+$frontController = $code($root . '/public_html/index.php');
+Assert::contains('RequestLog::record(', $frontController, 'pre-Kernel failures record their reference too');
+Assert::true(
+    strpos($frontController, 'Request::fromGlobals(') < strpos($frontController, 'Bootstrap::load('),
+    'the request is built before configuration is read, so those branches have one to record',
+);
+Assert::same(
+    2,
+    substr_count($frontController, '$earlyFailure('),
+    'both pre-Kernel failure branches go through the one stamped-and-recorded path',
 );
 
 // ============================================================ the support surface holds no secret

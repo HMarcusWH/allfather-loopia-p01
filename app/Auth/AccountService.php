@@ -271,24 +271,28 @@ final class AccountService
     /**
      * Return a suspended or locked login to service.
      *
-     * Old sessions are NOT restored — they are already revoked, and revocation is a decision rather
-     * than a side effect to be undone. The account signs in again.
+     * IT REVOKES, IT DOES NOT RESTORE — and the revocation here is not redundant with the one
+     * `suspend` performs. That would only hold if every SUSPENDED or LOCKED account had reached
+     * that state through this service, and the whole reason this service exists is that until now
+     * they reached it through hand-written SQL. An account suspended by an UPDATE somebody typed
+     * has its session rows untouched, and `resolveSession` refuses those tokens only while the
+     * status is non-ACTIVE — so moving the row back to ACTIVE would hand a pre-existing token its
+     * authority back, which is exactly the invariant this method claims to keep.
+     *
+     * So reactivation ends every outstanding session, whatever put the account into the state it is
+     * coming out of, and the account signs in again. The lock-out substrate is cleared in the SAME
+     * transaction: leaving `failed_attempts` at its ceiling would re-lock the account on the first
+     * mistyped password, and a separate statement afterwards is a second chance to fail.
      */
     public function reactivate(string $platformUserId): Outcome
     {
-        $result = $this->transition($platformUserId, 'ACTIVE', ['SUSPENDED', 'LOCKED', 'ACTIVE'], null);
-        if (!$result->isOk()) {
-            return $result;
-        }
-
-        // The lock-out substrate is cleared with the lock. Leaving `failed_attempts` at its ceiling
-        // would re-lock the account on the first mistyped password.
-        $this->db->run(
-            'UPDATE platform_users SET failed_attempts = 0, locked_until = NULL WHERE platform_user_id = ?',
-            [$platformUserId]
+        return $this->transition(
+            $platformUserId,
+            'ACTIVE',
+            ['SUSPENDED', 'LOCKED', 'ACTIVE'],
+            'ACCOUNT_REACTIVATED',
+            true,
         );
-
-        return $result;
     }
 
     /** Retire a login. Terminal: no transition out of it exists. */
@@ -414,6 +418,17 @@ final class AccountService
      * It creates neither. A role key that does not exist is refused rather than minted, because the
      * one thing an onboarding path must never do is invent authority on the way to handing somebody
      * a password.
+     *
+     * AN EXISTING MEMBERSHIP IS CONVERGED ON ONLY IF IT IS ACTIVE. Any other state — `REVOKED`,
+     * `EXPIRED`, `SUSPENDED`, `DRAFT` — is a decision somebody made, and re-running an onboarding
+     * command with the same `--roles` must not quietly undo it. An earlier revision rewrote any
+     * non-ACTIVE row back to ACTIVE and cleared `valid_until`, which would have erased both the
+     * authority withdrawal AND the record that it happened: a stand-down reversed by a command
+     * nobody ran for that purpose.
+     *
+     * So it refuses, and the existing row is left exactly as it is. Restoring a withdrawn
+     * membership is a deliberate act with its own reasoning, not a side effect of onboarding, and
+     * this projection has no path that performs one implicitly.
      */
     public function addRoleMembership(
         string $tenantId,
@@ -454,12 +469,15 @@ final class AccountService
             [$tenantId, $workspaceId, $operatorId, (string) $role['role_id']]
         );
         if ($existing !== null) {
-            if ((string) $existing['status'] !== 'ACTIVE') {
-                $this->db->run(
-                    "UPDATE workspace_memberships SET status = 'ACTIVE', valid_until = NULL
-                     WHERE membership_id = ?",
-                    [(string) $existing['membership_id']]
-                );
+            $existingStatus = (string) $existing['status'];
+            if ($existingStatus !== 'ACTIVE') {
+                // NOT REPAIRED, NOT REWRITTEN. The row stays as it is, and the refusal names the
+                // state so the operator can see what they would have been undoing.
+                return Outcome::refuse('MEMBERSHIP_NOT_ACTIVE', [
+                    'role_key' => $roleKey,
+                    'status' => $existingStatus,
+                    'remedy' => 'a withdrawn or expired membership is restored deliberately, not by re-running onboarding',
+                ], 'POLICY', 'S4');
             }
 
             return Outcome::ok([
@@ -569,6 +587,7 @@ final class AccountService
         string $to,
         array $from,
         ?string $revocationReason,
+        bool $clearLockout = false,
     ): Outcome {
         $user = $this->db->one(
             'SELECT platform_user_id, status FROM platform_users WHERE platform_user_id = ?',
@@ -595,7 +614,7 @@ final class AccountService
         }
 
         return $this->db->transaction(function (Database $tx) use (
-            $platformUserId, $to, $from, $revocationReason
+            $platformUserId, $to, $from, $revocationReason, $clearLockout
         ): Outcome {
             // CONDITIONAL ON THE STATE THIS DECISION WAS MADE FROM, and the affected-row count is
             // checked. The read above happened outside this transaction, so between deciding and
@@ -632,10 +651,19 @@ final class AccountService
                     ]);
                 }
 
+
                 return Outcome::refuse('ACCOUNT_TRANSITION_RACED', [
                     'from' => $current,
                     'to' => $to,
                 ], 'POLICY');
+            }
+
+            if ($clearLockout) {
+                $tx->run(
+                    'UPDATE platform_users SET failed_attempts = 0, locked_until = NULL
+                     WHERE platform_user_id = ?',
+                    [$platformUserId]
+                );
             }
 
             $revoked = $revocationReason === null

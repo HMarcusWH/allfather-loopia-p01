@@ -221,6 +221,60 @@ Assert::same(
     'no session row is left unrevoked',
 );
 
+// ============================================================ reactivation revokes what it finds
+
+// THE CASE THE "suspend already revoked them" ASSUMPTION MISSES. An account can reach SUSPENDED or
+// LOCKED by a path that did NOT revoke anything — a hand-written UPDATE, which is exactly the
+// support path this service exists to replace, so rows in that shape predate it by definition.
+// `resolveSession` refuses such a token only while the status is non-ACTIVE, so a reactivation that
+// revoked nothing would hand a pre-existing session its authority straight back.
+$staleOperator = Seed::operator($db, $clock, $scope['tenant_id'], 'Stale session holder');
+$staleAccount = $accounts->createLogin($staleOperator, 'stale@example.test', 'Stale session holder', $strong, false);
+$staleId = (string) $staleAccount->value()['platform_user_id'];
+$staleToken = $signIn('stale@example.test', $strong);
+Assert::notSame(null, $staleToken, 'the account holds a live session');
+
+// Suspended the way it used to be done: the status moves, the session rows are untouched.
+$db->run("UPDATE platform_users SET status = 'SUSPENDED' WHERE platform_user_id = ?", [$staleId]);
+Assert::same(
+    1,
+    (int) $db->scalar(
+        'SELECT COUNT(*) FROM platform_sessions WHERE platform_user_id = ? AND revoked_at IS NULL',
+        [$staleId]
+    ),
+    'the hand-written suspension left the session row unrevoked',
+);
+Assert::true($auth->resolveSession((string) $staleToken)->isRefusal(), 'the token is refused while the account is suspended');
+
+Assert::true($accounts->reactivate($staleId)->isOk(), 'the account is reactivated through the service');
+Assert::same(
+    0,
+    (int) $db->scalar(
+        'SELECT COUNT(*) FROM platform_sessions WHERE platform_user_id = ? AND revoked_at IS NULL',
+        [$staleId]
+    ),
+    'and reactivation revoked the session it found, whatever put the account into that state',
+);
+Assert::true(
+    $auth->resolveSession((string) $staleToken)->isRefusal(),
+    'so the pre-existing token stays dead rather than becoming valid again with the status',
+);
+Assert::notSame(null, $signIn('stale@example.test', $strong), 'the holder signs in again, which is how they come back');
+
+// The lock fields are cleared in the SAME unit as the status. A separate statement afterwards is a
+// second chance to fail, and an account back in service with `failed_attempts` at its ceiling
+// re-locks on the first mistyped password.
+$db->run(
+    "UPDATE platform_users SET status = 'LOCKED', failed_attempts = 10, locked_until = ?
+     WHERE platform_user_id = ?",
+    ['2099-01-01T00:00:00.000Z', $staleId]
+);
+Assert::true($accounts->reactivate($staleId)->isOk(), 'a locked account is reactivated');
+$clearedState = $accounts->inspect($staleId);
+Assert::same('ACTIVE', $clearedState['status'], 'the status moves');
+Assert::same(0, $clearedState['failed_attempts'], 'the attempt counter is cleared with it');
+Assert::same(null, $clearedState['locked_until'], 'and so is the lock window');
+
 // ============================================================ reactivation restores nothing
 
 $revokedBefore = (int) $db->scalar(
@@ -382,6 +436,60 @@ Assert::same(
         [$scope['tenant_id'], $freshOperator]
     ),
     'one membership, not two',
+);
+
+// AN INACTIVE MEMBERSHIP IS NOT QUIETLY RESURRECTED. `REVOKED` and `EXPIRED` are decisions somebody
+// made, and re-running onboarding with the same --roles must not undo one — that would erase both
+// the authority withdrawal and the record that it happened.
+foreach (['REVOKED', 'EXPIRED', 'SUSPENDED', 'DRAFT'] as $inactiveStatus) {
+    $db->run(
+        "UPDATE workspace_memberships SET status = ?, valid_until = ?
+         WHERE tenant_id = ? AND principal_id = ? AND principal_type = 'OPERATOR'",
+        [$inactiveStatus, '2026-06-01T00:00:00.000Z', $scope['tenant_id'], $freshOperator]
+    );
+
+    $regrant = $accounts->addRoleMembership($scope['tenant_id'], $workspaceKey, $freshOperator, 'beta_console_reader');
+    Assert::true($regrant->isRefusal(), "a {$inactiveStatus} membership is not re-granted by re-running onboarding");
+    Assert::same('MEMBERSHIP_NOT_ACTIVE', $regrant->reasonCode(), "and the refusal names it: {$inactiveStatus}");
+    Assert::same(
+        $inactiveStatus,
+        (string) $db->scalar(
+            "SELECT status FROM workspace_memberships
+             WHERE tenant_id = ? AND principal_id = ? AND principal_type = 'OPERATOR'",
+            [$scope['tenant_id'], $freshOperator]
+        ),
+        "the existing row is left exactly as it was: {$inactiveStatus}",
+    );
+    Assert::same(
+        '2026-06-01T00:00:00.000Z',
+        (string) $db->scalar(
+            "SELECT valid_until FROM workspace_memberships
+             WHERE tenant_id = ? AND principal_id = ? AND principal_type = 'OPERATOR'",
+            [$scope['tenant_id'], $freshOperator]
+        ),
+        "including the validity window that recorded the withdrawal: {$inactiveStatus}",
+    );
+    // And it grants nothing: M02 resolves memberships by ACTIVE status, so the operator is still denied.
+    $probe = (new \Allfather\Loopia\Substrate\M02\AccessGuard($db, $clock))->evaluate(
+        'OPERATOR',
+        $freshOperator,
+        $scope['tenant_id'],
+        $scope['workspace_id'],
+        'battlecard.read',
+        'membership_regrant_probe',
+    );
+    Assert::notSame('ALLOW', $probe['decision'], "and no authority is restored: {$inactiveStatus}");
+}
+
+// Returned to ACTIVE by a deliberate act, re-granting converges again.
+$db->run(
+    "UPDATE workspace_memberships SET status = 'ACTIVE', valid_until = NULL
+     WHERE tenant_id = ? AND principal_id = ? AND principal_type = 'OPERATOR'",
+    [$scope['tenant_id'], $freshOperator]
+);
+Assert::true(
+    $accounts->addRoleMembership($scope['tenant_id'], $workspaceKey, $freshOperator, 'beta_console_reader')->isOk(),
+    'an ACTIVE membership still converges — that is the only state re-running may treat as idempotent',
 );
 
 // CROSS-TENANT, both ways round.

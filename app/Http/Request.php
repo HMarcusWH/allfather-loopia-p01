@@ -34,20 +34,9 @@ final class Request
     ) {
     }
 
-    /**
-     * @param array<string, mixed> $server
-     * @param ?string $requestId a reference already issued for this request — by the front
-     *        controller, before configuration was read, so the responses it may have to emit before
-     *        a Request exists carry the SAME one. Null issues a fresh reference, which is what
-     *        every test and every other caller wants.
-     */
-    public static function fromGlobals(
-        array $server,
-        array $get,
-        array $post,
-        array $cookie,
-        ?string $requestId = null,
-    ): self {
+    /** @param array<string, mixed> $server */
+    public static function fromGlobals(array $server, array $get, array $post, array $cookie): self
+    {
         $uri = (string) ($server['REQUEST_URI'] ?? '/');
         $path = parse_url($uri, PHP_URL_PATH);
 
@@ -61,12 +50,12 @@ final class Request
             // would let anybody choose the address their login attempts are rate-limited against.
             (string) ($server['REMOTE_ADDR'] ?? '0.0.0.0'),
             isset($server['HTTP_USER_AGENT']) ? (string) $server['HTTP_USER_AGENT'] : null,
-            // SERVER-ISSUED, always. The superglobals are never consulted for it: a caller who
-            // could name their own request could collide two deliberately, or plant a reference
-            // that looks like somebody else's in an operator's logs. The only value accepted from
-            // outside this class is one the front controller issued moments earlier, through an
-            // explicit parameter rather than from `$server`.
-            $requestId ?? RequestId::issue(),
+            // SERVER-ISSUED, always, and there is no parameter that could override it. A caller
+            // who could name their own request could collide two deliberately, or plant a reference
+            // that looks like somebody else's in an operator's log — so the reference is issued
+            // here and the request is BUILT early enough that the front controller never needs to
+            // supply one.
+            RequestId::issue(),
         );
     }
 
