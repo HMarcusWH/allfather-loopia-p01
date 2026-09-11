@@ -23,7 +23,10 @@ use Allfather\Loopia\Db\Database;
  *  - attempts are rate limited per email AND per IP, both recorded as digests;
  *  - the active workspace lives in the session row, never in a request parameter;
  *  - the account lifecycle is re-read on every session resolution, so a suspension or an
- *    operator-issued reset takes effect on the next request rather than at the next sign-in.
+ *    operator-issued reset takes effect on the next request rather than at the next sign-in;
+ *  - the credential is re-verified UNDER A ROW LOCK in the same transaction that inserts the
+ *    session, so a password change committing mid-login cannot leave behind a session issued
+ *    against the password it replaced.
  */
 final class Authenticator
 {
@@ -102,12 +105,40 @@ final class Authenticator
         $sessionId = Ids::new();
         $expires = self::plusSeconds($now, self::SESSION_TTL_SECONDS);
 
-        $this->db->transaction(function (Database $tx) use (
+        $issued = $this->db->transaction(function (Database $tx) use (
             $user, $sessionId, $sessionToken, $csrfToken, $now, $expires, $userAgent, $ipDigest, $password
-        ): void {
+        ): Outcome {
+            // THE CREDENTIAL IS RE-VERIFIED HERE, UNDER A ROW LOCK, and this is the whole point of
+            // the transaction rather than a belt-and-braces extra.
+            //
+            // The hash verified above was read with no transaction open. Between that read and this
+            // insert, a password change can commit — and a password change revokes every session
+            // that EXISTS when it runs. A session inserted a moment later would not exist yet, so it
+            // would survive: a live session authenticated with a password that has just been
+            // replaced, on an account that is ACTIVE and no longer flagged, which
+            // `resolveSession` would go on accepting for twelve hours.
+            //
+            // `FOR UPDATE` is what closes it. The password change holds this row's lock for its own
+            // update, so this read waits for that commit and then sees the NEW hash, and the verify
+            // below fails. Ordered the other way, the change blocks until this session is inserted
+            // and then revokes it like any other.
+            $current = $tx->one(
+                'SELECT password_hash, status FROM platform_users WHERE platform_user_id = ? FOR UPDATE',
+                [$user['platform_user_id']]
+            );
+            if ($current === null
+                || (string) $current['status'] !== 'ACTIVE'
+                || !PasswordPolicy::verify($password, (string) $current['password_hash'])
+            ) {
+                // The credential changed under us. Refusing rolls the unit back and is reported to
+                // the caller exactly as any other bad credential — because from their side, the
+                // password they presented is no longer this account's password.
+                return Outcome::refuse('AUTH_CREDENTIAL_CHANGED', [], 'AUTHENTICATION', 'S1', 'REJECT_REQUEST');
+            }
+
             // Upgrade the stored hash opportunistically: the only moment the plaintext is
             // available is right here, immediately after a successful verify.
-            if (PasswordPolicy::needsRehash((string) $user['password_hash'])) {
+            if (PasswordPolicy::needsRehash((string) $current['password_hash'])) {
                 $rehashed = PasswordPolicy::hash($password);
                 $tx->run(
                     'UPDATE platform_users SET password_hash = ?, password_algo = ? WHERE platform_user_id = ?',
@@ -135,7 +166,17 @@ final class Authenticator
                 'last_seen_at' => $now,
                 'expires_at' => $expires,
             ]);
+
+            return Outcome::ok(null);
         });
+
+        if (!$issued->isOk()) {
+            $this->recordAttempt($emailDigest, $ipDigest, 'BAD_CREDENTIALS', $now);
+
+            // The SAME reason code an ordinary wrong password gets. That the race happened is not
+            // the caller's to know, and a distinct code would tell an attacker their timing landed.
+            return Outcome::refuse('AUTH_INVALID_CREDENTIALS', [], 'AUTHENTICATION', 'S1', 'REJECT_REQUEST');
+        }
 
         $this->recordAttempt($emailDigest, $ipDigest, 'SUCCEEDED', $now);
 

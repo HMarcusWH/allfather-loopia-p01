@@ -51,9 +51,12 @@ require __DIR__ . '/../app/autoload.php';
 
 use Allfather\Loopia\Auth\AccountService;
 use Allfather\Loopia\Auth\Authenticator;
+use Allfather\Loopia\Auth\PasswordPolicy;
 use Allfather\Loopia\Beta\BetaBundle;
 use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Core\Ids;
+use Allfather\Loopia\Core\Outcome;
+use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Ops\BetaCli;
 use Allfather\Loopia\Product\P01\Entitlements;
 
@@ -136,8 +139,11 @@ foreach ($roleKeys as $roleKey) {
     }
 }
 
-// The tier definition is checked before anything is written too, for the same reason.
-$tierCheck = $beta->ensureTier();
+// The tier definition is checked before anything is written too, for the same reason — and through
+// the READ-ONLY inspection, not `ensureTier`, because `ensureTier` CREATES the tier when it is
+// absent. Using it here would mean a --dry-run had added a row to the platform's global commercial
+// catalogue and then reported that nothing was written.
+$tierCheck = $beta->inspectTier();
 if ($tierCheck->isRefusal()) {
     $fail(sprintf(
         'the %s tier is not usable: %s. %s',
@@ -152,14 +158,35 @@ if ($tierCheck->isRefusal()) {
 $emailAddress = AccountService::normalizeEmailAddress($args['email']);
 $existingAccount = $accounts->findByEmailAddress($emailAddress);
 
+// EVERY CHECK THAT CAN BE MADE WITHOUT WRITING IS MADE HERE, before the first write and before the
+// operator is asked for a password. Discovering a bad address after the tenant has been subscribed
+// leaves a commercial change behind for an onboarding that failed — and with
+// --replace-live-subscription it would have cancelled the tenant's previous subscription to get
+// there. The transaction below is the second half of the same rule; this half is what stops the
+// operator typing a password for a run that was never going to work.
+if ($existingAccount !== null && (string) $existingAccount['tenant_id'] !== $tenantId) {
+    // The address exists in ANOTHER tenant. Refused without confirming whose — naming it would make
+    // this command an enumerator over the deployment's other tenants.
+    $fail('that address already has a login outside this tenant', 5);
+}
+if (!str_contains($emailAddress, '@') || $emailAddress === '') {
+    $fail("'{$args['email']}' is not an address this command can bind a login to", 2);
+}
+if (trim($args['display-name']) === '') {
+    $fail('--display-name cannot be blank', 2);
+}
+
 if (isset($args['dry-run'])) {
-    fwrite(STDERR, 'onboard-beta-user: dry run — scope, roles and tier validated, nothing written' . PHP_EOL);
+    fwrite(STDERR, 'onboard-beta-user: dry run — scope, roles, tier and identity validated, nothing written' . PHP_EOL);
     BetaCli::emit([
         'status' => 'DRY_RUN_OK',
         'tenant_id' => $tenantId,
         'workspace_id' => (string) $workspace['workspace_id'],
         'tier_key' => BetaBundle::TIER_KEY,
         'tier_permissions' => BetaBundle::PERMISSIONS,
+        // Whether the tier would be CREATED by a real run, which is the thing a dry run must be
+        // able to say without having done it.
+        'tier_exists' => $tierCheck->value()['subscription_tier_id'] !== null,
         'roles' => $roleKeys,
         'account_exists' => $existingAccount !== null,
     ]);
@@ -176,73 +203,92 @@ $password = $existingAccount === null
     )
     : null;
 
-// --- the commercial gate ----------------------------------------------------------------------------
+if ($password !== null) {
+    // The policy the account service would apply, applied here too — so a password that is going to
+    // be refused is refused before the tenant's commercial state is touched.
+    $policy = PasswordPolicy::validate($password);
+    if ($policy !== []) {
+        $fail('the password was not accepted: ' . implode(', ', $policy), 2);
+    }
+}
 
-$subscription = $beta->subscribeTenant($tenantId, isset($args['replace-live-subscription']));
-if ($subscription->isRefusal()) {
+// --- ONE UNIT ---------------------------------------------------------------------------------------
+//
+// Subscription, operator, login and role memberships commit together or not at all. Onboarding that
+// failed halfway used to leave a beta subscription, an orphan operator and no login — a state an
+// operator then has to recognise and unpick by hand, which is the thing this command exists to
+// avoid. `Database::transaction` rolls back on a refused Outcome, so every refusal below undoes the
+// writes that preceded it.
+
+/** @var array<string, mixed> $result */
+$result = $db->transaction(static function (Database $tx) use (
+    $beta, $accounts, $clock, $args, $tenantId, $emailAddress, $existingAccount,
+    $password, $roleKeys
+): Outcome {
+    $subscription = $beta->subscribeTenant($tenantId, isset($args['replace-live-subscription']));
+    if ($subscription->isRefusal()) {
+        return $subscription;
+    }
+
+    // An operator is the scope a login acts as, not a policy any module owns — the same reason
+    // `ops/provision-staging.php` writes this row directly and nothing else it touches.
+    $operatorId = $existingAccount !== null ? (string) $existingAccount['operator_id'] : null;
+    if ($operatorId === null) {
+        $operatorId = Ids::new();
+        $tx->insert('operators', [
+            'operator_id' => $operatorId,
+            'tenant_id' => $tenantId,
+            'schema_version' => '1',
+            'display_name' => $args['operator-name'] ?? $args['display-name'],
+            'status' => 'ACTIVE',
+            'created_at' => $clock->now(),
+        ]);
+    }
+
+    if ($existingAccount === null) {
+        $created = $accounts->createLogin(
+            $operatorId,
+            $emailAddress,
+            $args['display-name'],
+            (string) $password,
+            true,
+        );
+        if ($created->isRefusal()) {
+            return $created;
+        }
+        $platformUserId = (string) $created->value()['platform_user_id'];
+    } else {
+        $platformUserId = (string) $existingAccount['platform_user_id'];
+    }
+
+    foreach ($roleKeys as $roleKey) {
+        $membership = $accounts->addRoleMembership($tenantId, $args['workspace-key'], $operatorId, $roleKey);
+        if ($membership->isRefusal()) {
+            return $membership;
+        }
+    }
+
+    return Outcome::ok([
+        'operator_id' => $operatorId,
+        'platform_user_id' => $platformUserId,
+        'tenant_subscription_id' => $subscription->value()['tenant_subscription_id'] ?? null,
+        'subscription_status' => $subscription->value()['status'] ?? null,
+        'replaced_tenant_subscription_id' => $subscription->value()['replaced_tenant_subscription_id'] ?? null,
+    ]);
+});
+
+if ($result->isRefusal()) {
     $fail(sprintf(
-        'subscription refused: %s%s',
-        $subscription->reasonCode(),
-        $subscription->reasonCode() === 'TENANT_ALREADY_SUBSCRIBED'
-            ? '. The tenant holds a different live subscription; pass --replace-live-subscription to transition it.'
+        'onboarding refused: %s%s. Nothing was written.',
+        implode(', ', $result->reasonCodes),
+        $result->reasonCode() === 'TENANT_ALREADY_SUBSCRIBED'
+            ? '. The tenant holds a different live subscription; pass --replace-live-subscription to transition it'
             : '',
     ), 5);
 }
 
-// --- the governed operator --------------------------------------------------------------------------
-
-// An operator is the scope a login acts as, not a policy any module owns — the same reason
-// `ops/provision-staging.php` writes this row directly and nothing else it touches.
-$operatorId = $existingAccount !== null
-    ? (string) $existingAccount['operator_id']
-    : null;
-
-if ($operatorId === null) {
-    $now = $clock->now();
-    $operatorId = Ids::new();
-    $db->insert('operators', [
-        'operator_id' => $operatorId,
-        'tenant_id' => $tenantId,
-        'schema_version' => '1',
-        'display_name' => $args['operator-name'] ?? $args['display-name'],
-        'status' => 'ACTIVE',
-        'created_at' => $now,
-    ]);
-}
-
-// --- the login ----------------------------------------------------------------------------------------
-
-if ($existingAccount === null) {
-    $created = $accounts->createLogin(
-        $operatorId,
-        $emailAddress,
-        $args['display-name'],
-        (string) $password,
-        true,
-    );
-    if ($created->isRefusal()) {
-        $fail('login refused: ' . implode(', ', $created->reasonCodes), 5);
-    }
-    $platformUserId = (string) $created->value()['platform_user_id'];
-} else {
-    $platformUserId = (string) $existingAccount['platform_user_id'];
-    if ((string) $existingAccount['tenant_id'] !== $tenantId) {
-        // The address exists in ANOTHER tenant. Refused without confirming whose — naming it would
-        // make this command an enumerator over the deployment's other tenants.
-        $fail('that address already has a login outside this tenant', 5);
-    }
-}
-
-// --- existing roles -----------------------------------------------------------------------------------
-
-$grantedRoles = [];
-foreach ($roleKeys as $roleKey) {
-    $membership = $accounts->addRoleMembership($tenantId, $args['workspace-key'], $operatorId, $roleKey);
-    if ($membership->isRefusal()) {
-        $fail("role '{$roleKey}' was not granted: " . $membership->reasonCode(), 5);
-    }
-    $grantedRoles[] = $roleKey;
-}
+$operatorId = (string) $result->value()['operator_id'];
+$platformUserId = (string) $result->value()['platform_user_id'];
 
 // --- what happened, sanitized --------------------------------------------------------------------------
 
@@ -261,13 +307,16 @@ BetaCli::emit([
     'account_created' => $existingAccount === null,
     'subscription' => [
         'tier_key' => BetaBundle::TIER_KEY,
-        'status' => BetaBundle::SUBSCRIPTION_STATUS,
+        // The row's OWN status, not the constant a NEW subscription would have been created with —
+        // a tenant already on the beta tier as ACTIVE is correctly subscribed, and reporting TRIAL
+        // for it would tell an operator something untrue on the run least likely to be checked.
+        'status' => $result->value()['subscription_status'] ?? null,
         'monthly_fee_minor_units' => BetaBundle::MONTHLY_FEE_MINOR_UNITS,
-        'tenant_subscription_id' => $subscription->value()['tenant_subscription_id'] ?? null,
-        'replaced_tenant_subscription_id' => $subscription->value()['replaced_tenant_subscription_id'] ?? null,
+        'tenant_subscription_id' => $result->value()['tenant_subscription_id'] ?? null,
+        'replaced_tenant_subscription_id' => $result->value()['replaced_tenant_subscription_id'] ?? null,
         'permissions' => BetaBundle::PERMISSIONS,
     ],
-    'roles_granted' => $grantedRoles,
+    'roles_granted' => $roleKeys,
     // Restated on every successful run, because a command that hands somebody a working login is
     // exactly where "so we are live now" starts.
     'live_read_activated' => false,

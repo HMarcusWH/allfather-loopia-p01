@@ -104,6 +104,53 @@ final class BetaBundle
      */
     public function ensureTier(): Outcome
     {
+        $inspection = $this->inspectTier();
+        if (!$inspection->isOk()) {
+            return $inspection;
+        }
+
+        $tierId = $inspection->value()['subscription_tier_id'];
+        if ($tierId !== null) {
+            return Outcome::ok(['subscription_tier_id' => (string) $tierId, 'created' => false]);
+        }
+
+        $defined = $this->entitlements->defineTier(
+            self::TIER_KEY,
+            self::TIER_DISPLAY_NAME,
+            self::MONTHLY_FEE_MINOR_UNITS,
+            self::PERMISSIONS,
+            self::CURRENCY,
+            self::BILLING_PERIOD,
+        );
+        if (!$defined->isOk()) {
+            return $defined;
+        }
+
+        // Both branches answer with the same shape, `created` included. A caller that had to know
+        // which branch ran in order to read the result would find that out by guessing.
+        return Outcome::ok([
+            'subscription_tier_id' => (string) $defined->value()['subscription_tier_id'],
+            'created' => true,
+        ]);
+    }
+
+    /**
+     * The same three decisions, WITHOUT writing anything.
+     *
+     * This exists because `--dry-run` has to mean it. `ensureTier` creates the tier when it is
+     * absent, and a dry run that called it would report "nothing was written" having just added a
+     * row to the platform's global commercial catalogue — the one kind of lie a validation mode
+     * must not tell. So the judgement lives here, the creation lives in `ensureTier`, and a caller
+     * that only wants to know whether onboarding WOULD work asks this one.
+     *
+     * `subscription_tier_id` is null when the tier does not exist yet and the definition would be
+     * accepted. An OK outcome therefore means "this tier is usable, or would be", which is exactly
+     * the question a preflight is asking.
+     *
+     * @return Outcome Outcome::ok(array{subscription_tier_id: ?string})
+     */
+    public function inspectTier(): Outcome
+    {
         $rows = $this->db->all(
             'SELECT subscription_tier_id, status, monthly_fee_minor_units, currency, billing_period
              FROM subscription_tiers WHERE tier_key = ?
@@ -121,28 +168,24 @@ final class BetaBundle
         }
 
         if ($rows === []) {
-            // `defineTier` refuses a permission the platform does not define, so the beta tier can
-            // only be created after the product registrations have declared their vocabulary. That
-            // ordering is deliberate: the commercial plane must not mint an authority M02 never
-            // heard of, and this bundle does NOT insert into `permissions` to work around it.
-            $defined = $this->entitlements->defineTier(
-                self::TIER_KEY,
-                self::TIER_DISPLAY_NAME,
-                self::MONTHLY_FEE_MINOR_UNITS,
-                self::PERMISSIONS,
-                self::CURRENCY,
-                self::BILLING_PERIOD,
-            );
-            if (!$defined->isOk()) {
-                return $defined;
+            // The vocabulary check `defineTier` performs, done READ-ONLY here so a preflight meets
+            // the same refusal a real run would. The beta tier can only exist after the product
+            // registrations have declared their permissions: the commercial plane must not mint an
+            // authority M02 never heard of, and this bundle does NOT insert into `permissions` to
+            // work around it.
+            foreach (self::PERMISSIONS as $permissionKey) {
+                $defined = $this->db->one(
+                    'SELECT permission_key FROM permissions WHERE permission_key = ?',
+                    [$permissionKey]
+                );
+                if ($defined === null) {
+                    return Outcome::refuse('TIER_PERMISSION_NOT_DEFINED', [
+                        'permission_key' => $permissionKey,
+                    ], 'POLICY', 'S4');
+                }
             }
 
-            // Both branches answer with the same shape, `created` included. A caller that had to
-            // know which branch ran in order to read the result would find that out by guessing.
-            return Outcome::ok([
-                'subscription_tier_id' => (string) $defined->value()['subscription_tier_id'],
-                'created' => true,
-            ]);
+            return Outcome::ok(['subscription_tier_id' => null]);
         }
 
         $tier = $rows[0];
@@ -174,7 +217,7 @@ final class BetaBundle
             ], 'POLICY', 'S4');
         }
 
-        return Outcome::ok(['subscription_tier_id' => $tierId, 'created' => false]);
+        return Outcome::ok(['subscription_tier_id' => $tierId]);
     }
 
     /**
@@ -205,7 +248,7 @@ final class BetaBundle
         $tierId = (string) $tier->value()['subscription_tier_id'];
 
         $existing = $this->db->one(
-            "SELECT tenant_subscription_id, subscription_tier_id FROM tenant_subscriptions
+            "SELECT tenant_subscription_id, subscription_tier_id, status FROM tenant_subscriptions
              WHERE tenant_id = ? AND status IN ('TRIAL', 'ACTIVE')",
             [$tenantId]
         );
@@ -213,9 +256,16 @@ final class BetaBundle
         if ($existing !== null && (string) $existing['subscription_tier_id'] === $tierId) {
             // Already exactly where the caller wants it. Re-running an onboarding command must
             // converge rather than refuse.
+            //
+            // The status reported is the row's OWN, not the constant this bundle subscribes with.
+            // A tenant whose beta trial has since been moved to ACTIVE is still correctly on the
+            // beta tier, and a report that answered TRIAL because that is what a NEW subscription
+            // would have been would be telling an operator something about the tenant that is not
+            // true — on the run most likely to be trusted without checking, the idempotent one.
             return Outcome::ok([
                 'subscription_tier_id' => $tierId,
                 'tenant_subscription_id' => (string) $existing['tenant_subscription_id'],
+                'status' => (string) $existing['status'],
                 'created' => false,
             ]);
         }
@@ -246,6 +296,7 @@ final class BetaBundle
             return Outcome::ok([
                 'subscription_tier_id' => $tierId,
                 'tenant_subscription_id' => (string) $subscribed->value()['tenant_subscription_id'],
+                'status' => self::SUBSCRIPTION_STATUS,
                 'replaced_tenant_subscription_id' => $existing === null
                     ? null
                     : (string) $existing['tenant_subscription_id'],

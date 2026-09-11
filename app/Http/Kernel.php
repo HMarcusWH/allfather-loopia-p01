@@ -14,9 +14,11 @@ use Allfather\Loopia\Db\Database;
  * TWO THINGS ARE DECIDED HERE AND NOWHERE ELSE, because both are properties of "a request" rather
  * than of any one surface, and a surface that had to remember them is a surface that can forget:
  *
- *   THE SUPPORT REFERENCE. Every response leaves with `X-Request-ID`, including redirects and
- *   safe error pages. Attaching it per-controller would mean the responses that matter most to a
- *   confused beta partner — the 403 and the 503 — are the ones most likely to be missing it.
+ *   THE SUPPORT REFERENCE. Every response leaves with `X-Request-ID` and is recorded once against
+ *   it, including redirects and safe error pages. Attaching it per-controller would mean the
+ *   responses that matter most to a confused beta partner — the 403 and the 503 — are the ones most
+ *   likely to be missing it. The record is what makes the reference resolvable; see `RequestLog`
+ *   for what it deliberately does not contain.
  *
  *   THE ACCOUNT LIFECYCLE GATE. An account holding a password somebody else chose is authenticated
  *   but not yet trusted, and the ONE thing it may do is replace that password. Enforcing that in
@@ -85,7 +87,14 @@ final class Kernel
      */
     public function handle(Request $request): Response
     {
-        return $this->dispatch($request)->withHeader(RequestId::HEADER, $request->requestId);
+        $response = $this->dispatch($request)->withHeader(RequestId::HEADER, $request->requestId);
+
+        // RECORDED HERE, once, for the same reason the header is stamped here: this is the one
+        // place every response passes through. A reference an operator cannot look up would make
+        // the support page's "quote this" an instruction with no other end.
+        RequestLog::record($request->requestId, $request->method, $request->path, $response->status);
+
+        return $response;
     }
 
     private function dispatch(Request $request): Response

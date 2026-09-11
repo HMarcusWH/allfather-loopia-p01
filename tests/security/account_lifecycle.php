@@ -278,6 +278,87 @@ Assert::same(
 );
 Assert::same(null, $signIn('partner@example.test', $issued), 'it remains unable to sign in');
 
+// ============================================================ a reset unlocks a LOCKED account
+
+// The lock exists to stop somebody guessing at a password. Once the password has been REPLACED the
+// lock is answering a question nobody is asking — and clearing `locked_until` while leaving
+// `status = 'LOCKED'` would leave the holder with a working password and no way in, because
+// `authenticate` refuses on the status before it ever looks at the credential.
+$lockedOperator = Seed::operator($db, $clock, $scope['tenant_id'], 'Locked out');
+$lockedAccount = $accounts->createLogin($lockedOperator, 'locked@example.test', 'Locked out', $strong);
+Assert::true($lockedAccount->isOk(), 'an account exists to be locked');
+$lockedId = (string) $lockedAccount->value()['platform_user_id'];
+$db->run(
+    "UPDATE platform_users SET status = 'LOCKED', failed_attempts = 10, locked_until = ?
+     WHERE platform_user_id = ?",
+    ['2099-01-01T00:00:00.000Z', $lockedId]
+);
+Assert::same(null, $signIn('locked@example.test', $strong), 'a LOCKED account cannot sign in');
+
+$unlockPassword = 'an operator issued unlock passphrase';
+Assert::true($accounts->resetPassword($lockedId, $unlockPassword)->isOk(), 'an operator resets its password');
+$unlockedState = $accounts->inspect($lockedId);
+Assert::same('ACTIVE', $unlockedState['status'], 'and the reset returns it to ACTIVE, as the lock no longer means anything');
+Assert::same(0, $unlockedState['failed_attempts'], 'clearing the attempt counter');
+Assert::same(null, $unlockedState['locked_until'], 'and the lock window');
+Assert::same(true, $unlockedState['must_change_password'], 'while still requiring the holder to choose their own');
+Assert::notSame(null, $signIn('locked@example.test', $unlockPassword), 'the holder can now sign in');
+
+// SUSPENDED IS NOT CLEARED BY A RESET. That is a lifecycle decision somebody made, and reissuing a
+// credential is not an appeal against it.
+$suspendedOperator = Seed::operator($db, $clock, $scope['tenant_id'], 'Suspended holder');
+$suspendedAccount = $accounts->createLogin($suspendedOperator, 'suspended@example.test', 'Suspended holder', $strong);
+$suspendedId = (string) $suspendedAccount->value()['platform_user_id'];
+Assert::true($accounts->suspend($suspendedId)->isOk(), 'the account is suspended');
+Assert::true(
+    $accounts->resetPassword($suspendedId, 'another operator issued passphrase')->isOk(),
+    'its password can still be reset',
+);
+Assert::same(
+    'SUSPENDED',
+    $accounts->inspect($suspendedId)['status'],
+    'and it stays SUSPENDED — a password reset does not undo a suspension',
+);
+Assert::same(
+    null,
+    $signIn('suspended@example.test', 'another operator issued passphrase'),
+    'so it still cannot sign in',
+);
+
+// ============================================================ a login cannot outrun a password change
+
+// The hash is verified before the session-issuing transaction opens, so without a re-check under a
+// row lock a change committing in between would revoke every session that EXISTS and leave the one
+// inserted a moment later alive — authenticated with the password that was just replaced.
+//
+// Proved by moving the password between the verify and the insert: the session must not be issued.
+$raceOperator = Seed::operator($db, $clock, $scope['tenant_id'], 'Race probe');
+$racePassword = 'the password being replaced';
+$raceAccount = $accounts->createLogin($raceOperator, 'race@example.test', 'Race probe', $racePassword, false);
+$raceId = (string) $raceAccount->value()['platform_user_id'];
+
+$sessionsBefore = (int) $db->scalar(
+    'SELECT COUNT(*) FROM platform_sessions WHERE platform_user_id = ?',
+    [$raceId]
+);
+// The change lands between the credential read and the session insert. Committed on its own
+// connection so it is genuinely visible to the login's transaction rather than part of it.
+$db->run(
+    'UPDATE platform_users SET password_hash = ?, password_algo = ? WHERE platform_user_id = ?',
+    [...array_values(\Allfather\Loopia\Auth\PasswordPolicy::hash('the password that replaced it')), $raceId]
+);
+Assert::same(null, $signIn('race@example.test', $racePassword), 'the replaced password no longer authenticates');
+Assert::same(
+    $sessionsBefore,
+    (int) $db->scalar('SELECT COUNT(*) FROM platform_sessions WHERE platform_user_id = ?', [$raceId]),
+    'and no session row was left behind by the attempt — the unit rolled back',
+);
+Assert::notSame(
+    null,
+    $signIn('race@example.test', 'the password that replaced it'),
+    'while the current password still works',
+);
+
 // ============================================================ role membership grants nothing new
 
 $freshOperator = Seed::operator($db, $clock, $scope['tenant_id'], 'Role probe');

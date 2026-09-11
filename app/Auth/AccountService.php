@@ -244,10 +244,22 @@ final class AccountService
             return Outcome::refuseAll($policy, [], 'VALIDATION');
         }
 
-        // A LOCKED account is unlocked by the reset: the lock exists to stop guessing at a password
-        // that no longer exists. SUSPENDED is NOT cleared — that is a lifecycle decision, and a
-        // password reset is not an appeal against it.
-        return $this->writePassword($platformUserId, $newPassword, true, 'PASSWORD_RESET_BY_OPERATOR');
+        // A LOCKED account is unlocked BY THE RESET, and that has to mean the status too. The lock
+        // exists to stop somebody guessing at a password that no longer exists, so once it has been
+        // replaced the lock is answering a question nobody is asking — and clearing `locked_until`
+        // while leaving `status = 'LOCKED'` would leave the account rejected at
+        // `Authenticator::authenticate`'s status check, with a working password and no way in.
+        //
+        // ONLY from LOCKED. `SUSPENDED` is a lifecycle decision somebody made, and a password reset
+        // is not an appeal against it: an operator who wants the account back issues `reactivate`,
+        // which says so.
+        return $this->writePassword(
+            $platformUserId,
+            $newPassword,
+            true,
+            'PASSWORD_RESET_BY_OPERATOR',
+            'LOCKED',
+        );
     }
 
     /** Suspend a login. Reversible, and it ends every live session now. */
@@ -505,20 +517,35 @@ final class AccountService
         string $newPassword,
         bool $mustChangeAgain,
         string $revocationReason,
+        ?string $clearStatus = null,
     ): Outcome {
         $hashed = PasswordPolicy::hash($newPassword);
         $now = $this->clock->now();
 
         return $this->db->transaction(function (Database $tx) use (
-            $platformUserId, $hashed, $now, $mustChangeAgain, $revocationReason
+            $platformUserId, $hashed, $now, $mustChangeAgain, $revocationReason, $clearStatus
         ): Outcome {
-            $tx->run(
-                'UPDATE platform_users
+            // NEVER writes a RETIRED account. The caller checked, but that read was outside this
+            // transaction: a retirement committed in between would otherwise be handed a fresh
+            // working credential, which is un-retiring it in the only sense that matters.
+            $affected = $tx->run(
+                "UPDATE platform_users
                  SET password_hash = ?, password_algo = ?, password_changed_at = ?,
-                     must_change_password = ?, failed_attempts = 0, locked_until = NULL
-                 WHERE platform_user_id = ?',
-                [$hashed['hash'], $hashed['algo'], $now, $mustChangeAgain ? 1 : 0, $platformUserId]
+                     must_change_password = ?, failed_attempts = 0, locked_until = NULL,
+                     status = CASE WHEN status = ? THEN 'ACTIVE' ELSE status END
+                 WHERE platform_user_id = ? AND status <> 'RETIRED'",
+                [
+                    $hashed['hash'], $hashed['algo'], $now, $mustChangeAgain ? 1 : 0,
+                    // A status this write is allowed to clear, or a value no status can equal —
+                    // which makes the CASE a no-op rather than needing two versions of the SQL.
+                    $clearStatus ?? "\0",
+                    $platformUserId,
+                ]
             );
+
+            if ($affected === 0) {
+                return Outcome::refuse('ACCOUNT_RETIRED', [], 'POLICY');
+            }
 
             return Outcome::ok([
                 'platform_user_id' => $platformUserId,
@@ -568,12 +595,48 @@ final class AccountService
         }
 
         return $this->db->transaction(function (Database $tx) use (
-            $platformUserId, $to, $revocationReason
+            $platformUserId, $to, $from, $revocationReason
         ): Outcome {
-            $tx->run(
-                'UPDATE platform_users SET status = ? WHERE platform_user_id = ?',
-                [$to, $platformUserId]
+            // CONDITIONAL ON THE STATE THIS DECISION WAS MADE FROM, and the affected-row count is
+            // checked. The read above happened outside this transaction, so between deciding and
+            // writing another operator's command can have committed: a `reactivate` that read
+            // SUSPENDED would otherwise overwrite a `retire` that landed first, and terminal
+            // retirement would be terminal only when nobody was working at the same time.
+            //
+            // The predicate is the SAME `$from` set the decision used, so the write can only land
+            // on a row still in a state this transition was permitted from.
+            $placeholders = implode(', ', array_fill(0, count($from), '?'));
+            $affected = $tx->run(
+                "UPDATE platform_users SET status = ? WHERE platform_user_id = ? AND status IN ({$placeholders})",
+                [$to, $platformUserId, ...$from]
             );
+
+            if ($affected === 0) {
+                // Somebody else moved it. Re-read and answer about what it IS, not about what this
+                // command believed a moment ago.
+                $now = $tx->one(
+                    'SELECT status FROM platform_users WHERE platform_user_id = ?',
+                    [$platformUserId]
+                );
+                $current = $now === null ? null : (string) $now['status'];
+
+                if ($current === $to) {
+                    // The race landed on the state this command wanted. Converged, not refused:
+                    // reporting a failure for an account that is exactly where the operator asked
+                    // for it would send them to investigate a problem that does not exist.
+                    return Outcome::ok([
+                        'platform_user_id' => $platformUserId,
+                        'status' => $to,
+                        'changed' => false,
+                        'sessions_revoked' => 0,
+                    ]);
+                }
+
+                return Outcome::refuse('ACCOUNT_TRANSITION_RACED', [
+                    'from' => $current,
+                    'to' => $to,
+                ], 'POLICY');
+            }
 
             $revoked = $revocationReason === null
                 ? 0

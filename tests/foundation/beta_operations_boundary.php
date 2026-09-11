@@ -15,6 +15,7 @@ declare(strict_types=1);
 
 use Allfather\Loopia\Beta\BetaBundle;
 use Allfather\Loopia\Http\RequestId;
+use Allfather\Loopia\Http\RequestLog;
 use Allfather\Loopia\Http\Response;
 use Allfather\Loopia\Ops\BetaCli;
 use Allfather\Loopia\Tests\Assert;
@@ -195,6 +196,43 @@ foreach (['/ops/onboard-beta-user.php', '/ops/manage-beta-user.php'] as $command
     Assert::contains('BetaCli::parseArgs', $source, "{$name} refuses unknown arguments");
 }
 
+// ONBOARDING IS ONE UNIT. Subscription, operator, login and memberships commit together or not at
+// all. Half-done onboarding left a beta subscription, an orphan operator and no login — and with
+// --replace-live-subscription it had already cancelled the tenant's previous subscription to get
+// there — a state an operator then has to recognise and unpick by hand.
+$onboard = $code($root . '/ops/onboard-beta-user.php');
+Assert::contains('$db->transaction(', $onboard, 'onboarding performs its writes inside one transaction');
+foreach (["insert('operators'", 'createLogin(', 'addRoleMembership(', 'subscribeTenant('] as $write) {
+    Assert::true(
+        strpos($onboard, '$db->transaction(') < strpos($onboard, $write),
+        "and {$write} happens inside it, never before it",
+    );
+}
+
+// A DRY RUN MUST MEAN IT. `ensureTier` CREATES the tier when it is absent, so a preflight that
+// called it would add a row to the platform's global commercial catalogue and then report that
+// nothing was written.
+Assert::contains('$beta->inspectTier()', $onboard, 'the preflight uses the read-only tier inspection');
+Assert::false(str_contains($onboard, '$beta->ensureTier()'), 'and never the creating one');
+Assert::true(
+    strpos($onboard, "isset(\$args['dry-run'])") < strpos($onboard, '$db->transaction('),
+    'the dry-run exit comes before any write at all',
+);
+
+// The checks that can be made without writing ARE made without writing, and before the operator is
+// asked for a password — so a run that was never going to work does not cost them a credential.
+foreach (['that address already has a login outside this tenant', 'is not an address', '--display-name cannot be blank'] as $preflight) {
+    Assert::true(
+        strpos($onboard, $preflight) < strpos($onboard, 'BetaCli::readPassword'),
+        "identity is validated before the password prompt: {$preflight}",
+    );
+}
+$inspectTier = $code($root . '/app/Beta/BetaBundle.php');
+Assert::true(
+    strpos($inspectTier, 'public function inspectTier') > 0,
+    'the bundle exposes a read-only inspection distinct from creation',
+);
+
 // The shared helper never puts a password anywhere but the hasher's hands.
 $cli = $code($root . '/app/Ops/BetaCli.php');
 $rawCli = (string) file_get_contents($root . '/app/Ops/BetaCli.php');
@@ -230,11 +268,66 @@ Assert::false(str_contains($request, 'HTTP_X_REQUEST_ID'), 'and a caller-supplie
 // each surface to remember.
 $kernel = (string) file_get_contents($root . '/app/Http/Kernel.php');
 Assert::contains(
-    'return $this->dispatch($request)->withHeader(RequestId::HEADER, $request->requestId);',
+    '$this->dispatch($request)->withHeader(RequestId::HEADER, $request->requestId)',
     $kernel,
     'the Kernel stamps every response, including redirects and safe error pages',
 );
 Assert::same('X-Request-ID', RequestId::HEADER, 'on the conventional header name');
+
+// AND RECORDS IT. A reference a partner can quote and an operator cannot look up is worse than no
+// reference: it invites the question and leaves the person who receives it with nothing to do.
+Assert::contains(
+    'RequestLog::record($request->requestId, $request->method, $request->path, $response->status)',
+    $kernel,
+    'and records each request against its reference, once, at the same boundary',
+);
+
+$requestLog = $code($root . '/app/Http/RequestLog.php');
+// THE RECORD IS A CLOSED SET OF FOUR FIELDS. A diagnostic log with no access control on it is the
+// wrong place for anything that identifies a person or a tenant, and the correlation an operator
+// needs is done from the session and audit records that already have their own access rules.
+foreach ([
+    'tenant_id', 'workspace_id', 'operator_id', 'platform_user_id', 'session',
+    'email', 'password', 'csrf', 'user_agent', 'cookie', 'query',
+] as $mustNotRecord) {
+    Assert::false(
+        str_contains($requestLog, $mustNotRecord),
+        "the request log records no {$mustNotRecord}",
+    );
+}
+// The path is caller-influenced, and a log line is a format somebody's tooling parses. A newline in
+// it would let a caller forge a second record.
+Assert::contains('preg_replace', $requestLog, 'and sanitizes the fields it does record');
+Assert::contains('\x20-\x7E', $requestLog, 'to printable characters only, so a log line cannot be forged');
+Assert::contains('@error_log', $requestLog, 'a failure to log never fails the request it was logging');
+Assert::contains(
+    "if (PHP_SAPI === 'cli')",
+    $requestLog,
+    'and a CLI invocation records nothing — there is no HTTP request to correlate',
+);
+
+// The formatting, which is where the property actually lives: a log line is a format somebody's
+// tooling parses, and the path reaching it is caller-influenced.
+$line = RequestLog::format('AbCdEf0123456789_-xyzQ', 'GET', '/console/api/v1/context', 200);
+Assert::same(
+    'af-request id=AbCdEf0123456789_-xyzQ method=GET path=/console/api/v1/context status=200',
+    $line,
+    'an ordinary request records exactly four fields',
+);
+
+$forged = RequestLog::format('x', 'GET', "/a\naf-request id=forged method=GET path=/b status=200", 200);
+Assert::false(str_contains($forged, "\n"), 'a newline in the path cannot forge a second record');
+Assert::contains('path=/a?af-request', $forged, 'it is replaced rather than stripped, so tampering still looks like tampering');
+
+$long = RequestLog::format('x', 'GET', '/' . str_repeat('a', 500), 200);
+Assert::true(strlen($long) < 300, 'an unbounded path is truncated rather than wrapped');
+Assert::contains('...', $long, 'and says it was truncated');
+
+Assert::same(
+    'af-request id=- method=- path=- status=500',
+    RequestLog::format('', '', '', 500),
+    'an empty field is recorded as absent rather than as an empty value the format cannot express',
+);
 
 // `withHeader` returns a NEW response. A mutable one would be a response whose CSP a later layer
 // could quietly relax.
@@ -291,6 +384,49 @@ foreach ([$shellSource, $appSource] as $frontend) {
         'the browser holds no lifecycle state — the gate is not a frontend convention',
     );
 }
+
+// ============================================================ lifecycle writes are conditional
+
+// The state a transition is permitted FROM is read before the transaction opens, so between the
+// decision and the write another operator's command can commit. An unconditional UPDATE would then
+// let a `reactivate` that read SUSPENDED overwrite a `retire` that landed first — and terminal
+// retirement would be terminal only when nobody else was working at the same time.
+//
+// Structural because the failure needs two operators and a few milliseconds: a behavioural test
+// cannot reliably produce the interleaving, and the predicate either guards the write or it does
+// not.
+$accountService = $code($root . '/app/Auth/AccountService.php');
+Assert::contains(
+    'AND status IN ({$placeholders})',
+    $accountService,
+    'a lifecycle transition writes only to a row still in a state it was permitted from',
+);
+Assert::contains(
+    'ACCOUNT_TRANSITION_RACED',
+    $accountService,
+    'and a write that matched nothing is reported, never assumed to have happened',
+);
+// The credential write carries the same protection against the one transition that must never be
+// undone: a retirement committed between the check and the write must not receive a fresh password.
+Assert::contains(
+    "WHERE platform_user_id = ? AND status <> 'RETIRED'",
+    $accountService,
+    'and a RETIRED account is never handed a working credential, however the race falls',
+);
+
+// The login path re-verifies under a row lock in the same transaction that inserts the session.
+// Without it, a password change committing mid-login revokes every session that EXISTS and leaves
+// the one inserted a moment later alive — issued against the password just replaced.
+$authenticatorSource = $code($root . '/app/Auth/Authenticator.php');
+Assert::contains(
+    'FOR UPDATE',
+    $authenticatorSource,
+    'the credential is re-read under a row lock before a session is issued',
+);
+Assert::true(
+    strpos($authenticatorSource, 'FOR UPDATE') < strpos($authenticatorSource, "insert('platform_sessions'"),
+    'and the re-verify happens BEFORE the session insert, inside the same transaction',
+);
 
 // ============================================================ the support surface holds no secret
 

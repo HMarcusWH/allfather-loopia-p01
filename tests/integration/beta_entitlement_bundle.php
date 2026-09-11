@@ -90,6 +90,29 @@ foreach ($stored as $permissionKey) {
     );
 }
 
+// ============================================================ inspection writes nothing
+
+// `inspectTier` is what `--dry-run` calls, and the property that makes a dry run mean anything is
+// that it does not create the thing it is checking for. Proved against a database where the tier
+// does not exist: an OK answer, and still no row afterwards.
+$db->run('DELETE FROM subscription_tier_permissions WHERE subscription_tier_id = ?', [$tierId]);
+$db->run('DELETE FROM subscription_tiers WHERE subscription_tier_id = ?', [$tierId]);
+
+$inspected = $beta->inspectTier();
+Assert::true($inspected->isOk(), 'inspecting an absent-but-definable tier answers OK');
+Assert::same(null, $inspected->value()['subscription_tier_id'], 'reporting that it does not exist yet');
+Assert::same(
+    0,
+    (int) $db->scalar('SELECT COUNT(*) FROM subscription_tiers WHERE tier_key = ?', [BetaBundle::TIER_KEY]),
+    'and having created nothing — a dry run that added a row to the global commercial catalogue '
+    . 'and then reported "nothing was written" is the one lie a validation mode must not tell',
+);
+
+// Re-create it for everything below.
+$created = $beta->ensureTier();
+Assert::true($created->isOk(), 'the tier is created again for the remaining cases');
+$tierId = (string) $created->value()['subscription_tier_id'];
+
 // ============================================================ idempotence
 
 $again = $beta->ensureTier();
@@ -153,6 +176,7 @@ $db->run("UPDATE subscription_tiers SET status = 'ACTIVE' WHERE subscription_tie
 
 $subscribed = $beta->subscribeTenant($scope['tenant_id']);
 Assert::true($subscribed->isOk(), 'the tenant is subscribed');
+Assert::same('TRIAL', $subscribed->value()['status'] ?? null, 'and the result reports the status it was created with');
 Assert::same(
     'TRIAL',
     (string) $db->scalar(
@@ -180,6 +204,25 @@ foreach (['decision.read', 'outreach.execute', 'crm.send', 'customer_catalogue.u
 $resubscribed = $beta->subscribeTenant($scope['tenant_id']);
 Assert::true($resubscribed->isOk(), 'subscribing again converges');
 Assert::same(false, $resubscribed->value()['created'] ?? null, 'without creating a second subscription');
+
+// THE REPORTED STATUS IS THE ROW'S OWN, not the constant a new subscription would carry. A tenant
+// whose beta trial has been moved to ACTIVE is still correctly on the beta tier, and answering
+// TRIAL for it would tell an operator something untrue on the run least likely to be checked.
+$db->run(
+    "UPDATE tenant_subscriptions SET status = 'ACTIVE' WHERE tenant_id = ? AND status = 'TRIAL'",
+    [$scope['tenant_id']]
+);
+$converged = $beta->subscribeTenant($scope['tenant_id']);
+Assert::true($converged->isOk(), 'an ACTIVE beta subscription still converges');
+Assert::same(
+    'ACTIVE',
+    $converged->value()['status'] ?? null,
+    'and the report states the status the row actually has',
+);
+$db->run(
+    "UPDATE tenant_subscriptions SET status = 'TRIAL' WHERE tenant_id = ? AND status = 'ACTIVE'",
+    [$scope['tenant_id']]
+);
 Assert::same(
     1,
     (int) $db->scalar(
