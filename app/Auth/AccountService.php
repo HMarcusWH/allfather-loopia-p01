@@ -269,30 +269,94 @@ final class AccountService
     }
 
     /**
-     * Return a suspended or locked login to service.
+     * Return a login to full service: status ACTIVE, lock-out cleared, outstanding sessions ended.
      *
-     * IT REVOKES, IT DOES NOT RESTORE — and the revocation here is not redundant with the one
-     * `suspend` performs. That would only hold if every SUSPENDED or LOCKED account had reached
-     * that state through this service, and the whole reason this service exists is that until now
-     * they reached it through hand-written SQL. An account suspended by an UPDATE somebody typed
-     * has its session rows untouched, and `resolveSession` refuses those tokens only while the
-     * status is non-ACTIVE — so moving the row back to ACTIVE would hand a pre-existing token its
-     * authority back, which is exactly the invariant this method claims to keep.
+     * IT DOES NOT GO THROUGH `transition`, and that is the point. THE LOCK-OUT THE AUTHENTICATOR
+     * ACTUALLY CREATES LEAVES THE STATUS ALONE: `registerFailure` sets `failed_attempts` and
+     * `locked_until` and never writes `status`, so a genuinely locked-out account is `ACTIVE`. A
+     * state-machine transition to ACTIVE sees it is already there and returns having done nothing —
+     * so the command that documents "reactivate clears the lock" cleared nothing in the only case
+     * an operator ever meets. `status = 'LOCKED'` is reachable, and the earlier tests exercised it,
+     * but nothing in this codebase puts an account there; it is the state the CHECK allows, not the
+     * state the product produces.
      *
-     * So reactivation ends every outstanding session, whatever put the account into the state it is
-     * coming out of, and the account signs in again. The lock-out substrate is cleared in the SAME
-     * transaction: leaving `failed_attempts` at its ceiling would re-lock the account on the first
-     * mistyped password, and a separate statement afterwards is a second chance to fail.
+     * So the write is expressed as the END STATE rather than as a transition: ACTIVE, no failed
+     * attempts, no lock window — conditional on the row being in a state reactivation is permitted
+     * from, so a concurrent retirement cannot be overwritten.
+     *
+     * IT REVOKES, AND THE REVOCATION IS NOT REDUNDANT with the one `suspend` performs. That would
+     * only hold if every account had reached its current state through this service, and replacing
+     * the hand-written SQL support path is why this service exists. An account suspended by an
+     * UPDATE somebody typed has its session rows untouched, and `resolveSession` refuses those
+     * tokens only while the status is non-ACTIVE — so returning the row to ACTIVE would hand a
+     * pre-existing token its authority back.
+     *
+     * ONE CONTRACT, NOT A CONDITIONAL ONE: if this command changed anything, the account signs in
+     * again. An operator running a support command on an account should not have to work out
+     * which of two behaviours they just got.
      */
     public function reactivate(string $platformUserId): Outcome
     {
-        return $this->transition(
-            $platformUserId,
-            'ACTIVE',
-            ['SUSPENDED', 'LOCKED', 'ACTIVE'],
-            'ACCOUNT_REACTIVATED',
-            true,
+        $from = ['ACTIVE', 'SUSPENDED', 'LOCKED'];
+        $user = $this->db->one(
+            'SELECT status FROM platform_users WHERE platform_user_id = ?',
+            [$platformUserId]
         );
+        if ($user === null) {
+            return Outcome::refuse('ACCOUNT_NOT_FOUND', [], 'PROVENANCE');
+        }
+        if (!in_array((string) $user['status'], $from, true)) {
+            // RETIRED, and nothing else reaches here. Terminal means terminal.
+            return Outcome::refuse('ACCOUNT_TRANSITION_NOT_PERMITTED', [
+                'from' => (string) $user['status'],
+                'to' => 'ACTIVE',
+            ], 'POLICY');
+        }
+
+        return $this->db->transaction(function (Database $tx) use ($platformUserId, $from): Outcome {
+            $placeholders = implode(', ', array_fill(0, count($from), '?'));
+            $affected = $tx->run(
+                "UPDATE platform_users
+                 SET status = 'ACTIVE', failed_attempts = 0, locked_until = NULL
+                 WHERE platform_user_id = ? AND status IN ({$placeholders})",
+                [$platformUserId, ...$from]
+            );
+
+            if ($affected === 0) {
+                // MariaDB counts CHANGED rows, so zero means either the row moved out from under
+                // this decision, or it was already in exactly the end state asked for. Re-read to
+                // tell those apart rather than guessing.
+                $now = $tx->one(
+                    'SELECT status FROM platform_users WHERE platform_user_id = ?',
+                    [$platformUserId]
+                );
+                $current = $now === null ? null : (string) $now['status'];
+
+                if ($current === 'ACTIVE') {
+                    // Already in full service with no lock to clear. Nothing was changed, so
+                    // nothing is revoked: ending somebody's session to achieve a state that already
+                    // held would be a side effect the operator did not ask for.
+                    return Outcome::ok([
+                        'platform_user_id' => $platformUserId,
+                        'status' => 'ACTIVE',
+                        'changed' => false,
+                        'sessions_revoked' => 0,
+                    ]);
+                }
+
+                return Outcome::refuse('ACCOUNT_TRANSITION_RACED', [
+                    'from' => $current,
+                    'to' => 'ACTIVE',
+                ], 'POLICY');
+            }
+
+            return Outcome::ok([
+                'platform_user_id' => $platformUserId,
+                'status' => 'ACTIVE',
+                'changed' => true,
+                'sessions_revoked' => $this->auth->revokeAllSessions($platformUserId, 'ACCOUNT_REACTIVATED'),
+            ]);
+        });
     }
 
     /** Retire a login. Terminal: no transition out of it exists. */
@@ -453,12 +517,28 @@ final class AccountService
             return Outcome::refuse('ROLE_NOT_DEFINED', ['role_key' => $roleKey], 'POLICY', 'S4');
         }
 
+        // TENANT FIRST, THEN STATUS, and the order is the enumeration guard: an operator belonging
+        // to another tenant is out of scope and its lifecycle is not this caller's to learn.
         $operator = $this->db->one(
-            'SELECT operator_id FROM operators WHERE operator_id = ? AND tenant_id = ?',
+            'SELECT operator_id, status FROM operators WHERE operator_id = ? AND tenant_id = ?',
             [$operatorId, $tenantId]
         );
         if ($operator === null) {
             return Outcome::refuse('OPERATOR_NOT_IN_TENANT', [], 'SCOPE');
+        }
+        if (!in_array((string) $operator['status'], self::BINDABLE_OPERATOR_STATUSES, true)) {
+            // A STOOD-DOWN IDENTITY MUST NOT ACCUMULATE AUTHORITY. M02 denies while the operator is
+            // inactive, so the membership would grant nothing today — which is exactly what makes
+            // it dangerous: it is LATENT authority that springs into effect the moment somebody
+            // reactivates the identity, without anyone having decided to grant a role.
+            //
+            // `createLogin` already refuses to bind a credential to such an operator, but an
+            // EXISTING account skips `createLogin` entirely, so onboarding could re-run and reach
+            // here with that policy never consulted. This is the same rule, on the path that
+            // actually gets there.
+            return Outcome::refuse('OPERATOR_NOT_BINDABLE', [
+                'status' => (string) $operator['status'],
+            ], 'POLICY');
         }
 
         $workspaceId = (string) $workspace['workspace_id'];
@@ -587,7 +667,6 @@ final class AccountService
         string $to,
         array $from,
         ?string $revocationReason,
-        bool $clearLockout = false,
     ): Outcome {
         $user = $this->db->one(
             'SELECT platform_user_id, status FROM platform_users WHERE platform_user_id = ?',
@@ -614,7 +693,7 @@ final class AccountService
         }
 
         return $this->db->transaction(function (Database $tx) use (
-            $platformUserId, $to, $from, $revocationReason, $clearLockout
+            $platformUserId, $to, $from, $revocationReason
         ): Outcome {
             // CONDITIONAL ON THE STATE THIS DECISION WAS MADE FROM, and the affected-row count is
             // checked. The read above happened outside this transaction, so between deciding and
@@ -656,14 +735,6 @@ final class AccountService
                     'from' => $current,
                     'to' => $to,
                 ], 'POLICY');
-            }
-
-            if ($clearLockout) {
-                $tx->run(
-                    'UPDATE platform_users SET failed_attempts = 0, locked_until = NULL
-                     WHERE platform_user_id = ?',
-                    [$platformUserId]
-                );
             }
 
             $revoked = $revocationReason === null

@@ -219,9 +219,17 @@ Assert::true(
     'the dry-run exit comes before any write at all',
 );
 
-// The checks that can be made without writing ARE made without writing, and before the operator is
-// asked for a password — so a run that was never going to work does not cost them a credential.
-foreach (['that address already has a login outside this tenant', 'is not an address', '--display-name cannot be blank'] as $preflight) {
+// THE PREFLIGHT MIRRORS EVERY REFUSAL THE REAL RUN CAN KNOW IN ADVANCE, which for a preflight is
+// the only useful definition of one. A dry run that answered DRY_RUN_OK and was then refused on the
+// first statement would be worse than no dry run, because the operator would have believed it.
+foreach ([
+    'that address already has a login outside this tenant',
+    'is not an address',
+    '--display-name cannot be blank',
+    'Pass --replace-live-subscription',
+    'is restored deliberately, not by re-running onboarding',
+    'does not accumulate new role memberships',
+] as $preflight) {
     Assert::true(
         strpos($onboard, $preflight) < strpos($onboard, 'BetaCli::readPassword'),
         "identity is validated before the password prompt: {$preflight}",
@@ -237,11 +245,28 @@ Assert::true(
 $cli = $code($root . '/app/Ops/BetaCli.php');
 $rawCli = (string) file_get_contents($root . '/app/Ops/BetaCli.php');
 Assert::false(str_contains($cli, 'error_log('), 'the CLI helper logs nothing');
-Assert::contains(
-    'stream_isatty',
-    $cli,
-    'and refuses to prompt when no terminal is attached rather than reading a password from a pipe by accident',
+
+// STDIN ONLY, AND NO FALLBACK. PHP has no portable way to suppress terminal echo: the
+// readline-callback trick suppresses it on some builds and displays the password on others, and
+// shelling out to `stty` is process execution the no-external-action tripwire forbids. An unproven
+// host capability is a missing one, so there is no interactive path to fall back FROM — and none to
+// fall back TO, because a prompt that might display the password is worse than none.
+foreach (['readline_callback_handler_install', 'stream_get_contents(STDIN', 'stream_isatty'] as $absent) {
+    Assert::false(
+        str_contains($cli, $absent),
+        "no unproven no-echo primitive remains in the CLI helper: {$absent}",
+    );
+}
+Assert::false(
+    stripos($cli, 'WARNING') !== false,
+    'and no branch warns that it is about to echo a password — there is no such branch',
 );
+Assert::contains(
+    'if (!$fromStdin) {',
+    $cli,
+    'a password that was not piped in is refused rather than prompted for',
+);
+Assert::contains('--password-stdin', $rawCli, 'and the refusal names the flag that works');
 
 // ============================================================ the request reference is opaque
 
@@ -407,17 +432,41 @@ Assert::contains(
     'and a write that matched nothing is reported, never assumed to have happened',
 );
 
+// REACTIVATION IS AN END STATE, NOT A TRANSITION. The lockout the authenticator actually creates
+// leaves `status` ACTIVE — `registerFailure` writes `failed_attempts` and `locked_until` and never
+// the status — so a transition to ACTIVE would find the row already there and clear nothing, in the
+// only case an operator ever meets.
+Assert::contains(
+    "SET status = 'ACTIVE', failed_attempts = 0, locked_until = NULL",
+    $accountService,
+    'reactivation writes the end state, so an ACTIVE-but-locked account is actually cleared',
+);
+$registerFailure = substr($code($root . '/app/Auth/Authenticator.php'), 0);
+Assert::false(
+    str_contains($registerFailure, "status = 'LOCKED'"),
+    'and nothing in the authenticator writes the LOCKED status the earlier model assumed',
+);
+
+// A stood-down operator accumulates no membership. M02 denies while it is inactive, which is what
+// makes the row dangerous rather than harmless: latent authority, taking effect on reinstatement.
+Assert::contains(
+    "'SELECT operator_id, status FROM operators WHERE operator_id = ? AND tenant_id = ?'",
+    $accountService,
+    'a membership grant reads the operator lifecycle, not merely its tenant',
+);
+Assert::same(
+    2,
+    substr_count($accountService, 'OPERATOR_NOT_BINDABLE'),
+    'and refuses a non-ACTIVE operator on BOTH paths — createLogin, and the grant an existing account reaches instead',
+);
+
 // Reactivation revokes rather than assuming a prior revocation. "suspend already did it" holds only
 // if every SUSPENDED row got there through this service — and replacing the hand-SQL path is why
 // this service exists, so rows that did not predate it by definition.
-Assert::false(
-    str_contains($accountService, "'ACTIVE', ['SUSPENDED', 'LOCKED', 'ACTIVE'], null"),
-    'reactivation does not pass a null revocation reason',
-);
 Assert::contains(
-    "'ACCOUNT_REACTIVATED',",
+    "revokeAllSessions(\$platformUserId, 'ACCOUNT_REACTIVATED')",
     $accountService,
-    'it revokes every outstanding session as part of the transition',
+    'it revokes every outstanding session as part of the same transaction',
 );
 
 // An inactive membership is a decision. Re-running onboarding must not rewrite one back to ACTIVE:

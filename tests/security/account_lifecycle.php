@@ -261,19 +261,81 @@ Assert::true(
 );
 Assert::notSame(null, $signIn('stale@example.test', $strong), 'the holder signs in again, which is how they come back');
 
-// The lock fields are cleared in the SAME unit as the status. A separate statement afterwards is a
-// second chance to fail, and an account back in service with `failed_attempts` at its ceiling
-// re-locks on the first mistyped password.
-$db->run(
-    "UPDATE platform_users SET status = 'LOCKED', failed_attempts = 10, locked_until = ?
-     WHERE platform_user_id = ?",
-    ['2099-01-01T00:00:00.000Z', $staleId]
+// ============================================================ the lockout the product ACTUALLY makes
+
+// `registerFailure` sets `failed_attempts` and `locked_until` and NEVER writes `status`, so a
+// genuinely locked-out account is ACTIVE. A reactivation expressed as a state-machine transition to
+// ACTIVE would see it is already there and do nothing — clearing the lock in the only case an
+// operator ever meets is the whole job, so this is driven through real failed authentications
+// rather than by manufacturing a status the product never produces.
+$lockoutOperator = Seed::operator($db, $clock, $scope['tenant_id'], 'Locked out for real');
+$lockoutAccount = $accounts->createLogin($lockoutOperator, 'lockedout@example.test', 'Locked out for real', $strong, false);
+$lockoutId = (string) $lockoutAccount->value()['platform_user_id'];
+
+// A live session first, so the revocation half is observable too.
+$lockoutToken = $signIn('lockedout@example.test', $strong);
+Assert::notSame(null, $lockoutToken, 'the account holds a live session before the lockout');
+
+// Ten wrong passwords from one address: the authenticator's own path, not a hand-written UPDATE.
+// A distinct peer address keeps this clear of the per-IP ceiling the other cases share.
+for ($attempt = 0; $attempt < 10; $attempt++) {
+    $auth->authenticate('lockedout@example.test', 'not the password at all', '198.51.100.99');
+}
+$lockedState = $accounts->inspect($lockoutId);
+Assert::same('ACTIVE', $lockedState['status'], 'the real lockout leaves the status ACTIVE — nothing writes LOCKED');
+Assert::true($lockedState['failed_attempts'] >= 10, 'the attempt counter is at its ceiling');
+Assert::notSame(null, $lockedState['locked_until'], 'and a lock window is set');
+Assert::same(
+    null,
+    $signIn('lockedout@example.test', $strong),
+    'so the CORRECT password no longer signs in — this is the state an operator is asked to clear',
 );
-Assert::true($accounts->reactivate($staleId)->isOk(), 'a locked account is reactivated');
-$clearedState = $accounts->inspect($staleId);
-Assert::same('ACTIVE', $clearedState['status'], 'the status moves');
-Assert::same(0, $clearedState['failed_attempts'], 'the attempt counter is cleared with it');
+
+Assert::true($accounts->reactivate($lockoutId)->isOk(), 'reactivate accepts an ACTIVE-but-locked account');
+$clearedState = $accounts->inspect($lockoutId);
+Assert::same('ACTIVE', $clearedState['status'], 'it stays ACTIVE');
+Assert::same(0, $clearedState['failed_attempts'], 'the attempt counter is cleared');
 Assert::same(null, $clearedState['locked_until'], 'and so is the lock window');
+Assert::true(
+    $auth->resolveSession((string) $lockoutToken)->isRefusal(),
+    'the session outstanding across the lockout is ended too — one contract, not a conditional one',
+);
+// AND THE ACCOUNT LOCK IS NOT THE ONLY LOCK. `auth_attempts` rate-limits an address for fifteen
+// minutes independently of the account row, and that ledger is APPEND-ONLY — triggers refuse both
+// UPDATE and DELETE — so no operator command clears it, deliberately. An operator who reactivates
+// and hears "still cannot sign in" is meeting this, not a failed reactivation, and the distinction
+// matters because the remedy is to wait rather than to do anything.
+$stillLimited = $auth->authenticate('lockedout@example.test', $strong, '198.51.100.99');
+Assert::true($stillLimited->isRefusal(), 'the rate-limit window survives the reactivation');
+Assert::same(
+    'AUTH_RATE_LIMITED',
+    $stillLimited->reasonCode(),
+    'and says so distinctly — this is a window expiring, not an account still locked',
+);
+Assert::same(
+    0,
+    $accounts->inspect($lockoutId)['failed_attempts'],
+    'while the account lock itself stays cleared, which is the part reactivate owns',
+);
+
+// The window is self-expiring, which is the whole reason nothing needs to erase it.
+$clock->advanceMs(16 * 60 * 1000);
+Assert::notSame(
+    null,
+    $signIn('lockedout@example.test', $strong),
+    'once the window passes the holder signs in again with their own password',
+);
+
+// Nothing to do is not a failure, and does not end anybody's session.
+$settled = $signIn('lockedout@example.test', $strong);
+$noop = $accounts->reactivate($lockoutId);
+Assert::true($noop->isOk(), 'reactivating an account already in full service converges');
+Assert::same(false, $noop->value()['changed'] ?? null, 'reporting that it changed nothing');
+Assert::same(0, $noop->value()['sessions_revoked'] ?? null, 'and revoking nothing');
+Assert::true(
+    $auth->resolveSession((string) $settled)->isOk(),
+    'a session is not ended to reach a state that already held',
+);
 
 // ============================================================ reactivation restores nothing
 
@@ -437,6 +499,29 @@ Assert::same(
     ),
     'one membership, not two',
 );
+
+// A STOOD-DOWN IDENTITY ACCUMULATES NO AUTHORITY. M02 denies while the operator is inactive, which
+// is what makes the membership dangerous rather than harmless: it is latent, and it takes effect
+// the moment somebody reactivates the identity, with nobody having decided to grant a role.
+// `createLogin` already refuses to bind to such an operator, but an EXISTING account skips
+// `createLogin` entirely — so this is the same rule on the path that actually reaches it.
+foreach (['SUSPENDED', 'REVOKED', 'RETIRED', 'DRAFT'] as $operatorStatus) {
+    $standDownOperator = Seed::operator($db, $clock, $scope['tenant_id'], "Stood down {$operatorStatus}");
+    $db->run('UPDATE operators SET status = ? WHERE operator_id = ?', [$operatorStatus, $standDownOperator]);
+
+    $granted = $accounts->addRoleMembership($scope['tenant_id'], $workspaceKey, $standDownOperator, 'beta_console_reader');
+    Assert::true($granted->isRefusal(), "a {$operatorStatus} operator receives no membership");
+    Assert::same('OPERATOR_NOT_BINDABLE', $granted->reasonCode(), "named as unbindable: {$operatorStatus}");
+    Assert::same(
+        0,
+        (int) $db->scalar(
+            "SELECT COUNT(*) FROM workspace_memberships
+             WHERE tenant_id = ? AND principal_id = ? AND principal_type = 'OPERATOR'",
+            [$scope['tenant_id'], $standDownOperator]
+        ),
+        "and no membership row exists to spring into effect later: {$operatorStatus}",
+    );
+}
 
 // AN INACTIVE MEMBERSHIP IS NOT QUIETLY RESURRECTED. `REVOKED` and `EXPIRED` are decisions somebody
 // made, and re-running onboarding with the same --roles must not undo one — that would erase both

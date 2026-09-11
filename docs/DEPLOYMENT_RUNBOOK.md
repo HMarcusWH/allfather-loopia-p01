@@ -310,7 +310,8 @@ successful run.
 Provisioning establishes the tenant. Onboarding gives one invited person a way in. One command, and
 no hand-written SQL at any step:
 
-    printf '%s\n' "$INITIAL_PASSWORD" | php ops/onboard-beta-user.php \
+    read -rs -p 'Initial password: ' PW; echo
+    printf '%s\n' "$PW" | php ops/onboard-beta-user.php \
       --tenant-key=acme --workspace-key=main \
       --email=partner@example.com --display-name="A Partner" --operator-name="A Partner" \
       --roles=ROLE_COMPETITION_MONITOR,ROLE_MARKETING_CUSTOMIZER \
@@ -322,13 +323,29 @@ EXISTING roles, and marks an initial password change required. Run `--dry-run` f
 the scope, the role keys and the tier definition and writes nothing.
 
 **The password never touches the command line.** `--password` is refused by name, with the reason:
-anything on argv is in the process list and in the shell history file. Use `--password-stdin`, or
-omit it and answer the prompt, which suppresses terminal echo and asks twice. The value appears in
-no output, no log and no JSON result.
+anything on argv is in the process list and in the shell history file. `--password-stdin` is the
+only way in — see §5b for why there is no interactive prompt. The value appears in no output, no log
+and no JSON result.
 
 **It grants only what already exists.** A role key that is not an ACTIVE role is refused rather than
 created — checked before anything is written, so an unknown role key cannot leave a half-onboarded
 partner. `--roles` names roles from the canonical M02 set seeded in step 5.
+
+**`--dry-run` mirrors every refusal the real run can know in advance**, which for a preflight is the
+only useful definition of one: scope, role keys, tier definition, address, display name, the
+tenant's live subscription conflict, the governed operator's lifecycle, and the state of any
+membership the requested roles already have. It creates nothing — not even the beta tier, which
+`inspectTier` judges read-only.
+
+**A stood-down identity accumulates no authority.** A membership is granted only to an `ACTIVE`
+operator. M02 denies while the operator is inactive, so a membership granted then would be latent
+authority springing into effect the moment somebody reinstates the identity — with nobody having
+decided to grant a role. An existing account skips `createLogin`, so this rule lives on the grant
+path where the re-run actually reaches it.
+
+**A withdrawn membership is not restored by a re-run.** Only `ACTIVE` is idempotent convergence;
+`REVOKED`, `EXPIRED`, `SUSPENDED` and `DRAFT` are refused with the row left exactly as it is, status
+and `valid_until` both, so the withdrawal and the record of it survive.
 
 **The beta tier is exactly six read permissions** — `battlecard.read`, `entity_twin.read`,
 `marketing_asset.read`, `priority_outreach_queue.read`, `prospect.read`, `role_briefing.read` — at
@@ -350,10 +367,31 @@ whose tier lacks one is denied whatever the role says.
 | --- | --- |
 | `inspect` | sanitized account state, memberships and commercial state |
 | `suspend` | stops sign-in; every live session ends in the same transaction |
-| `reactivate` | returns a suspended or locked account to service; old sessions stay revoked |
+| `reactivate` | returns the account to full service — status `ACTIVE`, lock-out cleared, outstanding sessions ended so it signs in again |
 | `reset-password` | issues a replacement password and requires the holder to change it again |
 | `revoke-sessions` | ends every live session, leaving the lifecycle state alone |
 | `retire` | terminal — no transition out of it exists |
+
+**Two locks, and `reactivate` owns one.** `platform_users.failed_attempts` / `locked_until` is the
+account lock, and reactivate clears it. `auth_attempts` additionally rate-limits an ADDRESS for
+fifteen minutes, and that ledger is append-only by trigger — nothing clears it, deliberately. A
+partner who still cannot sign in straight after a reactivation is waiting out a window that expires
+by itself, not sitting behind a reactivation that did not work. The normal failed-login path never
+writes `status = 'LOCKED'`: a locked-out account is `ACTIVE` with a lock window, which is why
+reactivate is expressed as an end state rather than as a status transition.
+
+**The password is read from stdin and nowhere else.** There is no interactive prompt: PHP has no
+portable way to suppress terminal echo — the readline trick works on some builds and displays the
+password on others — and shelling out to `stty` is process execution, which the no-external-action
+tripwire forbids across this codebase. A prompt that might show the password is worse than none, so
+the command refuses and names the flag. Use your shell's own no-echo read, which is a mechanism you
+can inspect:
+
+    read -rs -p 'Password: ' PW; echo
+    printf '%s\n' "$PW" | php ops/onboard-beta-user.php ... --password-stdin
+
+or pipe straight from a secret manager, which is better again because the value never enters a
+shell variable.
 
 `--tenant-key` is a SCOPE, not a filter: an address outside the named tenant reports exactly as an
 address that does not exist, so the command cannot be used to ask whether somebody has a login

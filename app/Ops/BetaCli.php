@@ -18,7 +18,8 @@ use Allfather\Loopia\Support\Env;
  * commands that use this reach it through the ordinary autoloader after their own guard has run.
  *
  * THE PASSWORD RULES ARE HERE BECAUSE THEY MUST BE THE SAME IN BOTH COMMANDS. A secret read one way
- * in onboarding and another way in support is a secret with two threat models.
+ * in onboarding and another way in support is a secret with two threat models — and there is
+ * exactly one way in: stdin. See `readPassword` for why there is no interactive prompt.
  */
 final class BetaCli
 {
@@ -73,93 +74,58 @@ final class BetaCli
     /**
      * Read a password without it reaching argv, the terminal, or any output of this process.
      *
-     * TWO ROUTES, ONE PROPERTY. `--password-stdin` reads one line from stdin, which is how this is
-     * driven from a sealed pipe or a secret manager. Otherwise the operator is prompted, with
-     * terminal echo turned off for the duration, and asked twice — a mistyped password an operator
-     * cannot see is a lockout, and confirming costs one line.
+     * STDIN ONLY. There is deliberately no interactive prompt, and the reason is the one this
+     * repository applies to every host question: an unproven capability is a missing capability.
+     *
+     * PHP has no portable primitive for reading a line without terminal echo. The usual trick —
+     * `readline_callback_handler_install` followed by raw single-character reads — relies on
+     * readline having put the terminal into a no-echo mode as a side effect, and whether it does
+     * depends on which readline the host linked. It was observed suppressing echo on one build and
+     * NOT suppressing it on another, with the password appearing verbatim in the terminal. The
+     * alternative, shelling out to `stty`, is process execution, which the no-external-action
+     * tripwire forbids across this entire codebase — correctly.
+     *
+     * So there is nothing here to fall back TO, and a fallback that echoes is worse than no
+     * interactive path at all: an operator who does not know the password was displayed cannot
+     * decide whether the terminal it went to was safe. The command refuses and names the flag.
+     *
+     * WHAT THE OPERATOR USES INSTEAD is a no-echo primitive that IS proved — their own shell's:
+     *
+     *     read -rs -p 'Password: ' PW; echo
+     *     printf '%s\n' "$PW" | php ops/onboard-beta-user.php ... --password-stdin
+     *
+     * or a pipe straight from a secret manager, which is better again because the value never
+     * enters a shell variable. Either way the secrecy rests on a mechanism somebody can inspect
+     * rather than on a library's undocumented side effect.
      *
      * THE VALUE IS NEVER RETURNED ANYWHERE BUT HERE. Callers hand it straight to the service that
      * hashes it. Nothing in either command prints it, logs it, or puts it in the JSON result.
      */
-    public static function readPassword(bool $fromStdin, string $prompt, callable $fail): string
+    public static function readPassword(bool $fromStdin, string $purpose, callable $fail): string
     {
-        if ($fromStdin) {
-            $line = fgets(STDIN);
-            if ($line === false) {
-                $fail('--password-stdin was given but stdin held nothing');
-            }
-            // Only the trailing newline. Leading and interior whitespace are part of a passphrase,
-            // and trimming them would silently accept a different password than the one supplied.
-            $value = rtrim((string) $line, "\r\n");
-            if ($value === '') {
-                $fail('the password read from stdin was empty');
-            }
-
-            return $value;
+        if (!$fromStdin) {
+            $fail(
+                "a password is required to {$purpose}, and this command reads one only from stdin: "
+                . 'pass --password-stdin and pipe it in. There is no interactive prompt, because PHP '
+                . 'has no portable way to suppress terminal echo and a prompt that might display the '
+                . 'password is worse than none. Use your shell\'s own: '
+                . "read -rs PW; printf '%s\\n' \"\$PW\" | php <command> ... --password-stdin"
+            );
         }
 
-        if (!stream_isatty(STDIN)) {
-            $fail('no terminal is attached; pipe the password and pass --password-stdin');
-        }
-
-        $first = self::promptSilently($prompt);
-        $second = self::promptSilently('Repeat: ');
-        if ($first !== $second) {
-            $fail('the two passwords did not match');
-        }
-        if ($first === '') {
-            $fail('an empty password is not a password');
-        }
-
-        return $first;
-    }
-
-    /**
-     * One prompt with terminal echo suppressed.
-     *
-     * `stty` is invoked through `shell_exec`-free means deliberately: the no-external-action
-     * tripwire forbids process execution across the application, and `ops/` is included in it. So
-     * echo is suppressed by PHP's own readline support where the host provides it, and where it
-     * does not the operator is told rather than silently typing a visible password.
-     */
-    private static function promptSilently(string $prompt): string
-    {
-        if (function_exists('readline_callback_handler_install')) {
-            // The one portable way to read a line without echo in plain PHP: install a per-character
-            // handler, print nothing, and stop at the newline.
-            fwrite(STDERR, $prompt);
-            $value = '';
-            readline_callback_handler_install('', static function (): void {
-            });
-            while (true) {
-                $char = stream_get_contents(STDIN, 1);
-                if ($char === "\n" || $char === "\r" || $char === '' || $char === false) {
-                    break;
-                }
-                if ($char === "\x7f" || $char === "\x08") {
-                    $value = substr($value, 0, -1);
-                    continue;
-                }
-                if ($char === "\x03") {
-                    readline_callback_handler_remove();
-                    fwrite(STDERR, PHP_EOL);
-                    exit(130);
-                }
-                $value .= $char;
-            }
-            readline_callback_handler_remove();
-            fwrite(STDERR, PHP_EOL);
-
-            return $value;
-        }
-
-        // NO SILENT DEGRADATION TO A VISIBLE PASSWORD. An operator who does not know the password
-        // was echoed cannot decide whether the terminal it went to was safe.
-        fwrite(STDERR, $prompt . '(WARNING: this terminal cannot suppress echo; the password will '
-            . 'be visible. Use --password-stdin instead.)' . PHP_EOL);
         $line = fgets(STDIN);
+        if ($line === false) {
+            $fail('--password-stdin was given but stdin held nothing');
+        }
 
-        return $line === false ? '' : rtrim($line, "\r\n");
+        // Only the trailing newline. Leading and interior whitespace are part of a passphrase, and
+        // trimming them would silently accept a different password than the one supplied.
+        $value = rtrim((string) $line, "\r\n");
+        if ($value === '') {
+            $fail('the password read from stdin was empty');
+        }
+
+        return $value;
     }
 
     /**

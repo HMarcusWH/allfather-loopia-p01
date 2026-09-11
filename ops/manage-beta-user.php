@@ -10,13 +10,22 @@ declare(strict_types=1);
  *
  *   inspect          what state the account is in, and why a partner might be seeing what they see
  *   suspend          stop the account signing in; every live session ends now
- *   reactivate       return a suspended or locked account to service; old sessions stay revoked
+ *   reactivate       return the account to full service: status ACTIVE, lock-out cleared,
+ *                    outstanding sessions ended so it signs in again
+ *
+ * TWO LOCKS, AND `reactivate` OWNS ONE. `platform_users.failed_attempts` / `locked_until` is the
+ * account lock, and reactivate clears it. `auth_attempts` additionally rate-limits an ADDRESS for
+ * fifteen minutes, and that ledger is append-only by trigger — no command here clears it, on
+ * purpose. So a partner who still cannot sign in immediately after a reactivation is waiting out a
+ * window that expires by itself, not sitting behind a reactivation that failed.
  *   reset-password   issue a replacement password the holder must then change again
  *   revoke-sessions   end every live session, leaving the lifecycle state alone
  *   retire           terminal. There is no transition out of it.
  *
- * `reset-password` reads the new value from a silent prompt, or from stdin with --password-stdin.
+ * `reset-password` reads the new value from stdin, with --password-stdin, and from nowhere else.
  * A password on argv is refused by name: it would be in the process list and the shell history.
+ * There is no interactive prompt — PHP has no portable way to suppress terminal echo — so use your
+ * shell's own: read -rs PW; printf '%s\n' "$PW" | php ops/manage-beta-user.php reset-password ...
  *
  * WHY THIS EXISTS AT ALL. The alternative is an operator with a SQL client open against the beta
  * database, and every one of these commands is then an UPDATE somebody types from memory at the
@@ -122,11 +131,7 @@ $result = match ($command) {
         $platformUserId,
         // Read only once the account has been found and the command is certain to act. Prompting
         // first and failing afterwards would have had the operator type a password for nothing.
-        BetaCli::readPassword(
-            isset($args['password-stdin']),
-            "Replacement password for {$account['email']}: ",
-            $fail,
-        ),
+        BetaCli::readPassword(isset($args['password-stdin']), 'replace this password', $fail),
     ),
 };
 

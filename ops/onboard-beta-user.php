@@ -9,7 +9,12 @@ declare(strict_types=1);
  *   php ops/onboard-beta-user.php --tenant-key=acme --workspace-key=main \
  *       --email=partner@example.com --display-name="A Partner" \
  *       --operator-name="A Partner" [--roles=console_reader,p01_reader] \
- *       [--password-stdin] [--replace-live-subscription] [--env=path] [--dry-run]
+ *       --password-stdin [--replace-live-subscription] [--env=path] [--dry-run]
+ *
+ *   The password is read from stdin and nowhere else. There is no interactive prompt: PHP has no
+ *   portable way to suppress terminal echo, and a prompt that might display the password is worse
+ *   than none. Use your shell's own no-echo read:
+ *       read -rs PW; printf '%s\n' "$PW" | php ops/onboard-beta-user.php ... --password-stdin
  *
  * WHAT IT COMPOSES, in order, each step belonging to the component that owns it:
  *   1. locate an existing tenant and workspace                 (this file; they must already exist)
@@ -176,8 +181,66 @@ if (trim($args['display-name']) === '') {
     $fail('--display-name cannot be blank', 2);
 }
 
+// THE COMMERCIAL CONFLICT IS KNOWABLE NOW. `subscribeTenant` refuses a tenant already on a
+// different live tier, and that is a read: a preflight that exits before looking is a preflight
+// that says DRY_RUN_OK for a run which then refuses on its first statement.
+$liveSubscription = $db->one(
+    "SELECT ts.tenant_subscription_id, ts.status, st.tier_key
+     FROM tenant_subscriptions ts
+     JOIN subscription_tiers st ON st.subscription_tier_id = ts.subscription_tier_id
+     WHERE ts.tenant_id = ? AND ts.status IN ('TRIAL', 'ACTIVE')",
+    [$tenantId]
+);
+if ($liveSubscription !== null
+    && (string) $liveSubscription['tier_key'] !== BetaBundle::TIER_KEY
+    && !isset($args['replace-live-subscription'])
+) {
+    $fail(sprintf(
+        "the tenant holds a live '%s' subscription. Pass --replace-live-subscription to transition "
+        . 'it to CANCELLED and put the tenant on %s.',
+        (string) $liveSubscription['tier_key'],
+        BetaBundle::TIER_KEY,
+    ), 5);
+}
+
+// AND SO IS THE MEMBERSHIP STATE. `addRoleMembership` refuses a membership that exists in any state
+// but ACTIVE, and refuses an operator that is not ACTIVE — both reads, both knowable before the
+// first write. Only reachable when the account already exists, because until then there is no
+// operator for a membership to belong to.
+if ($existingAccount !== null) {
+    $existingOperatorId = (string) $existingAccount['operator_id'];
+
+    if ((string) $existingAccount['operator_status'] !== 'ACTIVE') {
+        $fail(sprintf(
+            "the governed operator behind that address is %s, not ACTIVE. A stood-down identity does "
+            . 'not accumulate new role memberships; reinstate the operator deliberately first.',
+            (string) $existingAccount['operator_status'],
+        ), 5);
+    }
+
+    foreach ($roleKeys as $roleKey) {
+        $membership = $db->one(
+            "SELECT m.status FROM workspace_memberships m
+             JOIN roles r ON r.role_id = m.role_id
+             JOIN workspaces w ON w.workspace_id = m.workspace_id AND w.tenant_id = m.tenant_id
+             WHERE m.tenant_id = ? AND w.workspace_key = ? AND m.principal_type = 'OPERATOR'
+               AND m.principal_id = ? AND r.role_key = ?",
+            [$tenantId, $args['workspace-key'], $existingOperatorId, $roleKey]
+        );
+        if ($membership !== null && (string) $membership['status'] !== 'ACTIVE') {
+            $fail(sprintf(
+                "the '%s' membership already exists and is %s. A withdrawn or expired membership is "
+                . 'restored deliberately, not by re-running onboarding.',
+                $roleKey,
+                (string) $membership['status'],
+            ), 5);
+        }
+    }
+}
+
 if (isset($args['dry-run'])) {
-    fwrite(STDERR, 'onboard-beta-user: dry run — scope, roles, tier and identity validated, nothing written' . PHP_EOL);
+    fwrite(STDERR, 'onboard-beta-user: dry run — scope, roles, tier, identity, subscription and '
+        . 'membership state validated, nothing written' . PHP_EOL);
     BetaCli::emit([
         'status' => 'DRY_RUN_OK',
         'tenant_id' => $tenantId,
@@ -187,8 +250,14 @@ if (isset($args['dry-run'])) {
         // Whether the tier would be CREATED by a real run, which is the thing a dry run must be
         // able to say without having done it.
         'tier_exists' => $tierCheck->value()['subscription_tier_id'] !== null,
+        'live_subscription_tier_key' => $liveSubscription === null
+            ? null
+            : (string) $liveSubscription['tier_key'],
+        'would_replace_live_subscription' => $liveSubscription !== null
+            && (string) $liveSubscription['tier_key'] !== BetaBundle::TIER_KEY,
         'roles' => $roleKeys,
         'account_exists' => $existingAccount !== null,
+        'password_required' => $existingAccount === null,
     ]);
 }
 
@@ -196,11 +265,7 @@ if (isset($args['dry-run'])) {
 
 // Read BEFORE any write, so an operator who abandons the prompt leaves nothing behind.
 $password = $existingAccount === null
-    ? BetaCli::readPassword(
-        isset($args['password-stdin']),
-        "Initial password for {$emailAddress}: ",
-        $fail,
-    )
+    ? BetaCli::readPassword(isset($args['password-stdin']), 'open this account', $fail)
     : null;
 
 if ($password !== null) {
