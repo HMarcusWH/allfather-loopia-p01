@@ -196,7 +196,38 @@ place `APP_MASTER_KEY` or database credentials on the host. Record the finding a
 isolation (E.1) and the server's HTTP refusal of private paths on this site (E.2). It does not
 attest that web PHP on a sibling site is confined, and the record's own note must say so.
 
+### E.3 The web-PHP isolation decision — REQUIRED BEFORE GATE F
+
+Gate E.1 closes SSH/CLI isolation and E.2 closes this site's HTTP refusal of private paths. Neither
+closes **cross-site isolation of the web PHP identity**, and Gate F is where `DB_PASSWORD` and
+`APP_MASTER_KEY` go onto the host. Proceeding on a clean E.1 alone would place those secrets while
+the boundary that decides whether a sibling site's web PHP can read them is, in this repository's
+own words, an open blocker — `LOOPIA_HOST_MODEL.md` §5 blocker 4. Gate E's whole reason for existing
+is that a secret placed before the answer is a secret already exposed for however long the answer
+takes; a narrower Gate E does not change that, it just means less of the question is closed.
+
+So **one of these must be true before Gate F**, and which one must be recorded:
+
+| Route | What it takes |
+| --- | --- |
+| **Loopia states it in writing** | An assurance from Loopia, in a ticket you can cite, that web PHP for one site in a shared account cannot read another site's private files. File it as the `CROSS_SITE_ISOLATION` record's `evidence_ref`, and quote it in the `note`. |
+| **A host proof of the web identity** | Any measurement that establishes it without adding a file-reading endpoint to this projection — a Loopia-provided per-site PHP configuration showing `open_basedir` confinement of the web SAPI, or an equivalent they will stand behind. There is deliberately no tool here for this: see below. |
+| **The owner accepts the risk, explicitly** | A recorded owner decision to place staging secrets with web-PHP isolation UNVERIFIED, naming what is at stake: the staging database password and `APP_MASTER_KEY`, readable by a sibling site's web PHP if the boundary does not hold. Use a distinct staging master key and a staging-only database user with rights to nothing else, so the blast radius is the staging deployment alone. |
+
+The third route is a decision, not a check, and it is the owner's — not this runbook's and not the
+operator's. **Do not take it silently.** If it is taken, the `CROSS_SITE_ISOLATION` record's `note`
+must say that web-PHP isolation was UNVERIFIED at the time the secrets were placed, so the evidence
+file says what was actually known rather than what was hoped.
+
+**Why there is no tool for route 2.** A web-SAPI equivalent of the canary needs a reader reachable
+over HTTP, which is exactly the arbitrary-read oracle `SECURITY_BOUNDARY.md` §2 exists to prevent,
+and `public_html/` is a closed set of four entries pinned by
+`tests/foundation/deployment_boundary.php`. Adding an endpoint to answer a security question would
+create the exposure it was meant to measure.
+
 ## Gate F — Configure staging
+
+**Do not start this gate until E.3 has been answered and recorded.**
 
 Private `.env` in `~/<domain>/`, never in `public_html/`, never in git:
 
@@ -452,8 +483,14 @@ Perform a real rollback to the previous known-good release and back, following
 
     php ops/rollback/verify-stand-down.php \
       --expect-release=<the restored SHA> \
+      --expect-fingerprint=<the source_fingerprint preflight printed for that release> \
       --email=<the internal test account> \
       --env=.env
+
+`--expect-fingerprint` is what makes the release claim a measurement. Without it the verifier reports
+`release_claim_source: CONFIGURATION` and raises a finding, because `APP_RELEASE_REF` is a line an
+operator maintains by hand: a restore that failed while the `.env` edit succeeded leaves it naming
+exactly the right release while the old code serves.
 
 **Pass requires** `"status": "STAND_DOWN_VERIFIED"`, with `m10_integrity.failed: 0`.
 

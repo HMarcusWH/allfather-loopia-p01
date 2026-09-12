@@ -432,6 +432,16 @@ final class DeploymentEvidence
             if (!is_string($target) || preg_match('/^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$/D', $target) !== 1) {
                 $problems[] = "{$at}.target must be a lowercase host name";
             }
+        } elseif (is_string($record['environment'] ?? null)
+            && in_array($record['environment'], self::HOST_ENVIRONMENTS, true)
+        ) {
+            // A HOST RECORD THAT DOES NOT NAME ITS HOST CANNOT BE PAIRED WITH ANOTHER. The same
+            // release SHA can be deployed to several hosts, so a deployment of one and a probe of
+            // another would otherwise satisfy every same-release rule in this file while no single
+            // host had ever been both deployed to and probed. `target` is optional for `ci`,
+            // `testing` and `development`, where there is no host to name.
+            $problems[] = "{$at}.target is required for a {$record['environment']} record — "
+                . 'a host record must name the host it speaks about';
         }
         if (array_key_exists('note', $record)) {
             $note = $record['note'];
@@ -588,16 +598,38 @@ final class DeploymentEvidence
             $at = (string) $record['recorded_at'];
             if ($latestAt === null || $at > $latestAt) {
                 $latestAt = $at;
-                $releases = [(string) $record['release_ref']];
+                $releases = [self::hostScope($record)];
                 continue;
             }
             if ($at === $latestAt) {
-                $releases[] = (string) $record['release_ref'];
+                $releases[] = self::hostScope($record);
             }
         }
         $releases = array_values(array_unique($releases));
 
         return count($releases) === 1 ? $releases[0] : null;
+    }
+
+    /**
+     * The identity a host claim is actually about: environment, target host, and release.
+     *
+     * RELEASE ALONE IS NOT THE PAIR. The same release SHA can sit on several hosts, so a
+     * `STAGING_DEPLOYMENT` PASS for one target and a `LOOPIA_PROBE_001` PASS for another satisfied
+     * every same-release rule here while no single host had been both deployed to and probed — and
+     * with only `environment` in the closed vocabulary, a staging deployment could even have been
+     * paired with a production probe. The scope is the triple, and records that do not carry a
+     * target never reach this function: `supportsHostClaim()` refuses them first.
+     *
+     * @param array<string, mixed> $record
+     */
+    private static function hostScope(array $record): string
+    {
+        // A separator no field may contain, so two different triples cannot collide into one string.
+        return implode("\0", [
+            (string) $record['environment'],
+            (string) ($record['target'] ?? ''),
+            (string) $record['release_ref'],
+        ]);
     }
 
     /**
@@ -614,16 +646,16 @@ final class DeploymentEvidence
     {
         $current = $this->currentDeployedRelease();
 
-        return $current !== null && in_array($current, $this->releasesWithHostPass('LOOPIA_PROBE_001'), true);
+        return $current !== null && in_array($current, $this->scopesWithHostPass('LOOPIA_PROBE_001'), true);
     }
 
     /** @return list<string> */
-    private function releasesWithHostPass(string $kind): array
+    private function scopesWithHostPass(string $kind): array
     {
         $out = [];
         foreach ($this->records as $record) {
             if ($record['kind'] === $kind && $record['result'] === 'PASS' && $this->supportsHostClaim($record)) {
-                $out[] = (string) $record['release_ref'];
+                $out[] = self::hostScope($record);
             }
         }
 
@@ -637,7 +669,14 @@ final class DeploymentEvidence
      */
     private function supportsHostClaim(array $record): bool
     {
-        return in_array((string) $record['environment'], self::HOST_ENVIRONMENTS, true);
+        if (!in_array((string) $record['environment'], self::HOST_ENVIRONMENTS, true)) {
+            return false;
+        }
+
+        // AND IT MUST SAY WHICH HOST. `parse()` already reports an untargeted host record as a
+        // problem; this refuses it again at the point the claim is computed, so a registry read
+        // through any path cannot have an anonymous host record support a claim about a host.
+        return is_string($record['target'] ?? null) && $record['target'] !== '';
     }
 
     /**

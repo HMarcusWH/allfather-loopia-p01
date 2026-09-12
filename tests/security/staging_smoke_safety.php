@@ -376,6 +376,66 @@ Assert::contains(
     $code,
     'and must not be the front controller HTML a swallowing rewrite would return',
 );
-Assert::contains('], $served);', $code, 'all of which is the step verdict rather than a note beside it');
+Assert::contains(
+    '], $served, ',
+    $code,
+    'all of which is the step verdict rather than a note beside it',
+);
 // The asset bytes are never recorded — only their count and whether they open like a document.
 Assert::false(str_contains($code, "'body' => \$asset"), 'the asset body is never put in a step record');
+
+// ============================================================ a metric nobody can satisfy is broken
+
+// NOT EVERY RESPONSE CAN CARRY `X-Request-ID`. Only the front controller stamps one:
+// `public_html/scheduler.php` is a separate entry point that never runs the Kernel, and `assets/` is
+// served by the web server without the application running at all. Counting those as faults meant a
+// correctly configured deployment always produced a non-zero count, `SMOKE_FAIL`, and a Gate N that
+// could not be passed. A check nobody can satisfy is not a strict check; the first thing it teaches
+// an operator is to ignore the number.
+Assert::contains(
+    "string \$reference = 'REQUIRED',",
+    $code,
+    'each step declares whether its response can carry a request reference at all',
+);
+foreach ([
+    ["\$record('scheduler endpoint refuses GET', 'GET', '/scheduler.php', \$schedulerGet, [405], [], true, 'NOT_APPLICABLE');",
+        'the scheduler entry point is exempt — it never runs the Kernel'],
+    ["], \$served, 'NOT_APPLICABLE');",
+        'and so are the static assets, which the web server serves without the application'],
+    ["], true, 'EITHER');",
+        'a private path is either — the web server may refuse it before the application ever runs'],
+] as [$needle, $why]) {
+    Assert::contains($needle, $code, $why);
+}
+Assert::contains(
+    "if (\$expectation === 'NOT_APPLICABLE') {",
+    $code,
+    'the exempt responses are not counted as missing',
+);
+Assert::contains(
+    "'responses_exempt_from_request_reference' => \$referenceExempt,",
+    $code,
+    'and the exempt count is reported, so the zero cannot be read as "every response carried one"',
+);
+
+// ============================================================ a JSON 401 must be JSON
+
+// The step is named for the contract it proves — a `fetch()` that receives a login page renders it
+// into the console — and gating on the status alone did not enforce it. A host answering 401 with
+// HTML passed the check that exists to catch exactly that.
+Assert::contains(
+    "\$anonIsJson = (\$anonDecision['envelope'] ?? null) === 'JSON'",
+    $code,
+    'the anonymous refusal must decode as a JSON envelope',
+);
+Assert::contains(
+    "str_contains(strtolower(explode(';', \$anonContext['content_type'])[0]), 'json')",
+    $code,
+    'and be served with a JSON media type',
+);
+Assert::contains(
+    "&& \$anonContext['location'] === null;",
+    $code,
+    'and must not be a redirect, which is the HTML sign-in path this step exists to exclude',
+);
+Assert::contains('], $anonIsJson);', $code, 'and all of that is the step verdict, not a field beside it');

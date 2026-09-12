@@ -47,6 +47,7 @@ use Allfather\Loopia\Http\ConsoleAssetManifest;
 use Allfather\Loopia\Jobs\SchedulerAuth;
 use Allfather\Loopia\Ops\BetaCli;
 use Allfather\Loopia\Ops\DeploymentEvidence;
+use Allfather\Loopia\Ops\SourceFingerprint;
 use Allfather\Loopia\Ops\StandDownPosture;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
 
@@ -57,18 +58,30 @@ $fail = static function (string $message, int $code = 2): never {
 
 /**
  * Usage:
- *   php ops/rollback/verify-stand-down.php --expect-release=<40-character git SHA> [--env=path]
+ *   php ops/rollback/verify-stand-down.php --expect-release=<40-character git SHA> \
+ *                                          --expect-fingerprint=<64-character sha256> [--env=path]
  *   php ops/rollback/verify-stand-down.php --expect-release=<sha> --email=<test account>
+ *
+ * `--expect-fingerprint` is the `source_fingerprint` that `ops/deploy/preflight.php` printed for
+ * the release being restored. It is what makes the release answer a MEASUREMENT rather than a
+ * restatement of `.env`; omitting it is permitted and produces a finding, because a verifier that
+ * quietly accepted the configuration value would be reporting the operator's intention back to them.
  *
  * `--email` is OPTIONAL and names ONE account. There is deliberately no "check every account": a
  * verifier that enumerated logins would be a lifecycle oracle for the whole deployment, and what an
  * operator needs after a restore is the state of the test account they are about to sign in with.
  */
-$args = BetaCli::parseArgs($argv, ['expect-release', 'email', 'env'], $fail);
+$args = BetaCli::parseArgs($argv, ['expect-release', 'expect-fingerprint', 'email', 'env'], $fail);
 
 $expectRelease = $args['expect-release'] ?? '';
 if (preg_match('/^[0-9a-f]{40}$/D', $expectRelease) !== 1) {
     $fail('--expect-release must be the full 40-character lowercase git SHA of the release that should now be live');
+}
+$expectFingerprint = $args['expect-fingerprint'] ?? '';
+if ($expectFingerprint !== '' && $expectFingerprint !== '1'
+    && preg_match('/^[0-9a-f]{64}$/D', $expectFingerprint) !== 1
+) {
+    $fail('--expect-fingerprint must be the 64-character lowercase sha256 that preflight printed as source_fingerprint');
 }
 
 $root = dirname(__DIR__, 2);
@@ -88,6 +101,23 @@ $observed = ['expected_release' => $expectRelease];
 
 $runningRelease = $env->get('APP_RELEASE_REF');
 $observed['running_release'] = $runningRelease;
+
+// WHAT IS RUNNING, MEASURED. `APP_RELEASE_REF` is a line an operator maintains by hand, and a
+// rollback is two steps: restore the code, update the configuration. If the restore fails or is
+// skipped while the configuration step succeeds, that value equals the release you asked for and
+// the OLD CODE IS STILL SERVING — with a valid console manifest from the previous build and an
+// unchanged scheduler posture, so every other signal looks healthy. The verifier would then agree
+// with the operator about something neither of them had checked.
+//
+// So the tree is hashed. `--expect-fingerprint` is the digest `ops/deploy/preflight.php` printed
+// for the release being restored, and comparing the two answers what is on disk rather than what
+// `.env` claims. Omitting it is allowed and is itself a finding: the release claim is then
+// configuration only, and saying so is the honest verdict.
+$deployedFingerprint = SourceFingerprint::compute($root);
+$observed['expected_fingerprint'] = $expectFingerprint === '' || $expectFingerprint === '1'
+    ? null
+    : $expectFingerprint;
+$observed['deployed_fingerprint'] = $deployedFingerprint;
 
 // The Operator Console manifest has to match the RESTORED code, not the one that was rolled back
 // from. A restored application tree beside a newer staged bundle is the failure mode that looks
@@ -275,6 +305,12 @@ BetaCli::emit([
     'status' => $status,
     'environment' => $environment,
     'expected_release_ref' => $expectRelease,
+    // THE SOURCE OF THE RELEASE CLAIM, stated beside it. CONFIGURATION means the only thing backing
+    // it is a line in `.env`; MEASURED means the deployed tree was hashed and matched.
+    'release_claim_source' => $observed['expected_fingerprint'] === null ? 'CONFIGURATION' : 'MEASURED',
+    'expected_source_fingerprint' => $observed['expected_fingerprint'],
+    'deployed_source_fingerprint' => $deployedFingerprint,
+    'source_fingerprint_covers' => SourceFingerprint::DIRECTORIES,
     'running_release_ref' => $runningRelease,
     'operator_console_manifest' => $consoleManifest,
     'scheduler' => $schedulerPosture,

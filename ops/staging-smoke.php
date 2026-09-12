@@ -303,8 +303,15 @@ $sameOrigin = static function (?string $location) use ($origin): bool {
  * `$alsoRequires` is for the checks whose subject is not the status code: a step may answer exactly
  * the expected status and still have failed, and the scope-override probe is precisely that shape.
  *
+ * `$reference` says whether THIS response can carry `X-Request-ID` at all. Only the front
+ * controller stamps it — `public_html/scheduler.php` is a separate entry point with its own
+ * responder, and a static asset is served by the web server without the application running. A run
+ * that demanded one everywhere counted those as faults and could never reach SMOKE_PASS on a
+ * correctly configured host, which made Gate N unpassable rather than strict.
+ *
  * @param list<int> $expected
  * @param array<string, mixed> $safe
+ * @param 'REQUIRED'|'NOT_APPLICABLE'|'EITHER' $reference
  */
 $record = static function (
     string $step,
@@ -314,6 +321,7 @@ $record = static function (
     array $expected,
     array $safe = [],
     bool $alsoRequires = true,
+    string $reference = 'REQUIRED',
 ) use (&$steps, &$failures, $sameOrigin): bool {
     $redirectStaysHere = $response['location'] === null || $sameOrigin($response['location']);
     $ok = in_array($response['status'], $expected, true)
@@ -329,6 +337,7 @@ $record = static function (
         'request_id' => RequestId::isWellFormed($response['request_id']) ? $response['request_id'] : null,
         'content_type' => explode(';', $response['content_type'])[0],
         'redirect_stays_on_origin' => $redirectStaysHere,
+        'request_reference' => $reference,
         ...$safe,
         'result' => $ok ? 'PASS' : 'FAIL',
         'transport_error' => $response['error'],
@@ -431,10 +440,19 @@ $record('anonymous console shell redirects to sign-in', 'GET', '/console/app', $
 // THE DISTINCTION THAT MATTERS MOST for a browser client: an anonymous JSON read must answer JSON
 // 401, not an HTML redirect. A fetch() that received a login page would render it into the console.
 $anonContext = $send('GET', '/console/api/v1/context');
+// THE STEP'S NAME IS ITS PREDICATE, and gating on the status alone did not enforce it. A host
+// answering 401 with an HTML error page passed this check while breaking exactly the contract it
+// exists to prove: a `fetch()` that receives a login page renders it into the console. The JSON
+// envelope, a JSON content type and the absence of a redirect are all part of the verdict.
+$anonDecision = $decision($anonContext);
+$anonIsJson = ($anonDecision['envelope'] ?? null) === 'JSON'
+    && str_contains(strtolower(explode(';', $anonContext['content_type'])[0]), 'json')
+    && $anonContext['location'] === null;
 $record('anonymous JSON read is a JSON 401', 'GET', '/console/api/v1/context', $anonContext, [401], [
-    ...$decision($anonContext),
+    ...$anonDecision,
     'is_html_redirect' => $anonContext['location'] !== null,
-]);
+    'json_envelope_and_type' => $anonIsJson,
+], $anonIsJson);
 
 $login = $send('GET', '/login');
 $record('sign-in page', 'GET', '/login', $login, [200]);
@@ -448,7 +466,10 @@ $record('POST without a CSRF token is refused', 'POST', '/login', $unverified, [
 // The scheduler door is POST-only, and an unconfigured credential makes it unreachable rather than
 // open. A GET must be 405 — never 200, and never a 404 that would hide a misconfigured schedule.
 $schedulerGet = $send('GET', '/scheduler.php');
-$record('scheduler endpoint refuses GET', 'GET', '/scheduler.php', $schedulerGet, [405]);
+// NO REFERENCE EXPECTED. `public_html/scheduler.php` is a separate entry point: it never builds a
+// Request and never runs the Kernel, so it cannot stamp `X-Request-ID`. Demanding one here would
+// fail a correctly configured deployment for a header that entry point has never sent.
+$record('scheduler endpoint refuses GET', 'GET', '/scheduler.php', $schedulerGet, [405], [], true, 'NOT_APPLICABLE');
 
 // THE PRIVATE TREE, over HTTP. This is the half `tests/foundation/deployment_boundary.php` cannot
 // reach: it proves the layout, and this proves the host honours it.
@@ -466,9 +487,13 @@ foreach ([
     '/deployment-evidence.json',
 ] as $private) {
     $response = $send('GET', $private);
+    // EITHER, and both are correct. `.env` is refused by the web server's own dotfile rule before
+    // the application runs, so no reference exists; a path that does not exist in the served tree
+    // is rewritten to the front controller and answered by the application, which stamps one. Which
+    // of the two happens is a property of the host's configuration, not a fault.
     $record('private path is not served', 'GET', $private, $response, [403, 404], [
         'body_bytes' => strlen($response['body']),
-    ]);
+    ], true, 'EITHER');
 }
 
 // ============================================================ authenticated modes
@@ -604,11 +629,14 @@ if ($mode !== 'anonymous') {
             && in_array(strtolower($type), $acceptable, true)
             && $asset['body'] !== ''
             && !$looksLikeHtml;
+        // NO REFERENCE EXPECTED: `.htaccess` serves `assets/` as itself, so the application never
+        // runs for these and no header is stamped. That is the intended configuration — a static
+        // asset routed through the front controller would be the misconfiguration.
         $record("the console {$kind} is delivered", 'GET', $assetPath, $asset, [200], [
             'media_type_acceptable' => in_array(strtolower($type), $acceptable, true),
             'body_bytes' => strlen($asset['body']),
             'looks_like_html' => $looksLikeHtml,
-        ], $served);
+        ], $served, 'NOT_APPLICABLE');
     }
 
     foreach ($readPaths as $path) {
@@ -666,10 +694,31 @@ if ($mode !== 'anonymous') {
 
 // ============================================================ report
 
-// EVERY RESPONSE CARRIES A REFERENCE, and the support flow depends on it. A missing one is not a
-// separate step; it is a property of the whole run, so it is reported as one.
+// EVERY FRONT-CONTROLLER RESPONSE CARRIES A REFERENCE, and the support flow depends on it. A
+// missing one is not a separate step; it is a property of the whole run, so it is reported as one.
+//
+// NOT EVERY RESPONSE CAN CARRY ONE, and counting the ones that cannot made this metric unsatisfiable.
+// `public_html/scheduler.php` is a separate entry point that never runs the Kernel, and `assets/` is
+// served by the web server without the application running at all — so a correctly configured
+// deployment always produced a non-zero count, `SMOKE_FAIL`, and a Gate N that could not be passed.
+// A check nobody can satisfy is not a strict check; it is a broken one, and the first thing it
+// teaches an operator is to ignore the number.
+//
+// The exempt and optional counts are reported beside it, so a reader can see that the zero is a
+// zero over the responses that were actually required to carry a reference.
 $withoutReference = 0;
+$referenceExempt = 0;
+$referenceOptional = 0;
 foreach ($steps as $step) {
+    $expectation = $step['request_reference'] ?? 'REQUIRED';
+    if ($expectation === 'NOT_APPLICABLE') {
+        $referenceExempt++;
+        continue;
+    }
+    if ($expectation === 'EITHER') {
+        $referenceOptional++;
+        continue;
+    }
     if ($step['request_id'] === null) {
         $withoutReference++;
     }
@@ -683,6 +732,9 @@ BetaCli::emit([
     'step_count' => count($steps),
     'failures' => $failures,
     'responses_without_request_reference' => $withoutReference,
+    // Named so the zero above cannot be read as "every response carried one".
+    'responses_exempt_from_request_reference' => $referenceExempt,
+    'responses_where_either_is_correct' => $referenceOptional,
     'status' => $failures === 0 && $withoutReference === 0 ? 'SMOKE_PASS' : 'SMOKE_FAIL',
     // Restated where an operator reads the result: a passing smoke run says the deployment answers
     // correctly. It records nothing, grants nothing, and is not itself the evidence — filing it is

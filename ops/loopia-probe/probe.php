@@ -146,8 +146,20 @@ $record('date_timezone', 'PRESENT', date_default_timezone_get(),
 // question is whether the exact private-storage operations this application performs actually work,
 // and those are demonstrated below on their own. A restriction that does not block them is not a
 // problem, and one that does will surface as a MISSING storage capability rather than as a guess.
+//
+// AND THE VALUE IS NOT REPORTED. On the shared hosting this probe is written for, `open_basedir`
+// contains absolute account, domain and home-directory paths — and this report is designed to be
+// pasted into a ticket and filed as an evidence artifact. An earlier revision of this PR widened
+// the old `set`/`unset` summary to the raw setting, which put those paths in every artifact and
+// broke the command's own guarantee that it discloses no absolute host path.
+//
+// The count is kept because it is the one thing a reader might act on — several entries usually
+// means the private storage path was added to an existing restriction — and a count names nothing.
+$basedir = (string) ini_get('open_basedir');
 $record('open_basedir', 'PRESENT',
-    ini_get('open_basedir') === '' ? 'unset' : ini_get('open_basedir'),
+    $basedir === ''
+        ? 'unset'
+        : ['configured' => true, 'entries' => count(array_filter(explode(PATH_SEPARATOR, $basedir), static fn (string $e): bool => trim($e) !== ''))],
     'Informational. What matters is whether the private-storage operations below succeed.');
 $record('disable_functions', 'PRESENT',
     array_values(array_filter(array_map('trim', explode(',', (string) ini_get('disable_functions'))))),

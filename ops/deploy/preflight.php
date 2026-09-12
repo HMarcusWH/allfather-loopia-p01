@@ -35,6 +35,7 @@ require __DIR__ . '/../../app/autoload.php';
 use Allfather\Loopia\Http\ConsoleAssetManifest;
 use Allfather\Loopia\Ops\BetaCli;
 use Allfather\Loopia\Ops\DeploymentEvidence;
+use Allfather\Loopia\Ops\SourceFingerprint;
 use Allfather\Loopia\Provider\SecretBox;
 use Allfather\Loopia\Support\Bootstrap;
 use Allfather\Loopia\Support\Env;
@@ -163,7 +164,15 @@ if ($configuredRelease === null) {
     $note('APP_RELEASE_REF does not match --release-ref');
 }
 
-foreach (['DB_NAME', 'DB_USER'] as $key) {
+// DB_PASSWORD IS A READINESS CHECK, NOT ONLY A REPORTED STATE. It was reported as SET/MISSING at
+// the bottom of the output and checked nowhere, so a staging configuration with no password —
+// absent, or present and blank, which `Env::has()` treats alike — exited 0 with
+// READY_FOR_INERT_STAGING_COPY. The deployment would then connect with an empty password and be
+// refused by Loopia's MariaDB, which is a failure to meet at preflight rather than after the copy.
+//
+// Checked by PRESENCE. The value is never read, never compared and never rendered; the report below
+// still says only SET or MISSING.
+foreach (['DB_NAME', 'DB_USER', 'DB_PASSWORD'] as $key) {
     if (!$env->has($key)) {
         $note("{$key} is not set");
     }
@@ -469,6 +478,13 @@ BetaCli::emit([
     'environment' => $environment,
     'base_url' => $baseUrl,
     'git_head' => $gitHead,
+    // THE DIGEST OF THE CODE ABOUT TO BE COPIED. Record it beside the release SHA: after the copy,
+    // `ops/rollback/verify-stand-down.php --expect-fingerprint=` compares the deployed tree against
+    // it and answers what is RUNNING, rather than what `.env` says should be. `APP_RELEASE_REF` is
+    // a line an operator maintains by hand, and a failed copy with a successful configuration step
+    // leaves it saying exactly the right thing about the wrong code.
+    'source_fingerprint' => SourceFingerprint::compute($root),
+    'source_fingerprint_covers' => SourceFingerprint::DIRECTORIES,
     'problems' => $problems,
     'operator_console' => $console,
     'app_master_key' => $masterKeyState,

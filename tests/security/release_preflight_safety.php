@@ -156,3 +156,33 @@ foreach ([
 ] as $stated) {
     Assert::contains($stated, $code, "the report states {$stated}");
 }
+
+// ============================================================ no password, no readiness
+
+// `DB_PASSWORD` was reported as SET/MISSING at the bottom of the output and checked nowhere, so a
+// staging configuration with no password — absent, or present and blank, which `Env::has()` treats
+// alike — exited 0 with READY_FOR_INERT_STAGING_COPY. The deployment would then connect with an
+// empty password and be refused by Loopia's MariaDB: a failure to meet before the copy, not after.
+Assert::contains(
+    "foreach (['DB_NAME', 'DB_USER', 'DB_PASSWORD'] as \$key) {",
+    $code,
+    'the database password is a readiness check, not only a reported state',
+);
+// AND STILL NEVER READ. Presence only; the report says SET or MISSING and nothing else.
+Assert::false(str_contains($code, "\$env->get('DB_PASSWORD')"), 'and its value is still never read');
+
+// ============================================================ the digest of what is being copied
+
+// `APP_RELEASE_REF` is a line an operator maintains by hand. Preflight prints a digest of the code
+// itself so that after the copy `ops/rollback/verify-stand-down.php --expect-fingerprint=` can
+// answer what is RUNNING rather than what `.env` says should be.
+Assert::contains(
+    "'source_fingerprint' => SourceFingerprint::compute(\$root),",
+    $code,
+    'preflight prints a digest of the tree it is validating',
+);
+Assert::contains(
+    "'source_fingerprint_covers' => SourceFingerprint::DIRECTORIES,",
+    $code,
+    'and says which directories it covers, so the two ends of the comparison cannot disagree silently',
+);

@@ -65,6 +65,7 @@ qualification database and nothing else — see `docs/BETA_RUNBOOK.md` Gate G.
 
        php ops/rollback/verify-stand-down.php \
          --expect-release=<the restored 40-character SHA> \
+         --expect-fingerprint=<the source_fingerprint preflight printed for it> \
          --email=<your internal test account>
 
    Then, from outside:
@@ -85,7 +86,20 @@ qualification database and nothing else — see `docs/BETA_RUNBOOK.md` Gate G.
 Read-only, and structurally so: no table, no file, no incident closed, no flag set. The most
 dangerous thing a verifier could do is resolve the situation it was asked to describe.
 
-- **The release the deployment believes it is running**, against the one you expected.
+- **The release the deployment believes it is running**, against the one you expected — and
+  separately, **the code that is actually on disk**. Those are different questions.
+  `APP_RELEASE_REF` is a line an operator maintains by hand, and a rollback is two steps: restore
+  the code, update the configuration. If the restore fails or is skipped while the configuration
+  step succeeds, that value equals the release you asked for and the OLD CODE IS STILL SERVING —
+  with a valid console manifest from the previous build, an unchanged scheduler posture and a ledger
+  that verifies, so every other signal looks healthy. So the verifier hashes the deployed tree and
+  compares it against `--expect-fingerprint`, the `source_fingerprint` that `ops/deploy/preflight.php`
+  printed for the release being restored. `release_claim_source` says which kind of claim you are
+  reading: `MEASURED` or `CONFIGURATION`.
+
+  **Omitting `--expect-fingerprint` is itself a finding.** Silently accepting a configuration value
+  as proof of the one thing this command exists to establish would be the same defect as computing a
+  posture and letting none of it reach the verdict.
 - **The Operator Console manifest**, loaded through `ConsoleAssetManifest` — the runtime's own
   validator, not a weaker restatement of it. A verifier more permissive than the thing it verifies
   reports a rollback as complete when it is not: an earlier revision accepted any object with a

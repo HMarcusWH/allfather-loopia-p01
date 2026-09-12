@@ -20,6 +20,7 @@ declare(strict_types=1);
  * as one that passes on everything.
  */
 
+use Allfather\Loopia\Ops\SourceFingerprint;
 use Allfather\Loopia\Ops\StandDownPosture;
 use Allfather\Loopia\Tests\Assert;
 
@@ -196,4 +197,109 @@ Assert::contains(
     "\$observed['console_manifest_valid'] = \$consoleManifest['valid'];",
     $command,
     'and the result reaches the rule as an observation, like everything else',
+);
+
+// ============================================================ the running CODE, not the .env line
+
+// `APP_RELEASE_REF` IS AN OPERATOR'S NOTE, NOT A MEASUREMENT. A rollback is two steps — restore the
+// code, update the configuration — and if the restore fails while the configuration step succeeds,
+// that value equals the release that was asked for while the OLD CODE SERVES. Every other signal
+// stays healthy: the previous build's console manifest is valid, the scheduler posture unchanged,
+// the ledger verifies. So the verifier would have agreed with the operator about the one thing
+// neither had checked.
+$otherTree = str_repeat('1', 64);
+Assert::equalsList(
+    ['the deployed code does not match the release that was preflighted — the '
+        . 'restore did not put this release on disk, whatever APP_RELEASE_REF says'],
+    $with(['deployed_fingerprint' => $otherTree]),
+    'a deployed tree that is not the preflighted release is a finding even when APP_RELEASE_REF agrees',
+);
+// AND AN ABSENT EXPECTATION IS A FINDING TOO. Silently accepting configuration-only evidence for the
+// claim this command exists to make would be the same defect as reporting a posture and letting
+// none of it reach the verdict.
+Assert::same(
+    1,
+    count(array_filter(
+        $with(['expected_fingerprint' => null]),
+        static fn (string $finding): bool => str_contains($finding, 'the running code was not verified'),
+    )),
+    'omitting --expect-fingerprint makes the release claim configuration-only, which is itself a finding',
+);
+Assert::equalsList(
+    ['the deployed tree holds none of the application directories — there is '
+        . 'nothing here to have restored'],
+    $with(['deployed_fingerprint' => SourceFingerprint::NOT_AVAILABLE]),
+    'and a tree with no application in it is reported as that rather than as a mismatch',
+);
+// The stood-down fixture supplies a matching pair, so a caller stating an unrelated deviation does
+// not accidentally also assert an unverified release.
+Assert::equalsList([], $with([]), 'a matching fingerprint produces no finding');
+
+// ============================================================ the fingerprint is a measurement
+
+// Determinism is the whole property: two machines hashing the same tree must agree, or the
+// comparison above is noise. Directory iteration order is a filesystem property, so paths are
+// sorted before anything is hashed.
+$root = dirname(__DIR__, 2);
+Assert::same(
+    SourceFingerprint::compute($root),
+    SourceFingerprint::compute($root),
+    'the fingerprint of one tree is stable across calls',
+);
+Assert::same(
+    64,
+    strlen(SourceFingerprint::compute($root)),
+    'and is a sha256 digest',
+);
+$inventory = SourceFingerprint::inventory($root);
+Assert::same(
+    array_keys($inventory),
+    (static function (array $keys): array {
+        sort($keys, SORT_STRING);
+
+        return $keys;
+    })(array_keys($inventory)),
+    'the inventory is sorted by path, so iteration order cannot change the digest',
+);
+// WHAT IT COVERS, and what it must not. `storage/` is runtime state that changes on every request
+// and would make the digest differ from itself; `.env` is configuration, and hashing it would put a
+// value derived from secrets into a report that gets pasted into tickets.
+Assert::equalsList(
+    ['app', 'database', 'public_html', 'worker'],
+    SourceFingerprint::DIRECTORIES,
+    'the digest covers exactly the directories that constitute the running deployment',
+);
+foreach (['storage', '.env', 'tests', 'frontend', 'docs'] as $excluded) {
+    Assert::false(
+        in_array($excluded, SourceFingerprint::DIRECTORIES, true),
+        "{$excluded} is not hashed — it is runtime state, configuration, or profile-dependent",
+    );
+}
+foreach ($inventory as $relative => $_digest) {
+    Assert::true(
+        in_array(explode(DIRECTORY_SEPARATOR, $relative)[0], SourceFingerprint::DIRECTORIES, true),
+        "every hashed path is inside a covered directory: {$relative}",
+    );
+}
+Assert::same(
+    SourceFingerprint::NOT_AVAILABLE,
+    SourceFingerprint::compute(sys_get_temp_dir() . '/allfather-nonexistent-' . bin2hex(random_bytes(4))),
+    'a tree holding no application directory answers NOT_AVAILABLE rather than a digest of nothing',
+);
+
+// And the command asks for it, reports both sides, and says which kind of claim the release is.
+Assert::contains(
+    "'expect-release', 'expect-fingerprint', 'email', 'env'",
+    $command,
+    'the verifier accepts --expect-fingerprint',
+);
+Assert::contains(
+    '$deployedFingerprint = SourceFingerprint::compute($root);',
+    $command,
+    'and measures the tree it is standing in',
+);
+Assert::contains(
+    "'release_claim_source' => \$observed['expected_fingerprint'] === null ? 'CONFIGURATION' : 'MEASURED',",
+    $command,
+    'and states whether the release claim is a measurement or a line in .env',
 );

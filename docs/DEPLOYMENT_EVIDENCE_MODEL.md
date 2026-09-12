@@ -93,7 +93,7 @@ quietest possible overclaim.
 | `recorded_at` | yes | canonical UTC `YYYY-MM-DDTHH:MM:SS.sssZ` |
 | `evidence_ref` | yes | a local POSIX relative path, no scheme, no traversal |
 | `evidence_sha256` | yes | 64-character lowercase sha256 of the referenced artifact |
-| `target` | no | the host the record speaks about, e.g. `staging.allfatherbi.com` |
+| `target` | **for a host record** | the host the record speaks about, e.g. `staging.allfatherbi.com` |
 | `note` | no | one printable ASCII line, at most 200 characters |
 
 The schema is **closed**. An unknown field is refused rather than ignored: a misspelled `result`
@@ -105,6 +105,23 @@ CI proves the code. It has never touched Loopia. A qualification report produced
 GitHub-hosted runner is legitimate evidence *of CI*, and `environment: "ci"` is how it is filed
 without being mistakable for a host record. Only `staging` and `production` records can support a
 claim about the real deployment target.
+
+### 4.3 A host record must name its host
+
+`target` is optional for `ci`, `testing` and `development` — there is no host for those to name, and
+a required-but-invented one would be a fiction in the evidence file. For `staging` and `production`
+it is **required**, and a record without it supports nothing.
+
+The reason is pairing. `loopia_capability_validated` needs a `STAGING_DEPLOYMENT` PASS and a
+`LOOPIA_PROBE_001` PASS **about the same deployment**, and the same release SHA can sit on several
+hosts. With release as the whole identity, a deployment to one host and a probe of another satisfied
+the rule while no single machine had been both deployed to and probed; with `environment` added, a
+staging deployment could still pair with a *production* probe. The scope is therefore the triple —
+environment, target, release — and an untargeted host record cannot form one.
+
+It is enforced twice on purpose: `parse()` reports it as a problem the diff reviewer sees, and the
+claim reducer refuses such a record again at the point a claim is computed, so no read path can let
+an anonymous host record speak for a host.
 
 **CI artifacts are not Loopia evidence.** The `qualification-mariadb-10.6` and
 `qualification-mariadb-10.11` artifacts the CI workflow uploads are named for what they are.

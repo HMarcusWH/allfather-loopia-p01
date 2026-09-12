@@ -81,8 +81,12 @@ foreach ([...DeploymentEvidence::EVIDENCE_BACKED_CLAIMS, ...DeploymentEvidence::
 
 // ============================================================ a registry builder for the refusals
 
+/**
+ * One record. `target` is supplied automatically for a HOST environment, because a host record that
+ * does not name its host is invalid — pass `'target' => null` to build one deliberately without it.
+ */
 $record = static function (array $overrides = []): array {
-    return [
+    $built = [
         'record_id' => 'REC-0001',
         'kind' => 'CONFORMANCE',
         'result' => 'PASS',
@@ -93,6 +97,18 @@ $record = static function (array $overrides = []): array {
         'evidence_sha256' => str_repeat('b', 64),
         ...$overrides,
     ];
+    if (array_key_exists('target', $overrides) && $overrides['target'] === null) {
+        unset($built['target']);
+
+        return $built;
+    }
+    if (!array_key_exists('target', $overrides)
+        && in_array($built['environment'], DeploymentEvidence::HOST_ENVIRONMENTS, true)
+    ) {
+        $built['target'] = 'staging.allfatherbi.com';
+    }
+
+    return $built;
 };
 $registryJson = static function (array $records, array $overrides = []) use ($expected): string {
     return (string) json_encode([
@@ -377,6 +393,73 @@ Assert::equalsList(
         $activation,
     ]),
     'and an activation after a stand-down turns it back on',
+);
+
+// A HOST RECORD MUST NAME ITS HOST, and the pair must be the SAME host.
+//
+// Release alone was the whole identity, so the same SHA deployed to two hosts made a
+// `STAGING_DEPLOYMENT` PASS for one and a `LOOPIA_PROBE_001` PASS for the other satisfy the
+// same-release rule — qualifying a deployment whose actual host had never been probed. With only
+// `environment` added, a staging deployment could still have been paired with a PRODUCTION probe.
+// The scope is the triple: environment, target, release.
+Assert::equalsList(
+    ['staging_deployed'],
+    $supports([
+        $record(['record_id' => 'DEPLOY-1', 'kind' => 'STAGING_DEPLOYMENT', 'environment' => 'staging',
+                 'target' => 'staging.allfatherbi.com', 'release_ref' => $sha('a')]),
+        $record(['record_id' => 'PROBE-1', 'kind' => 'LOOPIA_PROBE_001', 'environment' => 'staging',
+                 'target' => 'other.allfatherbi.com', 'release_ref' => $sha('a')]),
+    ]),
+    'a deployment to one host and a probe of ANOTHER qualify neither — same release, different machine',
+);
+Assert::equalsList(
+    ['staging_deployed'],
+    $supports([
+        $record(['record_id' => 'DEPLOY-1', 'kind' => 'STAGING_DEPLOYMENT', 'environment' => 'staging',
+                 'target' => 'host.allfatherbi.com', 'release_ref' => $sha('a')]),
+        $record(['record_id' => 'PROBE-1', 'kind' => 'LOOPIA_PROBE_001', 'environment' => 'production',
+                 'target' => 'host.allfatherbi.com', 'release_ref' => $sha('a')]),
+    ]),
+    'nor a staging deployment paired with a PRODUCTION probe of the same host and release',
+);
+Assert::equalsList(
+    ['loopia_capability_validated', 'staging_deployed'],
+    $supports([
+        $record(['record_id' => 'DEPLOY-1', 'kind' => 'STAGING_DEPLOYMENT', 'environment' => 'staging',
+                 'target' => 'host.allfatherbi.com', 'release_ref' => $sha('a')]),
+        $record(['record_id' => 'PROBE-1', 'kind' => 'LOOPIA_PROBE_001', 'environment' => 'staging',
+                 'target' => 'host.allfatherbi.com', 'release_ref' => $sha('a')]),
+    ]),
+    'the same environment, host and release on both is what qualifies it',
+);
+
+// AN UNTARGETED HOST RECORD SUPPORTS NOTHING, and is reported as a problem in its own right. Both,
+// deliberately: the validator catches it at the diff, and the claim reducer refuses it again at the
+// point a claim is computed, so no read path can let an anonymous host record speak for a host.
+foreach (['STAGING_DEPLOYMENT', 'LOOPIA_PROBE_001', 'ROAD_TEST_001'] as $hostKind) {
+    Assert::equalsList(
+        [],
+        $supports([$record(['kind' => $hostKind, 'environment' => 'staging', 'target' => null])]),
+        "an untargeted {$hostKind} record supports nothing — it names no host to have a claim about",
+    );
+}
+$untargeted = $parse($registryJson([
+    $record(['kind' => 'STAGING_DEPLOYMENT', 'environment' => 'staging', 'target' => null]),
+]));
+Assert::true(
+    $untargeted->problems() !== [],
+    'and the registry reports it as a problem rather than accepting it silently',
+);
+Assert::true(
+    str_contains(implode(' ', $untargeted->problems()), 'target is required'),
+    'naming the missing field, so the diff reviewer knows what to add',
+);
+// `target` stays OPTIONAL where there is no host to name — CI has none, and a required-but-invented
+// target would be a fiction in the evidence file.
+Assert::equalsList(
+    [],
+    $parse($registryJson([$record(['kind' => 'CONFORMANCE', 'environment' => 'ci', 'target' => null])]))->problems(),
+    'a ci record needs no target — there is no host for it to name',
 );
 
 // EXECUTION IS NOT SUCCESS. This is the one claim a FAIL supports, and it is deliberate: a road

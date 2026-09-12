@@ -16,14 +16,14 @@ read back from the server it ran on rather than assumed from how the run was lau
 
 | Layer | Files | Assertions | 10.6 | 10.11 |
 | --- | --- | --- | --- | --- |
-| foundation | 8 | 909 | PASS | PASS |
+| foundation | 8 | 919 | PASS | PASS |
 | unit | 2 | 153 | PASS | PASS |
 | integration | 32 | 1797 | PASS | PASS |
 | conformance | 6 | 395 | PASS | PASS |
 | acceptance | 5 | 652 | PASS | PASS |
-| security | 20 | 1269 | PASS | PASS |
-| rollback | 2 | 58 | PASS | PASS |
-| **TOTAL** | **75** | **5233** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
+| security | 20 | 1286 | PASS | PASS |
+| rollback | 2 | 261 | PASS | PASS |
+| **TOTAL** | **75** | **5463** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
 
 Migrations were applied from empty and then re-applied on both servers: 19 applied, 0 drift, then
 19 skipped, 0 drift. **PR8 added no migration**; 19 is the same count the previous revision carried.

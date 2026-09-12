@@ -183,6 +183,13 @@ this deployment phase**, and the inert staging configuration therefore leaves `S
    of those exists it stays UNVERIFIED — never "probably fine because the CLI matrix was clean" —
    and `CROSS_SITE_ISOLATION` evidence records must not be read as covering it.
 
+   **It gates the placing of secrets**, which is what makes it operational rather than academic.
+   `BETA_RUNBOOK.md` Gate E.3 requires one of three answers before Gate F puts `DB_PASSWORD` and
+   `APP_MASTER_KEY` on the host: Loopia's written assurance, a host proof of the web identity, or an
+   explicit recorded owner decision to accept the risk with a staging-only key and a staging-only
+   database user. The third is a decision, not a check, and taking it silently is what this blocker
+   exists to prevent.
+
 5. **`open_basedir` behaviour, the MariaDB account's TRIGGER privilege, foreign-key enforcement, row
    locking and outbound HTTPS are unproved ON LOOPIA.** The probe demonstrates each rather than
    inferring it from a version string, and has only ever run in CI and in development.

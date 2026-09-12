@@ -580,8 +580,12 @@ After any stand-down or rollback, verify it took effect:
 
     php ops/rollback/verify-stand-down.php \
       --expect-release=<the 40-character SHA that should now be live> \
+      --expect-fingerprint=<the source_fingerprint preflight printed for that release> \
       --email=<an internal test account> \
       --env=.env
+
+The fingerprint is what distinguishes "the configuration names this release" from "this release is
+what is on disk". Omitting it is permitted and raises a finding saying so.
 
 Read-only: no table, no file, no incident closed, no flag set. It checks the running release, the
 console manifest, the scheduler's inert posture, the live-read posture from the evidence registry,

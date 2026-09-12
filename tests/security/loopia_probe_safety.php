@@ -253,3 +253,24 @@ Assert::contains(
     $code,
     'the SQLSTATE is taken from the driver rather than parsed out of prose',
 );
+
+// ============================================================ no absolute host path, still
+
+// `open_basedir` ON SHARED HOSTING CONTAINS ACCOUNT, DOMAIN AND HOME PATHS, and this report is
+// designed to be pasted into a ticket and filed as an evidence artifact. An earlier revision of this
+// PR widened the old `set`/`unset` summary to the raw setting, which put those paths into every
+// artifact and broke this command's own guarantee that it discloses no absolute host path.
+Assert::false(
+    str_contains($code, "ini_get('open_basedir') === '' ? 'unset' : ini_get('open_basedir')"),
+    'the raw open_basedir value is not emitted',
+);
+Assert::contains(
+    "'configured' => true,",
+    $code,
+    'only whether it is configured',
+);
+Assert::contains(
+    "'entries' => count(",
+    $code,
+    'and how many entries it has — a count names nothing, and several usually means the private storage path was added',
+);

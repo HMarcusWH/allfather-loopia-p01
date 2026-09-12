@@ -208,6 +208,12 @@ permissive. `docs/LOOPIA_HOST_MODEL.md` establishes no equivalence between them,
 asserts each of those is present. Cross-site isolation of the web PHP identity remains an open
 blocker in `LOOPIA_HOST_MODEL.md` §5 rather than something a green canary run closes.
 
+Because that blocker decides whether secrets may be placed at all, `BETA_RUNBOOK.md` Gate E.3 makes
+it a gate rather than a note: before Gate F writes `DB_PASSWORD` and `APP_MASTER_KEY` to the host,
+one of three answers must be recorded — Loopia's written assurance, a host proof of the web
+identity, or an explicit owner decision to accept the risk with a staging-only master key and a
+staging-only database user. A clean canary matrix is not one of the three.
+
 There is no web-SAPI equivalent by design. One would need a file reader reachable over HTTP, which
 is the arbitrary-read oracle §2 exists to prevent, and `public_html/` is a closed set of four
 entries that `tests/foundation/deployment_boundary.php` pins. The narrower claim is the honest one;

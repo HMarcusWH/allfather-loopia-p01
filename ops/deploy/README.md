@@ -91,6 +91,28 @@ an operator could name the intended SHA in both `--release-ref` and `APP_RELEASE
 a checkout at some other commit, and the one check that could have caught it was the one that
 silently opted out.
 
+### The source fingerprint
+
+Preflight prints `source_fingerprint`: a sha256 over the bytes of `app/`, `database/`,
+`public_html/` and `worker/`, paths sorted so two machines agree. **Record it beside the release
+SHA.** After the copy, `ops/rollback/verify-stand-down.php --expect-fingerprint=<that digest>`
+compares it against the deployed tree and answers what is RUNNING.
+
+That is a different question from the one `APP_RELEASE_REF` answers. A rollback or a deployment is
+two steps — put the code there, update the configuration — and if the first fails while the second
+succeeds, `APP_RELEASE_REF` names exactly the release you asked for while the old code serves, with
+a valid console manifest from the previous build and an unchanged scheduler posture. Every signal
+looks healthy. The digest is the one that does not.
+
+`storage/` is excluded because it is runtime state that changes on every request; `.env` because it
+is configuration, and a digest computed over secrets is a value derived from secrets travelling in a
+report. `tests/`, `frontend/` and `docs/` are excluded because the deployment profile decides
+whether they are copied at all, and a digest that varied with the profile could not be compared
+between the checkout it was taken on and the host it is checked against.
+
+It is not a signature and not a tamper seal — anyone who can change the files can recompute it. It
+answers one question: is the code here the code that was preflighted.
+
 ### What it prints
 
 Sanitized JSON. `APP_MASTER_KEY` and `DB_PASSWORD` are reported as `SET`, `MISSING` or `INVALID` —
