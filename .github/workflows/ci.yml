@@ -289,7 +289,7 @@ jobs:
           echo "preparing ${sha} into ${out}"
           ./ops/deploy/prepare-release.sh "$sha" "$out" | tee "${RUNNER_TEMP}/prepare-release.out"
 
-      - name: The prepared release must be the exact Git object
+      - name: The prepared release must report this commit and a resolvable manifest
         run: |
           set -euo pipefail
           verdict="$(tail -n 1 "${RUNNER_TEMP}/prepare-release.out")"
@@ -344,8 +344,52 @@ jobs:
               for problem in problems:
                   print(f"  NOT A VALID PREPARED RELEASE: {problem}", file=sys.stderr)
               sys.exit(1)
-          print("  prepared release is the exact Git object, with a resolvable console manifest")
+          print("  report names this commit; layout is closed and the console manifest resolves")
           PY
+
+      # BOUND TO THE OBJECT DATABASE, NOT TO THE SCRIPT'S OWN REPORT.
+      #
+      # `release_ref` checked above is the argument `prepare-release.sh` was handed, printed back
+      # out — `release="$1"`, then `printf ... "$release"`. It says the script was ASKED for this
+      # commit and nothing whatever about the bytes it produced. A regression that archived `HEAD^`,
+      # copied the runner's checkout, or edited a tracked file on the way out would still print the
+      # requested SHA, and every other check in this job would pass: an export legitimately has no
+      # `.git`, and the source fingerprint is reported rather than compared against anything.
+      #
+      # So the bytes are compared against a SECOND export taken here, straight from the object
+      # database. Every tracked file must be present and identical, and the ONLY files the prepared
+      # tree may carry in addition are the three generated build outputs, named exactly — so a file
+      # injected into a release is a failure rather than a curiosity.
+      - name: The prepared release must be byte-identical to the named Git object
+        run: |
+          set -euo pipefail
+          independent="${RUNNER_TEMP}/independent-export"
+          rm -rf "$independent"
+          mkdir -p "$independent"
+          git archive "$RELEASE_SHA" | tar -x -C "$independent"
+
+          tracked="$(find "$independent" -type f | wc -l)"
+          echo "  tracked files in ${RELEASE_SHA}: ${tracked}"
+          if [ "$tracked" -eq 0 ]; then
+            echo "the independent export is empty — nothing was compared" >&2
+            exit 1
+          fi
+
+          diff -r --brief "$independent" "$PREPARED_DIR" > "${RUNNER_TEMP}/export.diff.raw" || true
+          sed -e "s|${independent}|<git-object>|g" -e "s|${PREPARED_DIR}|<prepared>|g" \
+            "${RUNNER_TEMP}/export.diff.raw" > "${RUNNER_TEMP}/export.diff"
+          sed 's/^/  /' "${RUNNER_TEMP}/export.diff"
+
+          # Produced by `npm ci`, `npm run build` and `npm run stage` INSIDE the exported tree.
+          # Anything else, in either direction, is a difference from the named commit.
+          allowed='^Only in <prepared>/(frontend/console: (dist|node_modules)|public_html/assets: operator-console)$'
+          unexpected="$(grep -Ev "$allowed" "${RUNNER_TEMP}/export.diff" || true)"
+          if [ -n "$unexpected" ]; then
+            echo "the prepared release is not the exact Git object ${RELEASE_SHA}:" >&2
+            echo "$unexpected" >&2
+            exit 1
+          fi
+          echo "  every tracked file is byte-identical to ${RELEASE_SHA}"
 
       # PREFLIGHT FROM THE PREPARED TREE, which is the whole point: preflighting the runner's
       # checkout would validate bytes nobody would deploy. The configuration below is disposable and
