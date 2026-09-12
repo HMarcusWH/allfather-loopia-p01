@@ -343,7 +343,7 @@ foreach ([
         throw new RuntimeException("BETA_RUNBOOK.md restored the forbidden web-PHP isolation waiver: {$oldEscapeHatch}");
     }
 }
-if (!str_contains($betaRunbook, 'There are exactly two accepted closure routes')) {
+if (preg_match('/There are exactly two\s+accepted closure routes/', $betaRunbook) !== 1) {
     throw new RuntimeException('BETA_RUNBOOK.md must keep exactly two accepted web-PHP isolation closure routes');
 }
 $isolationCanary = (string) file_get_contents($root . '/ops/loopia-probe/isolation-canary.php');
