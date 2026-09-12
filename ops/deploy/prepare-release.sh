@@ -51,6 +51,24 @@ if [ "$actual_node" != "$expected_node" ]; then
   echo "prepare-release: Node mismatch: expected $expected_node, got $actual_node" >&2
   exit 5
 fi
+
+# package.json pins the package manager as well as Node. A release prepared with another npm can
+# produce a different install graph or lockfile interpretation while still claiming the same Git
+# SHA, so fail before npm ci rather than allowing the host toolchain to become unrecorded input.
+package_manager="$(node -p "require('./package.json').packageManager || ''")"
+case "$package_manager" in
+  npm@*) expected_npm="${package_manager#npm@}" ;;
+  *)
+    echo "prepare-release: package.json must pin npm as packageManager; got: ${package_manager:-unset}" >&2
+    exit 6
+    ;;
+esac
+actual_npm="$(npm --version)"
+if [ "$actual_npm" != "$expected_npm" ]; then
+  echo "prepare-release: npm mismatch: expected $expected_npm, got $actual_npm" >&2
+  exit 7
+fi
+
 npm ci
 npm test
 npm run build
