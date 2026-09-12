@@ -375,7 +375,18 @@ jobs:
             exit 1
           fi
 
-          diff -r --brief "$independent" "$PREPARED_DIR" > "${RUNNER_TEMP}/export.diff.raw" || true
+          # GNU diff exits 0 when the inputs are the same, 1 when they differ and 2 ON TROUBLE.
+          # `|| true` swallowed the third: a file diff cannot read or traverse produces a stderr
+          # diagnostic and NO diff line, so the filter below would find nothing unexpected and this
+          # step would call a release byte-identical on files it never managed to compare. Only 1
+          # is an expected status here — the generated build outputs always differ.
+          compare_status=0
+          diff -r --brief "$independent" "$PREPARED_DIR" > "${RUNNER_TEMP}/export.diff.raw" || compare_status=$?
+          if [ "$compare_status" -gt 1 ]; then
+            echo "diff could not complete the comparison (exit ${compare_status}) — the release is NOT verified" >&2
+            exit 1
+          fi
+
           sed -e "s|${independent}|<git-object>|g" -e "s|${PREPARED_DIR}|<prepared>|g" \
             "${RUNNER_TEMP}/export.diff.raw" > "${RUNNER_TEMP}/export.diff"
           sed 's/^/  /' "${RUNNER_TEMP}/export.diff"
@@ -383,7 +394,14 @@ jobs:
           # Produced by `npm ci`, `npm run build` and `npm run stage` INSIDE the exported tree.
           # Anything else, in either direction, is a difference from the named commit.
           allowed='^Only in <prepared>/(frontend/console: (dist|node_modules)|public_html/assets: operator-console)$'
-          unexpected="$(grep -Ev "$allowed" "${RUNNER_TEMP}/export.diff" || true)"
+          # Same rule for grep, which exits 0 on a match, 1 on NO match — the good case here — and
+          # 2 on error. An unreadable summary must not read as "nothing unexpected".
+          filter_status=0
+          unexpected="$(grep -Ev "$allowed" "${RUNNER_TEMP}/export.diff")" || filter_status=$?
+          if [ "$filter_status" -gt 1 ]; then
+            echo "the diff summary could not be read (grep exit ${filter_status}) — the release is NOT verified" >&2
+            exit 1
+          fi
           if [ -n "$unexpected" ]; then
             echo "the prepared release is not the exact Git object ${RELEASE_SHA}:" >&2
             echo "$unexpected" >&2
