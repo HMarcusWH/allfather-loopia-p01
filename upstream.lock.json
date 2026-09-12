@@ -98,6 +98,27 @@
     "presentation_site_note": "allfatherbi.com is a separately deployed static presentation site and is NOT this application runtime."
   },
 
+  "claim_boundary_semantics": {
+    "note": "The ten booleans below are NOT all the same kind of statement, and editing one as if it were the others is the mistake this block exists to prevent. A permanent authority lock is an owner act recorded upstream; no evidence collected on any host can support one, and they stay false. An evidence-backed operational state is an observation, and it may be true ONLY while deployment-evidence.json carries a record supporting it. no_external_charge_executed is neither: it stays true.",
+    "permanent_authority_locks": [
+      "customer_visible_output_authorized",
+      "external_action_authorized",
+      "owner_go_granted",
+      "production_launch_authorized"
+    ],
+    "evidence_backed_operational_states": [
+      "conformance_complete",
+      "live_read_activated",
+      "loopia_capability_validated",
+      "road_test_001_executed",
+      "staging_deployed"
+    ],
+    "evidence_registry": "deployment-evidence.json",
+    "model": "docs/DEPLOYMENT_EVIDENCE_MODEL.md",
+    "enforced_by": "tests/foundation/lock_invariants.php and tests/foundation/deployment_evidence_boundary.php — the first holds the locks false, the second refuses any operational state asserted true without a record supporting it.",
+    "validate_with": "php ops/evidence/validate.php"
+  },
+
   "claim_boundary": {
     "road_test_001_executed": false,
     "production_launch_authorized": false,

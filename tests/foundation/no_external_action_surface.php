@@ -55,22 +55,25 @@ $forbidden = [
     'popen(' => 'process execution',
 ];
 
+/** One file's EXECUTABLE source. Comments are stripped so a prohibition can be documented in prose
+ * without the prose tripping the assertion that enforces it. */
+$code = static function (string $path): string {
+    return implode('', array_map(
+        static function (array|string $token): string {
+            if (is_string($token)) {
+                return $token;
+            }
+
+            return in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true) ? '' : $token[1];
+        },
+        token_get_all((string) file_get_contents($path)),
+    ));
+};
+
 foreach ($forbidden as $needle => $why) {
     $hits = [];
     foreach ($sources as $file) {
-        $contents = (string) file_get_contents($file);
-        // Strip comments so the prohibition can be *documented* in prose without tripping itself.
-        $stripped = implode('', array_map(
-            static function (array|string $token): string {
-                if (is_string($token)) {
-                    return $token;
-                }
-
-                return in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true) ? '' : $token[1];
-            },
-            token_get_all($contents),
-        ));
-        if (str_contains($stripped, $needle)) {
+        if (str_contains($code($file), $needle)) {
             $hits[] = str_replace($root . '/', '', $file);
         }
     }
@@ -142,17 +145,50 @@ Assert::same([], $resolverWiring, 'and nothing constructs the real host resolver
 // `upstream.lock.json`, which is what "operator-assisted" means here: this build cannot record
 // that a road test happened, cannot record that live read was activated, and cannot record its
 // own launch authority.
-$lockWriters = [];
-foreach ([...$sources, ...$phpFiles($root . '/worker'), ...$phpFiles($root . '/ops')] as $file) {
-    $contents = (string) file_get_contents($file);
-    if (str_contains($contents, 'upstream.lock.json')
-        && preg_match('/file_put_contents|fopen|fwrite|rename\s*\(/', $contents) === 1
-    ) {
-        $lockWriters[] = str_replace($root . '/', '', $file);
+//
+// `deployment-evidence.json` is held to the SAME rule, and for a sharper reason. It is the only
+// thing that can support an operational claim — "staging is deployed", "the host was qualified" —
+// so a code path able to append to it would be a code path able to qualify its own deployment.
+// Recording evidence is a diff a human writes and somebody else reviews; that review is the
+// mechanism, and a writer here would make it optional on exactly the days it matters.
+//
+// THE SCAN IS DELIBERATELY COARSE: any file that NAMES one of these and also calls a write
+// primitive fails, without anybody having to prove the two are connected. A precise scan would have
+// to model which variable holds which path, and the day it got that wrong is the day it got it
+// wrong silently.
+//
+// Two exemptions, and they are exact spellings rather than a category. `fwrite(STDERR, …)` and
+// `fwrite(STDOUT, …)` are how every command in `ops/` reports a refusal, and neither can write a
+// file: the stream is a constant, not a path. Excluding them by exact spelling keeps the tripwire
+// at full strength — `fwrite($handle, …)` still trips it — while letting the one command whose job
+// is to READ these files report why it refused.
+$writePrimitives = '/file_put_contents|fopen|fwrite|rename\s*\(/';
+foreach (['upstream.lock.json', 'deployment-evidence.json'] as $governedFile) {
+    $writers = [];
+    foreach ([...$sources, ...$phpFiles($root . '/worker'), ...$phpFiles($root . '/ops')] as $file) {
+        $contents = str_replace(
+            ['fwrite(STDERR,', 'fwrite(STDOUT,', 'fwrite(\STDERR,', 'fwrite(\STDOUT,'],
+            '',
+            $code($file),
+        );
+        if (str_contains($contents, $governedFile) && preg_match($writePrimitives, $contents) === 1) {
+            $writers[] = str_replace($root . '/', '', $file);
+        }
     }
+    Assert::same(
+        [],
+        $writers,
+        "no code path writes {$governedFile} — what it records is a human's to change",
+    );
 }
-Assert::same(
-    [],
-    $lockWriters,
-    'no code path writes upstream.lock.json — the launch-authority flags are a human\'s to change',
+
+// The exemption itself is asserted, so it cannot quietly widen: a stream write is exempt, a write
+// through a handle is not.
+Assert::true(
+    preg_match($writePrimitives, str_replace('fwrite(STDERR,', '', 'fwrite(STDERR, "x");')) !== 1,
+    'the standard-stream exemption removes exactly the stream write',
+);
+Assert::true(
+    preg_match($writePrimitives, str_replace('fwrite(STDERR,', '', 'fwrite($handle, "x");')) === 1,
+    'and leaves a write through a file handle trippable',
 );

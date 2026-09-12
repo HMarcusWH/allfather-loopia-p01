@@ -91,6 +91,20 @@ final class Harness
     }
 
     /**
+     * The server version of the connection this run ACTUALLY USED, or null if it never opened one.
+     *
+     * Deliberately does not connect. A qualification report asking "which MariaDB was this?" must
+     * not be the thing that causes a connection — a foundation-only run has no database result to
+     * report, and inventing one by connecting after the fact would let a report name a server no
+     * test in it ever touched. That is the same failure `TEST_ENV_FILE` exists to prevent, one
+     * layer up.
+     */
+    public static function serverVersionIfConnected(): ?string
+    {
+        return self::$db?->serverVersion();
+    }
+
+    /**
      * A database with the full schema applied and every table truncated.
      * Migrations run once per process; truncation runs per suite so suites cannot leak into
      * each other through leftover rows.

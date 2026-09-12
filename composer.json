@@ -34,6 +34,8 @@
     "test:rollback": "php tests/run.php --layer=rollback",
     "migrate": "php ops/migrate.php up",
     "probe": "php ops/loopia-probe/probe.php",
+    "evidence": "php ops/evidence/validate.php",
+    "qualify": "php tests/run.php --strict",
     "check": [
       "@lint",
       "@test"

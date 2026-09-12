@@ -10,6 +10,7 @@ declare(strict_types=1);
  * because flipping a boolean in a JSON file looks harmless.
  */
 
+use Allfather\Loopia\Ops\DeploymentEvidence;
 use Allfather\Loopia\Tests\Assert;
 
 $root = dirname(__DIR__, 2);
@@ -43,26 +44,73 @@ Assert::same(false, $lock['head_resolution']['projection_moved'] ?? null, 'proje
 Assert::equalsList(['A', 'B', 'C'], $lock['action_classes'] ?? null, 'action ceiling remains exactly A/B/C');
 
 // --- the claim boundary ---------------------------------------------------------------------
-// Every one of these is an owner act recorded upstream. Finishing the port moves none of them.
 
-$mustBeFalse = [
-    'road_test_001_executed',
-    'production_launch_authorized',
-    'external_action_authorized',
-    'live_read_activated',
-    'owner_go_granted',
-    'customer_visible_output_authorized',
-    'staging_deployed',
-    'conformance_complete',
-    'loopia_capability_validated',
-];
-foreach ($mustBeFalse as $key) {
+// THE PERMANENT AUTHORITY LOCKS. Each is an owner act recorded upstream, and no work done in this
+// repository moves one — not finishing the port, not deploying to staging, not qualifying the host,
+// not a green suite. There is no evidence that could support one, which is why they are asserted
+// flatly here rather than against the evidence registry.
+foreach (DeploymentEvidence::PERMANENT_AUTHORITY_LOCKS as $key) {
     Assert::same(false, $lock['claim_boundary'][$key] ?? true, "claim_boundary.{$key} must remain false");
 }
 Assert::same(
     true,
     $lock['claim_boundary']['no_external_charge_executed'] ?? false,
     'no_external_charge_executed must remain true',
+);
+
+// THE EVIDENCE-BACKED OPERATIONAL STATES are a different kind of statement and are held by a
+// different rule, in `deployment_evidence_boundary.php`: each MAY become true, and only while
+// `deployment-evidence.json` carries a record supporting it.
+//
+// This file used to hold all nine with one rule — every one false, forever — which was right while
+// nothing had been deployed and would become dishonest the day staging actually happened, because
+// somebody would have had to edit a tripwire in order to record the truth. What is asserted here is
+// only that each one is DECLARED, so a state cannot quietly leave the lock and stop being checked
+// by either file. See `docs/DEPLOYMENT_EVIDENCE_MODEL.md`.
+foreach (DeploymentEvidence::EVIDENCE_BACKED_CLAIMS as $key) {
+    Assert::true(
+        is_bool($lock['claim_boundary'][$key] ?? null),
+        "claim_boundary.{$key} is declared, and its truth is decided by the evidence registry",
+    );
+}
+
+// --- and the lock SAYS which kind each boolean is ----------------------------------------------
+
+// The ten booleans look identical in the file, and the person most likely to edit one is the person
+// least likely to have read the model first. So the classification lives beside them — and is
+// asserted against the CODE, so the description cannot drift from the rule it describes. Adding a
+// claim to `DeploymentEvidence` without classifying it here fails the build, which is the only
+// thing that keeps a self-describing governance file honest.
+$semantics = $lock['claim_boundary_semantics'] ?? [];
+Assert::equalsList(
+    DeploymentEvidence::PERMANENT_AUTHORITY_LOCKS,
+    $semantics['permanent_authority_locks'] ?? null,
+    'the lock names exactly the permanent authority locks the model defines',
+);
+Assert::equalsList(
+    DeploymentEvidence::EVIDENCE_BACKED_CLAIMS,
+    $semantics['evidence_backed_operational_states'] ?? null,
+    'and exactly the evidence-backed operational states',
+);
+Assert::same(
+    'deployment-evidence.json',
+    $semantics['evidence_registry'] ?? null,
+    'and points at the registry that decides them',
+);
+// Every classified claim is a claim that actually exists in the boundary, and every boundary
+// boolean except `no_external_charge_executed` is classified. Neither list may drift from the map.
+$classified = [
+    ...($semantics['permanent_authority_locks'] ?? []),
+    ...($semantics['evidence_backed_operational_states'] ?? []),
+];
+sort($classified, SORT_STRING);
+$declared = array_keys($lock['claim_boundary'] ?? []);
+$declared = array_values(array_diff($declared, ['no_external_charge_executed']));
+sort($declared, SORT_STRING);
+Assert::equalsList(
+    $declared,
+    $classified,
+    'every claim-boundary boolean is classified, and nothing is classified that is not one',
 );
 
 // --- scope ------------------------------------------------------------------------------------

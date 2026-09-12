@@ -158,6 +158,93 @@ Errors are never displayed in a strict environment: a notice rendered into a res
 absolute paths and a fatal carries a stack trace naming every layer it passed through. They are
 still logged; the caller is not the audience.
 
+### 5.1 The qualification files live outside the served tree
+
+The staging **qualification** copy profile (`DEPLOYMENT_RUNBOOK.md` §3) carries `tests/`, `ops/`,
+`docs/` and `frontend/` onto the host, because §4 asks the operator to run the strict suite, the
+probe and the smoke client there. Every one of them is a **sibling** of `public_html/` and therefore
+outside the document root — the same boundary that protects `app/` and `.env`, not a weaker one.
+
+`tests/foundation/deployment_boundary.php` proves the layout: the served directory is a closed set
+of four entries, no private directory exists inside it, and each exists as a sibling. What a
+repository test cannot prove is that a web server honoured it, so the runbook's HTTP probes now
+include `/tests/run.php`, `/frontend/console/package.json`, `/composer.json`,
+`/upstream.lock.json` and `/deployment-evidence.json` alongside `/.env` and `/app/...`. **403 or 404;
+never 200.**
+
+### 5.2 The qualification database is not the runtime database
+
+`tests/support/Harness.php` truncates every application table except `schema_migrations` between
+suites. That is correct for a harness and destroys a populated deployment, so on a host the suite is
+pointed at a **dedicated qualification database** and never at the runtime one:
+
+    TEST_ENV_FILE=.env.qualification php tests/run.php --strict
+
+The runner has no `--env` flag of its own — passing one is silently ignored and the run resolves its
+connection from `.env.testing` and then `.env`, and on a staging host `.env` names the runtime
+database. `TEST_ENV_FILE` is the only supported way to point the suite anywhere, it wins over both
+conventional files, and it throws if the file is missing. `BETA_RUNBOOK.md` opens with this rule and
+Gate G is the check.
+
+### 5.3 Cross-site isolation is proved before secrets are placed
+
+On shared hosting an account may hold several sites, and whether one site's PHP can read another's
+private files decides whether `APP_MASTER_KEY` and the database password may be placed there at all.
+That question is answered **before** the secrets are uploaded, not after: a secret that turns out to
+be readable from a sibling site has already been exposed for however long it took to find out.
+
+`ops/loopia-probe/isolation-canary.php` answers it with files that are worthless by construction.
+A canary is `ALLFATHER_LOOPIA_NON_SECRET_CANARY_<random hex>` composed inside the command; there is
+no flag, no argument and no environment read through which anything real could arrive, and
+`tests/security/isolation_canary.php` asserts the absence of each. Probe mode returns `READABLE`,
+`NOT_READABLE` or `NOT_FOUND` and never prints content. **Any cross-site `READABLE` is a hard stop.**
+
+**The proof is bounded, and the bound is in the output.** The canary runs under the CLI SAPI as the
+SSH user, so it measures that identity's permissions and `open_basedir` — not the identity web PHP
+runs under for each site, which on shared hosting commonly differs and can be either more or less
+permissive. `docs/LOOPIA_HOST_MODEL.md` establishes no equivalence between them, so the tool claims
+**SSH/CLI cross-site filesystem isolation only**: every result carries `identity_measured: SSH_CLI`,
+`proves`, and `web_php_cross_site_isolation: UNVERIFIED`, and `tests/security/isolation_canary.php`
+asserts each of those is present. Cross-site isolation of the web PHP identity remains an open
+blocker in `LOOPIA_HOST_MODEL.md` §5 rather than something a green canary run closes.
+
+That blocker is a **non-waivable pre-secret prerequisite**. `WEB_PHP_ISOLATION_REQUIRED_BEFORE_SECRETS`
+means Gate F may place `DB_PASSWORD` and `APP_MASTER_KEY` on the host only after
+`LOOPIA_WEB_PHP_CROSS_SITE_ISOLATION_BLOCKER` has been closed by one of two things: Loopia's written
+assurance about per-site web-PHP isolation, or an equivalent host proof of the web identity that
+does not require adding a file-reading endpoint. SSH/CLI canary success, HTTP private-path refusal,
+operator judgement, owner risk acceptance, staging-only credentials, and reduced blast radius do
+not close it. `WEB_PHP_ISOLATION_WAIVER_ALLOWED = false`.
+
+There is no web-SAPI equivalent by design. One would need a file reader reachable over HTTP, which
+is the arbitrary-read oracle §2 exists to prevent, and `public_html/` is a closed set of four
+entries that `tests/foundation/deployment_boundary.php` pins. The narrower claim is the honest one;
+a broader tool would be a worse boundary.
+
+### 5.4 The React shell has its own CSP profile
+
+Two profiles, and the separation is deliberate:
+
+    SSR:    no script-src at all — those surfaces are scriptless and cannot become otherwise by accident
+    React:  default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self';
+            connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'
+
+No `unsafe-inline`, no `unsafe-eval`, no CDN, no remote origin. `connect-src 'self'` is what confines
+the browser's governed reads to this origin; `form-action 'self'` is what keeps sign-out a POST to
+this deployment. The shell document carries exactly one data value — the session's own CSRF token —
+and `tests/foundation/operator_console_assets.php` asserts that no second data attribute exists,
+because a second one is how governed data would start crossing into the document instead of being
+fetched through an owner-gated read.
+
+### 5.5 Deployment evidence is a governance file, not application state
+
+`deployment-evidence.json` is the only thing that can make an operational claim true — staging
+deployed, host qualified, live read activated. No code path writes it, and
+`tests/foundation/no_external_action_surface.php` proves that in the same scan that proves nothing
+writes `upstream.lock.json`: a code path able to append a record would be a code path able to
+qualify its own deployment. Filing a record is a diff somebody reads. See
+`DEPLOYMENT_EVIDENCE_MODEL.md`.
+
 ## 6. Tenant and workspace isolation
 
 Every product read and write is scoped by tenant AND workspace, never by id alone. The pattern is
@@ -215,7 +302,11 @@ The consequence is stated in `docs/DEPLOYMENT_RUNBOOK.md` §6: rollback is never
 - The `.htaccess` files have **never been interpreted by a web server**. Apache does not run in the
   development container or in CI, so what the suite proves is that the directives are written — not
   that a host honoured them. `DEPLOYMENT_RUNBOOK.md` §3.1 carries the curls that establish it on a
-  real host, and they have not been run either, because no Loopia host has served this code.
+  real host, and `ops/staging-smoke.php --mode=anonymous` now issues them as part of a run whose
+  result is machine-checkable. Neither has been run against Loopia, because no Loopia host has
+  served this code.
+- **Cross-site isolation on Loopia is unproved.** §5.3 describes the instrument; it has never been
+  pointed at a real host, and until it has, the safe assumption is that the question is open.
 - `ux_arbiter_policy_sets_scope_one_active` **does not defend NULL scopes**, because MariaDB will
   not index a generated column containing a string literal (error 1901) and canonical's key uses
   `COALESCE(tenant_id, '*')`. The gap is unreachable rather than tolerated — the sole writer takes

@@ -1,0 +1,776 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Allfather\Loopia\Ops;
+
+use Allfather\Loopia\Core\Clock;
+
+/**
+ * The deployment evidence registry: the only thing that may make an operational claim true.
+ *
+ * THE PROBLEM IT SOLVES. `upstream.lock.json` carries ten booleans, and until now the foundation
+ * suite treated all ten identically — every one had to stay false forever. That was correct while
+ * nothing had been deployed, and it becomes dishonest the moment real staging work begins, because
+ * two genuinely different kinds of statement were being held by one rule:
+ *
+ *   AN AUTHORITY LOCK is an owner act. `production_launch_authorized`, `external_action_authorized`,
+ *   `owner_go_granted` and `customer_visible_output_authorized` are decisions a person makes and
+ *   records upstream. No amount of evidence collected here can make one true, so evidence has no
+ *   opinion about them and this class deliberately cannot express one.
+ *
+ *   AN OPERATIONAL STATE is an observation. "Staging is deployed" and "the host was qualified" are
+ *   claims about the world that either happened or did not, and the honest way to hold them is to
+ *   require the evidence rather than to forbid the claim. Forbidding it forever means the day the
+ *   deployment actually happens, somebody has to edit a tripwire to tell the truth — and a tripwire
+ *   that must be edited to record reality is a tripwire nobody will trust the next time.
+ *
+ * So the five operational states become EVIDENCE-BACKED: each may be true, and only while a record
+ * in `deployment-evidence.json` supports it. `tests/foundation/deployment_evidence_boundary.php`
+ * asserts the implication in the only direction that matters — a claim that is true must be
+ * supported — so nothing has to change on the day one of them legitimately flips.
+ *
+ * WHY A REVIEWED JSON FILE AND NOT A TABLE. The deployment whose evidence matters most is the one
+ * where the database is what failed, and a registry that needed a migration to record "the host was
+ * qualified" would need the host to work in order to say the host works. A file in the repository
+ * is also reviewed: adding a PASS record is a diff somebody reads, which is exactly the property a
+ * claim of this weight should have. Nothing in the running application writes it —
+ * `tests/foundation/no_external_action_surface.php` proves that the same way it proves nothing
+ * writes the lock file.
+ *
+ * WHAT IT IS NOT. It is not an audit ledger, it grants no authority, it activates nothing, and a
+ * record in it is a POINTER to evidence rather than the evidence itself: `evidence_ref` names where
+ * the artifact was filed and `evidence_sha256` pins which bytes were meant. A registry that carried
+ * the payloads would be a second evidence store competing with M05, which is the one this
+ * projection already has for governed evidence.
+ *
+ * EXECUTION IS NOT SUCCESS. `road_test_001_executed` is supported by a ROAD_TEST_001 record of ANY
+ * result, including FAIL — because "we ran one" and "it passed" are different facts and collapsing
+ * them is how a failed road test becomes a green flag. Every other claim requires PASS.
+ */
+final class DeploymentEvidence
+{
+    /** The registry's own schema version. Bumped explicitly, never reinterpreted. */
+    public const SCHEMA_VERSION = '1.0';
+
+    /**
+     * The closed set of evidence kinds. Alphabetical, so an addition is a visible diff rather than
+     * an append nobody reads.
+     *
+     * @var list<string>
+     */
+    public const KINDS = [
+        'CONFORMANCE',
+        'CROSS_SITE_ISOLATION',
+        'LIVE_READ_ACTIVATION',
+        'LIVE_READ_STAND_DOWN',
+        'LOOPIA_PROBE_001',
+        'ROAD_TEST_001',
+        'ROLLBACK_DRILL',
+        'STAGING_DEPLOYMENT',
+        'STAGING_SMOKE',
+    ];
+
+    /**
+     * The closed set of results.
+     *
+     * `STAND_DOWN` is neither a pass nor a failure: it records that an activity was deliberately
+     * withdrawn. It supports no claim, and that is the point — a stand-down must not read as a
+     * quiet pass, and it must not read as a fault either.
+     *
+     * @var list<string>
+     */
+    public const RESULTS = ['PASS', 'FAIL', 'STAND_DOWN'];
+
+    /**
+     * Where a record was produced.
+     *
+     * `ci` is here and is NOT one of `Bootstrap::ENVIRONMENTS`, deliberately. A GitHub-hosted
+     * runner is not a host claim: it proves the code, never Loopia. Keeping it in the vocabulary
+     * means a CI-produced record can be FILED without being mistakable for a host record, and
+     * `supportsHostClaim()` is what refuses to let it qualify one.
+     *
+     * @var list<string>
+     */
+    public const ENVIRONMENTS = ['ci', 'development', 'testing', 'staging', 'production'];
+
+    /**
+     * Environments whose records may support a claim about the real deployment target.
+     *
+     * @var list<string>
+     */
+    public const HOST_ENVIRONMENTS = ['staging', 'production'];
+
+    /**
+     * The five claims this registry can support, and the only five.
+     *
+     * @var list<string>
+     */
+    public const EVIDENCE_BACKED_CLAIMS = [
+        'conformance_complete',
+        'live_read_activated',
+        'loopia_capability_validated',
+        'road_test_001_executed',
+        'staging_deployed',
+    ];
+
+    /**
+     * The four an owner grants and evidence cannot. Named here so the distinction lives in one
+     * place rather than being re-derived by each test that needs it.
+     *
+     * @var list<string>
+     */
+    public const PERMANENT_AUTHORITY_LOCKS = [
+        'customer_visible_output_authorized',
+        'external_action_authorized',
+        'owner_go_granted',
+        'production_launch_authorized',
+    ];
+
+    /**
+     * The two files whose content is a human's to change, and which no tool in this repository may
+     * write.
+     *
+     * `tests/foundation/no_external_action_surface.php` proves that no code path in `app/`,
+     * `public_html/`, `worker/` or `ops/` writes either. It cannot prove it of `tests/`, because the
+     * test tree is full of code that legitimately writes files — so a writer that lives there and
+     * takes a caller-chosen path has to refuse these two itself. `tests/run.php --report-json` is
+     * the one such writer, and `isGovernedPath()` is what it asks.
+     *
+     * @var list<string>
+     */
+    public const GOVERNED_FILES = ['upstream.lock.json', 'deployment-evidence.json'];
+
+    /**
+     * Whether `$candidate` is one of this repository's governed files.
+     *
+     * RESOLVED THE WAY A WRITE WOULD RESOLVE IT. `dirname('upstream.lock.json')` is `.`, and a
+     * naive "is the directory real?" check therefore accepts a bare governed filename and writes it
+     * into the working directory — which, for anybody running from the repository root, IS the
+     * governed file. So the directory is resolved through `realpath` and recombined with the
+     * basename, which collapses `./`, `docs/../` and a symlinked path alike.
+     *
+     * A governed FILENAME somewhere else entirely — `/tmp/upstream.lock.json` — is not this
+     * repository's governed file and is not refused. Refusing by basename would be refusing a name
+     * rather than a file, which is a different and less honest rule.
+     */
+    public static function isGovernedPath(string $root, string $candidate): bool
+    {
+        $rootReal = realpath($root);
+        if ($rootReal === false || $candidate === '') {
+            return false;
+        }
+
+        $resolved = self::resolveWriteTarget($candidate);
+        if ($resolved === null) {
+            return false;
+        }
+
+        foreach (self::GOVERNED_FILES as $governed) {
+            if ($resolved === $rootReal . DIRECTORY_SEPARATOR . $governed) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Where a write to `$candidate` would actually land, or null when that cannot be determined.
+     *
+     * THE FINAL COMPONENT MATTERS, and resolving only the parent is the bug this exists to close.
+     * `file_put_contents()` FOLLOWS a symlink at the end of the path, so a report path of
+     * `/tmp/report.json` that is a link to `<repo>/upstream.lock.json` writes the lock — while a
+     * check that resolved only `/tmp` and re-attached `report.json` compared `/tmp/report.json`
+     * against the governed paths, found no match, and permitted exactly that write.
+     *
+     * Three cases, in the order they must be tried:
+     *
+     *   the candidate EXISTS (file, or a symlink to one) — `realpath` follows the link and gives the
+     *     file the write lands on;
+     *   the candidate is a DANGLING symlink — `realpath` fails, so the target is read directly and
+     *     resolved against the link's own directory, because a write still creates it there;
+     *   the candidate DOES NOT EXIST — the parent is resolved and the basename re-attached, which is
+     *     the only thing the filesystem can tell us and is where the write would create the file.
+     */
+    private static function resolveWriteTarget(string $candidate): ?string
+    {
+        $existing = realpath($candidate);
+        if ($existing !== false) {
+            return $existing;
+        }
+
+        $directory = dirname($candidate);
+        $directoryReal = realpath($directory === '' ? '.' : $directory);
+        if ($directoryReal === false) {
+            // The directory does not exist, so nothing can be written there at all.
+            return null;
+        }
+
+        if (is_link($candidate)) {
+            $target = readlink($candidate);
+            if ($target === false) {
+                // A link that cannot be read is a path whose destination is unknown. Unknown is not
+                // "somewhere safe", so it is refused by being treated as governed — the caller's
+                // only loss is one rejected report path.
+                return null;
+            }
+            $absolute = str_starts_with($target, DIRECTORY_SEPARATOR)
+                ? $target
+                : $directoryReal . DIRECTORY_SEPARATOR . $target;
+
+            // The target does not exist, so it cannot be `realpath`ed. Normalize the `.`/`..`
+            // segments by hand so a link to `<repo>/docs/../upstream.lock.json` is still recognised.
+            return self::normalize($absolute);
+        }
+
+        return $directoryReal . DIRECTORY_SEPARATOR . basename($candidate);
+    }
+
+    /** Collapse `.` and `..` in an absolute path that may not exist. */
+    private static function normalize(string $path): string
+    {
+        $out = [];
+        foreach (explode(DIRECTORY_SEPARATOR, $path) as $segment) {
+            if ($segment === '' || $segment === '.') {
+                continue;
+            }
+            if ($segment === '..') {
+                array_pop($out);
+                continue;
+            }
+            $out[] = $segment;
+        }
+
+        return DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, $out);
+    }
+
+    /** @var list<string> */
+    public const REQUIRED_TOP_LEVEL = ['schema_version', 'projection_id', 'canonical_pin', 'records'];
+
+    /** @var list<string> */
+    public const REQUIRED_RECORD_FIELDS = [
+        'record_id',
+        'kind',
+        'result',
+        'release_ref',
+        'environment',
+        'recorded_at',
+        'evidence_ref',
+        'evidence_sha256',
+    ];
+
+    /**
+     * The only fields a record may carry beyond the required ones.
+     *
+     * `target` names the host or site a host-specific record speaks about. `note` is one short,
+     * printable line for the human reading the diff — never a payload, never a reason code, and
+     * never somewhere a secret could be parked, which is why its character set is restricted.
+     *
+     * @var list<string>
+     */
+    public const OPTIONAL_RECORD_FIELDS = ['target', 'note'];
+
+    /** @param list<array<string, mixed>> $records @param list<string> $problems */
+    private function __construct(
+        private readonly array $records,
+        private readonly array $problems,
+    ) {
+    }
+
+    /**
+     * Read and validate a registry file against the identity the lock file declares.
+     *
+     * A MISSING FILE IS A PROBLEM, not an empty registry. An absent registry that read as "no
+     * evidence" would make every unsupported claim pass its own check by deleting the thing that
+     * checks it.
+     *
+     * @param array{projection_id: string, canonical_pin: string} $expected
+     */
+    public static function loadFile(string $path, array $expected): self
+    {
+        if (!is_file($path)) {
+            return new self([], ["evidence registry is missing: {$path}"]);
+        }
+        $raw = @file_get_contents($path);
+        if ($raw === false) {
+            return new self([], ["evidence registry is unreadable: {$path}"]);
+        }
+
+        return self::parse($raw, $expected);
+    }
+
+    /**
+     * Validate registry JSON. Collects EVERY problem rather than throwing on the first.
+     *
+     * An operator fixing a registry wants the whole list; a validator that stops at the first fault
+     * turns one review into five.
+     *
+     * @param array{projection_id: string, canonical_pin: string} $expected
+     */
+    public static function parse(string $json, array $expected): self
+    {
+        try {
+            $decoded = json_decode($json, true, 64, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $error) {
+            return new self([], ['evidence registry is not valid JSON: ' . $error->getMessage()]);
+        }
+        if (!is_array($decoded) || array_is_list($decoded)) {
+            return new self([], ['evidence registry must be a JSON object']);
+        }
+
+        $problems = [];
+
+        $actualKeys = array_keys($decoded);
+        sort($actualKeys, SORT_STRING);
+        $wantedKeys = self::REQUIRED_TOP_LEVEL;
+        sort($wantedKeys, SORT_STRING);
+        if ($actualKeys !== $wantedKeys) {
+            $problems[] = 'evidence registry keys must be exactly ' . implode(', ', $wantedKeys)
+                . ' (found ' . implode(', ', $actualKeys) . ')';
+        }
+
+        if (($decoded['schema_version'] ?? null) !== self::SCHEMA_VERSION) {
+            $problems[] = 'evidence registry schema_version must be ' . self::SCHEMA_VERSION;
+        }
+        if (($decoded['projection_id'] ?? null) !== $expected['projection_id']) {
+            $problems[] = 'evidence registry projection_id must match the lock: ' . $expected['projection_id'];
+        }
+        // THE PIN TIES THE REGISTRY TO THE PROJECTION IT SPEAKS FOR. Evidence collected against one
+        // canonical pin says nothing about a projection re-pinned to another, and a registry that
+        // silently carried over would be the quietest way to inherit a claim.
+        if (($decoded['canonical_pin'] ?? null) !== $expected['canonical_pin']) {
+            $problems[] = 'evidence registry canonical_pin must match upstream.lock.json '
+                . 'projection_pinned_head';
+        }
+
+        $rawRecords = $decoded['records'] ?? null;
+        if (!is_array($rawRecords) || !array_is_list($rawRecords)) {
+            return new self([], [...$problems, 'evidence registry records must be a JSON array']);
+        }
+
+        $records = [];
+        $seenIds = [];
+        foreach ($rawRecords as $index => $record) {
+            $recordProblems = self::validateRecord($record, $index, $seenIds);
+            if ($recordProblems !== []) {
+                $problems = [...$problems, ...$recordProblems];
+                continue;
+            }
+            /** @var array<string, mixed> $record */
+            $seenIds[(string) $record['record_id']] = true;
+            $records[] = $record;
+        }
+
+        return new self($records, $problems);
+    }
+
+    /**
+     * @param array<string, bool> $seenIds
+     * @return list<string>
+     */
+    private static function validateRecord(mixed $record, int $index, array $seenIds): array
+    {
+        $at = "records[{$index}]";
+        if (!is_array($record) || array_is_list($record)) {
+            return ["{$at} must be a JSON object"];
+        }
+
+        $problems = [];
+        foreach (self::REQUIRED_RECORD_FIELDS as $field) {
+            if (!array_key_exists($field, $record)) {
+                $problems[] = "{$at} is missing required field {$field}";
+            }
+        }
+        foreach (array_keys($record) as $field) {
+            if (
+                !in_array((string) $field, self::REQUIRED_RECORD_FIELDS, true)
+                && !in_array((string) $field, self::OPTIONAL_RECORD_FIELDS, true)
+            ) {
+                // UNKNOWN FIELDS ARE REFUSED, not ignored. A misspelled `result` that fell through
+                // as an extra field would leave the record with no result at all, and a registry
+                // that tolerated it would be answering a question nobody asked.
+                $problems[] = "{$at} carries unknown field {$field}";
+            }
+        }
+        if ($problems !== []) {
+            return $problems;
+        }
+
+        $id = $record['record_id'];
+        if (!is_string($id) || preg_match('/^[A-Z0-9][A-Z0-9_-]{2,63}$/D', $id) !== 1) {
+            $problems[] = "{$at}.record_id must be 3-64 characters of A-Z, 0-9, _ or -";
+        } elseif (isset($seenIds[$id])) {
+            $problems[] = "{$at}.record_id is a duplicate: {$id}";
+        }
+
+        if (!is_string($record['kind']) || !in_array($record['kind'], self::KINDS, true)) {
+            $problems[] = "{$at}.kind must be one of " . implode(', ', self::KINDS);
+        }
+        if (!is_string($record['result']) || !in_array($record['result'], self::RESULTS, true)) {
+            $problems[] = "{$at}.result must be one of " . implode(', ', self::RESULTS);
+        }
+        if (!is_string($record['environment']) || !in_array($record['environment'], self::ENVIRONMENTS, true)) {
+            $problems[] = "{$at}.environment must be one of " . implode(', ', self::ENVIRONMENTS);
+        }
+        if (!is_string($record['release_ref']) || preg_match('/^[0-9a-f]{40}$/D', $record['release_ref']) !== 1) {
+            // The FULL sha, never an abbreviation. An abbreviated ref is ambiguous the day the
+            // repository grows a colliding prefix, and evidence is exactly the wrong place to
+            // discover that.
+            $problems[] = "{$at}.release_ref must be a full 40-character lowercase git SHA";
+        }
+        if (!is_string($record['recorded_at']) || !Clock::isCanonical($record['recorded_at'])) {
+            $problems[] = "{$at}.recorded_at must be a canonical UTC timestamp (YYYY-MM-DDTHH:MM:SS.sssZ)";
+        }
+        if (!is_string($record['evidence_sha256']) || preg_match('/^[0-9a-f]{64}$/D', $record['evidence_sha256']) !== 1) {
+            $problems[] = "{$at}.evidence_sha256 must be a 64-character lowercase sha256 digest";
+        }
+        $problems = [...$problems, ...self::validateEvidenceRef($record['evidence_ref'], $at)];
+
+        if (array_key_exists('target', $record)) {
+            $target = $record['target'];
+            if (!is_string($target) || preg_match('/^[a-z0-9]([a-z0-9.-]{0,251}[a-z0-9])?$/D', $target) !== 1) {
+                $problems[] = "{$at}.target must be a lowercase host name";
+            }
+        } elseif (is_string($record['environment'] ?? null)
+            && in_array($record['environment'], self::HOST_ENVIRONMENTS, true)
+        ) {
+            // A HOST RECORD THAT DOES NOT NAME ITS HOST CANNOT BE PAIRED WITH ANOTHER. The same
+            // release SHA can be deployed to several hosts, so a deployment of one and a probe of
+            // another would otherwise satisfy every same-release rule in this file while no single
+            // host had ever been both deployed to and probed. `target` is optional for `ci`,
+            // `testing` and `development`, where there is no host to name.
+            $problems[] = "{$at}.target is required for a {$record['environment']} record — "
+                . 'a host record must name the host it speaks about';
+        }
+        if (array_key_exists('note', $record)) {
+            $note = $record['note'];
+            if (!is_string($note) || $note === '' || strlen($note) > 200) {
+                $problems[] = "{$at}.note must be a non-empty string of at most 200 characters";
+            } elseif (preg_match('/^[\x20-\x7E]+$/D', $note) !== 1) {
+                $problems[] = "{$at}.note must be printable ASCII on one line";
+            }
+        }
+
+        return $problems;
+    }
+
+    /** @return list<string> */
+    private static function validateEvidenceRef(mixed $ref, string $at): array
+    {
+        if (!is_string($ref) || $ref === '' || strlen($ref) > 200) {
+            return ["{$at}.evidence_ref must be a non-empty relative path of at most 200 characters"];
+        }
+        // A REFERENCE, NEVER A LOCATION TO FETCH. No scheme, no absolute path, no traversal — the
+        // ref names where an operator filed the artifact, and a validator that accepted a URL would
+        // be inviting something later to go and get it.
+        if (
+            str_contains($ref, '://')
+            || str_starts_with($ref, '/')
+            || str_contains($ref, '\\')
+            || str_contains($ref, "\0")
+        ) {
+            return ["{$at}.evidence_ref must be a local POSIX-style relative path"];
+        }
+        foreach (explode('/', $ref) as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                return ["{$at}.evidence_ref contains an unsafe path segment"];
+            }
+        }
+        if (preg_match('#^[A-Za-z0-9._/-]+$#D', $ref) !== 1) {
+            return ["{$at}.evidence_ref may contain only A-Z a-z 0-9 . _ - and /"];
+        }
+
+        return [];
+    }
+
+    public function isValid(): bool
+    {
+        return $this->problems === [];
+    }
+
+    /** @return list<string> */
+    public function problems(): array
+    {
+        return $this->problems;
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function records(): array
+    {
+        return $this->records;
+    }
+
+    /**
+     * Which of the five evidence-backed claims this registry actually supports.
+     *
+     * An INVALID registry supports nothing at all. Deciding a claim from records that failed
+     * validation would mean a malformed file could be the thing that grants a claim, which inverts
+     * the point of validating it.
+     *
+     * @return array<string, bool>
+     */
+    public function supportedClaims(): array
+    {
+        if (!$this->isValid()) {
+            return array_fill_keys(self::EVIDENCE_BACKED_CLAIMS, false);
+        }
+
+        return [
+            'conformance_complete' => $this->hasPass('CONFORMANCE'),
+            // A HOST CLAIM NEEDS A HOST RECORD. `supportsHostClaim` is what stops a CI run — which
+            // proves the code and never Loopia — from qualifying the deployment target.
+            'staging_deployed' => $this->hasHostPass('STAGING_DEPLOYMENT'),
+            // BOTH, FOR THE RELEASE THAT IS CURRENTLY DEPLOYED. A probe against one release and a
+            // deployment of another qualify nothing together — and neither does a historic pair
+            // once a newer release has been deployed over it.
+            'loopia_capability_validated' => $this->currentReleaseIsProbed(),
+            'live_read_activated' => $this->liveReadStandsActivated(),
+            // PASS **OR FAIL**, and deliberately not STAND_DOWN. Execution is not success: a road
+            // test that went badly is still a road test that was executed, and collapsing the two
+            // is how a failure becomes a green flag. A STAND_DOWN is the third thing — a road test
+            // that was deliberately withdrawn rather than run — and it supports nothing, which is
+            // what `STAND_DOWN supports nothing` means everywhere else in this model.
+            //
+            // AND IT MUST BE A HOST RECORD. ROAD_TEST_001 is by definition a real, controlled,
+            // post-staging execution against a live source; a record filed from `ci` or `testing`
+            // describes something that is not a road test at all, and letting one support the claim
+            // would mean the projection could say it had road-tested without ever leaving CI.
+            'road_test_001_executed' => $this->hasHostResultIn('ROAD_TEST_001', ['PASS', 'FAIL']),
+        ];
+    }
+
+    /** @param list<string> $results */
+    private function hasHostResultIn(string $kind, array $results): bool
+    {
+        foreach ($this->records as $record) {
+            if ($record['kind'] !== $kind || !in_array((string) $record['result'], $results, true)) {
+                continue;
+            }
+            if ($this->supportsHostClaim($record)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function hasPass(string $kind): bool
+    {
+        foreach ($this->records as $record) {
+            if ($record['kind'] === $kind && $record['result'] === 'PASS') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function hasHostPass(string $kind): bool
+    {
+        foreach ($this->records as $record) {
+            if ($record['kind'] === $kind && $record['result'] === 'PASS' && $this->supportsHostClaim($record)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The release this deployment is currently running, or null when that cannot be determined.
+     *
+     * The latest successful host deployment, by `recorded_at`. FAIL-CLOSED ON AMBIGUITY: if two
+     * different releases share the latest timestamp, there is no answer to "which one is deployed",
+     * and a registry that cannot say that must not be the thing that says the host is qualified.
+     */
+    private function currentDeployedRelease(): ?string
+    {
+        $latestAt = null;
+        $releases = [];
+        foreach ($this->records as $record) {
+            if ($record['kind'] !== 'STAGING_DEPLOYMENT' || $record['result'] !== 'PASS') {
+                continue;
+            }
+            if (!$this->supportsHostClaim($record)) {
+                continue;
+            }
+            $at = (string) $record['recorded_at'];
+            if ($latestAt === null || $at > $latestAt) {
+                $latestAt = $at;
+                $releases = [self::hostScope($record)];
+                continue;
+            }
+            if ($at === $latestAt) {
+                $releases[] = self::hostScope($record);
+            }
+        }
+        $releases = array_values(array_unique($releases));
+
+        return count($releases) === 1 ? $releases[0] : null;
+    }
+
+    /**
+     * The identity a host claim is actually about: environment, target host, and release.
+     *
+     * RELEASE ALONE IS NOT THE PAIR. The same release SHA can sit on several hosts, so a
+     * `STAGING_DEPLOYMENT` PASS for one target and a `LOOPIA_PROBE_001` PASS for another satisfied
+     * every same-release rule here while no single host had been both deployed to and probed — and
+     * with only `environment` in the closed vocabulary, a staging deployment could even have been
+     * paired with a production probe. The scope is the triple, and records that do not carry a
+     * target never reach this function: `supportsHostClaim()` refuses them first.
+     *
+     * @param array<string, mixed> $record
+     */
+    private static function hostScope(array $record): string
+    {
+        // A separator no field may contain, so two different triples cannot collide into one string.
+        return implode("\0", [
+            (string) $record['environment'],
+            (string) ($record['target'] ?? ''),
+            (string) $record['release_ref'],
+        ]);
+    }
+
+    /**
+     * Whether the release that is CURRENTLY deployed has itself been probed on the host.
+     *
+     * THE HISTORIC PAIR IS NOT ENOUGH, and this is the case that makes it matter. Deploy release A
+     * and probe A: the host is qualified for A. Now deploy release B and do not probe it. A rule
+     * that asked "does some release have both a deployment PASS and a probe PASS" still finds the A
+     * pair and keeps `loopia_capability_validated` true — for a deployment that is running B, which
+     * nobody qualified. The claim is about the host as it stands, so it has to name the release
+     * that is standing on it.
+     */
+    private function currentReleaseIsProbed(): bool
+    {
+        $current = $this->currentDeployedRelease();
+
+        return $current !== null && in_array($current, $this->scopesWithHostPass('LOOPIA_PROBE_001'), true);
+    }
+
+    /** @return list<string> */
+    private function scopesWithHostPass(string $kind): array
+    {
+        $out = [];
+        foreach ($this->records as $record) {
+            if ($record['kind'] === $kind && $record['result'] === 'PASS' && $this->supportsHostClaim($record)) {
+                $out[] = self::hostScope($record);
+            }
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    /**
+     * Whether one record may speak about the real deployment target.
+     *
+     * @param array<string, mixed> $record
+     */
+    private function supportsHostClaim(array $record): bool
+    {
+        if (!in_array((string) $record['environment'], self::HOST_ENVIRONMENTS, true)) {
+            return false;
+        }
+
+        // AND IT MUST SAY WHICH HOST. `parse()` already reports an untargeted host record as a
+        // problem; this refuses it again at the point the claim is computed, so a registry read
+        // through any path cannot have an anonymous host record support a claim about a host.
+        return is_string($record['target'] ?? null) && $record['target'] !== '';
+    }
+
+    /**
+     * Whether live read currently stands activated for this deployment.
+     *
+     * ONE TIMELINE, NOT ONE PER RELEASE. `live_read_activated` is a claim about the DEPLOYMENT, and
+     * a deployment runs one release at a time — so activation and withdrawal are events on a single
+     * history, and `release_ref` documents which release each event concerned rather than
+     * partitioning the state.
+     *
+     * Partitioning it would break the only withdrawal procedure there is. Standing live read down
+     * means removing the wiring in a reviewed change and DEPLOYING THAT RELEASE, so the stand-down
+     * record necessarily names a NEWER release than the activation it withdraws
+     * (`ops/rollback/README.md` §4). A per-release rule would file the two in different buckets and
+     * leave the old activation standing forever — the claim would be impossible to withdraw by the
+     * exact procedure the runbook prescribes.
+     *
+     * FOLDED, NOT READ OFF THE LATEST RECORD, because a FAILED withdrawal matters in the dangerous
+     * direction: a `LIVE_READ_STAND_DOWN` whose result is `FAIL` is a withdrawal that DID NOT
+     * HAPPEN, so live read is still on. A latest-wins rule would report it off at exactly the moment
+     * somebody has just discovered they could not turn it off. Each record is therefore applied for
+     * what it is: an activation that passed turns the claim on; a withdrawal that did not fail turns
+     * it off; anything that failed changes nothing, because a failed attempt is not a state
+     * transition.
+     *
+     * THE ENVIRONMENT RULE IS ASYMMETRIC, and that asymmetry is the fail-closed direction. An
+     * ACTIVATION counts only from a host environment — CI has never touched Loopia and cannot
+     * activate anything there. A WITHDRAWAL counts from anywhere: honouring a stand-down is always
+     * the safe move, and discarding one because it was filed under the wrong environment would leave
+     * the claim standing on a technicality.
+     *
+     * Canonical timestamps sort lexicographically by construction (`Core\Clock`), so ordering needs
+     * no parsing and the order in the file is irrelevant. On an exact tie the STAND_DOWN is applied
+     * last and therefore wins: a registry that cannot tell which happened first should not be the
+     * thing that says live read is on.
+     */
+    private function liveReadStandsActivated(): bool
+    {
+        $history = [];
+        foreach ($this->records as $record) {
+            $kind = (string) $record['kind'];
+            if ($kind === 'LIVE_READ_ACTIVATION') {
+                if (!$this->supportsHostClaim($record)) {
+                    continue;
+                }
+            } elseif ($kind !== 'LIVE_READ_STAND_DOWN') {
+                continue;
+            }
+            $history[] = [
+                'at' => (string) $record['recorded_at'],
+                'kind' => $kind,
+                'result' => (string) $record['result'],
+            ];
+        }
+
+        usort(
+            $history,
+            // Timestamp first; then ACTIVATION before STAND_DOWN, so a tie resolves against the
+            // claim rather than by whichever order the file happened to list them in.
+            static fn (array $a, array $b): int => [$a['at'], $a['kind']] <=> [$b['at'], $b['kind']],
+        );
+
+        $activated = false;
+        foreach ($history as $event) {
+            if ($event['kind'] === 'LIVE_READ_ACTIVATION' && $event['result'] === 'PASS') {
+                $activated = true;
+            } elseif ($event['kind'] === 'LIVE_READ_STAND_DOWN' && $event['result'] !== 'FAIL') {
+                $activated = false;
+            }
+        }
+
+        return $activated;
+    }
+
+    /**
+     * Every claim in `$claimBoundary` that is asserted true without evidence to support it.
+     *
+     * THE IMPLICATION RUNS ONE WAY. Evidence without a claim is fine — an operator may record a
+     * successful deployment and leave the flag alone until somebody reviews it. A claim without
+     * evidence is the failure.
+     *
+     * @param array<string, mixed> $claimBoundary
+     * @return list<string>
+     */
+    public function unsupportedClaims(array $claimBoundary): array
+    {
+        $supported = $this->supportedClaims();
+        $out = [];
+        foreach (self::EVIDENCE_BACKED_CLAIMS as $claim) {
+            if (($claimBoundary[$claim] ?? false) === true && $supported[$claim] !== true) {
+                $out[] = $claim;
+            }
+        }
+
+        return $out;
+    }
+}

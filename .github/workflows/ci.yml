@@ -147,8 +147,22 @@ jobs:
       - name: Migration status
         run: php ops/migrate.php status --env=.env.testing
 
+      # LOOPIA_PROBE_001, non-network by default. On a healthy runner this produces
+      # `staging_host_verdict: READY` and `live_read_host_verdict: NOT_QUALIFIED` — the second
+      # because nothing was demonstrated, which is the honest answer for a run that made no request.
+      # `--allow-network` is deliberately NOT passed: CI must not make an outbound request nobody
+      # asked for, and a READY live-read verdict obtained here would say nothing about Loopia anyway.
+      #
+      # `set -o pipefail` is NOT optional here. GitHub's default shell is `bash -e`, which takes the
+      # exit status of the LAST command in a pipeline — so a failing probe piped into `tee` would be
+      # a green step reporting MISSING_CAPABILITY into an artifact nobody read.
       - name: Host capability probe
-        run: php ops/loopia-probe/probe.php --env=.env.testing
+        run: |
+          set -o pipefail
+          php ops/loopia-probe/probe.php --env=.env.testing | tee probe-${{ matrix.mariadb }}.json
+
+      - name: Deployment evidence registry
+        run: php ops/evidence/validate.php
 
       # The WHOLE suite in one step, deliberately, rather than a step per layer.
       #
@@ -161,5 +175,104 @@ jobs:
       # `--strict` makes a SKIP a build failure. In this job a database-backed test can only skip
       # because MariaDB became unreachable, and a suite that quietly passes because it could not
       # reach the database is worse than a red build.
+      #
+      # `--report-json` writes a sanitized machine-readable qualification report ALONGSIDE the
+      # human output, which is unchanged. The report carries counts, the PHP version and the MariaDB
+      # version READ BACK from the connection the suite actually used — never a credential, a DSN, a
+      # fixture or an assertion message, because a failure message in this projection routinely
+      # quotes a governed value and this file is uploaded as an artifact.
       - name: Full suite against real MariaDB
-        run: php tests/run.php --strict
+        run: php tests/run.php --strict --report-json=qualification-${{ matrix.mariadb }}.json
+
+      # UPLOADED EVEN WHEN THE SUITE FAILED — the run whose report matters most is the one that did.
+      #
+      # NAMED FOR WHAT IT IS. This is a GitHub-hosted runner: it qualifies the CODE and has never
+      # touched Loopia. It is not host proof, and `docs/DEPLOYMENT_EVIDENCE_MODEL.md` §4.2 is why
+      # such a record can only ever be filed with `environment: "ci"`, which supports no host claim.
+      - name: Upload CI qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qualification-mariadb-${{ matrix.mariadb }}
+          path: |
+            qualification-${{ matrix.mariadb }}.json
+            probe-${{ matrix.mariadb }}.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  # The single gate. It exists because "every job is green" is a thing a human reads off a page and
+  # a required status check is a thing a branch protection can enforce — and because a job that is
+  # SKIPPED renders as neutral, which some protections treat as passing. This one runs `always()`
+  # and fails explicitly, so a skipped dependency is a red check rather than an absent one.
+  #
+  # It does not trust the job results alone: it re-reads the uploaded reports and asserts what they
+  # actually say. A green job whose report says `skip: 3` is a job that was green for the wrong
+  # reason, and the report is the artifact somebody will later cite as evidence.
+  #
+  # IT INTRODUCES NO DEPLOYMENT. There is no Loopia secret in this workflow, nothing is copied
+  # anywhere, and passing this check authorizes nothing — see docs/CLAIM_CEILING.md.
+  release-qualification:
+    name: release qualification
+    runs-on: ubuntu-latest
+    needs: [foundation, mariadb]
+    if: always()
+    steps:
+      - name: Every qualification job must have succeeded
+        run: |
+          set -euo pipefail
+          echo "foundation: ${{ needs.foundation.result }}"
+          echo "mariadb:    ${{ needs.mariadb.result }}"
+          if [ "${{ needs.foundation.result }}" != "success" ] || [ "${{ needs.mariadb.result }}" != "success" ]; then
+            echo "release qualification NOT met: a required job did not succeed" >&2
+            exit 1
+          fi
+
+      - name: Collect the qualification reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: qualification-mariadb-*
+          path: reports
+
+      # The reports are read rather than believed. Each must be a COMPLETE strict run — no layer
+      # filter, no file filter — with zero failures and zero skips, and must name the MariaDB
+      # version it actually ran against.
+      - name: The reports must say what the jobs claimed
+        run: |
+          set -euo pipefail
+          found=0
+          for report in reports/*/qualification-*.json; do
+            found=$((found + 1))
+            echo "--- ${report}"
+            python3 - "$report" <<'PY'
+          import json, sys
+          path = sys.argv[1]
+          with open(path) as handle:
+              report = json.load(handle)
+          problems = []
+          if report.get("schema_version") != "1.0":
+              problems.append("unexpected schema_version")
+          if report.get("complete") is not True:
+              problems.append("not a complete run — a layer or file filter narrowed the suite")
+          if report.get("strict") is not True:
+              problems.append("not a --strict run, so a skip would not have failed it")
+          total = report.get("total", {})
+          if total.get("fail") != 0:
+              problems.append(f"failures: {total.get('fail')}")
+          if total.get("skip") != 0:
+              problems.append(f"skips: {total.get('skip')}")
+          if not total.get("pass"):
+              problems.append("no assertions passed")
+          if not report.get("database_server_version"):
+              problems.append("the run never opened a database connection")
+          print(f"  php={report.get('php_version')} mariadb={report.get('database_server_version')} "
+                f"pass={total.get('pass')} fail={total.get('fail')} skip={total.get('skip')}")
+          if problems:
+              print("  NOT QUALIFIED: " + "; ".join(problems), file=sys.stderr)
+              sys.exit(1)
+          PY
+          done
+          if [ "$found" -ne 2 ]; then
+            echo "expected one qualification report per MariaDB lane, found ${found}" >&2
+            exit 1
+          fi
+          echo "release qualification met: the code is qualified. Nothing is deployed and nothing is activated."
