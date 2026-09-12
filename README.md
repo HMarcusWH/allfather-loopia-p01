@@ -60,27 +60,51 @@ collected in §3.7.
 | [`docs/LOOPIA_CAPABILITY_REPORT.md`](./docs/LOOPIA_CAPABILITY_REPORT.md) | what this projection can and cannot do, and what is left before launch |
 | [`docs/DEPLOYMENT_RUNBOOK.md`](./docs/DEPLOYMENT_RUNBOOK.md) | staging/production procedure, rollback, restore |
 | [`docs/CLAIM_CEILING.md`](./docs/CLAIM_CEILING.md) | what may and may not be claimed |
+| [`docs/BETA_RUNBOOK.md`](./docs/BETA_RUNBOOK.md) | **the sequence** — Gates A–S, with a pass condition for each |
+| [`docs/DEPLOYMENT_EVIDENCE_MODEL.md`](./docs/DEPLOYMENT_EVIDENCE_MODEL.md) | how an operational claim becomes true, and what it takes |
+| [`deployment-evidence.json`](./deployment-evidence.json) | the evidence registry — currently **empty** |
 | [`docs/LOOPIA_HOST_MODEL.md`](./docs/LOOPIA_HOST_MODEL.md) | what the target host actually is, sourced from Loopia's own documentation, and what it does NOT document |
 
 ## Current status
 
-**Implementation in progress. Nothing is deployed and nothing is activated.**
+**Nothing has been deployed to Loopia. Nothing is activated.**
+
+`deployment-evidence.json` carries **zero records**, which is the machine-readable form of that
+sentence — and the reason none of the operational claims below can be true.
 
 ```text
-road_test_001_executed       = false
-production_launch_authorized = false
-external_action_authorized   = false
-live_read_activated          = false
-owner_go_granted             = false
-customer_visible_output      = false
-staging_deployed             = false
-conformance_complete         = false
+# owner acts. No evidence collected on any host can support one.
+production_launch_authorized       = false
+external_action_authorized         = false
+owner_go_granted                   = false
+customer_visible_output_authorized = false
+no_external_charge_executed        = true
+
+# observations. Each may become true, and ONLY while the evidence registry supports it.
+conformance_complete               = false
+staging_deployed                   = false
+loopia_capability_validated        = false
+live_read_activated                = false
+road_test_001_executed             = false
 ```
+
+The split is the point, and it is new. The first four are decisions a person makes and records
+upstream; no amount of qualification work moves one. The last five are claims about the world, and
+each is true only while `deployment-evidence.json` carries a record supporting it —
+`tests/foundation/deployment_evidence_boundary.php` fails the build if the lock asserts one without.
+Filing a record is still a human edit somebody reviews; nothing in the application can write either
+file. See [`docs/DEPLOYMENT_EVIDENCE_MODEL.md`](./docs/DEPLOYMENT_EVIDENCE_MODEL.md).
+
+**Live read is off structurally, not by a flag.** `CurlHttpsTransport` and `DnsHostResolver` exist,
+are reviewed and are tested, and *nothing constructs either* — asserted on every commit. The
+scheduler's handler registry is empty in both composition roots, so a tick that arrived would
+correctly do nothing.
 
 Merging code here establishes no deployment, no activation, and no customer-visible output. The
 launch sequence is: implementation complete → conformance complete → staging deployment → Loopia
 capability validation → controlled road test → rollback/restore verification → owner review →
-explicit owner-go → production activation. Each is recorded separately.
+explicit owner-go → production activation. Each is recorded separately, and
+[`docs/BETA_RUNBOOK.md`](./docs/BETA_RUNBOOK.md) is how the middle of it is executed.
 
 ## Development
 
@@ -96,3 +120,13 @@ composer check                # lint + full test suite
 `composer check` runs lint, unit, integration, conformance, acceptance, security and rollback
 layers. The DB-backed layers require a reachable MariaDB and are **skipped loudly**, never
 silently passed, when one is absent.
+
+`php tests/run.php --strict --report-json=<path>` additionally writes a sanitized machine-readable
+qualification report — counts, the PHP version and the MariaDB version read back from the connection
+the suite actually used, and no credential, DSN, fixture or assertion message. The human output is
+unchanged either way. CI writes one per MariaDB lane and a `release qualification` job re-reads them
+rather than trusting the job status.
+
+> **On a deployed host, never point the suite at the runtime database.** The harness truncates every
+> application table except `schema_migrations` between suites. Use a dedicated qualification database
+> and name it explicitly: `TEST_ENV_FILE=.env.qualification php tests/run.php --strict`.

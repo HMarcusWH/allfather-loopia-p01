@@ -5,6 +5,12 @@ Staging deployment, verification, and stand-down for the Loopia host.
 **Read `LOOPIA_CAPABILITY_REPORT.md` §5 first.** Nothing in this runbook constitutes launch
 authority, and the claim/authority flags remain false until their own evidence and owner acts exist.
 
+**This file explains the mechanics. [`BETA_RUNBOOK.md`](./BETA_RUNBOOK.md) is the SEQUENCE** — Gates
+A to S, in order, with a pass condition for each. If you are about to deploy, start there and come
+back here for the detail. The two rules it opens with are the ones that cost the most if skipped:
+the qualification database is not the runtime database, and no secret goes on the host until
+cross-site isolation has been proved.
+
 ---
 
 ## 1. What you are deploying
@@ -19,8 +25,8 @@ configured.
 | Requirement | Why it matters |
 | --- | --- |
 | PHP 8.2 or later | the code uses readonly promoted properties, enums, and `WeakMap` |
-| extensions: `pdo_mysql`, `curl`, `openssl`, `mbstring`, `json` | `openssl` for credential encryption; `curl` with `CURLOPT_RESOLVE` for the pinned-address egress guard |
-| MariaDB 10.5 or later | CHECK constraints must be ENFORCED, not parsed and ignored. **Loopia Företag is 10.6; 10.11 is Företag Plus only.** BOTH are verified: CI runs the full strict suite against real 10.6 and real 10.11, and the job asserts the server version it actually got rather than the one it asked for |
+| extensions: `pdo`, `pdo_mysql`, `curl`, `openssl`, `mbstring`, `json`, `hash` | `openssl` for credential encryption; `curl` with `CURLOPT_RESOLVE` for the pinned-address egress guard |
+| MariaDB 10.6 or later | CHECK constraints must be ENFORCED, not parsed and ignored. **Loopia Företag is 10.6; 10.11 is Företag Plus only.** BOTH are verified: CI runs the full strict suite against real 10.6 and real 10.11, and the job asserts the server version it actually got rather than the one it asked for |
 | `APP_MASTER_KEY` in server-private configuration | provider-credential encryption; never in the repository, never in the database. **Required at boot** in staging and production — a deployment without it refuses to start rather than failing at the first credential it seals |
 | `APP_ENV` set correctly | a value outside `development`/`testing`/`staging`/`production` — including unset, empty or misspelled — resolves to **production**. Getting it wrong makes the deployment stricter, never looser |
 | DB credentials via environment | `DB_HOST`/`DB_PORT` or `DB_SOCKET`, plus `DB_NAME`, `DB_USER`, `DB_PASSWORD` |
@@ -81,23 +87,37 @@ unhashed fallback; rebuild and stage the deployment working tree instead.
 
 #### Deploy the application tree
 
+This is the **staging qualification profile**. It carries `tests/`, `docs/` and `ops/` deliberately —
+§4 tells the operator to run the strict suite, the probe and the smoke client on the host, and a copy
+that excluded the test directory would be a copy that cannot do what the next section asks of it. An
+earlier revision of this runbook excluded `tests` and then told the operator to run
+`php tests/run.php` there; that contradiction is what this profile resolves. See §3.3 for the future
+production runtime profile, which is a different (and not yet authorized) thing.
+
+Everything it carries is a **sibling** of `public_html/` and therefore not web-reachable. §4.1's HTTP
+probes establish that on the real host, because "outside the document root" is a property of a
+deployment's configuration rather than of these files.
+
 **Deploy over SSH** (available on all three tiers), from a checkout on your own machine. The general
 deployment deliberately excludes the Operator Console asset directory; that subtree has its own
 manifest-last publish step immediately below.
 
     rsync -av --delete \
       --exclude '.git' \
-      --exclude 'tests' \
+      --exclude '.github' \
       --exclude '.env' \
+      --exclude '.env.*' \
       --exclude 'frontend/console/node_modules' \
       --exclude 'frontend/console/dist' \
       --exclude 'public_html/assets/operator-console' \
       ./ <user>@<host>:~/<domain>/
 
 `rsync` does not honor `.gitignore`. The private frontend dependency tree and private `dist/` build
-therefore stay explicitly excluded. The staged Operator Console subtree is also excluded here for a
-different reason: the root `--delete` must not prune the previous content-hashed bundle while an old
-manifest or already-served HTML can still refer to it.
+therefore stay explicitly excluded. Every `.env*` is excluded because configuration is the host's and
+is uploaded once, by hand — a deploy that overwrites it is a deploy that can silently change which
+database it points at. The staged Operator Console subtree is excluded for a different reason: the
+root `--delete` must not prune the previous content-hashed bundle while an old manifest or
+already-served HTML can still refer to it.
 
 #### Publish Operator Console assets manifest-last
 
@@ -139,18 +159,58 @@ a supported configuration to rely on.
 
 **Verify the boundary after deploying.** Each of these must NOT return the file:
 
-    curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/.env
-    curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/app/Support/Env.php
-    curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/database/migrations/010_governance_core.sql
-    curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/storage/scheduler.log
-    curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/worker/tick.php
-    curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/ops/migrate.php
+    for path in /.env /app/Support/Env.php /database/migrations/010_governance_core.sql \
+                /storage/request.log /worker/tick.php /ops/migrate.php \
+                /frontend/console/package.json /tests/run.php \
+                /composer.json /upstream.lock.json /deployment-evidence.json; do
+      printf '%s -> ' "$path"
+      curl -sS -o /dev/null -w '%{http_code}\n' "https://<domain>${path}"
+    done
 
 403 or 404 are both correct. **A 200 from any of them means the layout is wrong** — and the fix is
 the layout, not the `.htaccess`. Those files are defence in depth: every directive is
 `<IfModule>`-guarded, so on a host missing the module each is a silent no-op.
 
-### 3.2 Configuration fails closed
+The list now includes `tests/`, `frontend/` and the two governance files because the qualification
+profile above carries them. They are siblings of the served directory and therefore not reachable —
+and this is the check that establishes it on a host rather than in a test.
+
+### 3.2 Before the secrets: cross-site isolation
+
+**Run this between the copy and the configuration**, not after. On Loopia the account may hold
+several sites, and whether one site's PHP can read another's private files is a question that has to
+be answered before `APP_MASTER_KEY` and the database password are placed on the host. Answering it
+afterwards means answering it too late.
+
+    php ops/loopia-probe/isolation-canary.php --mode=create  --dir=~/<domain>/storage
+    php ops/loopia-probe/isolation-canary.php --mode=probe   --dir=~/<other-domain>/storage
+    php ops/loopia-probe/isolation-canary.php --mode=cleanup --dir=~/<domain>/storage
+
+The canaries are worthless by construction — `ALLFATHER_LOOPIA_NON_SECRET_CANARY_<random>` and
+nothing else — so a reader who obtains one learns that the boundary is broken and learns nothing
+else. The full matrix, including the own-canary control rows without which a `NOT_FOUND` everywhere
+looks like perfect isolation, is in [`ops/loopia-probe/README.md`](../ops/loopia-probe/README.md) §5
+and sequenced as Gate E of [`BETA_RUNBOOK.md`](./BETA_RUNBOOK.md).
+
+**Any cross-site `READABLE` is a hard stop.** Do not place credentials on the host.
+
+### 3.3 The future production runtime profile — DEFERRED
+
+A production deployment could carry less than the qualification profile: no `tests/`, no frontend
+source, most of `docs/`. That profile is **described here and not built**, and there is no
+`--mode=production` in `ops/deploy/preflight.php`, for a reason that is not caution:
+
+**The pinned canonical identity vocabulary defines no production deployment.** There is no
+`CUSTOMER` tenant type, no production workspace type and no `PRODUCTION` environment class in the
+schema this projection is pinned to — `ops/provision-staging.php` refuses `APP_ENV=production`
+*before* it opens the database for exactly that reason. Full public production requires a canonical
+promotion that has not happened. Using `TEST` as a production synonym, or adding a migration to
+invent the vocabulary locally, would be inventing authority rather than porting it.
+
+So: closed beta work remains staging/testing/internal in canonical identity terms, and a production
+runtime copy profile is a thing to build after that promotion, not before.
+
+### 3.4 Configuration fails closed
 
 `.env` is production's file and `.env.testing` is a development convenience. A staging or
 production deployment configured from the test file **refuses to start**, so a host whose `.env` is
@@ -169,7 +229,7 @@ A refusal looks like this, and is the only thing the deployment will say until i
 
     {"status":"MISCONFIGURED","detail":"refusing to start in production: required configuration missing: APP_MASTER_KEY"}
 
-### 3.3 Install
+### 3.5 Install
 
     git clone <repo> && cd allfather-loopia-p01
     cp .env.example .env && edit .env          # DB_*, APP_MASTER_KEY, SCHEDULER_TOKEN_HASH
@@ -188,21 +248,46 @@ hand; do not re-run and hope.
 
 ## 4. Verify the deployment — do not skip this
 
-### 4.1 The suite
+### 4.1 The suite — and the database it must never touch
 
-    php tests/run.php --strict
+> ## THE QUALIFICATION DATABASE IS NOT THE RUNTIME DATABASE
+>
+> `tests/support/Harness.php` **truncates every application table except `schema_migrations`**
+> between suites. Correct for a harness; catastrophic against a populated deployment.
+>
+> **Never run `php tests/run.php` against the staging runtime database.** It will empty it — every
+> tenant, operator, login and governed record.
+>
+> The host gets **two** databases. The runtime one is named by `.env`; the qualification one is named
+> by a separate private `.env.qualification`, and the suite is only ever pointed at the second,
+> explicitly:
+>
+>     TEST_ENV_FILE=.env.qualification php tests/run.php --strict
+>
+> Check the two apart by eye before every run:
+>
+>     grep DB_NAME .env .env.qualification
 
-Expect **3325 passing, 0 failing, 0 skipped** at this repair head. Under `--strict` a skip is a
-non-zero exit, so an unreachable database cannot be mistaken for a green run.
+The runner has **no `--env` flag of its own**; passing one is silently ignored and the run connects
+to whatever `.env.testing` — and then `.env` — names. On a staging host `.env` is the runtime
+database, which is precisely why `TEST_ENV_FILE` exists and why it is the only supported way to point
+the suite anywhere. It wins over both conventional files and throws if the file is missing.
 
-To run against a DIFFERENT server than the one `.env.testing` names — a second MariaDB version, a
-staging database — set `TEST_ENV_FILE` rather than editing `.env.testing` in place:
+    TEST_ENV_FILE=.env.qualification php tests/run.php --strict \
+      --report-json=qualification-staging.json
 
-    TEST_ENV_FILE=.env.mariadb106 php tests/run.php --strict
+Under `--strict` a skip is a non-zero exit, so an unreachable database cannot be mistaken for a green
+run. `--report-json` additionally writes a sanitized machine-readable report — counts, the PHP
+version, and the MariaDB version read back from the connection the suite actually used, and no
+credential, DSN, fixture or assertion message. The human output is unchanged either way.
 
-The runner has no `--env` flag of its own; passing one is silently ignored and the run connects to
-whatever `.env.testing` names, which is how a "10.6 run" can report a clean pass without ever having
-touched 10.6. `TEST_ENV_FILE` wins over both conventional files and throws if the file is missing.
+The exact current assertion counts are in [`CONFORMANCE_MATRIX.md`](./CONFORMANCE_MATRIX.md) §1,
+measured rather than remembered. They are not repeated here: a count in two places is a count that
+will disagree with itself.
+
+**This copy carries `tests/`.** The staging qualification profile in §3 includes the test directory
+for exactly this step. That is what makes this section executable, and it is what the production
+runtime profile (§3.3, deferred) would drop.
 
 ### 4.2 CHECK constraints are ENFORCED
 
@@ -236,6 +321,58 @@ hand.
 
 The guard's refusals are unit-tested, but confirm the deployed configuration reaches the same
 answer for a private address before trusting it with a real source.
+
+### 4.5 The host capability probe
+
+    php ops/loopia-probe/probe.php --env=.env
+
+Expect `"staging_host_verdict": "READY"`. Every storage capability is **demonstrated** rather than
+inferred from a version string — foreign keys refused against an absent parent, a lock actually
+contended for across two connections, a `SIGNAL SQLSTATE '45000'` trigger that actually fires — and
+each proof runs against a disposable, randomly-named table it drops afterwards, including when the
+proof threw.
+
+`live_read_host_verdict` will be `NOT_QUALIFIED` on this run: nothing was demonstrated, because no
+request was made. To ask the egress question separately:
+
+    php ops/loopia-probe/probe.php --env=.env --allow-network \
+      --require-live-read --probe-host=example.com
+
+**Running the probe does not activate live read.** It goes through no source card, no egress guard
+and no evidence spine, and writes nothing. Demonstrating that live read *could* work is as far from
+activating it as reading the specification of a lock is from opening the door.
+
+`scheduler_transport_verdict` is `UNVERIFIED` and always will be — see §6a.
+
+### 4.6 The deployed site, from outside
+
+The suite drives the Kernel in-process: it proves the application's decisions. It cannot prove that
+Apache honoured a directive, that the document root points where §3.1 says, that TLS terminates, or
+that the private tree is unreachable over HTTP. That is what the smoke client is for.
+
+    php ops/staging-smoke.php --base-url=https://<domain> --mode=anonymous
+
+    read -rs PW; read -rs NEW; printf '%s\n%s\n' "$PW" "$NEW" | php ops/staging-smoke.php \
+      --base-url=https://<domain> --mode=beta-journey --email=<address> --password-stdin
+
+Expect `"status": "SMOKE_PASS"` and `responses_without_request_reference: 0`. It requires HTTPS
+rather than upgrading to it, never follows a redirect, keeps its cookie jar in memory, and prints
+step names, status codes, reason codes and the opaque request reference — never a body, a cookie, a
+credential or one field of governed product data.
+
+**Then prove the support reference end to end** (`BETA_RUNBOOK.md` Gate P): capture an
+`X-Request-ID` from a real response, and find exactly that id in the private request log over SSH.
+A reference a partner can quote and an operator cannot look up is worse than no reference.
+
+### 4.7 Record what you proved
+
+    php ops/evidence/validate.php
+
+Each activity above produces an artifact. Save it, take its `sha256sum`, and add one record to
+`deployment-evidence.json` by hand — that edit is a diff somebody reads, which is the property a
+claim of this weight should have. Only once the registry supports a claim may `upstream.lock.json`
+assert it, as a separate reviewed act. See
+[`DEPLOYMENT_EVIDENCE_MODEL.md`](./DEPLOYMENT_EVIDENCE_MODEL.md) §7.
 
 ## 5. Provision a tenant
 
@@ -429,9 +566,22 @@ increasing order of scope:
 A CONSUMED authorization is **not** revocable. What it authorized already happened, and that is
 historical fact — recorded truthfully, never un-recorded.
 
-After any stand-down, verify the ledger still verifies:
+A CODE ROLLBACK IS A DIFFERENT THING and is not in the table above, because it touches no governed
+row at all: it restores the previous release and the Operator Console manifest that matches it. The
+full procedure — including why there are no down-migrations and why the manifest step is the one
+whose failure looks healthiest — is [`ops/rollback/README.md`](../ops/rollback/README.md).
 
-    php -r '... DecisionLedger::verifyStream($streamId) ...'   // expect status PASS
+After any stand-down or rollback, verify it took effect:
+
+    php ops/rollback/verify-stand-down.php \
+      --expect-release=<the 40-character SHA that should now be live> \
+      --email=<an internal test account> \
+      --env=.env
+
+Read-only: no table, no file, no incident closed, no flag set. It checks the running release, the
+console manifest, the scheduler's inert posture, the live-read posture from the evidence registry,
+one named account, and **M10 stream integrity recomputed** rather than read from a status column.
+That last one is the difference between a ledger that verifies and one that merely says it does.
 
 The chain must verify WITH the correction in it. That is what makes the withdrawal provable rather
 than merely performed.
@@ -542,18 +692,27 @@ the difference is structural rather than procedural.
 5. **A reading of what it found** — including anything the change detector classified badly. A road
    test whose findings are not read is a deployment rehearsal, not a road test.
 
-**What to record afterwards**, in `upstream.lock.json` and by hand:
+**What to record afterwards** is a record first and a flag second, and the order is the point. An
+operational claim is true only while `deployment-evidence.json` carries a record supporting it, and
+`tests/foundation/deployment_evidence_boundary.php` fails the build if the lock asserts one without.
 
-| Flag | Set true when |
+| Claim | Supported by |
 | --- | --- |
-| `live_read_activated` | the transport was wired and a real fetch occurred |
-| `road_test_001_executed` | steps 1–5 completed and the findings were read |
-| `loopia_capability_validated` | the probe ran on the actual host, not a container |
-| `staging_deployed` | the code is on the Loopia staging host |
+| `live_read_activated` | a `LIVE_READ_ACTIVATION` PASS for the exact release, not later withdrawn |
+| `road_test_001_executed` | a `ROAD_TEST_001` record — **of any result**; execution is not success |
+| `loopia_capability_validated` | a `STAGING_DEPLOYMENT` PASS **and** a `LOOPIA_PROBE_001` PASS, from a host environment, for the same release |
+| `staging_deployed` | a `STAGING_DEPLOYMENT` PASS from a host environment |
+
+`road_test_001_executed` is the one worth reading twice: a road test that went badly is still a road
+test that was executed, and collapsing the two is how a failure becomes a green flag. The flag says
+it ran; the record says how it went; both are true and both are readable.
+
+The mechanics, the closed schema and the validator are in
+[`DEPLOYMENT_EVIDENCE_MODEL.md`](./DEPLOYMENT_EVIDENCE_MODEL.md).
 
 `owner_go_granted` and `production_launch_authorized` are separate from all of the above and depend
-on nothing in this file. **Build completion is not launch authority**, and a green suite is
-evidence for a decision somebody else makes.
+on nothing in this file — no evidence collected on any host can support one. **Build completion is
+not launch authority**, and a green suite is evidence for a decision somebody else makes.
 
 ## 8. Known untested surface
 
@@ -561,7 +720,22 @@ Stated so nobody assumes otherwise:
 
 - **This has never run on Loopia shared hosting.** Development and CI verify PHP/MariaDB behavior,
   but §4.2 and §4.3 exist precisely because the real shared host can differ in configuration,
-  privileges and import behavior.
-- Hosted CI runs the full suite on PHP 8.2.33 — the supported floor — against **both MariaDB
-  10.6.28 and 10.11.19**, with each server version read back and asserted before the suite runs.
-- No road test has been executed. No live source has been captured outside the test suite.
+  privileges and import behavior. `deployment-evidence.json` carries **no records**, which is the
+  machine-readable form of the same statement.
+- **Cross-site isolation on Loopia is unproved.** §3.2's canaries exist to answer it and have never
+  been run on a real host.
+- **`open_basedir`, the MariaDB account's TRIGGER privilege, row locking, foreign-key enforcement
+  and outbound HTTPS are unproved ON LOOPIA.** The probe demonstrates each rather than inferring it,
+  and it has only ever been run in CI and in development.
+- **The Kundzon scheduler's HTTP semantics are unknown**, recorded as
+  `LOOPIA_SCHEDULER_TRANSPORT_BLOCKER` in `LOOPIA_HOST_MODEL.md` §4. The probe reports
+  `scheduler_transport_verdict: UNVERIFIED` and will not report anything else; it is closed by a
+  question to Loopia support.
+- **No `.htaccess` directive has ever been interpreted by a web server.** Apache runs neither in
+  development nor in CI. §3.1's and §3.2's HTTP probes are what establish it, on a real host.
+- Hosted CI runs the full suite on PHP 8.2 — the supported floor — against **both MariaDB 10.6 and
+  10.11**, with each server version read back and asserted before the suite runs, and a
+  `release qualification` job that re-reads both machine-readable reports rather than trusting the
+  job status.
+- No road test has been executed. No live source has been captured outside the test suite. Nothing
+  in this repository constructs `CurlHttpsTransport` or `DnsHostResolver`.

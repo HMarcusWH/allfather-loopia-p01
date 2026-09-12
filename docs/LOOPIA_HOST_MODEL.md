@@ -107,11 +107,49 @@ support:
 
 Until it is answered:
 
-- **Option F is the recommended deployment**, and it needs nothing from Kundzon.
+- **Option F is the recommended deployment**, and it needs nothing from Kundzon. An external
+  scheduler reaches `worker/tick.php` over SSH; the authority is SSH key possession, so there is no
+  HTTP credential to leak, rotate or misconfigure.
 - **Option A stays the primary interface**, unweakened.
 - **Option C is prepared but NOT enabled**, and enabling it is an operator decision that accepts a
   secret-in-URL risk in exchange for Kundzon compatibility.
 - **Option E is refused outright** and no code path offers it.
+
+### The probe will not close this, and says so
+
+`LOOPIA_PROBE_001` reports `scheduler_transport_verdict` as **`UNVERIFIED`**, never `READY`, and
+`tests/foundation/loopia_probe_contract.php` asserts that it cannot. What the probe can establish is
+that the CLI door exists — it is itself running under the CLI SAPI on the host, with
+`worker/tick.php` present beside it. What no probe can establish is which HTTP method Kundzon uses
+or whether a custom header survives, because Loopia documents neither and nothing measurable from
+inside PHP answers it. A probe that reported READY here would be closing a blocker by assertion.
+
+The verdict block names the state rather than hiding it:
+
+    "scheduler_transport_verdict": "UNVERIFIED",
+    "scheduler_transport": {
+      "cli_tick_present": true,
+      "kundzon_http_method": "NOT_DOCUMENTED",
+      "kundzon_custom_headers": "NOT_DOCUMENTED",
+      "blocker": "LOOPIA_SCHEDULER_TRANSPORT_BLOCKER",
+      "preferred_transport": "EXTERNAL_SCHEDULER_OVER_SSH_TO_WORKER_TICK",
+      "scheduler_handlers_registered": false
+    }
+
+### Scheduler activation is not part of this phase
+
+The last line above is why the blocker is not yet urgent. **The handler registry is EMPTY in both
+composition roots** — `worker/tick.php` and `public_html/scheduler.php` each construct
+`SchedulerRunner` with `[]` — so a tick that did arrive would correctly claim nothing, advance
+nothing and report `SCHEDULER_INACTIVE`. That is a successful run with zero effect, and
+`ops/deploy/preflight.php` and `ops/rollback/verify-stand-down.php` both check the registry is still
+empty before and after a deployment.
+
+Wiring a handler is a separate act with its own review, and it comes after real staging
+qualification and a road test — neither of which has happened. **Scheduler activation is not part of
+this deployment phase**, and the inert staging configuration therefore leaves `SCHEDULER_TOKEN` and
+`SCHEDULER_TOKEN_HASH` blank: with neither set, every token is refused with
+`SCHEDULER_CREDENTIAL_NOT_CONFIGURED` and the door is unreachable rather than open.
 
 ## 5. Open blockers before staging
 
@@ -121,5 +159,20 @@ Until it is answered:
    running the same MariaDB version is not the same as Loopia's instance of it — the version
    question is settled, the HOST question is not.
 
+3. **Cross-site isolation within the Loopia account is unproved.** Whether the PHP running for one
+   site can read another site's private files decides whether `APP_MASTER_KEY` and the database
+   password may be placed there at all. `ops/loopia-probe/isolation-canary.php` exists to answer it
+   with files that are worthless by construction, and it has never been run on a real host.
+
+4. **`open_basedir` behaviour, the MariaDB account's TRIGGER privilege, foreign-key enforcement, row
+   locking and outbound HTTPS are unproved ON LOOPIA.** The probe demonstrates each rather than
+   inferring it from a version string, and has only ever run in CI and in development.
+
 **Closed since the previous revision:** MariaDB 10.6 was listed here as untested. It is now verified
 against a real 10.6 server in CI, on every commit, with no skips.
+
+**What has changed about how these get closed:** each of the open blockers is now a command with a
+pass condition rather than an investigation. `docs/BETA_RUNBOOK.md` sequences them as Gates E and H,
+and the results are filed as `CROSS_SITE_ISOLATION` and `LOOPIA_PROBE_001` records — which is what
+makes `loopia_capability_validated` capable of becoming true, and what stops it becoming true
+without them.
