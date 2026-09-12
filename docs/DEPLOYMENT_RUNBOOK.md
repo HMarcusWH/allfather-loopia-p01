@@ -8,8 +8,9 @@ authority, and the claim/authority flags remain false until their own evidence a
 **This file explains the mechanics. [`BETA_RUNBOOK.md`](./BETA_RUNBOOK.md) is the SEQUENCE** — Gates
 A to S, in order, with a pass condition for each. If you are about to deploy, start there and come
 back here for the detail. The two rules it opens with are the ones that cost the most if skipped:
-the qualification database is not the runtime database, and no secret goes on the host until
-cross-site isolation has been proved.
+the qualification database is not the runtime database, and no secret goes on the host until the
+**web-PHP** cross-site isolation blocker is closed — which a clean SSH/CLI canary matrix does not
+do, and which nothing in this repository can waive.
 
 ---
 
@@ -198,6 +199,13 @@ The canary runs under the CLI SAPI as the SSH user, so a clean matrix bounds **t
 nothing more; every result says so in its own output. Cross-site isolation of the web PHP identity
 stays UNVERIFIED and is carried as an open blocker in
 [`LOOPIA_HOST_MODEL.md`](./LOOPIA_HOST_MODEL.md) §5, not closed by a green run here.
+
+**`WEB_PHP_ISOLATION_REQUIRED_BEFORE_SECRETS`.** `LOOPIA_WEB_PHP_CROSS_SITE_ISOLATION_BLOCKER` must
+be CLOSED — by Loopia's written assurance or an equivalent host proof of the web identity — before
+`APP_MASTER_KEY` or `DB_PASSWORD` is placed on the host. A clean canary matrix, an HTTP private-path
+pass, operator judgement, owner risk acceptance, staging-only credentials or a reduced blast radius
+do not close it: `WEB_PHP_ISOLATION_WAIVER_ALLOWED = false`. The sequence is
+[`BETA_RUNBOOK.md`](./BETA_RUNBOOK.md) Gate E.3.
 
 ### 3.3 The future production runtime profile — DEFERRED
 
@@ -731,8 +739,12 @@ Stated so nobody assumes otherwise:
   but §4.2 and §4.3 exist precisely because the real shared host can differ in configuration,
   privileges and import behavior. `deployment-evidence.json` carries **no records**, which is the
   machine-readable form of the same statement.
-- **Cross-site isolation on Loopia is unproved.** §3.2's canaries exist to answer it and have never
-  been run on a real host.
+- **Cross-site isolation of the SSH/CLI identity on Loopia is unproved.** §3.2's canaries exist to
+  answer it and have never been run on a real host.
+- **Cross-site isolation of the WEB PHP identity is unproved, and this repository has no tool that
+  can prove it.** `LOOPIA_WEB_PHP_CROSS_SITE_ISOLATION_BLOCKER` closes only on Loopia's written
+  assurance or an equivalent host proof; it is a non-waivable prerequisite to placing any secret on
+  the host. See `LOOPIA_HOST_MODEL.md` §5 blocker 4 and `BETA_RUNBOOK.md` Gate E.3.
 - **`open_basedir`, the MariaDB account's TRIGGER privilege, row locking, foreign-key enforcement
   and outbound HTTPS are unproved ON LOOPIA.** The probe demonstrates each rather than inferring it,
   and it has only ever been run in CI and in development.

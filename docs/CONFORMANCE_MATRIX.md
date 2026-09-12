@@ -28,6 +28,31 @@ read back from the server it ran on rather than assumed from how the run was lau
 Migrations were applied from empty and then re-applied on both servers: 19 applied, 0 drift, then
 19 skipped, 0 drift. **PR8 added no migration**; 19 is the same count the previous revision carried.
 
+### One local run that did not pass, recorded rather than dropped
+
+At this head, one 10.6 run in the development container failed a single test —
+`security/p07a_privacy_foundation`, with `SQLSTATE[HY000] 1205 Lock wait timeout exceeded` raised
+by the harness's `TRUNCATE` reset at `tests/support/Harness.php:140`. It is recorded here because a
+matrix that only ever shows the runs that passed is a matrix nobody can use to recognise this if it
+happens again.
+
+**What was ruled out.** The probe lowers `innodb_lock_wait_timeout` to demonstrate row locking, which
+would produce exactly this symptom if it leaked — it does not: it is `SET SESSION`, and both servers
+read back the 50-second default globally after the failure. So the reset genuinely waited fifty
+seconds for a lock, which is a hold, not momentary contention.
+
+**What was not established.** Nothing in the process list held a lock afterwards, and the run did not
+reproduce: five consecutive clean runs at the same head followed it — three security lanes and two
+full strict suites — plus one full 10.6 pass immediately before it. The holder was never identified.
+The container's MariaDB instances had been hard-killed by the sandbox and restarted minutes earlier,
+and the 10.6 instance logged InnoDB crash recovery on startup; that is a difference from CI, not an
+explanation, and it is not offered as one.
+
+**So it is UNATTRIBUTED, not dismissed.** CI has run this suite against real 10.6 and 10.11 on every
+commit of this branch without it. If it recurs, the thing to capture before anything else is
+`information_schema.innodb_trx` and the full process list *while the run is blocked* — after the
+timeout there is nothing left to see, which is why this entry cannot say more than it does.
+
 These numbers are MEASURED, not remembered. They were taken by running the suite at the exact head
 this document describes, and the same run wrote a machine-readable report:
 
@@ -61,6 +86,7 @@ went stale — a count in two places is a count that will eventually disagree wi
 | acceptance | `beta_launch_journey.php` | the whole invited-partner journey as ONE composition, through the real HTTP kernel |
 | security | `loopia_probe_safety.php`, `isolation_canary.php`, `staging_smoke_safety.php`, `release_preflight_safety.php` | that the four new host-facing commands touch no governed table, leak no secret, cannot hang, and refuse a configuration file that is publicly served |
 | rollback | `stand_down_verifier.php` | that every contradiction of a stood-down posture produces a finding — and that the stood-down posture itself produces none |
+| foundation | the web-PHP isolation policy block in `deployment_boundary.php` | that the blocker stays a non-waivable pre-secret gate in all three normative documents, and that the CLI canary never starts claiming to close it. It **throws** rather than asserting, deliberately: a structural policy over launch documentation should not inflate a published assertion total, so a violation fails the file while a clean policy adds no count |
 
 Run with `php tests/run.php --strict`. Under `--strict` a skip is a non-zero exit, so an
 unreachable database cannot be mistaken for a green suite.

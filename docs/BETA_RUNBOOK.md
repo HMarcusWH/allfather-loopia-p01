@@ -201,7 +201,7 @@ place `APP_MASTER_KEY` or database credentials on the host. Record the finding a
 isolation (E.1) and the server's HTTP refusal of private paths on this site (E.2). It does not
 attest that web PHP on a sibling site is confined, and the record's own note must say so.
 
-### E.3 The web-PHP isolation decision — REQUIRED BEFORE GATE F
+### E.3 The web-PHP isolation blocker — REQUIRED CLOSED BEFORE GATE F
 
 Gate E.1 closes SSH/CLI isolation and E.2 closes this site's HTTP refusal of private paths. Neither
 closes **cross-site isolation of the web PHP identity**, and Gate F is where `DB_PASSWORD` and
