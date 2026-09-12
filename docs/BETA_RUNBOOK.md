@@ -39,11 +39,16 @@ and the suite is only ever pointed at the second one, explicitly:
 `.env.testing` and then `.env` — and `.env` on a staging host is the runtime database. The runner
 has no `--env` flag of its own; passing one is silently ignored.
 
-### 2. No secret goes on the host until Gate E passes
+### 2. No secret goes on the host until the web-PHP isolation blocker is closed
 
 Cross-site isolation is answered **before** `APP_MASTER_KEY` and the database password are uploaded,
 not after. Answering it afterwards means answering it too late: a secret that turns out to be
 readable from a sibling site has already been exposed for however long it took to find out.
+
+`WEB_PHP_ISOLATION_REQUIRED_BEFORE_SECRETS` is a hard deployment invariant. Gate E.1 proves only the
+SSH/CLI identity and Gate E.2 proves the HTTP document-root boundary. Neither is a substitute for
+closing `LOOPIA_WEB_PHP_CROSS_SITE_ISOLATION_BLOCKER` at Gate E.3. There is no owner or operator
+waiver: `WEB_PHP_ISOLATION_WAIVER_ALLOWED = false`.
 
 ---
 
@@ -206,18 +211,20 @@ own words, an open blocker — `LOOPIA_HOST_MODEL.md` §5 blocker 4. Gate E's wh
 is that a secret placed before the answer is a secret already exposed for however long the answer
 takes; a narrower Gate E does not change that, it just means less of the question is closed.
 
-So **one of these must be true before Gate F**, and which one must be recorded:
+`LOOPIA_WEB_PHP_CROSS_SITE_ISOLATION_BLOCKER` must be **CLOSED** before Gate F. There are exactly two
+accepted closure routes:
 
 | Route | What it takes |
 | --- | --- |
 | **Loopia states it in writing** | An assurance from Loopia, in a ticket you can cite, that web PHP for one site in a shared account cannot read another site's private files. File it as the `CROSS_SITE_ISOLATION` record's `evidence_ref`, and quote it in the `note`. |
 | **A host proof of the web identity** | Any measurement that establishes it without adding a file-reading endpoint to this projection — a Loopia-provided per-site PHP configuration showing `open_basedir` confinement of the web SAPI, or an equivalent they will stand behind. There is deliberately no tool here for this: see below. |
-| **The owner accepts the risk, explicitly** | A recorded owner decision to place staging secrets with web-PHP isolation UNVERIFIED, naming what is at stake: the staging database password and `APP_MASTER_KEY`, readable by a sibling site's web PHP if the boundary does not hold. Use a distinct staging master key and a staging-only database user with rights to nothing else, so the blast radius is the staging deployment alone. |
 
-The third route is a decision, not a check, and it is the owner's — not this runbook's and not the
-operator's. **Do not take it silently.** If it is taken, the `CROSS_SITE_ISOLATION` record's `note`
-must say that web-PHP isolation was UNVERIFIED at the time the secrets were placed, so the evidence
-file says what was actually known rather than what was hoped.
+Not accepted as closure: a clean SSH/CLI canary matrix, the HTTP private-path probe, operator
+judgement, owner risk acceptance, staging-only credentials, a smaller blast radius, or an assertion
+that the two PHP identities are probably equivalent. **There is no waiver path.**
+
+If neither accepted closure route exists, **Gate E is BLOCKED and Gate F is NOT PERMITTED. STOP.**
+Do not place `DB_PASSWORD` or `APP_MASTER_KEY` on the host.
 
 **Why there is no tool for route 2.** A web-SAPI equivalent of the canary needs a reader reachable
 over HTTP, which is exactly the arbitrary-read oracle `SECURITY_BOUNDARY.md` §2 exists to prevent,
@@ -227,7 +234,9 @@ create the exposure it was meant to measure.
 
 ## Gate F — Configure staging
 
-**Do not start this gate until E.3 has been answered and recorded.**
+**HARD PRECONDITION:** `LOOPIA_WEB_PHP_CROSS_SITE_ISOLATION_BLOCKER` is CLOSED under Gate E.3.
+`WEB_PHP_ISOLATION_WAIVER_ALLOWED = false`. If the blocker remains `UNVERIFIED`, stop here. A passing
+release preflight does not override this host-security prerequisite.
 
 Private `.env` in `~/<domain>/`, never in `public_html/`, never in git:
 
