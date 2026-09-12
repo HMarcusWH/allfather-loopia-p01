@@ -208,11 +208,13 @@ permissive. `docs/LOOPIA_HOST_MODEL.md` establishes no equivalence between them,
 asserts each of those is present. Cross-site isolation of the web PHP identity remains an open
 blocker in `LOOPIA_HOST_MODEL.md` §5 rather than something a green canary run closes.
 
-Because that blocker decides whether secrets may be placed at all, `BETA_RUNBOOK.md` Gate E.3 makes
-it a gate rather than a note: before Gate F writes `DB_PASSWORD` and `APP_MASTER_KEY` to the host,
-one of three answers must be recorded — Loopia's written assurance, a host proof of the web
-identity, or an explicit owner decision to accept the risk with a staging-only master key and a
-staging-only database user. A clean canary matrix is not one of the three.
+That blocker is a **non-waivable pre-secret prerequisite**. `WEB_PHP_ISOLATION_REQUIRED_BEFORE_SECRETS`
+means Gate F may place `DB_PASSWORD` and `APP_MASTER_KEY` on the host only after
+`LOOPIA_WEB_PHP_CROSS_SITE_ISOLATION_BLOCKER` has been closed by one of two things: Loopia's written
+assurance about per-site web-PHP isolation, or an equivalent host proof of the web identity that
+does not require adding a file-reading endpoint. SSH/CLI canary success, HTTP private-path refusal,
+operator judgement, owner risk acceptance, staging-only credentials, and reduced blast radius do
+not close it. `WEB_PHP_ISOLATION_WAIVER_ALLOWED = false`.
 
 There is no web-SAPI equivalent by design. One would need a file reader reachable over HTTP, which
 is the arbitrary-read oracle §2 exists to prevent, and `public_html/` is a closed set of four
