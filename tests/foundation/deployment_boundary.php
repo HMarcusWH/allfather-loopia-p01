@@ -310,6 +310,49 @@ Assert::contains(
     'and the unresolved question about the Kundzon scheduler is recorded as a named blocker',
 );
 
+// ---------------------------------------------------------------- the web-PHP cross-site isolation gate
+
+// This check deliberately DOES NOT add assertion-count drift to the conformance matrix: the
+// repository publishes measured assertion totals, and this policy is a structural prerequisite
+// over launch documentation rather than a new product behaviour. A violation throws and the runner
+// records the file as failed; a clean policy adds no synthetic PASS count.
+$betaRunbook = (string) file_get_contents($root . '/docs/BETA_RUNBOOK.md');
+$hostModel = (string) file_get_contents($root . '/docs/LOOPIA_HOST_MODEL.md');
+$securityBoundary = (string) file_get_contents($root . '/docs/SECURITY_BOUNDARY.md');
+foreach ([
+    'BETA_RUNBOOK.md' => $betaRunbook,
+    'LOOPIA_HOST_MODEL.md' => $hostModel,
+    'SECURITY_BOUNDARY.md' => $securityBoundary,
+] as $name => $document) {
+    foreach ([
+        'LOOPIA_WEB_PHP_CROSS_SITE_ISOLATION_BLOCKER',
+        'WEB_PHP_ISOLATION_REQUIRED_BEFORE_SECRETS',
+        'WEB_PHP_ISOLATION_WAIVER_ALLOWED = false',
+    ] as $requiredPolicy) {
+        if (!str_contains($document, $requiredPolicy)) {
+            throw new RuntimeException("{$name} lost the non-waivable web-PHP isolation policy: {$requiredPolicy}");
+        }
+    }
+}
+foreach ([
+    '**The owner accepts the risk, explicitly**',
+    'The third route is a decision',
+    'explicit recorded owner decision to accept the risk',
+] as $oldEscapeHatch) {
+    if (str_contains($betaRunbook, $oldEscapeHatch)) {
+        throw new RuntimeException("BETA_RUNBOOK.md restored the forbidden web-PHP isolation waiver: {$oldEscapeHatch}");
+    }
+}
+if (!str_contains($betaRunbook, 'There are exactly two accepted closure routes')) {
+    throw new RuntimeException('BETA_RUNBOOK.md must keep exactly two accepted web-PHP isolation closure routes');
+}
+$isolationCanary = (string) file_get_contents($root . '/ops/loopia-probe/isolation-canary.php');
+foreach (["'identity_measured' => 'SSH_CLI'", "'web_php_cross_site_isolation' => 'UNVERIFIED'"] as $boundedClaim) {
+    if (!str_contains($isolationCanary, $boundedClaim)) {
+        throw new RuntimeException("the CLI canary widened its claim beyond the identity it measures: {$boundedClaim}");
+    }
+}
+
 // ---------------------------------------------------------------- the web surface, as classified
 
 // `PORT_SCOPE_MATRIX.md` classifies P02 and P03 as RUNTIME_IMPLEMENTED /
