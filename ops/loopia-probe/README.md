@@ -107,6 +107,11 @@ Loopia support, never by this probe reporting READY and never by weakening the P
   but lacks `DELETE` also throws — SQLSTATE `42000`, *command denied* — and the row also survives,
   because nothing deleted it. The observed state is reported as `delete_sqlstate` so a privilege
   refusal is legible as what it is rather than as a passing trigger.
+- `aes_256_gcm` — a real encrypt/decrypt round trip, guarded by the extension AND by each function
+  existing, since `disable_functions` can remove one from a loaded extension. An unavailable OpenSSL
+  makes this `MISSING` with the reason stated; it does not stop the report. A diagnostic that dies on
+  the host it is diagnosing is no diagnostic, and this one used to: it recorded `ext_openssl: MISSING`
+  and then called `openssl_get_cipher_methods()` anyway, taking a fatal before any JSON was emitted.
 - `probe_cleanup` — every disposable table and trigger this probe created was dropped again. An
   account that can `CREATE` but not `DROP` passes every proof above and leaves `probe_*` litter in
   the database, which on a shared host is something an operator has to recognise and remove by hand

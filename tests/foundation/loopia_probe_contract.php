@@ -203,3 +203,56 @@ Assert::contains(
     $readme,
     'and documents the pre-secret canary, whose whole point is that it is worthless',
 );
+
+// ============================================================ the probe survives the host it diagnoses
+
+// A DIAGNOSTIC THAT DIES ON A BROKEN HOST IS NO DIAGNOSTIC. The probe recorded `ext_openssl:
+// MISSING` and then called `openssl_get_cipher_methods()` unconditionally two dozen lines later — an
+// undefined-function fatal on exactly that host, before a single line of the sanitized JSON was
+// emitted. The one host that most needs this report was the one that could not produce it.
+//
+// So every extension-dependent call sits behind a guard, and the guard comes FIRST in the file.
+// `function_exists` as well as `extension_loaded` for OpenSSL, because `disable_functions` can
+// remove an individual function from a loaded extension — a shared-hosting configuration the probe
+// reports on a few lines above, and one that fails in exactly the same way.
+Assert::contains(
+    "\$opensslUsable = extension_loaded('openssl')",
+    $code,
+    'the AES-GCM demonstration is guarded by the extension',
+);
+foreach (['openssl_get_cipher_methods', 'openssl_encrypt', 'openssl_decrypt'] as $needed) {
+    Assert::contains(
+        "function_exists('{$needed}')",
+        $code,
+        "and by {$needed} existing, which disable_functions can remove from a loaded extension",
+    );
+}
+Assert::contains(
+    '$gcm = $opensslUsable && in_array(',
+    $code,
+    'and the cipher list is only consulted once the guard has passed',
+);
+// EACH FAMILY'S GUARD PRECEDES ITS FIRST USE. Stated as an ordering rather than a spelling, because
+// what went wrong was a call that ran before the check, not a check that was absent.
+foreach ([
+    'openssl' => ["extension_loaded('openssl')", 'openssl_get_cipher_methods('],
+    'curl' => ["extension_loaded('curl')", 'curl_version('],
+    'dns' => ["function_exists('dns_get_record')", 'dns_get_record($probeHost'],
+] as $family => [$guard, $firstUse]) {
+    Assert::true(
+        strpos($code, $guard) < strpos($code, $firstUse),
+        "the {$family} guard is evaluated before the first {$family} call, so an absent extension is a verdict rather than a fatal",
+    );
+}
+// AND A MISSING EXTENSION STILL REACHES A VERDICT. `aes_256_gcm` is in the staging-required set, so
+// an openssl-less host answers MISSING_CAPABILITY with a full report rather than exiting on a fatal.
+Assert::contains(
+    "'aes_256_gcm'",
+    $code,
+    'the AES-GCM capability is recorded either way',
+);
+Assert::contains(
+    "\$opensslUsable ? \$gcmWorks : 'openssl is unavailable on this host'",
+    $code,
+    'and says WHICH of the two failures it was — an absent extension is a host request, a present one without the cipher is a build question',
+);

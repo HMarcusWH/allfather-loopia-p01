@@ -155,7 +155,20 @@ $record('disable_functions', 'PRESENT',
 
 // ---------------------------------------------------------------------------- OpenSSL / AES-256-GCM
 
-$gcm = in_array('aes-256-gcm', openssl_get_cipher_methods(), true);
+// GUARDED, BECAUSE THE PROBE MUST SURVIVE THE HOST IT IS DIAGNOSING. `openssl_get_cipher_methods()`
+// does not exist when ext/openssl is absent, and calling it there is a fatal Error — so the probe
+// recorded `ext_openssl: MISSING` two dozen lines above and then died on the very next capability,
+// before emitting a single line of the sanitized JSON. The one host that most needs this report is
+// the host that cannot produce it.
+//
+// `function_exists` as well as `extension_loaded`, because `disable_functions` can remove an
+// individual function from a loaded extension — a shared-hosting configuration this probe reports
+// on a few lines above, and one that would fail in exactly the same way.
+$opensslUsable = extension_loaded('openssl')
+    && function_exists('openssl_get_cipher_methods')
+    && function_exists('openssl_encrypt')
+    && function_exists('openssl_decrypt');
+$gcm = $opensslUsable && in_array('aes-256-gcm', openssl_get_cipher_methods(), true);
 $gcmWorks = false;
 if ($gcm) {
     $key = random_bytes(32);
@@ -165,8 +178,14 @@ if ($gcm) {
     $gcmWorks = $ct !== false
         && openssl_decrypt($ct, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $nonce, $tag, 'aad') === 'probe';
 }
-$record('aes_256_gcm', $gcmWorks ? 'PRESENT' : 'MISSING', $gcmWorks,
-    'BYOK credential sealing. Without it, provider credentials cannot be stored at all.');
+$record(
+    'aes_256_gcm',
+    $gcmWorks ? 'PRESENT' : 'MISSING',
+    // WHY it is missing, because the two reasons need different remedies: an absent extension is a
+    // host request, and a present extension without the cipher is a build question.
+    $opensslUsable ? $gcmWorks : 'openssl is unavailable on this host',
+    'BYOK credential sealing. Without it, provider credentials cannot be stored at all.',
+);
 
 $record('csprng', 'PRESENT', strlen(random_bytes(16)) === 16,
     'Session tokens, scheduler tokens and evidence temp names require a CSPRNG.');
