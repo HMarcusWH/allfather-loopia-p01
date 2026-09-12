@@ -14,6 +14,9 @@ Assert::contains('npm test', $prepare, 'the prepared tree runs frontend tests be
 Assert::contains('npm run build', $prepare, 'the prepared tree builds the production console');
 Assert::contains('npm run stage', $prepare, 'the prepared tree stages the reviewed manifest-last console payload');
 Assert::contains('actual_node="${actual_node#v}"', $prepare, 'node --version is normalized to the bare .node-version value before comparison');
+Assert::contains("require('./package.json').packageManager", $prepare, 'release preparation reads the package-manager pin from package.json rather than assuming the runner npm');
+Assert::contains('expected_npm="${package_manager#npm@}"', $prepare, 'only the npm@<version> package-manager form is admitted');
+Assert::contains('actual_npm="$(npm --version)"', $prepare, 'the installed npm version is compared before dependency installation');
 Assert::false(str_contains($prepare, 'rsync '), 'release preparation cannot deploy anything');
 Assert::false(str_contains($prepare, 'ssh '), 'release preparation cannot reach the host');
 
