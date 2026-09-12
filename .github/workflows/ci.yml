@@ -9,15 +9,32 @@ on:
 permissions:
   contents: read
 
+# A newer push to the SAME PULL REQUEST supersedes an in-flight run for it, because a run against
+# code that has been replaced tells nobody anything. Everything else — a push to `main` above all —
+# groups by its OWN commit SHA, so no qualification run for a commit that is already on a branch can
+# be cancelled or queued out by a later one. A merged release keeps its own complete run, and the
+# audit trail of what was qualified survives a burst of merges.
+concurrency:
+  group: >-
+    ${{ github.workflow }}-${{
+      github.event.pull_request.number
+        && format('pr-{0}', github.event.pull_request.number)
+        || format('sha-{0}', github.sha)
+    }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # Cheap, no-database checks. Runs first so an authority-boundary regression fails fast.
   foundation:
     runs-on: ubuntu-latest
+    # Measured ~35s with a warm npm cache. Ten minutes absorbs a cold cache and a slow runner
+    # start without letting a genuinely hung job burn the 6-hour default.
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up exact frontend Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: 'frontend/console/.node-version'
           cache: 'npm'
@@ -32,7 +49,7 @@ jobs:
           npm run stage
 
       - name: Set up PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2 (2.37.2)
         with:
           php-version: '8.2'
           extensions: pdo, pdo_mysql, curl, openssl, mbstring, json
@@ -81,6 +98,8 @@ jobs:
   mariadb:
     name: mariadb ${{ matrix.mariadb }}
     runs-on: ubuntu-latest
+    # Measured ~105s including service-container startup and the full strict suite.
+    timeout-minutes: 15
     strategy:
       # Both versions always run. Failing fast here would hide whether a failure is version-specific,
       # which is the single most useful thing this matrix can tell us.
@@ -103,10 +122,10 @@ jobs:
           --health-timeout=5s
           --health-retries=20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2 (2.37.2)
         with:
           php-version: '8.2'
           extensions: pdo, pdo_mysql, curl, openssl, mbstring, json
@@ -191,7 +210,7 @@ jobs:
       # such a record can only ever be filed with `environment: "ci"`, which supports no host claim.
       - name: Upload CI qualification evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: qualification-mariadb-${{ matrix.mariadb }}
           path: |
@@ -199,6 +218,257 @@ jobs:
             probe-${{ matrix.mariadb }}.json
           if-no-files-found: warn
           retention-days: 30
+
+  # THE DEPLOYMENT PATH, EXECUTED RATHER THAN READ.
+  #
+  # `tests/foundation/release_packaging_boundary.php` and `tests/security/release_preflight_safety.php`
+  # assert things about the SOURCE TEXT of `prepare-release.sh` and `preflight.php`. That is worth
+  # having, and it is not the same as knowing the commands run. No test in this repository spawns a
+  # process, so before this job the one path a deployment actually depends on — export the exact Git
+  # object, enforce the toolchain pins, build, stage, preflight — had never been executed by CI at
+  # all. A regression that kept the source text matching while breaking the behaviour would have
+  # been green.
+  #
+  # IT PREPARES, IT DOES NOT DEPLOY. There is no ssh, no rsync, no remote host, no Loopia
+  # credential and no evidence record here. Everything happens in $RUNNER_TEMP and dies with the
+  # runner. `prepare-release.sh` itself contains no network verb, and preflight opens no database
+  # connection — it checks that the database fields are PRESENT, never what they contain.
+  release-preparation:
+    name: release preparation
+    runs-on: ubuntu-latest
+    # Measured ~90s locally for npm ci + tests + build + stage + preflight.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up the repository-pinned frontend Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: 'frontend/console/.node-version'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/console/package-lock.json'
+
+      # ASSERTED, NOT INSTALLED. `prepare-release.sh` refuses a mismatched npm by design, and
+      # quietly installing the pinned one here would hide the drift this check exists to surface.
+      - name: The repository-pinned npm must be the npm in use
+        working-directory: frontend/console
+        run: |
+          set -euo pipefail
+          declared="$(node -p "require('./package.json').packageManager || ''")"
+          case "$declared" in
+            npm@*) expected="${declared#npm@}" ;;
+            *)
+              echo "package.json must pin npm as packageManager; got: ${declared:-unset}" >&2
+              exit 1
+              ;;
+          esac
+          actual="$(npm --version)"
+          echo "node=$(node --version)  npm pinned=${expected}  npm in use=${actual}"
+          if [ "$actual" != "$expected" ]; then
+            echo "npm in use does not match the repository pin" >&2
+            exit 1
+          fi
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2 (2.37.2)
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql, curl, openssl, mbstring, json
+          coverage: none
+
+      # THE EXACT CHECKED-OUT COMMIT, read back from git rather than taken from `github.sha`. On a
+      # pull_request event the checkout is the merge commit, and that IS the tree being qualified;
+      # naming anything else would preflight one thing and report another.
+      - name: Prepare a release from the exact checked-out commit
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          out="${RUNNER_TEMP}/prepared-release"
+          echo "RELEASE_SHA=${sha}" >> "$GITHUB_ENV"
+          echo "PREPARED_DIR=${out}" >> "$GITHUB_ENV"
+          echo "preparing ${sha} into ${out}"
+          ./ops/deploy/prepare-release.sh "$sha" "$out" | tee "${RUNNER_TEMP}/prepare-release.out"
+
+      - name: The prepared release must report this commit and a resolvable manifest
+        run: |
+          set -euo pipefail
+          verdict="$(tail -n 1 "${RUNNER_TEMP}/prepare-release.out")"
+          echo "verdict: ${verdict}"
+          python3 - "$verdict" "$RELEASE_SHA" "$PREPARED_DIR" <<'PY'
+          import json, os, sys
+          verdict, sha, prepared = sys.argv[1], sys.argv[2], sys.argv[3]
+          report = json.loads(verdict)
+          problems = []
+
+          if report.get("status") != "PREPARED_RELEASE":
+              problems.append(f"status is {report.get('status')!r}, not PREPARED_RELEASE")
+          if report.get("release_ref") != sha:
+              problems.append(f"release_ref {report.get('release_ref')!r} is not the checked-out commit {sha!r}")
+          if report.get("path") != prepared:
+              problems.append(f"prepared path {report.get('path')!r} is not {prepared!r}")
+          if not os.path.isdir(prepared):
+              problems.append("the prepared release directory does not exist")
+
+          # A RELEASE IS AN EXPORT, NOT A COPY OF THE RUNNER'S CHECKOUT. `.git` would carry the whole
+          # history and the checkout's credential helper config; a `.env` would carry a secret. The
+          # export is `git archive`, so neither can be present — which is exactly why it is worth
+          # asserting rather than assuming.
+          if os.path.exists(os.path.join(prepared, ".git")):
+              problems.append(".git entered the prepared release")
+          for root, dirs, files in os.walk(prepared):
+              if "node_modules" in dirs:
+                  dirs.remove("node_modules")
+              for name in files:
+                  if name == ".env" or (name.startswith(".env.") and name != ".env.example"):
+                      rel = os.path.relpath(os.path.join(root, name), prepared)
+                      problems.append(f"a configuration file entered the prepared release: {rel}")
+
+          stage = os.path.join(prepared, "public_html", "assets", "operator-console")
+          manifest_path = os.path.join(stage, "manifest.json")
+          if not os.path.isfile(manifest_path):
+              problems.append("the Operator Console manifest is absent from the prepared release")
+          else:
+              with open(manifest_path) as handle:
+                  manifest = json.load(handle)
+              entry = manifest.get("entry", {})
+              referenced = [entry.get("script"), entry.get("style"), *manifest.get("assets", [])]
+              for ref in referenced:
+                  if not isinstance(ref, str) or not ref:
+                      problems.append(f"manifest carries a non-path reference: {ref!r}")
+                      continue
+                  if not os.path.isfile(os.path.join(stage, ref)):
+                      problems.append(f"manifest references a file that is not staged: {ref}")
+              print(f"  manifest references resolved: {len([r for r in referenced if r])}")
+
+          if problems:
+              for problem in problems:
+                  print(f"  NOT A VALID PREPARED RELEASE: {problem}", file=sys.stderr)
+              sys.exit(1)
+          print("  report names this commit; layout is closed and the console manifest resolves")
+          PY
+
+      # BOUND TO THE OBJECT DATABASE, NOT TO THE SCRIPT'S OWN REPORT.
+      #
+      # `release_ref` checked above is the argument `prepare-release.sh` was handed, printed back
+      # out — `release="$1"`, then `printf ... "$release"`. It says the script was ASKED for this
+      # commit and nothing whatever about the bytes it produced. A regression that archived `HEAD^`,
+      # copied the runner's checkout, or edited a tracked file on the way out would still print the
+      # requested SHA, and every other check in this job would pass: an export legitimately has no
+      # `.git`, and the source fingerprint is reported rather than compared against anything.
+      #
+      # So the bytes are compared against a SECOND export taken here, straight from the object
+      # database. Every tracked file must be present and identical, and the ONLY files the prepared
+      # tree may carry in addition are the three generated build outputs, named exactly — so a file
+      # injected into a release is a failure rather than a curiosity.
+      - name: The prepared release must be byte-identical to the named Git object
+        run: |
+          set -euo pipefail
+          independent="${RUNNER_TEMP}/independent-export"
+          rm -rf "$independent"
+          mkdir -p "$independent"
+          git archive "$RELEASE_SHA" | tar -x -C "$independent"
+
+          tracked="$(find "$independent" -type f | wc -l)"
+          echo "  tracked files in ${RELEASE_SHA}: ${tracked}"
+          if [ "$tracked" -eq 0 ]; then
+            echo "the independent export is empty — nothing was compared" >&2
+            exit 1
+          fi
+
+          # GNU diff exits 0 when the inputs are the same, 1 when they differ and 2 ON TROUBLE.
+          # `|| true` swallowed the third: a file diff cannot read or traverse produces a stderr
+          # diagnostic and NO diff line, so the filter below would find nothing unexpected and this
+          # step would call a release byte-identical on files it never managed to compare. Only 1
+          # is an expected status here — the generated build outputs always differ.
+          compare_status=0
+          diff -r --brief "$independent" "$PREPARED_DIR" > "${RUNNER_TEMP}/export.diff.raw" || compare_status=$?
+          if [ "$compare_status" -gt 1 ]; then
+            echo "diff could not complete the comparison (exit ${compare_status}) — the release is NOT verified" >&2
+            exit 1
+          fi
+
+          sed -e "s|${independent}|<git-object>|g" -e "s|${PREPARED_DIR}|<prepared>|g" \
+            "${RUNNER_TEMP}/export.diff.raw" > "${RUNNER_TEMP}/export.diff"
+          sed 's/^/  /' "${RUNNER_TEMP}/export.diff"
+
+          # Produced by `npm ci`, `npm run build` and `npm run stage` INSIDE the exported tree.
+          # Anything else, in either direction, is a difference from the named commit.
+          allowed='^Only in <prepared>/(frontend/console: (dist|node_modules)|public_html/assets: operator-console)$'
+          # Same rule for grep, which exits 0 on a match, 1 on NO match — the good case here — and
+          # 2 on error. An unreadable summary must not read as "nothing unexpected".
+          filter_status=0
+          unexpected="$(grep -Ev "$allowed" "${RUNNER_TEMP}/export.diff")" || filter_status=$?
+          if [ "$filter_status" -gt 1 ]; then
+            echo "the diff summary could not be read (grep exit ${filter_status}) — the release is NOT verified" >&2
+            exit 1
+          fi
+          if [ -n "$unexpected" ]; then
+            echo "the prepared release is not the exact Git object ${RELEASE_SHA}:" >&2
+            echo "$unexpected" >&2
+            exit 1
+          fi
+          echo "  every tracked file is byte-identical to ${RELEASE_SHA}"
+
+      # PREFLIGHT FROM THE PREPARED TREE, which is the whole point: preflighting the runner's
+      # checkout would validate bytes nobody would deploy. The configuration below is disposable and
+      # deliberately worthless — a throwaway key generated in-process, a `.invalid` origin that can
+      # never resolve, and database fields whose VALUES preflight never reads. It lives in
+      # $RUNNER_TEMP, which has no `public_html` segment, because preflight refuses to read a
+      # configuration file from under a served root.
+      - name: Release preflight from the prepared tree
+        run: |
+          set -euo pipefail
+          env_file="${RUNNER_TEMP}/staging-preflight.env"
+          umask 077
+          cat > "$env_file" <<ENVEOF
+          APP_ENV=staging
+          APP_BASE_URL=https://staging.invalid
+          APP_RELEASE_REF=${RELEASE_SHA}
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_NAME=ci_preflight_rehearsal
+          DB_USER=ci_preflight
+          DB_PASSWORD=$(php -r 'echo bin2hex(random_bytes(16));')
+          APP_MASTER_KEY=$(php -r 'echo base64_encode(random_bytes(32));')
+          SUPPORT_CONTACT_TEXT=CI preflight rehearsal only - not a real support route.
+          ENVEOF
+
+          php "${PREPARED_DIR}/ops/deploy/preflight.php" \
+            --env="$env_file" \
+            --release-ref="$RELEASE_SHA" \
+            --mode=staging | tee "${RUNNER_TEMP}/preflight.json"
+
+      - name: Preflight must return the canonical ready verdict
+        run: |
+          set -euo pipefail
+          python3 - "${RUNNER_TEMP}/preflight.json" "$RELEASE_SHA" <<'PY'
+          import json, sys
+          with open(sys.argv[1]) as handle:
+              report = json.load(handle)
+          sha = sys.argv[2]
+          problems = []
+          if report.get("status") != "READY_FOR_INERT_STAGING_COPY":
+              problems.append(f"status is {report.get('status')!r}")
+          for problem in report.get("problems", []):
+              problems.append(f"preflight problem: {problem}")
+          if report.get("release_ref") != sha:
+              problems.append("preflight reported a different release ref")
+          # The posture this job must never change. These are properties of the code being
+          # prepared, and a preflight that reported otherwise would mean the release is not inert.
+          for key in ("live_read", "scheduler_handlers", "external_action",
+                      "customer_visible_output", "production_launch_authorized",
+                      "authorizes_deployment", "copies_anything"):
+              if report.get(key) is not False:
+                  problems.append(f"{key} is {report.get(key)!r}, expected False")
+          print(f"  status             : {report.get('status')}")
+          print(f"  source_fingerprint : {report.get('source_fingerprint')}")
+          print(f"  operator_console   : {json.dumps(report.get('operator_console'))}")
+          print(f"  copies_anything    : {report.get('copies_anything')}")
+          if problems:
+              for problem in problems:
+                  print(f"  PREFLIGHT NOT READY: {problem}", file=sys.stderr)
+              sys.exit(1)
+          PY
 
   # The single gate. It exists because "every job is green" is a thing a human reads off a page and
   # a required status check is a thing a branch protection can enforce — and because a job that is
@@ -214,21 +484,36 @@ jobs:
   release-qualification:
     name: release qualification
     runs-on: ubuntu-latest
-    needs: [foundation, mariadb]
+    # Measured ~5s. It downloads two small artifacts and reads them.
+    timeout-minutes: 5
+    needs: [foundation, mariadb, release-preparation]
     if: always()
     steps:
+      # EVERY required job, checked the same way, with each result PRINTED. `success` is the only
+      # value that passes: `failure`, `cancelled` and `skipped` all fail, and a skipped job matters
+      # most — it renders as neutral, which some branch protections treat as passing.
       - name: Every qualification job must have succeeded
         run: |
           set -euo pipefail
-          echo "foundation: ${{ needs.foundation.result }}"
-          echo "mariadb:    ${{ needs.mariadb.result }}"
-          if [ "${{ needs.foundation.result }}" != "success" ] || [ "${{ needs.mariadb.result }}" != "success" ]; then
+          foundation='${{ needs.foundation.result }}'
+          mariadb='${{ needs.mariadb.result }}'
+          release_preparation='${{ needs.release-preparation.result }}'
+          echo "foundation:          ${foundation}"
+          echo "mariadb:             ${mariadb}"
+          echo "release preparation: ${release_preparation}"
+          blocked=0
+          for result in "$foundation" "$mariadb" "$release_preparation"; do
+            if [ "$result" != "success" ]; then
+              blocked=1
+            fi
+          done
+          if [ "$blocked" -ne 0 ]; then
             echo "release qualification NOT met: a required job did not succeed" >&2
             exit 1
           fi
 
       - name: Collect the qualification reports
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: qualification-mariadb-*
           path: reports
@@ -239,9 +524,19 @@ jobs:
       - name: The reports must say what the jobs claimed
         run: |
           set -euo pipefail
-          found=0
-          for report in reports/*/qualification-*.json; do
-            found=$((found + 1))
+          # NULLGLOB, because an unmatched glob otherwise stays in the list as its own literal text
+          # and the reader below dies on FileNotFoundError instead of saying what was wrong. The
+          # count is checked BEFORE anything is read, so 0, 1 and 3-or-more each get the same plain
+          # sentence rather than a stack trace.
+          shopt -s nullglob
+          reports=(reports/*/qualification-*.json)
+          shopt -u nullglob
+          found=${#reports[@]}
+          if [ "$found" -ne 2 ]; then
+            echo "expected one qualification report per MariaDB lane, found ${found}" >&2
+            exit 1
+          fi
+          for report in "${reports[@]}"; do
             echo "--- ${report}"
             python3 - "$report" <<'PY'
           import json, sys
@@ -271,8 +566,4 @@ jobs:
               sys.exit(1)
           PY
           done
-          if [ "$found" -ne 2 ]; then
-            echo "expected one qualification report per MariaDB lane, found ${found}" >&2
-            exit 1
-          fi
           echo "release qualification met: the code is qualified. Nothing is deployed and nothing is activated."
