@@ -1,183 +1,127 @@
 # Rollback and stand-down
 
-**Rollback is never a delete.** The storage refuses one, and the reason is not squeamishness about
-data: a rollback that destroyed the record would also destroy the proof that the rollback happened,
-and an organization that cannot show what it withdrew and when has not withdrawn anything — it has
-stopped talking about it.
+**Rollback is never a delete.** Application rollback restores code; governed withdrawal appends a
+new fact that changes current reliance. Neither erases history.
 
-So the two things this directory is about are strictly separate, and conflating them is the mistake
-everything below is shaped to prevent:
+## 1. Rules that apply to every restore
 
-| | What it is | How it is done |
-| --- | --- | --- |
-| **Application release rollback** | the CODE goes back to a previous known-good release | restore the tree, restore the matching Operator Console manifest, verify |
-| **Governed withdrawal** | a RELEASED CLAIM stops being relied upon | append a correction: supersession, deactivation, revocation, an incident |
+- no down-migrations;
+- never point `tests/run.php` at the runtime database;
+- preserve host `.env` unless the release reference itself must change;
+- preserve all runtime `storage/` contents;
+- publish Operator Console hashes before replacing the manifest;
+- retain old safe content hashes during the release transaction;
+- verify the restored tree by source fingerprint, not only by `APP_RELEASE_REF`;
+- recompute M10 integrity after the restore.
 
-An application rollback touches no governed row. A governed withdrawal touches no code. Neither
-deletes anything.
+The root copy must use `ops/deploy/staging-rsync-excludes.txt`. In particular `/storage/***` is
+excluded from `rsync --delete`; a rollback that deletes request logs or evidence while restoring code
+is not a rollback.
 
----
+## 2. The prepared artifact is the rollback unit
 
-## 1. Before you start
+A release is prepared from its exact Git object with:
 
-**Do not run the migrations backwards.** There are no down-migrations here, deliberately. A schema
-that went backwards past a migration a governed row depends on would take the row with it, and the
-rollback would have become the erasure this whole discipline exists to prevent. If a release cannot
-run against the current schema, the fix is a forward migration in a new release.
+```bash
+./ops/deploy/prepare-release.sh <full-SHA> <output-directory>
+```
 
-**Do not touch the runtime database.** A release rollback restores code. The staging runtime
-database keeps every row it had, including rows written by the release being rolled back — those are
-a record of what happened, which is true whether or not the release stays.
+Do not restore a developer checkout. A Git HEAD label plus a dirty working tree can name one commit
+and deploy different bytes. The prepared tree is exported with `git archive`, then the frontend is
+built/staged inside that fresh tree.
 
-**Never point `tests/run.php` at the runtime database.** The harness truncates every application
-table except `schema_migrations` between suites. On a host, the suite runs against the dedicated
-qualification database and nothing else — see `docs/BETA_RUNBOOK.md` Gate G.
+Record the `source_fingerprint` from that prepared tree's preflight. `APP_RELEASE_REF` is an operator-
+maintained configuration value; the fingerprint is the measurement of bytes on disk.
 
-## 2. Application release rollback
+## 3. First ever staging release — INITIAL_RELEASE_RESTORE
 
-1. **Identify the previous known-good release.** A full 40-character SHA whose CI run was green and
-   whose deployment was recorded. `deployment-evidence.json` is where that is written down; if the
-   release you are rolling back to has no `STAGING_DEPLOYMENT` record, you are choosing a release
-   nobody has deployed, which is a different decision and deserves to be made deliberately.
+Release #1 has no previous deployed release. Requiring one would turn the first launch into an
+impossible gate or encourage invented evidence.
 
-2. **Preserve the current evidence.** Before anything moves, capture what the broken deployment
-   looked like: the failing response, its `X-Request-ID`, the relevant private request-log lines, the
-   output of `php ops/rollback/verify-stand-down.php` as it stands now. A rollback destroys the
-   ability to reproduce the fault, which is exactly why the record is taken first.
+The first release therefore performs a **same-release restore drill**:
 
-3. **Restore the application tree** from a checkout at the previous SHA, with the same `rsync` the
-   deployment runbook uses — `docs/DEPLOYMENT_RUNBOOK.md` §3. `.env` is excluded, as always: the
-   configuration is the host's and a rollback must not silently change which database it points at.
+1. retain the exact prepared release directory and preflight fingerprint;
+2. deploy and qualify it normally;
+3. preserve the current failure/support evidence before the drill;
+4. reapply the same frozen prepared release with the storage-preserving root sync;
+5. republish its Operator Console files manifest-last;
+6. do not touch the runtime database or private runtime storage;
+7. verify:
 
-4. **Restore the matching Operator Console assets, manifest last.** This is the step that is easiest
-   to skip and the one whose failure looks healthiest. A restored application tree beside a NEWER
-   staged bundle serves a document that expects one bundle and a browser that executes another. Copy
-   the previous release's hashed files first, then replace `manifest.json` with one remote `mv`.
+```bash
+php ops/rollback/verify-stand-down.php \
+  --expect-release=<same release SHA> \
+  --expect-fingerprint=<same prepared fingerprint> \
+  --email=<internal test account> \
+  --env=.env
+```
 
-   Old content-hashed assets are retained rather than pruned, which is what makes this reversible in
-   both directions: the files the previous manifest names are still there.
+8. run `/healthz`, anonymous staging smoke, sign-in, request-ID lookup in `storage/request.log`, and
+   require M10 integrity to pass.
 
-5. **Set `APP_RELEASE_REF` to the restored SHA**, in the host's private `.env`. A deployment that
-   says it is running the release it was rolled back FROM will have every partner report quote a
-   reference that resolves to the wrong code.
+Record `ROLLBACK_DRILL` with note:
 
-6. **Verify.**
+```text
+drill_mode=INITIAL_RELEASE_RESTORE
+```
 
-       php ops/rollback/verify-stand-down.php \
-         --expect-release=<the restored 40-character SHA> \
-         --expect-fingerprint=<the source_fingerprint preflight printed for it> \
-         --email=<your internal test account>
+This proves the first release is reproducibly restorable from its retained artifact. It deliberately
+does **not** claim cross-version rollback compatibility.
 
-   Then, from outside:
+## 4. Second and later releases — PREVIOUS_RELEASE_ROLLBACK
 
-       curl -sS -o /dev/null -w '%{http_code}\n' https://<domain>/healthz
-       php ops/staging-smoke.php --base-url=https://<domain> --mode=anonymous
+From release #2 onward the stronger drill is available:
 
-   And by hand: sign in with the test account, capture the `X-Request-ID` from a response, and find
-   exactly that id in the private request log over SSH. A rollback that restored the code but not
-   the ability to correlate a partner's report is a rollback that left support broken.
+1. identify the previous release that has a real `STAGING_DEPLOYMENT` record;
+2. preserve current failure evidence;
+3. restore the previous prepared artifact with the same storage-preserving root sync;
+4. restore its Operator Console manifest/assets manifest-last;
+5. set `APP_RELEASE_REF` to the restored SHA;
+6. verify with that release's recorded fingerprint;
+7. run health, smoke, test-account sign-in, request-ID lookup and M10 integrity;
+8. restore the current release again if the rollback was only a drill.
 
-7. **Record it.** A `ROLLBACK_DRILL` record in `deployment-evidence.json` if this was a drill; a
-   `STAGING_DEPLOYMENT` record for the restored release if it was real. Both are human edits, both
-   reviewed — see `docs/DEPLOYMENT_EVIDENCE_MODEL.md` §7.
+Record:
 
-### What `verify-stand-down.php` checks
+```text
+drill_mode=PREVIOUS_RELEASE_ROLLBACK
+```
 
-Read-only, and structurally so: no table, no file, no incident closed, no flag set. The most
-dangerous thing a verifier could do is resolve the situation it was asked to describe.
+## 5. What verify-stand-down.php proves
 
-- **The release the deployment believes it is running**, against the one you expected — and
-  separately, **the code that is actually on disk**. Those are different questions.
-  `APP_RELEASE_REF` is a line an operator maintains by hand, and a rollback is two steps: restore
-  the code, update the configuration. If the restore fails or is skipped while the configuration
-  step succeeds, that value equals the release you asked for and the OLD CODE IS STILL SERVING —
-  with a valid console manifest from the previous build, an unchanged scheduler posture and a ledger
-  that verifies, so every other signal looks healthy. So the verifier hashes the deployed tree and
-  compares it against `--expect-fingerprint`, the `source_fingerprint` that `ops/deploy/preflight.php`
-  printed for the release being restored. `release_claim_source` says which kind of claim you are
-  reading: `MEASURED` or `CONFIGURATION`.
+The verifier is read-only. It checks:
 
-  **Omitting `--expect-fingerprint` is itself a finding.** Silently accepting a configuration value
-  as proof of the one thing this command exists to establish would be the same defect as computing a
-  posture and letting none of it reach the verdict.
-- **The Operator Console manifest**, loaded through `ConsoleAssetManifest` — the runtime's own
-  validator, not a weaker restatement of it. A verifier more permissive than the thing it verifies
-  reports a rollback as complete when it is not: an earlier revision accepted any object with a
-  string at `entry.script`, which passes a manifest naming an unhashed or absent script, one whose
-  stylesheet key is gone, one with no `assets` list, and one at an unsupported schema version —
-  every case the runtime refuses, so `/console/app` would answer 503 while this command said
-  `STAND_DOWN_VERIFIED`. Loading it properly also checks the referenced FILES are local, hashed, not
-  symlinked and present, which is exactly what a partial or stale rollback breaks.
-- **The scheduler's posture.** Four separate facts, because a rollback can get one right and
-  another wrong: the handler registry is empty and the endpoint is still POST-only (properties of
-  the restored CODE); the scheduler credential is absent, and an unauthenticated call is refused
-  (properties of the restored CONFIGURATION). The door is *asked* rather than described — the
-  verifier presents an empty token to the real `SchedulerAuth` and reports what a caller would
-  actually get.
+- `APP_RELEASE_REF` equals the expected release;
+- the deployed source fingerprint equals the prepared fingerprint;
+- the current Operator Console manifest passes the runtime validator;
+- retained historical console hashes do not affect release identity;
+- any unsafe unmanifested public console file is a finding;
+- scheduler handlers remain empty, endpoint POST-only, credential absent, unauthenticated call denied;
+- live read is neither claimed nor supported by evidence;
+- the evidence registry is internally consistent;
+- one explicitly named test account may be inspected without enumerating all accounts;
+- **every** M10 stream still verifies, including non-active historical streams.
 
-  **Every one of those four is a finding, not a field.** An earlier revision computed this posture,
-  printed it, and let none of it reach the verdict, so a deployment with a configured token and an
-  endpoint that had lost its POST-only guard was reported `STAND_DOWN_VERIFIED` with both facts
-  visible in the JSON that said so. A verifier whose output contradicts its own verdict is worse
-  than no verifier: the verdict is the part people quote. The rule now lives in
-  `app/Ops/StandDownPosture.php`, away from the database and filesystem this command needs, and
-  `tests/rollback/stand_down_verifier.php` exercises every clause of it in both directions.
-- **The live-read posture**, from the evidence registry rather than from a feature flag. "Live read
-  is off" is a claim about what happened, and the thing that can answer it is the record of what
-  happened. Both directions are findings, because they are different faults: the lock still
-  asserting `live_read_activated` is a governance edit nobody made, and the registry still
-  *supporting* it is a withdrawal that did not happen or was never recorded. `unsupportedClaims()`
-  catches only the first — it says nothing about a claim that is fully supported, which is precisely
-  the state a live-read stand-down was performed to end.
-- **One named test account** — lifecycle status, whether a password change is outstanding, how many
-  sessions are live. `--email` names exactly one; there is no "check every account", because a
-  verifier that enumerated logins would be a lifecycle oracle for the whole deployment.
-- **M10 stream integrity, recomputed — for EVERY stream, not only the active ones.**
-  `decision_ledger_streams.status` is a column somebody could have written; `verifyStream` walks the
-  chain. After a restore this is the difference between a ledger that verifies and one that merely
-  says it does. A rollback's claim is that governed history *survived* it, and a `SUSPENDED`,
-  `SEALED` or `SUPERSEDED` stream is history — it is the part nobody is appending to and therefore
-  the part whose corruption would go unnoticed. Filtering to `ACTIVE` verified only the chains most
-  likely to be fine. Failures report the stream id and reason codes and never a record payload.
+Fingerprint semantics matter during manifest-last deployment. The digest commits to the current
+manifest and the assets it references; it intentionally ignores additional safe historical hashed
+JS/CSS/SVG files retained so an already-served page does not break. Arbitrary extras, symlinks,
+source maps and unhashed public assets are separate verifier findings rather than release identity.
 
-Exit 0 and `STAND_DOWN_VERIFIED` mean every check passed. Otherwise every finding is listed.
+## 6. Governed withdrawal
 
-## 3. Governed withdrawal
+Application rollback does not withdraw a governed claim. Use the existing append-only mechanisms:
 
-Five levers, none of which is a delete. Each appends a fact that changes what the current state
-means, and each is proved twice in `tests/rollback/stand_down_discipline.php`: that it takes effect,
-and that the thing it withdrew is still there afterwards.
+- M16 visibility deactivation;
+- source revocation;
+- authorization revocation where still outstanding;
+- M10 supersession/correction;
+- M11 incident lifecycle.
 
-| Lever | Effect | Reversible? |
-| --- | --- | --- |
-| `M16::deactivateVisibility` | removes an artifact from the surface | yes, by a new activation |
-| `EvidenceSpine::setSourceStatus(…, 'REVOKED')` | stops NEW captures immediately; evidence already captured stays valid as history | yes, by re-activating |
-| `OutreachArtifacts::revokeAuthorization` | an outstanding permission to act can never be consumed | no — issue a new one |
-| `DecisionLedger::supersede` | withdraws reliance on a release; the original stays byte-intact | no — restoring reliance is a NEW decision |
-| `M11::openIncident` | records that something needs looking at | resolved, not deleted |
+The original remains historical and the ledger must verify with the correction included.
 
-A **CONSUMED** authorization is not revocable. What it authorized already happened, and that is
-historical fact — recorded truthfully, never un-recorded.
+## 7. Live-read stand-down
 
-After any withdrawal, the chain must still verify **with the correction in it**. That is what makes
-the withdrawal provable rather than merely performed, and it is what
-`verify-stand-down.php`'s `m10_integrity` block answers.
-
-## 4. Standing down live read
-
-Not applicable yet: live read has never been activated, and nothing in this repository constructs
-`CurlHttpsTransport` or `DnsHostResolver`. When it is, standing it down is the same shape as
-everything else here — remove the wiring in a reviewed change, deploy that release, and append a
-`LIVE_READ_STAND_DOWN` record. The registry is latest-wins per release, so the stand-down record is
-what makes `live_read_activated` false again; deleting the activation record would be the one move
-that is never correct, because it would erase the fact that it was ever on.
-
-## 5. What a rollback does not do
-
-- It does not delete a decision, an evidence object, a release or an audit record. The storage
-  refuses it, independently of every lever above.
-- It does not close an incident. Somebody looks at the incident; a command that closed it would be
-  deciding that.
-- It does not change a claim-boundary flag. Those are a human's to edit, reviewed, against evidence.
-- It does not grant or withdraw authority. A rolled-back deployment has exactly the authority the
-  restored release had.
+Not yet applicable. Nothing currently constructs `CurlHttpsTransport` or `DnsHostResolver` and
+`live_read_activated` remains false. When live read is eventually activated in a separately reviewed
+change, stand-down means remove that wiring, deploy the stand-down release, and record
+`LIVE_READ_STAND_DOWN`. Never delete the activation evidence.
