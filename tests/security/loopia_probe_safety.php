@@ -206,3 +206,50 @@ foreach ([
 ] as $stated) {
     Assert::contains($stated, $code, "every report states {$stated}");
 }
+
+// ============================================================ it probes the path production takes
+
+// THE GOVERNED TRANSPORT EMPTIES `CURLOPT_PROXY`, and the probe has to do the same or it is
+// demonstrating a route production cannot use. cURL reads `HTTPS_PROXY` and `ALL_PROXY` from the
+// environment unless told not to; on a host where only proxy-mediated egress works, an inheriting
+// probe succeeds, reports PRESENT and produces a READY live-read verdict for a transport that will
+// fail on its first request — the exact false pass a qualification tool must not produce.
+Assert::contains("CURLOPT_PROXY => ''", $code, 'the probe disables environment proxies');
+$transport = (string) file_get_contents($root . '/app/Ingestion/CurlHttpsTransport.php');
+Assert::contains(
+    "CURLOPT_PROXY => ''",
+    $transport,
+    'which is the same option value the governed transport sets, so the probe measures the same egress path',
+);
+Assert::contains("'proxy_disabled' => true", $code, 'and the report says so, because the reader needs the scope of the claim');
+
+// ============================================================ the trigger proof is the SQLSTATE
+
+// AN ACCOUNT THAT MAY CREATE TRIGGERS BUT LACKS DELETE ALSO THROWS HERE, and the row also survives
+// because nothing deleted it. Accepting any database error as evidence that the trigger fired
+// reported `trigger_support: PRESENT` for a host that had demonstrated nothing of the kind — and
+// this is the last storage proof, so a READY staging verdict rested on it.
+Assert::contains(
+    "\$triggerFires = \$deleteSqlstate === '45000';",
+    $code,
+    'only SQLSTATE 45000 — the state SIGNAL raises — counts as the trigger having fired',
+);
+Assert::false(
+    str_contains($code, "} catch (\\PDOException) {\n                \$triggerFires = true;"),
+    'a bare PDOException is not accepted as proof',
+);
+Assert::contains(
+    "'delete_sqlstate' => \$deleteSqlstate,",
+    $code,
+    'and the observed state is reported, so a 42000 privilege refusal is legible as what it is',
+);
+// THE SQLSTATE, NEVER THE MESSAGE. A driver message may name the account or the host.
+Assert::false(
+    str_contains($code, '$error->getMessage()'),
+    'no driver message reaches the report',
+);
+Assert::contains(
+    "(string) \$error->errorInfo[0]",
+    $code,
+    'the SQLSTATE is taken from the driver rather than parsed out of prose',
+);

@@ -78,6 +78,37 @@ Assert::contains(
     $code,
     'and same-origin means this exact origin, not a host that merely starts the same way',
 );
+// A SCHEME-RELATIVE URL BEGINS WITH A SLASH AND IS NOT A PATH. `//evil.example/path` resolves to a
+// different host entirely, and a "starts with /" check reads it as local — which an earlier revision
+// did, and which would have let a qualification run bless an open redirect.
+Assert::contains(
+    "str_starts_with(\$location, '//')",
+    $code,
+    'a scheme-relative location is rejected before the leading-slash shortcut can accept it',
+);
+Assert::true(
+    strpos($code, "str_starts_with(\$location, '//')") < strpos($code, "str_starts_with(\$location, '/')"),
+    'and rejected FIRST, or the shortcut would answer before the check ran',
+);
+
+// REPORTED IS NOT ENFORCED. Redirect origin is part of the pass predicate rather than a field beside
+// it: cURL never follows a cross-origin Location, so this is not a credential leak — but a run that
+// recorded PASS for a 303 to another host would be certifying the wrong deployment.
+Assert::contains(
+    "\$redirectStaysHere = \$response['location'] === null || \$sameOrigin(\$response['location']);",
+    $code,
+    'every response with a Location has that Location checked',
+);
+Assert::contains('&& $redirectStaysHere', $code, 'and the result gates the step rather than decorating it');
+// The same shape for checks whose subject is not the status code. An authenticated context read
+// answers 200 whether or not injected scope changed the decision, so the comparison must gate.
+Assert::contains('bool $alsoRequires = true,', $code, 'a step can carry an extra predicate');
+Assert::contains('&& $alsoRequires;', $code, 'which also gates the result');
+Assert::contains(
+    "[...\$injectedDecision, 'identical_to_unscoped_request' => \$identical],\n        \$identical,",
+    $code,
+    'and the scope-override comparison is passed as that predicate, not merely reported',
+);
 
 // ============================================================ no password reaches argv
 
@@ -137,13 +168,14 @@ Assert::contains('RequestId::isWellFormed', $recordFn, 'the reference is shape-c
 
 // ============================================================ the body is read, never reported
 
-// Five uses, each named below. Anything else would be the point where a governed payload started
+// Ten uses, each named below. Anything else would be the point where a governed payload started
 // reaching a terminal.
 Assert::same(
-    5,
+    10,
     substr_count($code, "\$response['body']") + substr_count($code, "\$chooser['body']")
-        + substr_count($code, "\$health['body']") + substr_count($code, "\$appShell['body']"),
-    'the response body is used in exactly five places',
+        + substr_count($code, "\$health['body']") + substr_count($code, "\$appShell['body']")
+        + substr_count($code, "\$asset['body']"),
+    'the response body is used in exactly ten places',
 );
 Assert::contains(
     "json_decode(\$response['body'], true, 8, JSON_THROW_ON_ERROR)",
@@ -163,6 +195,7 @@ Assert::contains(
 foreach ([
     "'body_bytes' => strlen(\$appShell['body']),",
     "'body_bytes' => strlen(\$response['body']),",
+    "'body_bytes' => strlen(\$asset['body']),",
 ] as $byteCount) {
     // A SIZE, NOT CONTENT. On the private-path probes the byte count is the useful signal: a 403
     // with a body is an error page, and a 200 with a body would be the file itself.
@@ -235,3 +268,114 @@ foreach ([
 }
 Assert::false(str_contains($code, 'Database::'), 'the smoke client opens no database connection');
 Assert::false(str_contains($code, 'CurlHttpsTransport'), 'and names no governed transport');
+
+// ============================================================ every response is bounded too
+
+// THE TIMEOUT BOUNDS THE CLOCK AND NOTHING ELSE. A host streaming a body as fast as the link allows
+// stays comfortably inside twenty seconds while this process accumulates every byte in memory —
+// and this client makes dozens of requests against a host it is in the middle of deciding whether
+// to trust. `CURLOPT_RETURNTRANSFER` with no write callback is exactly the unbounded read.
+Assert::contains('const SMOKE_MAX_RESPONSE_BYTES = 2_000_000;', $code, 'there is a per-response byte ceiling');
+Assert::contains('CURLOPT_RETURNTRANSFER => false', $code, 'the body is not accumulated by cURL into an unbounded buffer');
+Assert::contains('CURLOPT_WRITEFUNCTION', $code, 'but by a write callback');
+Assert::contains(
+    '$room = SMOKE_MAX_RESPONSE_BYTES + 1 - strlen($body);',
+    $code,
+    'which keeps one byte of headroom, so an over-cap body is observed rather than truncated into a plausible one',
+);
+Assert::contains('if ($room <= 0) {', $code, 'and aborts the transfer once the cap is reached');
+Assert::contains(
+    '$body .= substr($chunk, 0, $room);',
+    $code,
+    'taking the overflow byte and stopping, rather than accepting the rest of the chunk',
+);
+// AND EXCEEDING IT FAILS THE STEP. A ceiling that only truncated would hand the caller a partial
+// body to parse as though it were whole.
+Assert::contains(
+    '$oversized = strlen($body) > SMOKE_MAX_RESPONSE_BYTES;',
+    $code,
+    'the overflow is detected after the transfer',
+);
+Assert::contains(
+    "\$oversized => 'response exceeded the ' . SMOKE_MAX_RESPONSE_BYTES . '-byte ceiling',",
+    $code,
+    'and reported as a transport error, which is what fails the step',
+);
+
+// ============================================================ a step is more than its status code
+
+// `$record()` decides PASS from the expected status and the transport error. Several checks in this
+// client have a subject that is not the status at all — an authenticated context read answers 200
+// whether or not injected scope changed the decision — so those must be able to fail a step whose
+// status was exactly what was expected.
+Assert::contains('bool $alsoRequires = true,', $code, 'a step can carry an extra pass predicate');
+Assert::contains('&& $alsoRequires;', $code, 'and it is part of the verdict, not a reported field');
+Assert::contains(
+    '&& $redirectStaysHere',
+    $code,
+    'a redirect that leaves this origin fails the step rather than being noted beside a pass',
+);
+// SCHEME-RELATIVE IS THE CASE THAT LOOKS SAME-ORIGIN. `//evil.example/path` begins with a slash.
+Assert::contains(
+    "if (str_starts_with(\$location, '//')) {",
+    $code,
+    'a scheme-relative Location is not mistaken for a path on this origin',
+);
+
+// ============================================================ /healthz is checked, not just reached
+
+// This is the one surface that states which projection is running and that it is inert. A step that
+// passed on the status alone would report SMOKE_PASS for a host answering 200 with the wrong
+// projection or with `external_effect: true` — a deployment that is either not this one or not inert.
+Assert::contains(
+    "&& (\$healthClaims['projection'] ?? null) === 'LOOPIA_SME_MVP'",
+    $code,
+    'the health step requires the expected projection',
+);
+foreach (['customer_visible_output', 'external_effect'] as $claim) {
+    Assert::contains(
+        "&& (\$healthClaims['{$claim}'] ?? null) === false",
+        $code,
+        "and requires {$claim} to be identically false — a missing key decodes to null, and null == false",
+    );
+}
+Assert::contains("\$healthClaims['envelope'] === 'JSON'", $code, 'and requires a JSON object at all');
+Assert::contains('], $healthInert);', $code, 'and that predicate is passed to the step, not merely reported');
+
+// ============================================================ the console shell is not the console
+
+// A host can serve the document perfectly and answer 404, or the front controller's HTML, for the
+// hashed bundle it references — the operator sees a blank page while the artifact says SMOKE_PASS.
+Assert::contains(
+    "\$asset = \$send('GET', \$assetPath);",
+    $code,
+    'the assets the shell references are actually fetched',
+);
+Assert::contains(
+    "'#<script type=\"module\" src=\"(/assets/operator-console/console\\.[A-Z0-9]+\\.js)\"></script>#'",
+    $code,
+    'the script URL is taken from the shell document, matched against the content-hashed shape',
+);
+Assert::contains(
+    "'#<link rel=\"stylesheet\" href=\"(/assets/operator-console/console\\.[A-Z0-9]+\\.css)\">#'",
+    $code,
+    'and so is the stylesheet — so a document naming anything else yields no match rather than sending this client after an arbitrary URL',
+);
+Assert::contains(
+    "\$served = \$asset['status'] === 200",
+    $code,
+    'a fetched asset must answer 200',
+);
+Assert::contains(
+    'in_array(strtolower($type), $acceptable, true)',
+    $code,
+    "and carry a media type a browser will execute — type=\"module\" refuses a script labelled text/plain",
+);
+Assert::contains(
+    "\$looksLikeHtml = str_starts_with(ltrim(\$asset['body']), '<');",
+    $code,
+    'and must not be the front controller HTML a swallowing rewrite would return',
+);
+Assert::contains('], $served);', $code, 'all of which is the step verdict rather than a note beside it');
+// The asset bytes are never recorded — only their count and whether they open like a document.
+Assert::false(str_contains($code, "'body' => \$asset"), 'the asset body is never put in a step record');

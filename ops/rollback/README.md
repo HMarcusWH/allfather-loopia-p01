@@ -86,22 +86,45 @@ Read-only, and structurally so: no table, no file, no incident closed, no flag s
 dangerous thing a verifier could do is resolve the situation it was asked to describe.
 
 - **The release the deployment believes it is running**, against the one you expected.
-- **The Operator Console manifest** — present, valid JSON, naming an entry script.
-- **The scheduler's posture.** Two separate facts, because a rollback can get one right and the
-  other wrong: the handler registry is empty (a property of the restored CODE) and the endpoint is
-  still POST-only; and an unauthenticated call is refused (a property of the restored
-  CONFIGURATION). The door is *asked* rather than described — the verifier presents an empty token
-  to the real `SchedulerAuth` and reports what a caller would actually get.
+- **The Operator Console manifest**, loaded through `ConsoleAssetManifest` — the runtime's own
+  validator, not a weaker restatement of it. A verifier more permissive than the thing it verifies
+  reports a rollback as complete when it is not: an earlier revision accepted any object with a
+  string at `entry.script`, which passes a manifest naming an unhashed or absent script, one whose
+  stylesheet key is gone, one with no `assets` list, and one at an unsupported schema version —
+  every case the runtime refuses, so `/console/app` would answer 503 while this command said
+  `STAND_DOWN_VERIFIED`. Loading it properly also checks the referenced FILES are local, hashed, not
+  symlinked and present, which is exactly what a partial or stale rollback breaks.
+- **The scheduler's posture.** Four separate facts, because a rollback can get one right and
+  another wrong: the handler registry is empty and the endpoint is still POST-only (properties of
+  the restored CODE); the scheduler credential is absent, and an unauthenticated call is refused
+  (properties of the restored CONFIGURATION). The door is *asked* rather than described — the
+  verifier presents an empty token to the real `SchedulerAuth` and reports what a caller would
+  actually get.
+
+  **Every one of those four is a finding, not a field.** An earlier revision computed this posture,
+  printed it, and let none of it reach the verdict, so a deployment with a configured token and an
+  endpoint that had lost its POST-only guard was reported `STAND_DOWN_VERIFIED` with both facts
+  visible in the JSON that said so. A verifier whose output contradicts its own verdict is worse
+  than no verifier: the verdict is the part people quote. The rule now lives in
+  `app/Ops/StandDownPosture.php`, away from the database and filesystem this command needs, and
+  `tests/rollback/stand_down_verifier.php` exercises every clause of it in both directions.
 - **The live-read posture**, from the evidence registry rather than from a feature flag. "Live read
   is off" is a claim about what happened, and the thing that can answer it is the record of what
-  happened.
+  happened. Both directions are findings, because they are different faults: the lock still
+  asserting `live_read_activated` is a governance edit nobody made, and the registry still
+  *supporting* it is a withdrawal that did not happen or was never recorded. `unsupportedClaims()`
+  catches only the first — it says nothing about a claim that is fully supported, which is precisely
+  the state a live-read stand-down was performed to end.
 - **One named test account** — lifecycle status, whether a password change is outstanding, how many
   sessions are live. `--email` names exactly one; there is no "check every account", because a
   verifier that enumerated logins would be a lifecycle oracle for the whole deployment.
-- **M10 stream integrity, recomputed.** `decision_ledger_streams.status` is a column somebody could
-  have written; `verifyStream` walks the chain. After a restore this is the difference between a
-  ledger that verifies and one that merely says it does. Failures report the stream id and reason
-  codes and never a record payload.
+- **M10 stream integrity, recomputed — for EVERY stream, not only the active ones.**
+  `decision_ledger_streams.status` is a column somebody could have written; `verifyStream` walks the
+  chain. After a restore this is the difference between a ledger that verifies and one that merely
+  says it does. A rollback's claim is that governed history *survived* it, and a `SUSPENDED`,
+  `SEALED` or `SUPERSEDED` stream is history — it is the part nobody is appending to and therefore
+  the part whose corruption would go unnoticed. Filtering to `ACTIVE` verified only the chains most
+  likely to be fine. Failures report the stream id and reason codes and never a record payload.
 
 Exit 0 and `STAND_DOWN_VERIFIED` mean every check passed. Otherwise every finding is listed.
 

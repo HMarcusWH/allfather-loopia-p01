@@ -16,14 +16,14 @@ read back from the server it ran on rather than assumed from how the run was lau
 
 | Layer | Files | Assertions | 10.6 | 10.11 |
 | --- | --- | --- | --- | --- |
-| foundation | 8 | 885 | PASS | PASS |
+| foundation | 8 | 898 | PASS | PASS |
 | unit | 2 | 153 | PASS | PASS |
 | integration | 32 | 1797 | PASS | PASS |
 | conformance | 6 | 395 | PASS | PASS |
 | acceptance | 5 | 652 | PASS | PASS |
-| security | 19 | 1185 | PASS | PASS |
-| rollback | 1 | 27 | PASS | PASS |
-| **TOTAL** | **73** | **5094** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
+| security | 20 | 1269 | PASS | PASS |
+| rollback | 2 | 58 | PASS | PASS |
+| **TOTAL** | **75** | **5222** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
 
 Migrations were applied from empty and then re-applied on both servers: 19 applied, 0 drift, then
 19 skipped, 0 drift. **PR8 added no migration**; 19 is the same count the previous revision carried.
@@ -50,7 +50,8 @@ went stale — a count in two places is a count that will eventually disagree wi
 | --- | --- | --- |
 | foundation | `deployment_evidence_boundary.php`, `loopia_probe_contract.php` | that a claim asserted true is backed by a record, and that the probe's verdicts cannot quietly widen |
 | acceptance | `beta_launch_journey.php` | the whole invited-partner journey as ONE composition, through the real HTTP kernel |
-| security | `loopia_probe_safety.php`, `isolation_canary.php`, `staging_smoke_safety.php` | that the three new host-facing commands touch no governed table, leak no secret, and cannot hang |
+| security | `loopia_probe_safety.php`, `isolation_canary.php`, `staging_smoke_safety.php`, `release_preflight_safety.php` | that the four new host-facing commands touch no governed table, leak no secret, cannot hang, and refuse a configuration file that is publicly served |
+| rollback | `stand_down_verifier.php` | that every contradiction of a stood-down posture produces a finding — and that the stood-down posture itself produces none |
 
 Run with `php tests/run.php --strict`. Under `--strict` a skip is a non-zero exit, so an
 unreachable database cannot be mistaken for a green suite.

@@ -161,14 +161,11 @@ final class DeploymentEvidence
             return false;
         }
 
-        $directory = dirname($candidate);
-        $directoryReal = realpath($directory === '' ? '.' : $directory);
-        if ($directoryReal === false) {
-            // The directory does not exist, so nothing can be written there at all.
+        $resolved = self::resolveWriteTarget($candidate);
+        if ($resolved === null) {
             return false;
         }
 
-        $resolved = $directoryReal . DIRECTORY_SEPARATOR . basename($candidate);
         foreach (self::GOVERNED_FILES as $governed) {
             if ($resolved === $rootReal . DIRECTORY_SEPARATOR . $governed) {
                 return true;
@@ -176,6 +173,76 @@ final class DeploymentEvidence
         }
 
         return false;
+    }
+
+    /**
+     * Where a write to `$candidate` would actually land, or null when that cannot be determined.
+     *
+     * THE FINAL COMPONENT MATTERS, and resolving only the parent is the bug this exists to close.
+     * `file_put_contents()` FOLLOWS a symlink at the end of the path, so a report path of
+     * `/tmp/report.json` that is a link to `<repo>/upstream.lock.json` writes the lock — while a
+     * check that resolved only `/tmp` and re-attached `report.json` compared `/tmp/report.json`
+     * against the governed paths, found no match, and permitted exactly that write.
+     *
+     * Three cases, in the order they must be tried:
+     *
+     *   the candidate EXISTS (file, or a symlink to one) — `realpath` follows the link and gives the
+     *     file the write lands on;
+     *   the candidate is a DANGLING symlink — `realpath` fails, so the target is read directly and
+     *     resolved against the link's own directory, because a write still creates it there;
+     *   the candidate DOES NOT EXIST — the parent is resolved and the basename re-attached, which is
+     *     the only thing the filesystem can tell us and is where the write would create the file.
+     */
+    private static function resolveWriteTarget(string $candidate): ?string
+    {
+        $existing = realpath($candidate);
+        if ($existing !== false) {
+            return $existing;
+        }
+
+        $directory = dirname($candidate);
+        $directoryReal = realpath($directory === '' ? '.' : $directory);
+        if ($directoryReal === false) {
+            // The directory does not exist, so nothing can be written there at all.
+            return null;
+        }
+
+        if (is_link($candidate)) {
+            $target = readlink($candidate);
+            if ($target === false) {
+                // A link that cannot be read is a path whose destination is unknown. Unknown is not
+                // "somewhere safe", so it is refused by being treated as governed — the caller's
+                // only loss is one rejected report path.
+                return null;
+            }
+            $absolute = str_starts_with($target, DIRECTORY_SEPARATOR)
+                ? $target
+                : $directoryReal . DIRECTORY_SEPARATOR . $target;
+
+            // The target does not exist, so it cannot be `realpath`ed. Normalize the `.`/`..`
+            // segments by hand so a link to `<repo>/docs/../upstream.lock.json` is still recognised.
+            return self::normalize($absolute);
+        }
+
+        return $directoryReal . DIRECTORY_SEPARATOR . basename($candidate);
+    }
+
+    /** Collapse `.` and `..` in an absolute path that may not exist. */
+    private static function normalize(string $path): string
+    {
+        $out = [];
+        foreach (explode(DIRECTORY_SEPARATOR, $path) as $segment) {
+            if ($segment === '' || $segment === '.') {
+                continue;
+            }
+            if ($segment === '..') {
+                array_pop($out);
+                continue;
+            }
+            $out[] = $segment;
+        }
+
+        return DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, $out);
     }
 
     /** @var list<string> */
@@ -444,27 +511,33 @@ final class DeploymentEvidence
             // A HOST CLAIM NEEDS A HOST RECORD. `supportsHostClaim` is what stops a CI run — which
             // proves the code and never Loopia — from qualifying the deployment target.
             'staging_deployed' => $this->hasHostPass('STAGING_DEPLOYMENT'),
-            // BOTH, FOR THE SAME RELEASE. A probe against one release and a deployment of another
-            // qualify nothing together: the pair is the evidence, not either half.
-            'loopia_capability_validated' => $this->hasHostPassPairForOneRelease(
-                'STAGING_DEPLOYMENT',
-                'LOOPIA_PROBE_001',
-            ),
+            // BOTH, FOR THE RELEASE THAT IS CURRENTLY DEPLOYED. A probe against one release and a
+            // deployment of another qualify nothing together — and neither does a historic pair
+            // once a newer release has been deployed over it.
+            'loopia_capability_validated' => $this->currentReleaseIsProbed(),
             'live_read_activated' => $this->liveReadStandsActivated(),
             // PASS **OR FAIL**, and deliberately not STAND_DOWN. Execution is not success: a road
             // test that went badly is still a road test that was executed, and collapsing the two
             // is how a failure becomes a green flag. A STAND_DOWN is the third thing — a road test
             // that was deliberately withdrawn rather than run — and it supports nothing, which is
             // what `STAND_DOWN supports nothing` means everywhere else in this model.
-            'road_test_001_executed' => $this->hasResultIn('ROAD_TEST_001', ['PASS', 'FAIL']),
+            //
+            // AND IT MUST BE A HOST RECORD. ROAD_TEST_001 is by definition a real, controlled,
+            // post-staging execution against a live source; a record filed from `ci` or `testing`
+            // describes something that is not a road test at all, and letting one support the claim
+            // would mean the projection could say it had road-tested without ever leaving CI.
+            'road_test_001_executed' => $this->hasHostResultIn('ROAD_TEST_001', ['PASS', 'FAIL']),
         ];
     }
 
     /** @param list<string> $results */
-    private function hasResultIn(string $kind, array $results): bool
+    private function hasHostResultIn(string $kind, array $results): bool
     {
         foreach ($this->records as $record) {
-            if ($record['kind'] === $kind && in_array((string) $record['result'], $results, true)) {
+            if ($record['kind'] !== $kind || !in_array((string) $record['result'], $results, true)) {
+                continue;
+            }
+            if ($this->supportsHostClaim($record)) {
                 return true;
             }
         }
@@ -494,15 +567,54 @@ final class DeploymentEvidence
         return false;
     }
 
-    private function hasHostPassPairForOneRelease(string $first, string $second): bool
+    /**
+     * The release this deployment is currently running, or null when that cannot be determined.
+     *
+     * The latest successful host deployment, by `recorded_at`. FAIL-CLOSED ON AMBIGUITY: if two
+     * different releases share the latest timestamp, there is no answer to "which one is deployed",
+     * and a registry that cannot say that must not be the thing that says the host is qualified.
+     */
+    private function currentDeployedRelease(): ?string
     {
-        foreach ($this->releasesWithHostPass($first) as $release) {
-            if (in_array($release, $this->releasesWithHostPass($second), true)) {
-                return true;
+        $latestAt = null;
+        $releases = [];
+        foreach ($this->records as $record) {
+            if ($record['kind'] !== 'STAGING_DEPLOYMENT' || $record['result'] !== 'PASS') {
+                continue;
+            }
+            if (!$this->supportsHostClaim($record)) {
+                continue;
+            }
+            $at = (string) $record['recorded_at'];
+            if ($latestAt === null || $at > $latestAt) {
+                $latestAt = $at;
+                $releases = [(string) $record['release_ref']];
+                continue;
+            }
+            if ($at === $latestAt) {
+                $releases[] = (string) $record['release_ref'];
             }
         }
+        $releases = array_values(array_unique($releases));
 
-        return false;
+        return count($releases) === 1 ? $releases[0] : null;
+    }
+
+    /**
+     * Whether the release that is CURRENTLY deployed has itself been probed on the host.
+     *
+     * THE HISTORIC PAIR IS NOT ENOUGH, and this is the case that makes it matter. Deploy release A
+     * and probe A: the host is qualified for A. Now deploy release B and do not probe it. A rule
+     * that asked "does some release have both a deployment PASS and a probe PASS" still finds the A
+     * pair and keeps `loopia_capability_validated` true — for a deployment that is running B, which
+     * nobody qualified. The claim is about the host as it stands, so it has to name the release
+     * that is standing on it.
+     */
+    private function currentReleaseIsProbed(): bool
+    {
+        $current = $this->currentDeployedRelease();
+
+        return $current !== null && in_array($current, $this->releasesWithHostPass('LOOPIA_PROBE_001'), true);
     }
 
     /** @return list<string> */

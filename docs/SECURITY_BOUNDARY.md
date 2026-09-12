@@ -199,6 +199,20 @@ no flag, no argument and no environment read through which anything real could a
 `tests/security/isolation_canary.php` asserts the absence of each. Probe mode returns `READABLE`,
 `NOT_READABLE` or `NOT_FOUND` and never prints content. **Any cross-site `READABLE` is a hard stop.**
 
+**The proof is bounded, and the bound is in the output.** The canary runs under the CLI SAPI as the
+SSH user, so it measures that identity's permissions and `open_basedir` — not the identity web PHP
+runs under for each site, which on shared hosting commonly differs and can be either more or less
+permissive. `docs/LOOPIA_HOST_MODEL.md` establishes no equivalence between them, so the tool claims
+**SSH/CLI cross-site filesystem isolation only**: every result carries `identity_measured: SSH_CLI`,
+`proves`, and `web_php_cross_site_isolation: UNVERIFIED`, and `tests/security/isolation_canary.php`
+asserts each of those is present. Cross-site isolation of the web PHP identity remains an open
+blocker in `LOOPIA_HOST_MODEL.md` §5 rather than something a green canary run closes.
+
+There is no web-SAPI equivalent by design. One would need a file reader reachable over HTTP, which
+is the arbitrary-read oracle §2 exists to prevent, and `public_html/` is a closed set of four
+entries that `tests/foundation/deployment_boundary.php` pins. The narrower claim is the honest one;
+a broader tool would be a worse boundary.
+
 ### 5.4 The React shell has its own CSP profile
 
 Two profiles, and the separation is deliberate:

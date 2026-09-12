@@ -98,10 +98,19 @@ Loopia support, never by this probe reporting READY and never by weakening the P
 - `row_locking` — **two independent connections.** The holder takes `FOR UPDATE`; the contender sets
   a one-second `innodb_lock_wait_timeout`, blocks and times out; the holder rolls back; the
   contender then acquires. Both halves matter — a database that blocked forever would pass the first.
-- `trigger_support` — a `BEFORE DELETE` trigger is created, `SIGNAL SQLSTATE '45000'` fires, and the
-  row survives. This is the capability most likely to be silently absent: the append-only guarantees
-  in `SECURITY_BOUNDARY.md` §9 *are* triggers, and a MariaDB user without the TRIGGER privilege
-  imports the migrations and drops them.
+- `trigger_support` — a `BEFORE DELETE` trigger is created, the DELETE is refused **with SQLSTATE
+  `45000`**, and the row survives. This is the capability most likely to be silently absent: the
+  append-only guarantees in `SECURITY_BOUNDARY.md` §9 *are* triggers, and a MariaDB user without the
+  TRIGGER privilege imports the migrations and drops them.
+
+  The SQLSTATE is the proof, not the fact that the DELETE threw. An account that may create triggers
+  but lacks `DELETE` also throws — SQLSTATE `42000`, *command denied* — and the row also survives,
+  because nothing deleted it. The observed state is reported as `delete_sqlstate` so a privilege
+  refusal is legible as what it is rather than as a passing trigger.
+- `probe_cleanup` — every disposable table and trigger this probe created was dropped again. An
+  account that can `CREATE` but not `DROP` passes every proof above and leaves `probe_*` litter in
+  the database, which on a shared host is something an operator has to recognise and remove by hand
+  while already reading a failure report. It is required for a READY staging verdict.
 
 ### Egress — only with `--allow-network`
 
@@ -113,9 +122,15 @@ Loopia support, never by this probe reporting READY and never by weakening the P
 - `curl_writefunction` — the streaming response-size cap
 - `curl_protocols_restrictable` — confines the transport to https so a redirect cannot switch scheme
 - `dns_function` — `dns_get_record` exists
-- `dns_resolution` — a name was actually resolved. Version 1 reported this PRESENT when the function
-  merely existed, so "DNS works here" was recorded by runs that never resolved anything.
-- `outbound_https` — a real TLS-verified request completed
+- `dns_resolution` — a name was actually resolved, by **A or AAAA**: the governed resolver screens
+  both, so an IPv6-only host is one this deployment can reach. Version 1 reported this PRESENT when
+  the function merely existed, so "DNS works here" was recorded by runs that never resolved anything.
+- `outbound_https` — a real TLS-verified request completed **over a direct connection**. The probe
+  empties `CURLOPT_PROXY`, exactly as `CurlHttpsTransport` does: cURL otherwise reads `HTTPS_PROXY`
+  and `ALL_PROXY` from the environment, and on a host where only proxy-mediated egress works a
+  proxied probe would report PRESENT and yield a READY live-read verdict for a transport that will
+  fail on its first request. A probe that demonstrates a path production cannot take has
+  demonstrated nothing.
 
 ## 4. Running it
 
@@ -182,8 +197,37 @@ the site running it, so an exit code would either fail the control or pass the c
 Probing a site's **own** canary is the control. Without it, a `NOT_FOUND` everywhere would look like
 perfect isolation and could just mean nothing was ever written.
 
+A probe against a directory this site cannot resolve at all answers `NOT_FOUND` with
+`directory_resolved: false`, not an error. Under a restrictive `open_basedir` a sibling's directory
+commonly cannot be resolved, and that **is** the finding — treating it as an operational failure
+would make the matrix completable only on a host where isolation had already broken. In `create` and
+`cleanup` mode an unresolvable directory stays a hard failure, because those act on a directory the
+operator believes is their own.
+
 **Any cross-site `READABLE` is a HARD STOP.** Do not place `APP_MASTER_KEY` or database credentials
 on the host. Record the finding and raise it with Loopia before going further.
+
+### What the matrix does not close
+
+This runs under the CLI SAPI, as the SSH user. It measures **that** identity's filesystem
+permissions and `open_basedir` — not the identity or restrictions the web PHP process runs under for
+each site. On shared hosting those routinely differ, in both directions: the CLI account is often
+more permissive than web PHP, and it can also be restricted where web PHP is not.
+
+`docs/LOOPIA_HOST_MODEL.md` establishes no equivalence between the two, so this tool proves
+**SSH/CLI cross-site filesystem isolation only**. Every result says so in its own output —
+`identity_measured: SSH_CLI`, `sapi`, `proves`, and `web_php_cross_site_isolation: UNVERIFIED` — on
+the reasoning that the one place a reader will look is the JSON they just pasted into a ticket.
+
+Cross-site isolation of the **web PHP** identity therefore stays UNVERIFIED and is carried as an
+open blocker in `LOOPIA_HOST_MODEL.md` §5. It is not closed by a green run here, and a completed
+E.1 matrix must not be reported as closing it.
+
+There is no web-SAPI equivalent, deliberately. One would need a file reader reachable over HTTP, and
+this projection will not have one: `public_html/` is a closed set of four entries that
+`tests/foundation/deployment_boundary.php` pins, and a file-reading endpoint is exactly the
+arbitrary-read oracle the whole boundary exists to prevent. Closing the blocker takes a written
+Loopia guarantee, or a host proof that does not require adding such an endpoint.
 
 ## 6. The HTTP boundary probe
 

@@ -211,7 +211,7 @@ another design phase:
 | Command | Answers |
 | --- | --- |
 | `ops/loopia-probe/probe.php` | what this host can actually do — three separate verdicts, every storage capability demonstrated rather than inferred |
-| `ops/loopia-probe/isolation-canary.php` | can one site in this account read another's private files? Asked **before** any secret is placed |
+| `ops/loopia-probe/isolation-canary.php` | can the SSH/CLI identity of one site in this account read another's private files? Asked **before** any secret is placed. Bounded to that identity — web PHP isolation stays UNVERIFIED, see `LOOPIA_HOST_MODEL.md` §5 blocker 4 |
 | `ops/deploy/preflight.php` | is this release internally consistent and safe to copy inertly? |
 | `ops/staging-smoke.php` | does the DEPLOYED site answer correctly over real HTTPS? |
 | `ops/rollback/verify-stand-down.php` | did a rollback or stand-down actually take effect? |

@@ -33,6 +33,25 @@ declare(strict_types=1);
  * PROBE MODE NEVER PRINTS CONTENT. It returns READABLE, NOT_READABLE or NOT_FOUND. Even a
  * worthless file is a file, and a tool that printed what it found would be a tool somebody
  * eventually points at something that is not worthless.
+ *
+ * WHAT IT DOES **NOT** PROVE, and this bounds the whole gate:
+ *
+ * This runs under the CLI SAPI, as the SSH user. What it measures is therefore the SSH/CLI
+ * identity's filesystem permissions and the CLI `open_basedir` — NOT the identity or restrictions
+ * the web PHP process runs under for each site. On shared hosting those are routinely different,
+ * and the difference can run either way: the CLI account is often more permissive than web PHP, and
+ * it can also be restricted where web PHP is not.
+ *
+ * `docs/LOOPIA_HOST_MODEL.md` establishes no equivalence between the two, so this tool proves
+ * **SSH/CLI cross-site isolation only**. Cross-site isolation of the WEB PHP identity stays
+ * UNVERIFIED, and it is recorded as an open blocker rather than inferred from a green run here.
+ * Every result carries that scope in its own output, because the one place a reader will look is
+ * the JSON they just pasted into a ticket.
+ *
+ * A web-SAPI equivalent would need a reader reachable over HTTP, and this projection will not have
+ * one: `public_html/` is a closed set of four entries that `deployment_boundary.php` pins, and a
+ * file-reading endpoint is exactly the arbitrary-read oracle the whole boundary exists to prevent.
+ * So the honest answer is the narrower claim, not a broader tool.
  */
 
 // CLI ONLY, refused BEFORE anything is loaded — including the application. This command takes a
@@ -75,22 +94,6 @@ if (str_contains($dir, "\0")) {
     $fail('--dir contains a null byte');
 }
 
-$resolved = realpath($dir);
-if ($resolved === false || !is_dir($resolved)) {
-    $fail("no such directory: {$dir}", 4);
-}
-
-// A CANARY NEVER GOES IN THE SERVED TREE. One placed under `public_html/` would be fetchable over
-// HTTP by anybody, so every probe against it would answer READABLE and the run would prove nothing
-// while looking like it had proved something.
-$root = dirname(__DIR__, 2);
-$servedRoot = realpath($root . '/public_html');
-if (is_string($servedRoot) && str_starts_with($resolved . DIRECTORY_SEPARATOR, $servedRoot . DIRECTORY_SEPARATOR)) {
-    $fail('refusing to place or probe a canary inside the served directory', 3);
-}
-
-$path = $resolved . DIRECTORY_SEPARATOR . CANARY_FILENAME;
-
 /**
  * The verdict vocabulary. Closed, and each value means one thing.
  *
@@ -109,15 +112,58 @@ $emit = static function (string $mode, string $directory, string $verdict, array
         'canary_file' => CANARY_FILENAME,
         'verdict' => $verdict,
         ...$extra,
+        // THE SCOPE OF THE CLAIM, in the output rather than only in the docblock. This ran under the
+        // CLI SAPI as the SSH user, so it measures that identity's permissions and open_basedir —
+        // not the web PHP process's. On shared hosting the two commonly differ, so a green run here
+        // says nothing about whether web PHP is isolated.
+        'identity_measured' => 'SSH_CLI',
+        'sapi' => PHP_SAPI,
+        'proves' => 'SSH/CLI cross-site filesystem isolation only',
+        'web_php_cross_site_isolation' => 'UNVERIFIED',
         // Restated on every run. A canary proves isolation; it grants nothing and authorizes
         // nothing, and reading one from a sibling site is a stop, not a finding to note and move on.
         'interpretation' => 'A READABLE verdict against ANOTHER site\'s private directory is a hard '
-            . 'stop: do not place APP_MASTER_KEY or database credentials on this host.',
+            . 'stop: do not place APP_MASTER_KEY or database credentials on this host. A clean run '
+            . 'is NOT a clearance — it bounds the SSH/CLI identity only, and web PHP isolation '
+            . 'remains UNVERIFIED.',
         'grants_runtime_authority' => false,
         'authorizes_deployment' => false,
         'secret_written' => false,
     ]);
 };
+
+// AN UNRESOLVABLE DIRECTORY IS A PROBE RESULT, NOT A PROBE FAILURE — and getting that backwards
+// made Gate E impossible to complete in exactly the case it exists to detect.
+//
+// On the shared hosting this tool is written for, `open_basedir` commonly stops a site resolving a
+// sibling's private directory at all. `realpath()` then returns false BEFORE any read is attempted.
+// An earlier revision treated that as "no such directory" and exited 4, so a host whose isolation
+// was working perfectly produced an operational error instead of the `NOT_FOUND` the matrix asks
+// for — and the gate could only be completed on a host where isolation had already failed.
+//
+// So in PROBE mode an unreachable directory is `NOT_FOUND`: this site could not reach it, which is
+// the finding. In CREATE and CLEANUP mode it stays a hard failure, because those act on a directory
+// the operator believes is their own.
+$resolved = realpath($dir);
+$root = dirname(__DIR__, 2);
+
+if ($resolved === false || !is_dir($resolved)) {
+    if ($mode !== 'probe') {
+        $fail("no such directory: {$dir}", 4);
+    }
+    $emit('probe', $dir, 'NOT_FOUND', ['directory_resolved' => false]);
+}
+
+// A CANARY NEVER GOES IN THE SERVED TREE. One placed under `public_html/` would be fetchable over
+// HTTP by anybody, so every probe against it would answer READABLE and the run would prove nothing
+// while looking like it had proved something.
+$servedRoot = realpath($root . '/public_html');
+if (is_string($servedRoot) && str_starts_with($resolved . DIRECTORY_SEPARATOR, $servedRoot . DIRECTORY_SEPARATOR)) {
+    $fail('refusing to place or probe a canary inside the served directory', 3);
+}
+
+$path = $resolved . DIRECTORY_SEPARATOR . CANARY_FILENAME;
+
 
 if ($mode === 'create') {
     if (is_file($path)) {

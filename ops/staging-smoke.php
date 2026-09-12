@@ -127,18 +127,54 @@ $steps = [];
 $failures = 0;
 
 /**
+ * The per-response byte ceiling.
+ *
+ * WITHOUT ONE, A MISCONFIGURED OR COMPROMISED ENDPOINT CAN EXHAUST THIS PROCESS. `CURLOPT_TIMEOUT`
+ * bounds the wall clock and nothing else: a host streaming a body as fast as the link allows stays
+ * comfortably inside twenty seconds while this command accumulates every byte in memory. The
+ * governed transport caps its own reads for the same reason, and this client makes dozens of
+ * requests — every governed read, every private-path probe — against a host it is in the middle of
+ * deciding whether to trust.
+ *
+ * Two megabytes is far above anything this deployment serves: the shell document is a few hundred
+ * bytes, and governed reads are bounded JSON. A response over the cap is a finding about the host,
+ * so it aborts the transfer and fails that step rather than being silently truncated into a body
+ * the caller would then parse as if it were whole.
+ */
+const SMOKE_MAX_RESPONSE_BYTES = 2_000_000;
+
+/**
  * One request. Returns status, headers of interest, and the body — which the CALLER may inspect but
  * must never put into a step record.
  *
  * @param array<string, string> $form
- * @return array{status: int, location: ?string, request_id: string, content_type: string, body: string, error: ?string}
+ * @return array{status: int, location: ?string, request_id: string, content_type: string, body: string, error: ?string, oversized: bool}
  */
 $send = static function (string $method, string $path, array $form = []) use ($origin, &$cookies, $fail): array {
     $handle = curl_init();
     $headerLines = [];
+    $body = '';
     $options = [
         CURLOPT_URL => $origin . $path,
-        CURLOPT_RETURNTRANSFER => true,
+        // The body is accumulated by the write callback below, under a ceiling, rather than by
+        // cURL into an unbounded buffer.
+        CURLOPT_RETURNTRANSFER => false,
+        CURLOPT_WRITEFUNCTION => static function ($_handle, string $chunk) use (&$body): int {
+            // One byte of headroom, so an exactly-at-cap body is distinguishable from an over-cap
+            // one and the overflow is OBSERVED rather than truncated away.
+            $room = SMOKE_MAX_RESPONSE_BYTES + 1 - strlen($body);
+            if ($room <= 0) {
+                return 0; // a short write aborts the transfer
+            }
+            if (strlen($chunk) >= $room) {
+                $body .= substr($chunk, 0, $room);
+
+                return 0;
+            }
+            $body .= $chunk;
+
+            return strlen($chunk);
+        },
         // NEVER automatically. Each step decides what a redirect means, and a Location pointing at
         // another origin must fail rather than be fetched — a credential-bearing client that
         // followed one would present its cookies to whatever answered.
@@ -174,9 +210,17 @@ $send = static function (string $method, string $path, array $form = []) use ($o
     }
     curl_setopt_array($handle, $options);
 
-    $body = curl_exec($handle);
+    $executed = curl_exec($handle);
     $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
-    $error = $body === false ? curl_error($handle) : null;
+    $oversized = strlen($body) > SMOKE_MAX_RESPONSE_BYTES;
+    // THE CAP IS REPORTED AS ITSELF. Aborting the write makes cURL return a generic write error,
+    // and a step that failed with "Failed writing body" would send an operator looking at their own
+    // disk. The message is a fixed sentence composed here: it names no header, no body and no host.
+    $error = match (true) {
+        $oversized => 'response exceeded the ' . SMOKE_MAX_RESPONSE_BYTES . '-byte ceiling',
+        $executed === false => curl_error($handle),
+        default => null,
+    };
     curl_close($handle);
 
     $location = null;
@@ -216,15 +260,48 @@ $send = static function (string $method, string $path, array $form = []) use ($o
         'location' => $location,
         'request_id' => $requestId,
         'content_type' => $contentType,
-        'body' => is_string($body) ? $body : '',
+        'body' => $body,
         'error' => $error === null ? null : substr($error, 0, 120),
+        'oversized' => $oversized,
     ];
+};
+
+/**
+ * Whether a redirect target stays on the deployment under test.
+ *
+ * `//evil.example/path` IS THE CASE THIS EXISTS FOR. A scheme-relative URL begins with `/`, so a
+ * naive "starts with a slash means it is a path" check reads it as same-origin when a browser would
+ * resolve it to a different host entirely. An earlier revision did exactly that, which would have
+ * let a qualification run bless an open redirect.
+ */
+$sameOrigin = static function (?string $location) use ($origin): bool {
+    if ($location === null || $location === '') {
+        return false;
+    }
+    if (str_starts_with($location, '//')) {
+        // Scheme-relative: the authority is whatever follows, not this origin.
+        return false;
+    }
+    if (str_starts_with($location, '/')) {
+        return true;
+    }
+
+    return str_starts_with($location, $origin . '/') || $location === $origin;
 };
 
 /**
  * THE ONLY THING THAT WRITES A STEP RECORD, so there is one place to audit for what this command
  * can emit. Every field is a status, a path, an opaque reference or a reason code — never a body,
  * never a cookie, never a credential.
+ *
+ * A REDIRECT THAT LEAVES THIS ORIGIN FAILS THE STEP, here rather than at each call site. An earlier
+ * revision recorded `location_same_origin` as a reportable field, so a 303 to `https://evil.example/`
+ * could be PASS and still contribute to `SMOKE_PASS`. cURL never follows it, so this was not a
+ * credential leak — but a qualification run that blessed an open redirect is a qualification run
+ * that certified the wrong thing.
+ *
+ * `$alsoRequires` is for the checks whose subject is not the status code: a step may answer exactly
+ * the expected status and still have failed, and the scope-override probe is precisely that shape.
  *
  * @param list<int> $expected
  * @param array<string, mixed> $safe
@@ -236,8 +313,13 @@ $record = static function (
     array $response,
     array $expected,
     array $safe = [],
-) use (&$steps, &$failures): bool {
-    $ok = in_array($response['status'], $expected, true) && $response['error'] === null;
+    bool $alsoRequires = true,
+) use (&$steps, &$failures, $sameOrigin): bool {
+    $redirectStaysHere = $response['location'] === null || $sameOrigin($response['location']);
+    $ok = in_array($response['status'], $expected, true)
+        && $response['error'] === null
+        && $redirectStaysHere
+        && $alsoRequires;
     $steps[] = [
         'step' => $step,
         'method' => $method,
@@ -246,6 +328,7 @@ $record = static function (
         'expected' => $expected,
         'request_id' => RequestId::isWellFormed($response['request_id']) ? $response['request_id'] : null,
         'content_type' => explode(';', $response['content_type'])[0],
+        'redirect_stays_on_origin' => $redirectStaysHere,
         ...$safe,
         'result' => $ok ? 'PASS' : 'FAIL',
         'transport_error' => $response['error'],
@@ -289,18 +372,6 @@ $decision = static function (array $response): array {
     ];
 };
 
-/** Whether a redirect target is somewhere this client may follow. */
-$sameOrigin = static function (?string $location) use ($origin): bool {
-    if ($location === null) {
-        return false;
-    }
-    if (str_starts_with($location, '/')) {
-        return true;
-    }
-
-    return str_starts_with($location, $origin . '/');
-};
-
 $readPaths = [
     '/console/api/v1/context',
     '/console/api/v1/p01/battlecards',
@@ -315,21 +386,41 @@ $readPaths = [
 
 // ============================================================ anonymous, always
 
+// THE CLAIMS ARE THE CHECK, not decoration beside a 200.
+//
+// `/healthz` is the one surface that states, in the deployment's own words, WHICH projection is
+// running and that it produces no customer-visible output and takes no external action. A step that
+// passed on the status code alone would record `SMOKE_PASS` for a host answering 200 with the wrong
+// projection, with `external_effect: true`, or with HTML — which is to say for a deployment that is
+// either not this one or not inert. Gate N quotes this result; it has to mean what it says.
 $health = $send('GET', '/healthz');
-$healthClaims = [];
+$healthClaims = ['envelope' => 'NOT_JSON', 'projection' => null];
 try {
     $decoded = json_decode($health['body'], true, 8, JSON_THROW_ON_ERROR);
     if (is_array($decoded)) {
         $healthClaims = [
+            'envelope' => 'JSON',
             'projection' => $decoded['projection'] ?? null,
             'customer_visible_output' => $decoded['customer_visible_output'] ?? null,
             'external_effect' => $decoded['external_effect'] ?? null,
         ];
+    } else {
+        $healthClaims = ['envelope' => 'NOT_AN_OBJECT', 'projection' => null];
     }
 } catch (\JsonException) {
-    $healthClaims = ['projection' => null];
+    // Left as NOT_JSON, which fails the step below rather than being reported beside a pass.
 }
-$record('health', 'GET', '/healthz', $health, [200], $healthClaims);
+// IDENTICAL COMPARISONS, not truthiness: `customer_visible_output` absent decodes to null, and
+// `null == false` in PHP. A deployment that had dropped the key would otherwise pass the check that
+// exists to prove the key is there and false.
+$healthInert = $healthClaims['envelope'] === 'JSON'
+    && ($healthClaims['projection'] ?? null) === 'LOOPIA_SME_MVP'
+    && ($healthClaims['customer_visible_output'] ?? null) === false
+    && ($healthClaims['external_effect'] ?? null) === false;
+$record('health', 'GET', '/healthz', $health, [200], [
+    ...$healthClaims,
+    'projection_and_inertness_as_expected' => $healthInert,
+], $healthInert);
 
 $shell = $send('GET', '/console/app');
 $record('anonymous console shell redirects to sign-in', 'GET', '/console/app', $shell, [303], [
@@ -455,7 +546,7 @@ if ($mode !== 'anonymous') {
         } else {
             $record('workspace chooser offers a workspace', 'GET', '/console/workspaces', [
                 'status' => 0, 'location' => null, 'request_id' => '', 'content_type' => '',
-                'body' => '', 'error' => 'no selectable workspace was offered',
+                'body' => '', 'error' => 'no selectable workspace was offered', 'oversized' => false,
             ], [200]);
         }
     }
@@ -464,6 +555,61 @@ if ($mode !== 'anonymous') {
     $record('the React shell is served', 'GET', '/console/app', $appShell, [200], [
         'body_bytes' => strlen($appShell['body']),
     ]);
+
+    // THE SHELL IS NOT THE CONSOLE. A host can serve the document perfectly and answer 404, or the
+    // front controller's HTML, for the hashed bundle it references — and the operator sees a blank
+    // page while the smoke artifact says SMOKE_PASS. Asset delivery is one of the things this client
+    // exists to establish on a host, and until now it counted the shell's bytes and stopped.
+    //
+    // The URLs come from the SHELL DOCUMENT rather than from the manifest on disk, because what
+    // matters is what a browser will actually request. The patterns are the same content-hashed
+    // shapes `ConsoleAssetManifest` enforces when it composes them, so a document naming anything
+    // else yields no match and fails the step rather than sending this client after an arbitrary
+    // URL it found in a response body.
+    $assetTargets = [];
+    if (preg_match(
+        '#<link rel="stylesheet" href="(/assets/operator-console/console\.[A-Z0-9]+\.css)">#',
+        $appShell['body'],
+        $m,
+    ) === 1) {
+        $assetTargets['stylesheet'] = [$m[1], ['text/css']];
+    }
+    if (preg_match(
+        '#<script type="module" src="(/assets/operator-console/console\.[A-Z0-9]+\.js)"></script>#',
+        $appShell['body'],
+        $m,
+    ) === 1) {
+        $assetTargets['script'] = [$m[1], ['text/javascript', 'application/javascript', 'application/x-javascript']];
+    }
+    foreach (['stylesheet', 'script'] as $kind) {
+        if (!isset($assetTargets[$kind])) {
+            // A shell that names no hashed asset of this kind is a broken console, reported as the
+            // step it is rather than skipped into silence.
+            $record("the console {$kind} is named by the shell", 'GET', '/console/app', [
+                'status' => $appShell['status'], 'location' => null, 'request_id' => '',
+                'content_type' => '', 'body' => '', 'oversized' => false,
+                'error' => "the shell document names no content-hashed {$kind}",
+            ], [200]);
+            continue;
+        }
+        [$assetPath, $acceptable] = $assetTargets[$kind];
+        $asset = $send('GET', $assetPath);
+        $type = explode(';', $asset['content_type'])[0];
+        // `type="module"` means a browser REFUSES a script the host labels text/plain, so the media
+        // type is part of the check, not a note beside it. And a host whose rewrite rules swallow
+        // the asset answers 200 with the front controller's HTML — hence the opening-angle check:
+        // the bytes are never recorded, only whether they begin like a document.
+        $looksLikeHtml = str_starts_with(ltrim($asset['body']), '<');
+        $served = $asset['status'] === 200
+            && in_array(strtolower($type), $acceptable, true)
+            && $asset['body'] !== ''
+            && !$looksLikeHtml;
+        $record("the console {$kind} is delivered", 'GET', $assetPath, $asset, [200], [
+            'media_type_acceptable' => in_array(strtolower($type), $acceptable, true),
+            'body_bytes' => strlen($asset['body']),
+            'looks_like_html' => $looksLikeHtml,
+        ], $served);
+    }
 
     foreach ($readPaths as $path) {
         $response = $send('GET', $path);
@@ -486,14 +632,23 @@ if ($mode !== 'anonymous') {
     );
     $plainDecision = $decision($plain);
     $injectedDecision = $decision($injected);
-    $record('caller-supplied scope changes nothing', 'GET', '/console/api/v1/context', $injected, [$plain['status']], [
-        ...$injectedDecision,
-        'identical_to_unscoped_request' =>
-            $plain['status'] === $injected['status']
-            && ($plainDecision['access_decision'] ?? null) === ($injectedDecision['access_decision'] ?? null)
-            && ($plainDecision['owner_state'] ?? null) === ($injectedDecision['owner_state'] ?? null)
-            && ($plainDecision['has_data'] ?? null) === ($injectedDecision['has_data'] ?? null),
-    ]);
+    // THE COMPARISON IS THE STEP, not a field beside it. An authenticated context read answers 200
+    // whether or not the injected scope changed the decision, so gating on the status alone would
+    // let the artifact report SMOKE_PASS while explicitly stating that the scope-override check
+    // failed. It is passed as the extra predicate so a difference fails the run.
+    $identical = $plain['status'] === $injected['status']
+        && ($plainDecision['access_decision'] ?? null) === ($injectedDecision['access_decision'] ?? null)
+        && ($plainDecision['owner_state'] ?? null) === ($injectedDecision['owner_state'] ?? null)
+        && ($plainDecision['has_data'] ?? null) === ($injectedDecision['has_data'] ?? null);
+    $record(
+        'caller-supplied scope changes nothing',
+        'GET',
+        '/console/api/v1/context',
+        $injected,
+        [$plain['status']],
+        [...$injectedDecision, 'identical_to_unscoped_request' => $identical],
+        $identical,
+    );
 
     foreach (['/support', '/account'] as $surface) {
         $response = $send('GET', $surface);

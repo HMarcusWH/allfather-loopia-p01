@@ -159,20 +159,41 @@ this deployment phase**, and the inert staging configuration therefore leaves `S
    running the same MariaDB version is not the same as Loopia's instance of it — the version
    question is settled, the HOST question is not.
 
-3. **Cross-site isolation within the Loopia account is unproved.** Whether the PHP running for one
-   site can read another site's private files decides whether `APP_MASTER_KEY` and the database
-   password may be placed there at all. `ops/loopia-probe/isolation-canary.php` exists to answer it
-   with files that are worthless by construction, and it has never been run on a real host.
+3. **Cross-site isolation of the SSH/CLI identity is unproved.** Whether the SSH user for one site
+   can read another site's private files decides whether `APP_MASTER_KEY` and the database password
+   may be placed there at all. `ops/loopia-probe/isolation-canary.php` exists to answer it with
+   files that are worthless by construction, and it has never been run on a real host.
 
-4. **`open_basedir` behaviour, the MariaDB account's TRIGGER privilege, foreign-key enforcement, row
+4. **`LOOPIA_WEB_PHP_CROSS_SITE_ISOLATION_BLOCKER` — cross-site isolation of the WEB PHP identity is
+   unproved, and this repository has no tool that can prove it.** The canary in (3) runs under the
+   CLI SAPI as the SSH user, so it measures that identity's permissions and `open_basedir`. The
+   identity and restrictions the web PHP process runs under per site are a different thing, and on
+   shared hosting they routinely differ in both directions — CLI more permissive than web PHP, or
+   restricted where web PHP is not. **This document establishes no equivalence between them**, so a
+   clean Gate E.1 matrix closes (3) and leaves this open.
+
+   Unlike every other item here, this one has **no command with a pass condition**. A web-SAPI
+   equivalent would need a file reader reachable over HTTP, which is precisely the arbitrary-read
+   oracle `SECURITY_BOUNDARY.md` §2 exists to prevent, and `public_html/` is a closed set of four
+   entries pinned by `tests/foundation/deployment_boundary.php`. Adding one to answer a security
+   question would create the exposure it was meant to measure.
+
+   It therefore closes only by **a written statement from Loopia** about per-site web PHP isolation
+   in a shared account, or by a host proof that does not require adding such an endpoint. Until one
+   of those exists it stays UNVERIFIED — never "probably fine because the CLI matrix was clean" —
+   and `CROSS_SITE_ISOLATION` evidence records must not be read as covering it.
+
+5. **`open_basedir` behaviour, the MariaDB account's TRIGGER privilege, foreign-key enforcement, row
    locking and outbound HTTPS are unproved ON LOOPIA.** The probe demonstrates each rather than
    inferring it from a version string, and has only ever run in CI and in development.
 
 **Closed since the previous revision:** MariaDB 10.6 was listed here as untested. It is now verified
 against a real 10.6 server in CI, on every commit, with no skips.
 
-**What has changed about how these get closed:** each of the open blockers is now a command with a
+**What has changed about how these get closed:** blockers 1, 3 and 5 are now each a command with a
 pass condition rather than an investigation. `docs/BETA_RUNBOOK.md` sequences them as Gates E and H,
 and the results are filed as `CROSS_SITE_ISOLATION` and `LOOPIA_PROBE_001` records — which is what
 makes `loopia_capability_validated` capable of becoming true, and what stops it becoming true
-without them.
+without them. Blocker 4 is the exception and is stated as one: it has no command, it is not closed
+by running anything in this repository, and nothing in the evidence registry can record it as
+closed.

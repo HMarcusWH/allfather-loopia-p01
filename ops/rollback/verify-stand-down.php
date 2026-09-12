@@ -43,9 +43,11 @@ require __DIR__ . '/../../app/autoload.php';
 use Allfather\Loopia\Auth\AccountService;
 use Allfather\Loopia\Auth\Authenticator;
 use Allfather\Loopia\Core\Clock;
+use Allfather\Loopia\Http\ConsoleAssetManifest;
 use Allfather\Loopia\Jobs\SchedulerAuth;
 use Allfather\Loopia\Ops\BetaCli;
 use Allfather\Loopia\Ops\DeploymentEvidence;
+use Allfather\Loopia\Ops\StandDownPosture;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
 
 $fail = static function (string $message, int $code = 2): never {
@@ -74,41 +76,51 @@ $configuration = BetaCli::configuration($root, $args, $fail);
 $env = $configuration['env'];
 $environment = $configuration['environment'];
 
-/** @var list<string> $findings */
-$findings = [];
-$note = static function (string $finding) use (&$findings): void {
-    $findings[] = $finding;
-};
+// OBSERVED HERE, DECIDED IN `StandDownPosture`. This file opens a database, reads a lock and walks
+// a ledger — none of which is testable without a host, which is exactly how an earlier revision
+// managed to compute the scheduler posture, print it, and let none of it reach the verdict. The
+// observations are gathered below and the rule is applied once, at the end, by code every
+// combination of which is exercised in `tests/rollback/stand_down_verifier.php`.
+/** @var array<string, mixed> $observed */
+$observed = ['expected_release' => $expectRelease];
 
 // ============================================================ the release that is live
 
 $runningRelease = $env->get('APP_RELEASE_REF');
-if ($runningRelease === null) {
-    $note('APP_RELEASE_REF is not set — the deployment cannot say which release it is running');
-} elseif ($runningRelease !== $expectRelease) {
-    $note('APP_RELEASE_REF is not the release the rollback was meant to restore');
-}
+$observed['running_release'] = $runningRelease;
 
 // The Operator Console manifest has to match the RESTORED code, not the one that was rolled back
 // from. A restored application tree beside a newer staged bundle is the failure mode that looks
 // entirely healthy until a browser executes a bundle the server-rendered document does not expect.
+// THE RUNTIME'S OWN VALIDATOR, not a weaker restatement of it.
+//
+// An earlier revision decoded the JSON here and accepted any object with a string at `entry.script`.
+// That passes a manifest naming an UNHASHED or ABSENT script, one whose stylesheet key is gone, one
+// with no `assets` list, and one at an unsupported schema version — every case `ConsoleAssetManifest`
+// refuses at runtime. So `/console/app` would answer 503 while this command, whose entire job is to
+// establish that the restored tree is serviceable, returned `STAND_DOWN_VERIFIED`. A verifier that
+// is more permissive than the thing it verifies reports a rollback as complete when it is not.
+//
+// Loading it through the runtime class also checks the referenced FILES: local, content-hashed, not
+// symlinked, and present on disk. A partial or stale rollback is precisely a manifest that survived
+// while the bundle it names did not.
 $manifestPath = $root . '/public_html/assets/operator-console/manifest.json';
-$consoleManifest = ['present' => is_file($manifestPath), 'script' => null, 'valid' => false];
-if (!$consoleManifest['present']) {
-    $note('the Operator Console manifest is absent — /console/app answers 503 until it is restored');
-} else {
+$consoleManifest = ['present' => is_file($manifestPath), 'script' => null, 'valid' => false, 'fault' => null];
+if ($consoleManifest['present']) {
     try {
-        $decoded = json_decode((string) file_get_contents($manifestPath), true, 32, JSON_THROW_ON_ERROR);
-        if (is_array($decoded) && is_string($decoded['entry']['script'] ?? null)) {
-            $consoleManifest['script'] = $decoded['entry']['script'];
-            $consoleManifest['valid'] = true;
-        } else {
-            $note('the Operator Console manifest does not name an entry script');
-        }
-    } catch (\JsonException) {
-        $note('the Operator Console manifest is not valid JSON');
+        $manifest = (new ConsoleAssetManifest($root . '/public_html/assets/operator-console'))->load();
+        $consoleManifest['script'] = basename($manifest['script']);
+        $consoleManifest['style'] = basename($manifest['style']);
+        $consoleManifest['assets'] = count($manifest['assets']);
+        $consoleManifest['valid'] = true;
+    } catch (\Throwable $error) {
+        // The validator's messages name the fault and never a path outside the stage, so the
+        // message is what an operator needs; it is the same sentence the runtime would log.
+        $consoleManifest['fault'] = $error->getMessage();
     }
 }
+$observed['console_manifest_present'] = $consoleManifest['present'];
+$observed['console_manifest_valid'] = $consoleManifest['valid'];
 
 // ============================================================ the scheduler is still inert
 
@@ -119,24 +131,30 @@ $tick = (string) @file_get_contents($root . '/worker/tick.php');
 $schedulerEntry = (string) @file_get_contents($root . '/public_html/scheduler.php');
 $emptyRegistry = str_contains($tick, 'new SchedulerRunner(new JobMachine($db, new Clock()), [])')
     && str_contains($schedulerEntry, 'new SchedulerRunner(new JobMachine($db, $clock), [])');
-if (!$emptyRegistry) {
-    $note('a composition root no longer constructs the scheduler with an EMPTY handler registry');
-}
 // THE DOOR IS ASKED, NOT DESCRIBED. Presenting an empty token to the real verifier answers what a
 // caller would actually get, rather than restating a reason code this file would then have to keep
 // in step with `SchedulerAuth`. With neither key configured the answer is
 // `SCHEDULER_CREDENTIAL_NOT_CONFIGURED`: unreachable, which is not the same as open.
 $emptyCredentialAttempt = SchedulerAuth::verify($env, '');
+$postOnly = str_contains($schedulerEntry, "!== 'POST'");
+$credentialConfigured = $env->has('SCHEDULER_TOKEN') || $env->has('SCHEDULER_TOKEN_HASH');
 $schedulerPosture = [
     'handler_registry_empty' => $emptyRegistry,
-    'endpoint_post_only' => str_contains($schedulerEntry, "!== 'POST'"),
-    'credential_configured' => $env->has('SCHEDULER_TOKEN') || $env->has('SCHEDULER_TOKEN_HASH'),
+    'endpoint_post_only' => $postOnly,
+    'credential_configured' => $credentialConfigured,
     'unauthenticated_call_authorized' => $emptyCredentialAttempt['authorized'],
     'unauthenticated_call_reason_code' => $emptyCredentialAttempt['reason_code'],
 ];
-if ($emptyCredentialAttempt['authorized'] === true) {
-    $note('the scheduler endpoint authorizes a caller presenting no token');
-}
+// EVERY ONE OF THESE IS A FINDING, not a field — decided in `StandDownPosture`, where each
+// combination is exercised without a host. An earlier revision computed this posture and printed it
+// without letting any of it reach the verdict, so a deployment with a configured scheduler token
+// and an endpoint that had lost its POST-only guard was reported `STAND_DOWN_VERIFIED` with both
+// facts visible in the very JSON that said so. A verifier whose output contradicts its own verdict
+// is worse than no verifier: the verdict is the part people quote.
+$observed['handler_registry_empty'] = $emptyRegistry;
+$observed['endpoint_post_only'] = $postOnly;
+$observed['credential_configured'] = $credentialConfigured;
+$observed['unauthenticated_call_authorized'] = $emptyCredentialAttempt['authorized'] === true;
 
 // ============================================================ the live-read posture
 
@@ -147,20 +165,31 @@ try {
     $decoded = json_decode((string) @file_get_contents($root . '/upstream.lock.json'), true, 64, JSON_THROW_ON_ERROR);
     $lock = is_array($decoded) ? $decoded : [];
 } catch (\JsonException) {
-    $note('upstream.lock.json is not valid JSON');
+    // An unreadable lock leaves `claim_boundary` empty, which the evidence registry then reports as
+    // a mismatched projection/pin — so the fault surfaces as an evidence problem rather than being
+    // swallowed here.
+    $lock = [];
 }
 $claimBoundary = is_array($lock['claim_boundary'] ?? null) ? $lock['claim_boundary'] : [];
 $registry = DeploymentEvidence::loadFile($root . '/deployment-evidence.json', [
     'projection_id' => (string) ($lock['projection_id'] ?? ''),
     'canonical_pin' => (string) ($lock['projection_pinned_head'] ?? ''),
 ]);
-foreach ($registry->problems() as $problem) {
-    $note('deployment evidence: ' . $problem);
-}
-foreach ($registry->unsupportedClaims($claimBoundary) as $claim) {
-    $note("claim_boundary.{$claim} is asserted with no evidence supporting it");
-}
 $supported = $registry->supportedClaims();
+$observed['evidence_problems'] = $registry->problems();
+$observed['unsupported_claims'] = $registry->unsupportedClaims($claimBoundary);
+
+// THE POSTURE THIS COMMAND EXISTS TO VERIFY. `unsupportedClaims()` catches a claim asserted WITHOUT
+// evidence; it says nothing about a claim that is fully supported — and a supported
+// `live_read_activated` is exactly the state a stand-down was performed to end. Reporting it in a
+// field while returning STAND_DOWN_VERIFIED would defeat the whole purpose of running this after a
+// live-read stand-down.
+//
+// Both directions are findings, because they are different faults: the lock still asserting it is a
+// governance edit nobody made, and the registry still supporting it is a withdrawal that did not
+// happen or was never recorded.
+$observed['live_read_claimed'] = ($claimBoundary['live_read_activated'] ?? null) === true;
+$observed['live_read_supported'] = $supported['live_read_activated'] === true;
 
 // ============================================================ the named test account
 
@@ -172,8 +201,9 @@ $accountState = null;
 if (($args['email'] ?? '') !== '' && ($args['email'] ?? '') !== '1') {
     $account = $accounts->findByEmailAddress((string) $args['email']);
     if ($account === null) {
+        // Diagnostic rather than a stand-down fault: the operator named an account this deployment
+        // does not have, which they need to know before they try to sign in with it.
         $accountState = ['found' => false];
-        $note('the named test account does not exist in this deployment');
     } else {
         $inspected = $accounts->inspect((string) $account['platform_user_id']);
         $accountState = [
@@ -194,13 +224,19 @@ if (($args['email'] ?? '') !== '' && ($args['email'] ?? '') !== '1') {
 // could have written; the chain is not. After a restore this is the difference between a ledger
 // that verifies and one that merely says it does.
 $ledger = new DecisionLedger($db, $clock);
+// EVERY STREAM, NOT ONLY THE ACTIVE ONES. A rollback's claim is that governed history SURVIVED it,
+// and a SUSPENDED, SEALED or SUPERSEDED stream is history — it is exactly the part nobody is
+// writing to and therefore the part whose corruption would go unnoticed. An earlier revision filtered
+// to `status = 'ACTIVE'`, which verified only the chains still being appended to: the ones most
+// likely to be fine. `verifyStream()` works for any status.
 $streams = $db->all(
-    "SELECT decision_ledger_stream_id, environment_class, status, head_sequence_number
+    'SELECT decision_ledger_stream_id, environment_class, status, head_sequence_number
      FROM decision_ledger_streams
-     WHERE status = 'ACTIVE'
-     ORDER BY decision_ledger_stream_id"
+     ORDER BY decision_ledger_stream_id'
 );
 $integrity = ['streams_checked' => 0, 'passed' => 0, 'failed' => 0, 'records_verified' => 0, 'failing_streams' => []];
+/** @var list<string> $failingStreamIds */
+$failingStreamIds = [];
 foreach ($streams as $stream) {
     $streamId = (string) $stream['decision_ledger_stream_id'];
     $result = $ledger->verifyStream($streamId);
@@ -223,11 +259,15 @@ foreach ($streams as $stream) {
             is_array($result['failures'] ?? null) ? $result['failures'] : [],
         ))),
     ];
-    $note("M10 stream {$streamId} does not verify");
+    $failingStreamIds[] = $streamId;
 }
 
 // ============================================================ verdict
 
+$observed['failing_stream_ids'] = $failingStreamIds;
+
+// ONE RULE, APPLIED ONCE. Everything above observes; nothing above decides.
+$findings = StandDownPosture::findings($observed);
 $status = $findings === [] ? 'STAND_DOWN_VERIFIED' : 'STAND_DOWN_NOT_VERIFIED';
 
 BetaCli::emit([

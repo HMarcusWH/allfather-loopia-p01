@@ -194,6 +194,11 @@ and sequenced as Gate E of [`BETA_RUNBOOK.md`](./BETA_RUNBOOK.md).
 
 **Any cross-site `READABLE` is a hard stop.** Do not place credentials on the host.
 
+The canary runs under the CLI SAPI as the SSH user, so a clean matrix bounds **that** identity and
+nothing more; every result says so in its own output. Cross-site isolation of the web PHP identity
+stays UNVERIFIED and is carried as an open blocker in
+[`LOOPIA_HOST_MODEL.md`](./LOOPIA_HOST_MODEL.md) §5, not closed by a green run here.
+
 ### 3.3 The future production runtime profile — DEFERRED
 
 A production deployment could carry less than the qualification profile: no `tests/`, no frontend

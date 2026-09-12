@@ -232,12 +232,16 @@ if (!function_exists('dns_get_record')) {
 } else {
     $a = @dns_get_record($probeHost, DNS_A);
     $aaaa = @dns_get_record($probeHost, DNS_AAAA);
-    $resolved = is_array($a) && $a !== [];
+    // EITHER FAMILY COUNTS. The governed resolver screens A *and* AAAA, so an IPv6-only host is one
+    // this deployment can resolve and reach. Requiring an A record would report MISSING_CAPABILITY
+    // for a host that resolves fine and whose HTTPS probe then succeeds — a verdict contradicted by
+    // the very next capability in the same report.
+    $resolved = (is_array($a) && $a !== []) || (is_array($aaaa) && $aaaa !== []);
     $record(
         'dns_resolution',
         $resolved ? 'PRESENT' : 'MISSING',
         ['a_records' => is_array($a) ? count($a) : 0, 'aaaa_records' => is_array($aaaa) ? count($aaaa) : 0],
-        'The guard resolves and vets addresses BEFORE connecting.',
+        'The guard resolves and vets addresses BEFORE connecting; it screens A and AAAA alike.',
     );
 }
 
@@ -297,6 +301,14 @@ $record('public_root_separation',
  */
 $dbStatus = 'NOT_PROBED';
 $dbDetail = 'no DB_* configuration found';
+
+// CLEANUP FAILURE IS A CAPABILITY FINDING, not a swallowed exception. An account that can CREATE the
+// disposable tables but cannot DROP them passes every proof below and leaves `probe_lock_*` and a
+// trigger behind in the database — on a shared host, litter an operator has to recognise and remove
+// by hand. Worse, the probe would report the host READY while having demonstrably failed its own
+// disposable-operation guarantee.
+/** @var list<string> $cleanupFailures */
+$cleanupFailures = [];
 $dbFacts = [
     'mariadb_version_floor' => ['NOT_PROBED', null],
     'innodb_available' => ['NOT_PROBED', null],
@@ -364,7 +376,7 @@ if ($env->has('DB_NAME')) {
             try {
                 $db->run('DROP TABLE IF EXISTS ' . Database::identifier($checkTable));
             } catch (\PDOException) {
-                // Cleanup is best-effort; the verdict already records what was demonstrated.
+                $cleanupFailures[] = $checkTable;
             }
         }
 
@@ -397,7 +409,7 @@ if ($env->has('DB_NAME')) {
                 try {
                     $db->run('DROP TABLE IF EXISTS ' . Database::identifier($table));
                 } catch (\PDOException) {
-                    // best-effort
+                    $cleanupFailures[] = $table;
                 }
             }
         }
@@ -470,7 +482,7 @@ if ($env->has('DB_NAME')) {
             try {
                 $db->run('DROP TABLE IF EXISTS ' . Database::identifier($lockTable));
             } catch (\PDOException) {
-                // best-effort
+                $cleanupFailures[] = $lockTable;
             }
         }
 
@@ -490,16 +502,38 @@ if ($env->has('DB_NAME')) {
                 . " FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'probe rows cannot be deleted'");
             $db->run('INSERT INTO ' . Database::identifier($triggerTable) . " (id) VALUES ('row')");
 
+            // THE SQLSTATE IS THE PROOF, not the mere fact that the DELETE threw.
+            //
+            // An account that may create triggers but lacks the DELETE privilege also throws here —
+            // SQLSTATE 42000, `command denied` — and the row also survives, because nothing deleted
+            // it. Accepting any database error as evidence the trigger fired therefore reported
+            // `trigger_support: PRESENT` for a host that had proved nothing of the kind, and this is
+            // the LAST capability proof: a READY staging verdict then rested on it while the
+            // account could not perform the DELETE operations the application itself issues.
+            //
+            // `SIGNAL SQLSTATE '45000'` is what the trigger above raises and what every append-only
+            // trigger in `database/migrations/` raises, so that exact state is the thing to require.
             $triggerFires = false;
+            $deleteSqlstate = null;
             try {
                 $db->run('DELETE FROM ' . Database::identifier($triggerTable) . " WHERE id = 'row'");
-            } catch (\PDOException) {
-                $triggerFires = true;
+            } catch (\PDOException $error) {
+                // The driver's SQLSTATE, never the message: a message may name the account or host.
+                $deleteSqlstate = is_array($error->errorInfo ?? null) && isset($error->errorInfo[0])
+                    ? (string) $error->errorInfo[0]
+                    : (string) $error->getCode();
+                $triggerFires = $deleteSqlstate === '45000';
             }
             $survived = (int) $db->scalar('SELECT COUNT(*) FROM ' . Database::identifier($triggerTable)) === 1;
             $dbFacts['trigger_support'] = [
                 $triggerFires && $survived ? 'PRESENT' : 'MISSING',
-                ['signal_raised' => $triggerFires, 'row_survived' => $survived],
+                [
+                    'signal_raised' => $triggerFires,
+                    'row_survived' => $survived,
+                    // 45000 is the trigger. Anything else — 42000 above all — is the account being
+                    // unable to issue the DELETE at all, which is a different and worse finding.
+                    'delete_sqlstate' => $deleteSqlstate,
+                ],
             ];
         } catch (\PDOException $error) {
             // Creation itself refused — almost always a missing TRIGGER privilege.
@@ -509,7 +543,7 @@ if ($env->has('DB_NAME')) {
                 $db->run('DROP TRIGGER IF EXISTS ' . Database::identifier($triggerName));
                 $db->run('DROP TABLE IF EXISTS ' . Database::identifier($triggerTable));
             } catch (\PDOException) {
-                // best-effort
+                $cleanupFailures[] = $triggerTable;
             }
         }
 
@@ -523,6 +557,14 @@ if ($env->has('DB_NAME')) {
 }
 
 $record('mariadb', $dbStatus, $dbDetail, 'The storage pins are half of every governed invariant.');
+$record(
+    'probe_cleanup',
+    $cleanupFailures === [] ? 'PRESENT' : 'MISSING',
+    ['tables_left_behind' => count($cleanupFailures)],
+    'Every proof above runs against a disposable table this probe created. An account that cannot '
+    . 'drop them leaves litter in the database and has not demonstrated the disposable operation '
+    . 'this probe promises, so the host is not READY.',
+);
 foreach ($dbFacts as $key => [$status, $detail]) {
     $record($key, $status, $detail, match ($key) {
         'mariadb_version_floor' => 'Loopia Företag is 10.6; the schema and its CHECK constraints need it.',
@@ -553,14 +595,26 @@ if (!extension_loaded('curl')) {
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_TIMEOUT => 10,
+        // THE SAME EGRESS PATH THE GOVERNED TRANSPORT USES, which is a DIRECT one.
+        //
+        // cURL reads `HTTPS_PROXY` and `ALL_PROXY` from the environment unless told not to, and
+        // `CurlHttpsTransport` empties `CURLOPT_PROXY` for that exact reason: a proxy would undo the
+        // ING-T03 resolve-connect pin by handing the hostname to somebody else to resolve. So on a
+        // host where only proxy-mediated egress works, a probe that inherited the proxy would
+        // succeed, report PRESENT, and produce a READY live-read verdict for a transport that will
+        // fail on the very first request — the probe would have demonstrated a path production
+        // cannot take.
+        CURLOPT_PROXY => '',
     ]);
     $ok = curl_exec($handle) !== false;
     $code = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
     $err = curl_error($handle);
     curl_close($handle);
     $record('outbound_https', $ok ? 'PRESENT' : 'MISSING',
-        ['reached' => $ok, 'status' => $code, 'error' => $ok ? null : substr($err, 0, 120)],
-        'Governed read-only capture requires outbound HTTPS with TLS verification.');
+        ['reached' => $ok, 'status' => $code, 'error' => $ok ? null : substr($err, 0, 120), 'proxy_disabled' => true],
+        'Governed read-only capture requires outbound HTTPS with TLS verification, through a DIRECT '
+        . 'connection: the governed transport empties CURLOPT_PROXY, so a proxy-only host cannot '
+        . 'serve live read however well a proxied request performs.');
 }
 
 // ---------------------------------------------------------------------------- verdicts
@@ -603,7 +657,7 @@ $stagingRequired = [
     'private_storage_writable', 'atomic_rename', 'public_root_separation',
     'mariadb', 'mariadb_version_floor', 'innodb_available',
     'check_constraints_enforced', 'transaction_rollback', 'foreign_keys_enforced',
-    'row_locking', 'trigger_support',
+    'row_locking', 'trigger_support', 'probe_cleanup',
 ];
 $liveReadRequired = [
     'ext_curl', 'curl_ssl', 'curl_resolve_pinning', 'curl_timeout_ms', 'curl_writefunction',

@@ -124,7 +124,9 @@ against a deployment that holds nothing worth stealing.
 
 ## Gate E — Pre-secret cross-site isolation
 
-**This is the gate that protects every secret you are about to place.**
+**This is the gate that protects every secret you are about to place** — and it protects them
+against the SSH/CLI identity, which is not the whole of the question. Read E.1's scope note before
+reading a clean matrix as a clearance.
 
 ### E.1 Filesystem canaries
 
@@ -152,6 +154,22 @@ Clean up afterwards:
 
     php ops/loopia-probe/isolation-canary.php --mode=cleanup --dir=~/<domain>/storage
 
+**What E.1 proves, and what it does not.** The canary runs under the CLI SAPI, as the SSH user. It
+therefore measures **that** identity's filesystem permissions and `open_basedir` — not the identity
+the web PHP process runs under for each site. On shared hosting the two commonly differ, and the
+difference can run either way: the CLI account is often more permissive than web PHP, and it can
+also be restricted where web PHP is not. `docs/LOOPIA_HOST_MODEL.md` establishes no equivalence
+between them, so every result carries `identity_measured: SSH_CLI`, `proves: SSH/CLI cross-site
+filesystem isolation only` and `web_php_cross_site_isolation: UNVERIFIED` in its own output.
+
+A clean matrix here closes **SSH/CLI** cross-site isolation and nothing more. Cross-site isolation
+of the web PHP identity stays an open blocker — it is listed as one in
+[`LOOPIA_HOST_MODEL.md`](./LOOPIA_HOST_MODEL.md) §5 — and it is not closed by inference from a green
+run here. There is deliberately no web-SAPI equivalent: a reader reachable over HTTP is exactly the
+arbitrary-read oracle this boundary exists to prevent, and `public_html/` is a closed set of four
+entries that `tests/foundation/deployment_boundary.php` pins. Closing it takes a Loopia guarantee in
+writing or a host proof that does not require adding such an endpoint, not a wider tool.
+
 ### E.2 The HTTP private-path probe
 
 From outside, against the deployed site:
@@ -173,6 +191,10 @@ this proves *Loopia's behaviour*. Apache does not run in CI, and every `.htacces
 **HARD STOP if** any cross-site private read is `READABLE`, or any private path answers 200. Do not
 place `APP_MASTER_KEY` or database credentials on the host. Record the finding as a
 `CROSS_SITE_ISOLATION` `FAIL` record and raise it with Loopia.
+
+**A pass is narrower than it looks.** A `CROSS_SITE_ISOLATION` `PASS` record attests SSH/CLI
+isolation (E.1) and the server's HTTP refusal of private paths on this site (E.2). It does not
+attest that web PHP on a sibling site is confined, and the record's own note must say so.
 
 ## Gate F — Configure staging
 
@@ -306,6 +328,11 @@ string. Confirm from the probe report that all of these are `PRESENT`:
 | `row_locking` | the job machine leases work by locking a row |
 | `transaction_rollback` | a governed write that half-committed would release without its binding |
 | `atomic_rename` | a reader must never observe a partial evidence payload |
+| `probe_cleanup` | the account dropped every disposable table the probe created — `CREATE` without `DROP` leaves litter and breaks the probe's own disposable-operation guarantee |
+
+`trigger_support` is `PRESENT` only when the refused DELETE carried SQLSTATE `45000`. If
+`delete_sqlstate` reads `42000`, the trigger proved nothing: the account cannot issue `DELETE` at
+all, which is a worse finding than a missing trigger privilege and is not a pass.
 
 Then confirm the append-only guarantee against the **runtime** database by hand, because this is the
 one most likely to be lost in a dump/import round-trip:
@@ -370,6 +397,18 @@ Machine first:
       --email=<address> --password-stdin
 
 **Pass requires** `"status": "SMOKE_PASS"` and `responses_without_request_reference: 0`.
+
+A step's verdict is more than its status code, and four checks here would otherwise pass on one:
+
+| Step | What it actually requires |
+| --- | --- |
+| `health` | JSON naming `LOOPIA_SME_MVP`, with `customer_visible_output` and `external_effect` both identically `false` — a 200 with the wrong projection or a missing key is a deployment that is either not this one or not inert |
+| `the console stylesheet/script is delivered` | the hashed asset the shell document names answers 200, with a media type a browser will execute, non-empty, and not the front controller's HTML. A host can serve the shell perfectly and 404 the bundle |
+| `caller-supplied scope changes nothing` | the injected-scope read is identical to the unscoped one. An authenticated read answers 200 either way |
+| any step returning a redirect | the `Location` stays on this origin, `//evil.example/path` included — it begins with a slash but a browser resolves it to another host |
+
+Every response is also capped at 2,000,000 bytes; a larger one fails its step rather than being
+truncated into a body that parses as if it were whole.
 
 Then by hand, in a browser, because a machine cannot tell you whether a screen makes sense:
 

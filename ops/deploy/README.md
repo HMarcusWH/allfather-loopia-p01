@@ -24,6 +24,18 @@ It opens no connection to the host, copies nothing, and has no `--apply`.
 
 ### What it checks
 
+**The configuration file itself, before it is read.** `--env` naming a path inside any `public_html`
+is refused outright — exit 6, nothing loaded. A `.env` beneath a served root is a published secret,
+and the shape that slipped through was `--env=public_html/assets/staging.env`: the layout check
+permits `assets/`, and the private-file checks look for a few fixed names directly under
+`public_html/`, so preflight would have loaded the file, validated the master key and database
+password inside it, and answered READY about a release whose credentials Apache serves as a static
+asset. Two rules, because this command can resolve only its own served root: the resolved path must
+not be inside this release's `public_html/`, and it must contain no `public_html` segment at all —
+on Loopia every site in the account is `~/<domain>/public_html`, and a sibling site's served root is
+just as public. It is a refusal rather than a recorded problem: a NOT_READY verdict would be a
+report about a secret that is being served, produced by reading it.
+
 **Configuration.** `APP_ENV` resolves to `staging`; `APP_BASE_URL` is a bare `https://` origin;
 `APP_RELEASE_REF` equals the release being deployed; `DB_NAME` and `DB_USER` are set;
 `APP_MASTER_KEY` **decodes to 32 bytes**; `SUPPORT_CONTACT_TEXT` names a route to a human; and the
@@ -70,6 +82,14 @@ question from asking it of a tree on somebody else's machine.
 **Whether this is the named release** — advisory. If `.git` is present it resolves HEAD and compares;
 otherwise it reports `NOT_AVAILABLE`. `.git` is not part of a deployment, and this command belongs
 both in a checkout, where it can answer, and on the host, where it cannot.
+
+"Present" includes a **linked worktree or submodule**, where `.git` is a text file reading
+`gitdir: <path>`; the pointer is followed, and so is the `commondir` beside it, because a worktree
+keeps `HEAD` of its own but reads branch refs and `packed-refs` from the common directory. Without
+that, the check answered `NOT_AVAILABLE` on those layouts and skipped the comparison entirely — so
+an operator could name the intended SHA in both `--release-ref` and `APP_RELEASE_REF` while rsyncing
+a checkout at some other commit, and the one check that could have caught it was the one that
+silently opted out.
 
 ### What it prints
 

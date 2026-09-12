@@ -76,6 +76,39 @@ if (!is_file($envPath)) {
 }
 
 $root = dirname(__DIR__, 2);
+
+// A CONFIGURATION FILE UNDER A SERVED ROOT IS A PUBLISHED SECRET, and this refuses before reading
+// it rather than reporting it afterwards.
+//
+// `--env=public_html/assets/staging.env` passed every other check: the top-level layout check
+// permits `assets/`, and the private-file checks look for a few fixed names directly under
+// `public_html/`. Preflight would then load the file, validate the master key and the database
+// password inside it, and answer `READY_FOR_INERT_STAGING_COPY` about a release whose credentials
+// Apache serves as a static asset to anybody who asks.
+//
+// Two rules, because the served root this command can resolve is not the only one on the host:
+//
+//   inside THIS release's `public_html/` — resolved, so a symlink or a `..` cannot walk into it;
+//   any path with a `public_html` SEGMENT — on Loopia every site in the account is
+//     `~/<domain>/public_html`, so a configuration file under a SIBLING site's served root is
+//     equally published and this command cannot resolve that tree to recognise it any other way.
+//
+// It is a refusal rather than a recorded problem. A NOT_READY verdict would be a report about a
+// secret that is currently being served; the operator needs to move the file, not read a list.
+$envReal = realpath($envPath);
+if ($envReal === false) {
+    $fail("configuration file cannot be resolved: {$envPath}", 4);
+}
+$servedRoot = realpath($root . '/public_html');
+if (is_string($servedRoot) && str_starts_with($envReal, $servedRoot . DIRECTORY_SEPARATOR)) {
+    $fail('refusing to read a configuration file inside the served directory — it is publicly '
+        . 'fetchable; move it outside public_html before deploying', 6);
+}
+if (in_array('public_html', explode(DIRECTORY_SEPARATOR, $envReal), true)) {
+    $fail('refusing to read a configuration file beneath a public_html directory — on shared '
+        . 'hosting that path is served by some site in the account', 6);
+}
+
 $env = Env::load($envPath);
 
 /** @var list<string> $problems */
@@ -107,6 +140,14 @@ if ($baseUrl === null) {
     }
     if (isset($parts['query']) || isset($parts['fragment'])) {
         $note('APP_BASE_URL carries a query or fragment');
+    }
+    // A BARE ORIGIN, which is what the contract says and what the rest of the system assumes.
+    // `https://staging.example.test/prefix` has a valid scheme and host, no query, no fragment and
+    // no trailing slash — so every other check here passed it, while every path in the application
+    // is appended to it verbatim and would resolve under the prefix. `ops/staging-smoke.php` already
+    // refuses one; a preflight that did not was the looser of the two gates.
+    if (($parts['path'] ?? '') !== '') {
+        $note('APP_BASE_URL must be a bare origin — it carries a path, and paths are appended to it verbatim');
     }
     if (str_ends_with($baseUrl, '/')) {
         $note('APP_BASE_URL must not end in a slash — paths are appended to it verbatim');
@@ -346,18 +387,65 @@ foreach ($wired as $file) {
 // from a checkout (where it can answer) and on a host (where it cannot). Answering NOT_AVAILABLE is
 // honest; refusing would make the command unusable in half the places it belongs.
 $gitHead = 'NOT_AVAILABLE';
-$headFile = $root . '/.git/HEAD';
-if (is_file($headFile)) {
+
+// THE GIT DIRECTORY IS NOT ALWAYS A DIRECTORY. In a linked worktree or a submodule, `.git` is a
+// TEXT FILE reading `gitdir: <path>`, and `<path>/HEAD` is where the checkout's head actually lives.
+// Without following it this check answered NOT_AVAILABLE and skipped the comparison entirely — so
+// an operator could name the intended SHA in both `--release-ref` and `APP_RELEASE_REF` while
+// rsyncing a checkout that was at some other commit, and preflight would still say READY. The one
+// check that could have caught a wrong tree was the one that silently opted out.
+//
+// A worktree's `gitdir` also has no `packed-refs` of its own: refs live in the COMMON directory,
+// which its `commondir` file names. Both are followed, so a branch checkout resolves in a worktree
+// exactly as it does in an ordinary clone.
+$gitPath = $root . '/.git';
+$gitDir = null;
+$commonDir = null;
+if (is_dir($gitPath)) {
+    $gitDir = $gitPath;
+    $commonDir = $gitPath;
+} elseif (is_file($gitPath)) {
+    $pointer = trim((string) file_get_contents($gitPath));
+    if (str_starts_with($pointer, 'gitdir: ')) {
+        $target = trim(substr($pointer, 8));
+        $resolvedGitDir = realpath(str_starts_with($target, DIRECTORY_SEPARATOR) ? $target : $root . '/' . $target);
+        if (is_string($resolvedGitDir) && is_dir($resolvedGitDir)) {
+            $gitDir = $resolvedGitDir;
+            $commonDir = $resolvedGitDir;
+            $commonFile = $resolvedGitDir . '/commondir';
+            if (is_file($commonFile)) {
+                $common = trim((string) file_get_contents($commonFile));
+                $resolvedCommon = realpath(
+                    str_starts_with($common, DIRECTORY_SEPARATOR) ? $common : $resolvedGitDir . '/' . $common,
+                );
+                if (is_string($resolvedCommon) && is_dir($resolvedCommon)) {
+                    $commonDir = $resolvedCommon;
+                }
+            }
+        }
+    }
+}
+
+$headFile = $gitDir === null ? null : $gitDir . '/HEAD';
+if ($headFile !== null && is_file($headFile)) {
     $head = trim((string) file_get_contents($headFile));
     if (preg_match('/^[0-9a-f]{40}$/D', $head) === 1) {
         $gitHead = $head;
     } elseif (str_starts_with($head, 'ref: ')) {
         $ref = substr($head, 5);
-        $refFile = $root . '/.git/' . $ref;
-        if (is_file($refFile)) {
+        // The worktree's own directory first — a linked worktree keeps `HEAD` there — then the
+        // common directory, which is where a branch ref and `packed-refs` actually live.
+        $refFile = null;
+        foreach ([$gitDir . '/' . $ref, $commonDir . '/' . $ref] as $candidate) {
+            if (is_file($candidate)) {
+                $refFile = $candidate;
+                break;
+            }
+        }
+        if ($refFile !== null) {
             $gitHead = trim((string) file_get_contents($refFile));
         } else {
-            $packed = @file_get_contents($root . '/.git/packed-refs');
+            $packed = @file_get_contents($commonDir . '/packed-refs');
             if (is_string($packed)
                 && preg_match('/^([0-9a-f]{40}) ' . preg_quote($ref, '/') . '$/m', $packed, $m) === 1
             ) {

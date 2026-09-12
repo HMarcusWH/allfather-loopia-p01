@@ -247,6 +247,54 @@ Assert::equalsList(
     'a probe that FAILED qualifies nothing',
 );
 
+// A HISTORIC PAIR DOES NOT QUALIFY THE RELEASE THAT REPLACED IT. Deploy A and probe A: the host is
+// qualified for A. Deploy B over it and probe nothing: a rule asking "does SOME release have both"
+// still finds the A pair and keeps the claim true for a deployment running B, which nobody
+// qualified. The claim is about the host as it stands, so it names the release standing on it.
+Assert::equalsList(
+    ['staging_deployed'],
+    $supports([
+        $record(['record_id' => 'DEPLOY-A', 'kind' => 'STAGING_DEPLOYMENT', 'environment' => 'staging',
+            'release_ref' => $sha('a'), 'recorded_at' => '2026-09-01T00:00:00.000Z']),
+        $record(['record_id' => 'PROBE-A', 'kind' => 'LOOPIA_PROBE_001', 'environment' => 'staging',
+            'release_ref' => $sha('a'), 'recorded_at' => '2026-09-01T01:00:00.000Z']),
+        $record(['record_id' => 'DEPLOY-B', 'kind' => 'STAGING_DEPLOYMENT', 'environment' => 'staging',
+            'release_ref' => $sha('b'), 'recorded_at' => '2026-09-05T00:00:00.000Z']),
+    ]),
+    'deploying a NEWER release over a qualified one withdraws loopia_capability_validated',
+);
+Assert::equalsList(
+    ['loopia_capability_validated', 'staging_deployed'],
+    $supports([
+        $record(['record_id' => 'DEPLOY-A', 'kind' => 'STAGING_DEPLOYMENT', 'environment' => 'staging',
+            'release_ref' => $sha('a'), 'recorded_at' => '2026-09-01T00:00:00.000Z']),
+        $record(['record_id' => 'PROBE-A', 'kind' => 'LOOPIA_PROBE_001', 'environment' => 'staging',
+            'release_ref' => $sha('a'), 'recorded_at' => '2026-09-01T01:00:00.000Z']),
+        $record(['record_id' => 'DEPLOY-B', 'kind' => 'STAGING_DEPLOYMENT', 'environment' => 'staging',
+            'release_ref' => $sha('b'), 'recorded_at' => '2026-09-05T00:00:00.000Z']),
+        $record(['record_id' => 'PROBE-B', 'kind' => 'LOOPIA_PROBE_001', 'environment' => 'staging',
+            'release_ref' => $sha('b'), 'recorded_at' => '2026-09-05T01:00:00.000Z']),
+    ]),
+    'and probing the new release qualifies it again',
+);
+// AMBIGUITY FAILS CLOSED. Two different releases deployed at the same instant leaves no answer to
+// "which one is running", and a registry that cannot say that must not be the thing that says the
+// host is qualified.
+Assert::equalsList(
+    ['staging_deployed'],
+    $supports([
+        $record(['record_id' => 'DEPLOY-A', 'kind' => 'STAGING_DEPLOYMENT', 'environment' => 'staging',
+            'release_ref' => $sha('a'), 'recorded_at' => '2026-09-01T00:00:00.000Z']),
+        $record(['record_id' => 'PROBE-A', 'kind' => 'LOOPIA_PROBE_001', 'environment' => 'staging',
+            'release_ref' => $sha('a'), 'recorded_at' => '2026-09-01T01:00:00.000Z']),
+        $record(['record_id' => 'DEPLOY-C', 'kind' => 'STAGING_DEPLOYMENT', 'environment' => 'staging',
+            'release_ref' => $sha('c'), 'recorded_at' => '2026-09-01T00:00:00.000Z']),
+        $record(['record_id' => 'PROBE-C', 'kind' => 'LOOPIA_PROBE_001', 'environment' => 'staging',
+            'release_ref' => $sha('c'), 'recorded_at' => '2026-09-01T01:00:00.000Z']),
+    ]),
+    'two releases deployed at the same instant qualify neither — ambiguity fails closed',
+);
+
 // LIVE READ: LATEST WINS. An activation followed by a stand-down is not activated, and a tie is
 // resolved against the claim.
 $activation = $record(['record_id' => 'LR-ON', 'kind' => 'LIVE_READ_ACTIVATION', 'environment' => 'staging', 'recorded_at' => '2026-09-11T10:00:00.000Z']);
@@ -339,6 +387,18 @@ Assert::equalsList(
     $supports([$record(['kind' => 'ROAD_TEST_001', 'result' => 'FAIL', 'environment' => 'staging'])]),
     'a FAILED road test still makes road_test_001_executed true',
 );
+// AND IT MUST BE A HOST RECORD. ROAD_TEST_001 is by definition a real, controlled, post-staging
+// execution against a live source. A record filed from `ci` or `testing` describes something that is
+// not a road test at all, and accepting one would let the projection claim it had road-tested
+// without ever leaving CI.
+foreach (['ci', 'testing', 'development'] as $notAHost) {
+    Assert::equalsList(
+        [],
+        $supports([$record(['kind' => 'ROAD_TEST_001', 'result' => 'PASS', 'environment' => $notAHost])]),
+        "a ROAD_TEST_001 recorded from {$notAHost} supports nothing — that is not a road test",
+    );
+}
+
 // STAND_DOWN IS THE THIRD THING, and it supports nothing here either — a road test that was
 // deliberately withdrawn is not a road test that was executed. "Execution is not success" widens
 // what counts as executed; it does not make every record count.
@@ -398,6 +458,47 @@ Assert::false(
     'a path whose directory does not exist is not governed — nothing can be written there anyway',
 );
 Assert::false(DeploymentEvidence::isGovernedPath($root, ''), 'an empty path is not governed');
+
+// THE FINAL COMPONENT IS FOLLOWED BY THE WRITE, so resolving only the parent is not enough — and an
+// earlier revision did exactly that: a report path of `/tmp/report.json` symlinked to the lock
+// compared as `/tmp/report.json`, matched nothing, and was permitted. `file_put_contents()` then
+// followed the link and overwrote the governed file.
+$linkDir = sys_get_temp_dir() . '/allfather-governed-link-' . bin2hex(random_bytes(6));
+@mkdir($linkDir, 0o700, true);
+try {
+    foreach (DeploymentEvidence::GOVERNED_FILES as $index => $governed) {
+        $link = $linkDir . '/report-' . $index . '.json';
+        @symlink($root . '/' . $governed, $link);
+        Assert::true(
+            DeploymentEvidence::isGovernedPath($root, $link),
+            "a symlink whose target is {$governed} is governed, wherever the link itself lives",
+        );
+
+        // A DANGLING link still creates its target when written to, so it cannot be waved through
+        // merely because `realpath` cannot resolve it. The traversal is included because a link is
+        // as free to contain `..` as any other path.
+        $dangling = $linkDir . '/dangling-' . $index . '.json';
+        @symlink($root . '/docs/../' . $governed, $dangling);
+        Assert::true(
+            DeploymentEvidence::isGovernedPath($root, $dangling),
+            "and so is one that reaches {$governed} through a traversal",
+        );
+    }
+
+    // A link to something harmless stays harmless — the rule follows the target, it does not refuse
+    // links.
+    $benign = $linkDir . '/benign.json';
+    @symlink($root . '/composer.json', $benign);
+    Assert::false(
+        DeploymentEvidence::isGovernedPath($root, $benign),
+        'a symlink to an ungoverned file is not governed — the target decides, not the link',
+    );
+} finally {
+    foreach (glob($linkDir . '/*') ?: [] as $entry) {
+        @unlink($entry);
+    }
+    @rmdir($linkDir);
+}
 // The relative case is the one the guard exists for, and it is only meaningful when the working
 // directory IS the repository root — which is where an operator runs `php tests/run.php` from.
 if (realpath(getcwd() ?: '.') === realpath($root)) {

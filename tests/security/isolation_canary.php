@@ -191,3 +191,52 @@ foreach ([
 ] as $stated) {
     Assert::contains($stated, $code, "every result states {$stated}");
 }
+
+// ============================================================ the claim it makes is the narrow one
+
+// WHAT THIS TOOL MEASURES IS THE SSH/CLI IDENTITY, and the whole gate is bounded by that. It runs
+// under the CLI SAPI as the SSH user, so it reports that identity's filesystem permissions and
+// open_basedir — not the identity or restrictions the WEB PHP process runs under for each site. On
+// shared hosting the two routinely differ, and the difference runs both ways. `LOOPIA_HOST_MODEL.md`
+// establishes no equivalence, so the scope travels in the OUTPUT rather than only in the docs: the
+// one place a reader will look is the JSON they just pasted into a ticket.
+preg_match('/\$emit = static function[^{]*\{(.*?)\n\};/s', $code, $emitBody);
+Assert::same(2, count($emitBody), 'the emit closure is found');
+foreach ([
+    "'identity_measured' => 'SSH_CLI'",
+    "'sapi' => PHP_SAPI",
+    "'web_php_cross_site_isolation' => 'UNVERIFIED'",
+] as $scoped) {
+    Assert::contains($scoped, $emitBody[1], "every result carries {$scoped}");
+}
+Assert::contains(
+    "'proves' => 'SSH/CLI cross-site filesystem isolation only'",
+    $emitBody[1],
+    'and states the bounded claim in those words, so a green matrix cannot be quoted as a wider one',
+);
+// And the interpretation refuses to be read as a clearance. A clean run closes SSH/CLI isolation and
+// leaves web PHP isolation open — that second half is the half a reader in a hurry would drop.
+Assert::contains('is NOT a clearance', $code, 'a clean run is stated not to be a clearance');
+Assert::contains('web PHP isolation ', $code, 'and web PHP isolation is named as what stays open');
+
+// ============================================================ an unreachable directory is a RESULT
+
+// GETTING THIS BACKWARDS MADE GATE E IMPOSSIBLE TO COMPLETE IN EXACTLY THE CASE IT DETECTS. Under a
+// restrictive open_basedir a sibling's private directory commonly cannot be resolved at all, so
+// `realpath()` returns false BEFORE any read is attempted. Treating that as "no such directory" and
+// exiting non-zero turned a host whose isolation was working perfectly into an operational error,
+// and left the matrix completable only on a host where isolation had already failed.
+Assert::contains(
+    "\$emit('probe', \$dir, 'NOT_FOUND', ['directory_resolved' => false]);",
+    $code,
+    'in probe mode an unresolvable directory is NOT_FOUND, with the resolution failure reported',
+);
+Assert::contains(
+    "if (\$mode !== 'probe') {\n        \$fail(\"no such directory: {\$dir}\", 4);\n    }",
+    $code,
+    'while create and cleanup still fail hard — those act on a directory the operator believes is theirs',
+);
+Assert::true(
+    strpos($code, "'directory_resolved' => false") < strpos($code, "\$servedRoot = realpath(\$root . '/public_html');"),
+    'and the probe answers before the served-tree screen, which needs a resolved path to run at all',
+);
