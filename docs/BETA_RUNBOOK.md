@@ -112,7 +112,7 @@ capability is not the Loopia launch profile.
 
 The rsync source is **`$RELEASE_DIR/`**, never the developer checkout.
 
-The destructive root sync uses the reviewed exclusions:
+The destructive root sync uses the reviewed exclusion file:
 
 ```bash
 rsync -av --delete \
@@ -120,7 +120,7 @@ rsync -av --delete \
   "$RELEASE_DIR/" <user>@<host>:~/<domain>/
 ```
 
-The exclusion file protects all of these from the root `--delete`:
+The exclusions protect all of these from the root `--delete`:
 
 - host `.env*` configuration;
 - **all runtime `storage/` contents**;
@@ -205,7 +205,7 @@ Every path must return 403 or 404, never 200.
 
 ### E.3 Web-PHP cross-site isolation — must close before Gate F
 
-Accepted closure routes, exactly:
+There are exactly two accepted closure routes:
 
 1. **written Loopia assurance** that web PHP for one site cannot read another site's private files;
 2. **equivalent safe host proof of the web PHP identity** without adding an arbitrary file-read
@@ -348,8 +348,7 @@ Require:
 {
   "status": "RUNTIME_INVARIANTS_VERIFIED",
   "workspace_external_effect_guard": "PASS",
-  "decision_record_append_only": "PASS",
-  "ledger_integrity": "PASS"
+  "access_evaluation_append_only": "PASS"
 }
 ```
 
@@ -357,12 +356,15 @@ The command:
 
 - proves the real `external_side_effects_allowed = 0` CHECK by attempting the unsafe value on the
   exact TEST workspace and requiring MariaDB's CHECK-constraint refusal;
-- appends/reuses one `REPLAY_TEST_FINDING_RECORDED` qualification record through M10;
-- attempts to delete that exact record and requires SQLSTATE `45000` with the
-  `decision_records cannot be deleted (INV-013)` trigger message;
-- proves the record remains and the M10 stream still verifies.
+- appends/reuses one durable `HOLD_FOR_REVIEW` qualification marker in the real migrated
+  `access_evaluation_records` governance table;
+- attempts to delete that exact marker and requires SQLSTATE `45000` with the
+  `access_evaluation_records is append-only` trigger message;
+- proves the marker remains after the refused delete.
 
-It is idempotent: reruns reuse the same qualification record.
+It deliberately does **not** call M10 or invent M10 input-reference vocabulary; canonical runtime M10
+callers remain unchanged. M10 integrity is recomputed later by the rollback/stand-down verifier.
+The command is idempotent: reruns reuse the same qualification marker.
 
 ## Gate M — Onboard one internal beta login
 

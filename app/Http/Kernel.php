@@ -57,24 +57,19 @@ final class Kernel
         $this->unauthenticatedModes[$key] = $unauthenticatedMode;
     }
 
-    /**
-     * Dispatch one request and stamp its reference on whatever comes back.
-     *
-     * No exception from session resolution, CSRF evaluation, an adapter or a controller is allowed
-     * to skip the support-reference path. The caller gets a deliberately content-free 500; the
-     * private PHP diagnostic stream gets only request id + exception class, never the message or
-     * stack trace; and the ordinary private request index still receives the final status.
-     */
+    /** Dispatch one request; every outcome, including an unexpected failure, keeps its reference. */
     public function handle(Request $request): Response
     {
         try {
-            $response = $this->dispatch($request);
+            // Keep stamping at the dispatch boundary: every ordinary response, redirect and safe
+            // error gets the header before anything downstream sees it.
+            $response = $this->dispatch($request)->withHeader(RequestId::HEADER, $request->requestId);
         } catch (\Throwable $error) {
             RequestLog::recordFailure($request->requestId, $error);
-            $response = $this->unexpectedFailure($request);
+            $response = $this->unexpectedFailure($request)
+                ->withHeader(RequestId::HEADER, $request->requestId);
         }
 
-        $response = $response->withHeader(RequestId::HEADER, $request->requestId);
         RequestLog::record($request->requestId, $request->method, $request->path, $response->status);
 
         return $response;

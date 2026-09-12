@@ -48,7 +48,7 @@ $root = dirname(__DIR__);
 // Build the request before configuration/database bootstrap so every failure can carry one reference.
 $request = Request::fromGlobals($_SERVER, $_GET, $_POST, $_COOKIE);
 
-/** Emit one pre-Kernel failure: stamped, recorded, and carrying no private diagnostic detail. */
+/** Emit one expected pre-Kernel failure: stamped, recorded, and carrying no private diagnostic detail. */
 $earlyFailure = static function (Response $response) use ($request): void {
     $stamped = $response->withHeader(RequestId::HEADER, $request->requestId);
     RequestLog::record($request->requestId, $request->method, $request->path, $stamped->status);
@@ -57,25 +57,29 @@ $earlyFailure = static function (Response $response) use ($request): void {
 
 // Last-resort boundary for failures that happen after bootstrap but before a request reaches Kernel
 // (for example while a future composition root is being assembled). Kernel has its own boundary for
-// dispatch/controller failures. This handler is deliberately content-free and records only the
-// request id + exception class in the private PHP diagnostic stream.
-set_exception_handler(static function (\Throwable $error) use ($request, $earlyFailure): void {
+// dispatch/controller failures. Do not reuse `$earlyFailure` here: that closure describes the two
+// expected startup refusals below, while this is an unexpected-failure diagnostic boundary.
+set_exception_handler(static function (\Throwable $error) use ($request): void {
     RequestLog::recordFailure($request->requestId, $error);
+
     if (str_starts_with($request->path, '/console/api/')) {
-        $earlyFailure(Response::json([
+        $response = Response::json([
             'status' => 'UNAVAILABLE',
             'reason_codes' => ['UNEXPECTED_ERROR'],
-        ], 500));
-        return;
+        ], 500);
+    } else {
+        $id = htmlspecialchars($request->requestId, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $response = Response::html(
+            '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>500</title></head>'
+            . '<body><main><h1>500</h1><p>Something went wrong.</p><p>Support reference: <code>'
+            . $id . '</code></p></main></body></html>',
+            500,
+        );
     }
 
-    $id = htmlspecialchars($request->requestId, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    $earlyFailure(Response::html(
-        '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>500</title></head>'
-        . '<body><main><h1>500</h1><p>Something went wrong.</p><p>Support reference: <code>'
-        . $id . '</code></p></main></body></html>',
-        500,
-    ));
+    $stamped = $response->withHeader(RequestId::HEADER, $request->requestId);
+    RequestLog::record($request->requestId, $request->method, $request->path, $stamped->status);
+    $stamped->send();
 });
 
 try {

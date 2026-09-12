@@ -5,19 +5,21 @@ declare(strict_types=1);
 namespace Allfather\Loopia\Ops;
 
 use Allfather\Loopia\Core\Clock;
+use Allfather\Loopia\Core\Ids;
 use Allfather\Loopia\Db\Database;
-use Allfather\Loopia\Substrate\M10\DecisionLedger;
 
 /**
- * Deterministic proof that the migrated RUNTIME database enforces two load-bearing invariants.
+ * Deterministic proof that the migrated RUNTIME database enforces two load-bearing storage guards.
  *
- * This is intentionally not the full test suite: the full suite belongs on the disposable
- * qualification database. This probe acts only on one explicitly named internal TEST scope and
- * leaves one append-only replay-test finding as durable proof of what was exercised.
+ * This deliberately does not call M10. M10's runtime callers and input-reference vocabulary are
+ * canonical conformance surfaces, so an Ops-only qualification probe must not widen either one.
+ * Instead it exercises a real migrated append-only governance table (`access_evaluation_records`)
+ * plus the workspace external-effect CHECK on one explicitly named internal TEST scope.
  */
 final class RuntimeInvariantProbe
 {
-    public const SUMMARY = 'LOOPIA_RUNTIME_INVARIANT_PROBE';
+    public const RESOURCE_TYPE = 'RUNTIME_INVARIANT_PROBE';
+    public const REASON_CODE = 'LOOPIA_RUNTIME_INVARIANT_PROBE';
 
     public function __construct(
         private readonly Database $db,
@@ -53,8 +55,8 @@ final class RuntimeInvariantProbe
             return self::failed('RUNTIME_PROBE_SCOPE_ALREADY_UNSAFE');
         }
 
-        // Prove the real migrated CHECK, against the exact named workspace. Zero rows affected is
-        // not accepted: this row exists and the attempted unsafe value must be rejected by MariaDB.
+        // Prove the real migrated CHECK, against the exact named workspace. The row exists, so a
+        // successful statement is a failed qualification rather than an ambiguous zero-row update.
         try {
             $this->db->run(
                 'UPDATE workspaces SET external_side_effects_allowed = 1
@@ -75,82 +77,77 @@ final class RuntimeInvariantProbe
             return self::failed('WORKSPACE_EXTERNAL_EFFECT_VALUE_CHANGED');
         }
 
-        $ledger = new DecisionLedger($this->db, $this->clock);
-        try {
-            $streamId = $ledger->ensureActiveStream(
+        // A durable HOLD_FOR_REVIEW access-evaluation row is a safe qualification marker: it grants
+        // nothing, dispatches nothing, and its table is one of the real append-only governance
+        // tables installed by migration 001. Re-running reuses the same marker.
+        $reasonJson = json_encode([self::REASON_CODE], JSON_THROW_ON_ERROR);
+        $existing = $this->db->one(
+            'SELECT access_evaluation_id FROM access_evaluation_records
+             WHERE tenant_id = ? AND workspace_id = ? AND actor_type = ? AND actor_id = ?
+               AND requested_permission = ? AND resource_type = ? AND decision = ? AND reason_codes = ?
+             ORDER BY evaluated_at ASC LIMIT 1',
+            [
                 (string) $scope['tenant_id'],
                 (string) $scope['workspace_id'],
-                'TEST',
-            );
-        } catch (\Throwable) {
-            return self::failed('RUNTIME_PROBE_LEDGER_UNAVAILABLE');
-        }
-
-        $existing = $this->db->one(
-            'SELECT decision_record_id FROM decision_records
-             WHERE ledger_stream_id = ? AND record_type = ? AND safe_decision_summary = ?
-             ORDER BY record_sequence_number ASC LIMIT 1',
-            [$streamId, 'REPLAY_TEST_FINDING_RECORDED', self::SUMMARY],
+                'SYSTEM',
+                (string) $scope['workspace_id'],
+                'battlecard.read',
+                self::RESOURCE_TYPE,
+                'HOLD_FOR_REVIEW',
+                $reasonJson,
+            ],
         );
         $reused = $existing !== null;
+        $recordId = $existing === null ? Ids::new() : (string) $existing['access_evaluation_id'];
         if ($existing === null) {
-            $appended = $ledger->append(
-                $streamId,
-                'REPLAY_TEST_FINDING_RECORDED',
-                'REPLAY_TEST_MATERIAL',
-                'REPLAY_RECORDED',
-                self::SUMMARY,
-                [[
-                    'owner_module_id' => 'M02',
-                    'input_object_type' => 'workspace',
-                    'input_object_id' => (string) $scope['workspace_id'],
-                    'reference_role' => 'OTHER',
-                    'verification_status_at_record_time' => 'VERIFIED_REFERENCE',
-                ]],
-                DecisionLedger::SERVICE_IDENTITY_M10,
-                ['reason_codes' => ['LOOPIA_RUNTIME_INVARIANT_PROBE']],
-            );
-            if (!$appended->isOk()) {
-                return self::failed('RUNTIME_PROBE_LEDGER_APPEND_REFUSED');
-            }
-            $recordId = (string) $appended->value()['decision_record_id'];
-        } else {
-            $recordId = (string) $existing['decision_record_id'];
-            if (($ledger->verifyRecordPayload($recordId)['ok'] ?? false) !== true) {
-                return self::failed('RUNTIME_PROBE_EXISTING_RECORD_INVALID');
-            }
+            $this->db->insert('access_evaluation_records', [
+                'access_evaluation_id' => $recordId,
+                'schema_version' => '1',
+                'tenant_id' => (string) $scope['tenant_id'],
+                'workspace_id' => (string) $scope['workspace_id'],
+                'actor_type' => 'SYSTEM',
+                'actor_id' => (string) $scope['workspace_id'],
+                'requested_permission' => 'battlecard.read',
+                'resource_type' => self::RESOURCE_TYPE,
+                'resource_id' => (string) $scope['workspace_id'],
+                'applicable_policy_version' => null,
+                'matched_role_ids' => '[]',
+                'decision' => 'HOLD_FOR_REVIEW',
+                'reason_codes' => $reasonJson,
+                'severity' => null,
+                'incident_required' => 0,
+                'evaluated_at' => $this->clock->now(),
+                'correlation_id' => null,
+            ]);
         }
 
         $deleteRejected = false;
         try {
-            $this->db->run('DELETE FROM decision_records WHERE decision_record_id = ?', [$recordId]);
+            $this->db->run(
+                'DELETE FROM access_evaluation_records WHERE access_evaluation_id = ?',
+                [$recordId],
+            );
         } catch (\PDOException $error) {
             $deleteRejected = (string) $error->getCode() === '45000'
                 && str_contains(
                     (string) ($error->errorInfo[2] ?? ''),
-                    'decision_records cannot be deleted (INV-013)',
+                    'access_evaluation_records is append-only',
                 );
         }
         if (!$deleteRejected) {
-            return self::failed('DECISION_APPEND_ONLY_TRIGGER_NOT_PROVEN');
+            return self::failed('APPEND_ONLY_TRIGGER_NOT_PROVEN');
         }
         if ((int) $this->db->scalar(
-            'SELECT COUNT(*) FROM decision_records WHERE decision_record_id = ?',
+            'SELECT COUNT(*) FROM access_evaluation_records WHERE access_evaluation_id = ?',
             [$recordId],
         ) !== 1) {
-            return self::failed('DECISION_PROBE_RECORD_MISSING_AFTER_DELETE_ATTEMPT');
-        }
-
-        $integrity = $ledger->verifyStream($streamId);
-        if (($integrity['status'] ?? '') !== 'PASS') {
-            return self::failed('RUNTIME_PROBE_LEDGER_INTEGRITY_FAILED');
+            return self::failed('RUNTIME_PROBE_RECORD_MISSING_AFTER_DELETE_ATTEMPT');
         }
 
         return [
             'status' => 'RUNTIME_INVARIANTS_VERIFIED',
             'workspace_external_effect_guard' => 'PASS',
-            'decision_record_append_only' => 'PASS',
-            'ledger_integrity' => 'PASS',
+            'access_evaluation_append_only' => 'PASS',
             'probe_record_reused' => $reused,
             'writes_external_systems' => false,
         ];
