@@ -1,762 +1,265 @@
 # DEPLOYMENT RUNBOOK
 
-Staging deployment, verification, and stand-down for the Loopia host.
+Mechanics for the inert Loopia staging qualification. `BETA_RUNBOOK.md` is the authoritative
+sequence; this document explains the deployment operations behind its gates.
 
-**Read `LOOPIA_CAPABILITY_REPORT.md` §5 first.** Nothing in this runbook constitutes launch
-authority, and the claim/authority flags remain false until their own evidence and owner acts exist.
+Nothing here grants production/customer authority. The pinned canonical identity vocabulary still
+contains no CUSTOMER tenant, production workspace, or PRODUCTION environment class for a public
+launch.
 
-**This file explains the mechanics. [`BETA_RUNBOOK.md`](./BETA_RUNBOOK.md) is the SEQUENCE** — Gates
-A to S, in order, with a pass condition for each. If you are about to deploy, start there and come
-back here for the detail. The two rules it opens with are the ones that cost the most if skipped:
-the qualification database is not the runtime database, and no secret goes on the host until the
-**web-PHP** cross-site isolation blocker is closed — which a clean SSH/CLI canary matrix does not
-do, and which nothing in this repository can waive.
+## 1. Host/runtime prerequisites
 
----
+- PHP 8.2+;
+- MariaDB 10.6+;
+- `pdo`, `pdo_mysql`, `curl`, `openssl`, `mbstring`, `json`, `hash`;
+- SSH access;
+- private domain directory whose only served child is `public_html/`;
+- two databases: staging runtime and disposable qualification.
 
-## 1. What you are deploying
+For the **Loopia staging profile**, preflight requires `DB_NAME`, `DB_USER`, `DB_PASSWORD` and a valid
+32-byte `APP_MASTER_KEY`. The generic Bootstrap class deliberately allows a passwordless/socket-
+authenticated database in principle; that generic possibility is not the staging qualification
+profile.
 
-A PHP 8.2+ / MariaDB application with no external effect. It captures public web sources through a
-guarded egress path and writes governed records. It sends nothing, publishes nothing, and performs
-no consequential action — see `SECURITY_BOUNDARY.md` §1–§2 for why those are structural rather than
-configured.
+## 2. Host layout
 
-## 2. Prerequisites
+The repository layout is the deployment layout:
 
-| Requirement | Why it matters |
-| --- | --- |
-| PHP 8.2 or later | the code uses readonly promoted properties, enums, and `WeakMap` |
-| extensions: `pdo`, `pdo_mysql`, `curl`, `openssl`, `mbstring`, `json`, `hash` | `openssl` for credential encryption; `curl` with `CURLOPT_RESOLVE` for the pinned-address egress guard |
-| MariaDB 10.6 or later | CHECK constraints must be ENFORCED, not parsed and ignored. **Loopia Företag is 10.6; 10.11 is Företag Plus only.** BOTH are verified: CI runs the full strict suite against real 10.6 and real 10.11, and the job asserts the server version it actually got rather than the one it asked for |
-| `APP_MASTER_KEY` in server-private configuration | provider-credential encryption; never in the repository, never in the database. **Required at boot** in staging and production — a deployment without it refuses to start rather than failing at the first credential it seals |
-| `APP_ENV` set correctly | a value outside `development`/`testing`/`staging`/`production` — including unset, empty or misspelled — resolves to **production**. Getting it wrong makes the deployment stricter, never looser |
-| DB credentials via environment | `DB_HOST`/`DB_PORT` or `DB_SOCKET`, plus `DB_NAME`, `DB_USER`, `DB_PASSWORD` |
+```text
+<domain>/
+  app/ database/ docs/ frontend/ ops/ tests/ worker/
+  storage/                 # runtime state, PRIVATE and deployment-preserved
+  .env                     # installed only after web-PHP isolation closes
+  public_html/             # the only web-served directory
+    .htaccess  index.php  scheduler.php  assets/
+```
 
-**Verify `CURLOPT_RESOLVE` exists before deploying.** Without it the egress guard cannot pin a
-connection to the address it validated, and the guard's central property is gone:
+## 3. Prepare one exact release tree
 
-    php -r 'echo defined("CURLOPT_RESOLVE") ? "ok" : "MISSING", PHP_EOL;'
+Do not deploy the developer working tree. Git HEAD does not constrain tracked local edits or ignored
+runtime/build files. Prepare from the exact Git object:
 
-## 3. Deploy
+```bash
+SHA=<full-40-char-sha>
+RELEASE_DIR=/tmp/allfather-${SHA}
+./ops/deploy/prepare-release.sh "$SHA" "$RELEASE_DIR"
+(cd "$RELEASE_DIR" && test -f public_html/assets/operator-console/manifest.json)
+```
 
-### 3.1 The layout — this is the security boundary
+`prepare-release.sh` exports tracked bytes with `git archive`, then runs the pinned frontend clean
+install, tests, build and `npm run stage` inside that fresh tree. It never SSHes or rsyncs anywhere.
 
-Established from Loopia's own documentation; sources and the open questions are in
-[`LOOPIA_HOST_MODEL.md`](./LOOPIA_HOST_MODEL.md).
+Run preflight from the prepared tree with a **local untracked** configuration:
 
-Loopia serves a domain from **`<domän>/public_html/`** and states it does not support pointing at
-any other application folder. Files **above** `public_html/` are reachable over FTP/SSH and not from
-the web. So the boundary is not a rule inside the served directory — it is that the private files
-are that directory's **siblings**, and `<domain>/` itself is never a document root.
+```bash
+php "$RELEASE_DIR/ops/deploy/preflight.php" \
+  --env=/private/local/staging-preflight.env \
+  --release-ref="$SHA" \
+  --mode=staging
+```
 
-**The repository layout IS the host layout.** The served directory here is named `public_html/` for
-exactly that reason: deployment is a copy into `<domain>/`, with no rename, no shim, no symlink.
-
-    <domain>/                     <- the SSH/FTP home for this domain
-      app/  database/  ops/  worker/  storage/  vendor/
-      .env                        <- credentials, a sibling of the served directory
-      public_html/                <- the ONLY web-served directory; the name is fixed by Loopia
-        index.php  scheduler.php  assets/  .htaccess
-
-#### Build and stage the Operator Console before copying
-
-`public_html/assets/operator-console/` is generated deployment output and is intentionally
-Git-ignored. A fresh checkout therefore does **not** contain the authenticated React bundle until
-the frontend build is validated and staged. The qualified frontend toolchain for this PR is
-**Node v22.16.0 / npm 10.9.2**.
-
-Run this from the repository checkout **before** `rsync`:
-
-    cd frontend/console
-    node --version    # expect v22.16.0
-    npm --version     # expect 10.9.2
-    npm ci
-    npm test
-    npm run build
-    npm run stage
-    cd ../..
-    test -f public_html/assets/operator-console/manifest.json
-
-`npm run stage` validates the private build output and publishes only the reviewed content-hashed
-JS/CSS/SVG set into `public_html/assets/operator-console/`, writing `manifest.json` last. The staged
-directory is then published separately from the whole-tree deployment below so the application's
-`rsync --delete` can never remove a still-referenced content hash during a release.
-
-If this stage is absent or invalid, `/console/app` returns **503 by design** rather than guessing a
-bundle filename. Do not work around that refusal by committing generated assets or by adding an
-unhashed fallback; rebuild and stage the deployment working tree instead.
+Record `source_fingerprint`. Do not upload that local preflight configuration before the web-PHP
+cross-site isolation blocker closes.
 
 #### Deploy the application tree
 
-This is the **staging qualification profile**. It carries `tests/`, `docs/` and `ops/` deliberately —
-§4 tells the operator to run the strict suite, the probe and the smoke client on the host, and a copy
-that excluded the test directory would be a copy that cannot do what the next section asks of it. An
-earlier revision of this runbook excluded `tests` and then told the operator to run
-`php tests/run.php` there; that contradiction is what this profile resolves. See §3.3 for the future
-production runtime profile, which is a different (and not yet authorized) thing.
+The root application copy is destructive for release-owned code and deliberately non-destructive for
+runtime state. The committed exclusion file is authoritative; the repeated explicit frontend/asset
+rules below make the critical exclusions visible at the command that uses `--delete`.
 
-Everything it carries is a **sibling** of `public_html/` and therefore not web-reachable. §4.1's HTTP
-probes establish that on the real host, because "outside the document root" is a property of a
-deployment's configuration rather than of these files.
+```bash
+rsync -av --delete \
+  --exclude-from="$RELEASE_DIR/ops/deploy/staging-rsync-excludes.txt" \
+  --exclude 'frontend/console/node_modules' \
+  --exclude 'frontend/console/dist' \
+  --exclude 'public_html/assets/operator-console' \
+  --exclude 'storage/***' \
+  "$RELEASE_DIR/" <user>@<host>:~/<domain>/
+```
 
-**Deploy over SSH** (available on all three tiers), from a checkout on your own machine. The general
-deployment deliberately excludes the Operator Console asset directory; that subtree has its own
-manifest-last publish step immediately below.
+`ops/deploy/staging-rsync-excludes.txt` also excludes `.git`, `.github`, all `.env*` configuration,
+`storage/***`, private frontend dependency/build output, and generated Operator Console assets.
 
-    rsync -av --delete \
-      --exclude '.git' \
-      --exclude '.github' \
-      --exclude '.env' \
-      --exclude '.env.*' \
-      --exclude 'frontend/console/node_modules' \
-      --exclude 'frontend/console/dist' \
-      --exclude 'public_html/assets/operator-console' \
-      ./ <user>@<host>:~/<domain>/
+The `storage/***` rule is load-bearing. Root `rsync --delete` must never delete runtime-generated
+request logs/evidence or future private files. `rsync` does not honor `.gitignore`, so the same rule
+also prevents ignored local runtime state from being uploaded.
 
-`rsync` does not honor `.gitignore`. The private frontend dependency tree and private `dist/` build
-therefore stay explicitly excluded. Every `.env*` is excluded because configuration is the host's and
-is uploaded once, by hand — a deploy that overwrites it is a deploy that can silently change which
-database it points at. The staged Operator Console subtree is excluded for a different reason: the
-root `--delete` must not prune the previous content-hashed bundle while an old manifest or
-already-served HTML can still refer to it.
+Create storage and copy only committed policy metadata, without delete:
+
+```bash
+ssh <user>@<host> 'mkdir -p ~/<domain>/storage'
+rsync -av \
+  "$RELEASE_DIR/storage/.htaccess" \
+  "$RELEASE_DIR/storage/README.md" \
+  <user>@<host>:~/<domain>/storage/
+```
 
 #### Publish Operator Console assets manifest-last
 
-Publish the content-hashed files first **without `--delete`**, then publish the manifest to a
-same-directory temporary name and replace the live manifest with one remote `mv`:
-
-    ssh <user>@<host> 'mkdir -p ~/<domain>/public_html/assets/operator-console'
-
-    rsync -av \
-      --exclude 'manifest.json' \
-      public_html/assets/operator-console/ \
-      <user>@<host>:~/<domain>/public_html/assets/operator-console/
-
-    rsync -av \
-      public_html/assets/operator-console/manifest.json \
-      <user>@<host>:~/<domain>/public_html/assets/operator-console/manifest.json.next
-
-    ssh <user>@<host> \
-      'test -f ~/<domain>/public_html/assets/operator-console/manifest.json.next && \
-       mv ~/<domain>/public_html/assets/operator-console/manifest.json.next \
-          ~/<domain>/public_html/assets/operator-console/manifest.json'
-
-This ordering is the deployment invariant: **old manifest + old hashes remain valid; new hashes are
-copied; only then does the manifest switch to the new hashes.** The final `mv` is within one remote
-directory/filesystem, so consumers never observe a partially copied manifest. If either asset copy
-fails, the old live manifest remains untouched and still names files that were not deleted.
+Generated console assets are excluded from the root sync. Publish hashes first, retain previous
+hashes, then atomically switch the manifest:
+
+```bash
+ssh <user>@<host> 'mkdir -p ~/<domain>/public_html/assets/operator-console'
+
+rsync -av --exclude 'manifest.json' \
+  "$RELEASE_DIR/public_html/assets/operator-console/" \
+  <user>@<host>:~/<domain>/public_html/assets/operator-console/
+
+rsync -av \
+  "$RELEASE_DIR/public_html/assets/operator-console/manifest.json" \
+  <user>@<host>:~/<domain>/public_html/assets/operator-console/manifest.json.next
+
+ssh <user>@<host> \
+  'test -f ~/<domain>/public_html/assets/operator-console/manifest.json.next && \
+   mv ~/<domain>/public_html/assets/operator-console/manifest.json.next \
+      ~/<domain>/public_html/assets/operator-console/manifest.json'
+```
+
+Old content-hashed assets are deliberately retained during the deployment. Do not use `--delete` in
+this asset publication or prune old hashes in the same release transaction: an already-served page
+may still request them.
+
+`SourceFingerprint` hashes the current manifest and the files it names, not safe retained historical
+hashes. `verify-stand-down.php` separately rejects unsafe unmanifested public entries such as source
+maps, unhashed JS/CSS, PHP, symlinks or arbitrary filenames. Fingerprint path keys are normalized to
+POSIX separators so a tree prepared on Windows compares correctly with the same bytes on Loopia.
 
-Old content-hashed assets are deliberately retained during the deployment. Do **not** add `--delete`
-to the asset publish step and do not prune old hashes in the same release. Cleanup is a separate,
-later maintenance act after the new deployment has been verified and any previously served page has
-had time to age out.
+**Do not symlink a separate directory into the document root.** The deployment contract is the
+literal sibling layout above.
 
-`.env` is excluded deliberately and uploaded once, by hand, with its own permissions. A deploy that
-overwrites configuration is a deploy that can silently change which database it points at.
-
-**Do not symlink a separate directory into the document root.** Loopia states it does not support
-an application folder other than `public_html/` under the domain folder, so a symlinked root is not
-a supported configuration to rely on.
-
-**Verify the boundary after deploying.** Each of these must NOT return the file:
-
-    for path in /.env /app/Support/Env.php /database/migrations/010_governance_core.sql \
-                /storage/request.log /worker/tick.php /ops/migrate.php \
-                /frontend/console/package.json /tests/run.php \
-                /composer.json /upstream.lock.json /deployment-evidence.json; do
-      printf '%s -> ' "$path"
-      curl -sS -o /dev/null -w '%{http_code}\n' "https://<domain>${path}"
-    done
-
-403 or 404 are both correct. **A 200 from any of them means the layout is wrong** — and the fix is
-the layout, not the `.htaccess`. Those files are defence in depth: every directive is
-`<IfModule>`-guarded, so on a host missing the module each is a silent no-op.
-
-The list now includes `tests/`, `frontend/` and the two governance files because the qualification
-profile above carries them. They are siblings of the served directory and therefore not reachable —
-and this is the check that establishes it on a host rather than in a test.
-
-### 3.2 Before the secrets: cross-site isolation
-
-**Run this between the copy and the configuration**, not after. On Loopia the account may hold
-several sites, and whether one site's PHP can read another's private files is a question that has to
-be answered before `APP_MASTER_KEY` and the database password are placed on the host. Answering it
-afterwards means answering it too late.
-
-    php ops/loopia-probe/isolation-canary.php --mode=create  --dir=~/<domain>/storage
-    php ops/loopia-probe/isolation-canary.php --mode=probe   --dir=~/<other-domain>/storage
-    php ops/loopia-probe/isolation-canary.php --mode=cleanup --dir=~/<domain>/storage
-
-The canaries are worthless by construction — `ALLFATHER_LOOPIA_NON_SECRET_CANARY_<random>` and
-nothing else — so a reader who obtains one learns that the boundary is broken and learns nothing
-else. The full matrix, including the own-canary control rows without which a `NOT_FOUND` everywhere
-looks like perfect isolation, is in [`ops/loopia-probe/README.md`](../ops/loopia-probe/README.md) §5
-and sequenced as Gate E of [`BETA_RUNBOOK.md`](./BETA_RUNBOOK.md).
-
-**Any cross-site `READABLE` is a hard stop.** Do not place credentials on the host.
-
-The canary runs under the CLI SAPI as the SSH user, so a clean matrix bounds **that** identity and
-nothing more; every result says so in its own output. Cross-site isolation of the web PHP identity
-stays UNVERIFIED and is carried as an open blocker in
-[`LOOPIA_HOST_MODEL.md`](./LOOPIA_HOST_MODEL.md) §5, not closed by a green run here.
-
-**`WEB_PHP_ISOLATION_REQUIRED_BEFORE_SECRETS`.** `LOOPIA_WEB_PHP_CROSS_SITE_ISOLATION_BLOCKER` must
-be CLOSED — by Loopia's written assurance or an equivalent host proof of the web identity — before
-`APP_MASTER_KEY` or `DB_PASSWORD` is placed on the host. A clean canary matrix, an HTTP private-path
-pass, operator judgement, owner risk acceptance, staging-only credentials or a reduced blast radius
-do not close it: `WEB_PHP_ISOLATION_WAIVER_ALLOWED = false`. The sequence is
-[`BETA_RUNBOOK.md`](./BETA_RUNBOOK.md) Gate E.3.
-
-### 3.3 The future production runtime profile — DEFERRED
-
-A production deployment could carry less than the qualification profile: no `tests/`, no frontend
-source, most of `docs/`. That profile is **described here and not built**, and there is no
-`--mode=production` in `ops/deploy/preflight.php`, for a reason that is not caution:
-
-**The pinned canonical identity vocabulary defines no production deployment.** There is no
-`CUSTOMER` tenant type, no production workspace type and no `PRODUCTION` environment class in the
-schema this projection is pinned to — `ops/provision-staging.php` refuses `APP_ENV=production`
-*before* it opens the database for exactly that reason. Full public production requires a canonical
-promotion that has not happened. Using `TEST` as a production synonym, or adding a migration to
-invent the vocabulary locally, would be inventing authority rather than porting it.
-
-So: closed beta work remains staging/testing/internal in canonical identity terms, and a production
-runtime copy profile is a thing to build after that promotion, not before.
-
-### 3.4 Configuration fails closed
+## 4. Verify the public/private boundary before secrets
 
-`.env` is production's file and `.env.testing` is a development convenience. A staging or
-production deployment configured from the test file **refuses to start**, so a host whose `.env` is
-missing or unreadable cannot silently run on test credentials. So does a deployment with no
-configuration file at all — an empty configuration would answer every default as though somebody
-had chosen it.
+The initial copy contains no `.env`, DB password, master key or scheduler credential. From outside,
+require 403 or 404, never 200:
 
-Staging and production additionally require `DB_NAME`, `DB_USER` and an `APP_MASTER_KEY` that
-decodes to 32 bytes, all checked at boot. A refusal names the missing keys and nothing else; the
-key names are public (they are in `.env.example`) and their values never travel with them.
+```bash
+for path in /.env /app/autoload.php /database/migrations/001_identity_scope.sql \
+            /storage/request.log /worker/tick.php /ops/migrate.php \
+            /frontend/console/package.json /tests/run.php \
+            /composer.json /upstream.lock.json /deployment-evidence.json; do
+  printf '%s -> ' "$path"
+  curl -sS -o /dev/null -w '%{http_code}\n' "https://<domain>${path}"
+done
+```
 
-`DB_PASSWORD` is deliberately not required: a socket-authenticated MariaDB user legitimately has
-none.
+Run the SSH/CLI cross-site canary matrix in `ops/loopia-probe/README.md`. A clean matrix proves only
+`SSH_CLI` isolation, not sibling-site web-PHP isolation.
 
-A refusal looks like this, and is the only thing the deployment will say until it is fixed:
+`LOOPIA_WEB_PHP_CROSS_SITE_ISOLATION_BLOCKER` must be CLOSED before host secrets are installed.
+Accepted closure is only written Loopia assurance or an equivalent safe proof of the web-PHP
+identity. `WEB_PHP_ISOLATION_REQUIRED_BEFORE_SECRETS` and
+`WEB_PHP_ISOLATION_WAIVER_ALLOWED = false` remain the policy. If the blocker is UNVERIFIED, stop.
 
-    {"status":"MISCONFIGURED","detail":"refusing to start in production: required configuration missing: APP_MASTER_KEY"}
+## 5. Install private staging configuration
 
-### 3.5 Install
+Only after the blocker closes, create private `<domain>/.env`:
 
-    git clone <repo> && cd allfather-loopia-p01
-    cp .env.example .env && edit .env          # DB_*, APP_MASTER_KEY, SCHEDULER_TOKEN_HASH
-    php ops/migrate.php status --env=.env      # report only, changes nothing
-    php ops/migrate.php up --env=.env          # apply
+```text
+APP_ENV=staging
+APP_BASE_URL=https://staging.allfatherbi.com
+DB_HOST=<host>
+DB_PORT=3306
+DB_NAME=<runtime db>
+DB_USER=<runtime user>
+DB_PASSWORD=<runtime password>
+APP_MASTER_KEY=<base64 32-byte key>
+SUPPORT_CONTACT_TEXT=<monitored support route>
+APP_RELEASE_REF=<exact release SHA>
+SCHEDULER_TOKEN=
+SCHEDULER_TOKEN_HASH=
+```
 
-Loopia **does provide an SSH shell** for web-hosting accounts, so migrations and other one-shot CLI
-maintenance can be run over SSH. What Loopia does not provide is root, a persistent custom daemon,
-or shell cron for recurring work; recurring jobs are directed to the Kundzon scheduler. The
-migrator never runs implicitly on a web request.
+Inert staging leaves both scheduler credential fields empty. Re-run host preflight:
 
-The migrator records a content digest per migration and reports each as APPLIED, PENDING or
-DRIFTED. DRIFTED means the file changed after it was applied — the database and the repository
-disagree about history, which is a condition for a human rather than for automation. Resolve it by
-hand; do not re-run and hope.
+```bash
+php ops/deploy/preflight.php --env=.env --release-ref=<SHA> --mode=staging
+```
 
-## 4. Verify the deployment — do not skip this
+## 6. Qualification database and host checks
 
-### 4.1 The suite — and the database it must never touch
+Create a separate empty database and `.env.qualification`. Never point it at the runtime database;
+`tests/support/Harness.php` truncates application tables by design.
 
-> ## THE QUALIFICATION DATABASE IS NOT THE RUNTIME DATABASE
->
-> `tests/support/Harness.php` **truncates every application table except `schema_migrations`**
-> between suites. Correct for a harness; catastrophic against a populated deployment.
->
-> **Never run `php tests/run.php` against the staging runtime database.** It will empty it — every
-> tenant, operator, login and governed record.
->
-> The host gets **two** databases. The runtime one is named by `.env`; the qualification one is named
-> by a separate private `.env.qualification`, and the suite is only ever pointed at the second,
-> explicitly:
->
->     TEST_ENV_FILE=.env.qualification php tests/run.php --strict
->
-> Check the two apart by eye before every run:
->
->     grep DB_NAME .env .env.qualification
+Run:
 
-The runner has **no `--env` flag of its own**; passing one is silently ignored and the run connects
-to whatever `.env.testing` — and then `.env` — names. On a staging host `.env` is the runtime
-database, which is precisely why `TEST_ENV_FILE` exists and why it is the only supported way to point
-the suite anywhere. It wins over both conventional files and throws if the file is missing.
+```bash
+php ops/loopia-probe/probe.php --env=.env
+php ops/loopia-probe/probe.php --env=.env --allow-network --require-live-read --probe-host=example.com
 
-    TEST_ENV_FILE=.env.qualification php tests/run.php --strict \
-      --report-json=qualification-staging.json
+php ops/migrate.php status --env=.env
+php ops/migrate.php up --env=.env
+php ops/migrate.php status --env=.env
+php ops/migrate.php up --env=.env
 
-Under `--strict` a skip is a non-zero exit, so an unreachable database cannot be mistaken for a green
-run. `--report-json` additionally writes a sanitized machine-readable report — counts, the PHP
-version, and the MariaDB version read back from the connection the suite actually used, and no
-credential, DSN, fixture or assertion message. The human output is unchanged either way.
+TEST_ENV_FILE=.env.qualification php tests/run.php --strict --report-json=loopia-qualification.json
+```
 
-The exact current assertion counts are in [`CONFORMANCE_MATRIX.md`](./CONFORMANCE_MATRIX.md) §1,
-measured rather than remembered. They are not repeated here: a count in two places is a count that
-will disagree with itself.
+Require no drift, idempotent second migration apply, fail=0 and skip=0.
 
-**This copy carries `tests/`.** The staging qualification profile in §3 includes the test directory
-for exactly this step. That is what makes this section executable, and it is what the production
-runtime profile (§3.3, deferred) would drop.
+After provisioning the exact internal TEST tenant/workspace, run:
 
-### 4.2 CHECK constraints are ENFORCED
+```bash
+php ops/verify-runtime-invariants.php --env=.env \
+  --tenant-key=<tenant> --workspace-key=<workspace>
+```
 
-MariaDB before 10.2.1 parsed CHECK constraints and ignored them, and several of this system's
-guarantees are CHECK constraints. Confirm the storage actually refuses:
+This deterministically proves the exact workspace CHECK plus a real migrated append-only governance
+trigger (`access_evaluation_records`) on an exact durable `HOLD_FOR_REVIEW` qualification marker.
+It replaces manual `UPDATE ... LIMIT 1` / `DELETE ... LIMIT 1` checks whose zero-row result proved
+nothing on a new database. It deliberately does not call or widen M10; M10 integrity is recomputed by
+the rollback verifier.
 
-    -- must FAIL
-    UPDATE workspaces SET external_side_effects_allowed = 1 LIMIT 1;
+## 7. Request-reference storage
 
-If that succeeds, **stop**. The external-effect boundary is not being enforced, and
-`SECURITY_BOUNDARY.md` §2 is not true of this deployment.
+`RequestLog` writes the deterministic support-reference index to `storage/request.log`. The file is
+outside `public_html`, appended with a per-write lock, chmodded 0600 on successful write, and contains
+only request id, method, path without query string, and response status.
 
-### 4.3 Append-only triggers survived the import
+Unexpected runtime exceptions become safe 500 responses retaining the same `X-Request-ID`.
+Diagnostics record request id + exception class in PHP's ordinary error log; exception messages,
+SQL, stack traces and governed payloads are not returned to the caller or copied to the support index.
 
-This is the check most likely to fail on shared hosting, because `DELIMITER`-defined triggers are
-routinely lost in dump/import round-trips:
+End-to-end proof:
 
-    SELECT COUNT(*) FROM information_schema.TRIGGERS
-    WHERE TRIGGER_SCHEMA = DATABASE();
+```bash
+grep -F 'id=<REQUEST-ID> ' storage/request.log
+```
 
-Then confirm one actually fires:
+and `/storage/request.log` must remain 403/404 over HTTP.
 
-    -- must FAIL with 'decision_records cannot be deleted'
-    DELETE FROM decision_records LIMIT 1;
+## 8. Rollback/restore
 
-If the triggers are missing, the append-only guarantees in `SECURITY_BOUNDARY.md` §7 do not hold and
-rollback discipline (§6 below) is unenforceable. Re-apply the migrations rather than patching by
-hand.
+Application rollback restores code and matching current console manifest/assets. It does not delete
+runtime storage, reverse migrations, delete governed rows or change authority. Use the same
+storage-preserving root sync and manifest-last asset process.
 
-### 4.4 Egress denies what it should
+For the first staging release, perform `INITIAL_RELEASE_RESTORE`: retain the exact prepared artifact
+and fingerprint, reapply that same frozen artifact, then verify:
 
-The guard's refusals are unit-tested, but confirm the deployed configuration reaches the same
-answer for a private address before trusting it with a real source.
+```bash
+php ops/rollback/verify-stand-down.php \
+  --expect-release=<SHA> \
+  --expect-fingerprint=<preflight fingerprint> \
+  --email=<internal test account> \
+  --env=.env
+```
 
-### 4.5 The host capability probe
+This proves reproducible restore of release #1, not cross-version rollback. From release #2 onward,
+perform `PREVIOUS_RELEASE_ROLLBACK` against the prior recorded release. See `ops/rollback/README.md`.
 
-    php ops/loopia-probe/probe.php --env=.env
+## 9. Still not authorized
 
-Expect `"staging_host_verdict": "READY"`. Every storage capability is **demonstrated** rather than
-inferred from a version string — foreign keys refused against an absent parent, a lock actually
-contended for across two connections, a `SIGNAL SQLSTATE '45000'` trigger that actually fires — and
-each proof runs against a disposable, randomly-named table it drops afterwards, including when the
-proof threw.
+Even after every staging gate passes:
 
-`live_read_host_verdict` will be `NOT_QUALIFIED` on this run: nothing was demonstrated, because no
-request was made. To ask the egress question separately:
+```text
+live_read_activated                = false
+road_test_001_executed             = false
+external_action_authorized         = false
+customer_visible_output_authorized = false
+owner_go_granted                    = false
+production_launch_authorized        = false
+```
 
-    php ops/loopia-probe/probe.php --env=.env --allow-network \
-      --require-live-read --probe-host=example.com
-
-**Running the probe does not activate live read.** It goes through no source card, no egress guard
-and no evidence spine, and writes nothing. Demonstrating that live read *could* work is as far from
-activating it as reading the specification of a lock is from opening the door.
-
-`scheduler_transport_verdict` is `UNVERIFIED` and always will be — see §6a.
-
-### 4.6 The deployed site, from outside
-
-The suite drives the Kernel in-process: it proves the application's decisions. It cannot prove that
-Apache honoured a directive, that the document root points where §3.1 says, that TLS terminates, or
-that the private tree is unreachable over HTTP. That is what the smoke client is for.
-
-    php ops/staging-smoke.php --base-url=https://<domain> --mode=anonymous
-
-    read -rs PW; read -rs NEW; printf '%s\n%s\n' "$PW" "$NEW" | php ops/staging-smoke.php \
-      --base-url=https://<domain> --mode=beta-journey --email=<address> --password-stdin
-
-Expect `"status": "SMOKE_PASS"` and `responses_without_request_reference: 0`. It requires HTTPS
-rather than upgrading to it, never follows a redirect, keeps its cookie jar in memory, and prints
-step names, status codes, reason codes and the opaque request reference — never a body, a cookie, a
-credential or one field of governed product data.
-
-**Then prove the support reference end to end** (`BETA_RUNBOOK.md` Gate P): capture an
-`X-Request-ID` from a real response, and find exactly that id in the private request log over SSH.
-A reference a partner can quote and an operator cannot look up is worse than no reference.
-
-### 4.7 Record what you proved
-
-    php ops/evidence/validate.php
-
-Each activity above produces an artifact. Save it, take its `sha256sum`, and add one record to
-`deployment-evidence.json` by hand — that edit is a diff somebody reads, which is the property a
-claim of this weight should have. Only once the registry supports a claim may `upstream.lock.json`
-assert it, as a separate reviewed act. See
-[`DEPLOYMENT_EVIDENCE_MODEL.md`](./DEPLOYMENT_EVIDENCE_MODEL.md) §7.
-
-## 5. Provision a tenant
-
-One command, which composes the real module registrations and decides nothing itself:
-
-    php ops/provision-staging.php \
-      --tenant-key=acme --workspace-key=main \
-      --display-name="Acme AB" --operator-name="Ops" \
-      [--modules=P01,P02,P03,P04,P05] [--env=path] [--dry-run]
-
-It prints the tenant, workspace and operator ids and, per module, the Valkyrie, contract, governed
-tool and policy set it established. Run `--dry-run` first: it validates the arguments and the
-configuration and writes nothing.
-
-**What each module registration establishes** (its own decisions, made by the module):
-
-| Plane | What is established |
-| --- | --- |
-| M03 | the capability's Valkyrie, its contract, and the forbidden-action clauses recorded on it |
-| M06 | the governed tool and its operation — platform rows, converged on if they already exist |
-| M03 | the per-contract tool right, which is where per-tenant authority actually lives |
-| M08 | the module's admission policy set, workspace-scoped |
-| M16 | the tenant's output visibility profiles (P01 registration; internal permitted, every wider audience seeded explicitly as not permitted) |
-| Entitlement | the commercial tiers — platform rows, created once per deployment |
-
-**The authority vocabulary is seeded first.** Permissions and roles are GLOBAL — the shared
-vocabulary every membership resolves against, not tenant-owned data — so `M02\Seed` runs before the
-module registrations and reports how many of each it created. It is idempotent, ported verbatim from
-canonical, and structurally unable to create an excluded permission. Before it was wired here, a
-freshly provisioned deployment had no roles at all, and granting one meant writing SQL or inventing
-a role: the two things this projection exists to make unnecessary. Seeding creates no authority — a
-role is inert until a membership grants it.
-
-**What the command itself writes:** the tenant, workspace and operator rows, and nothing else. Those
-are the scope the capabilities are registered INTO; no module owns them and they must exist first.
-It issues no UPDATE or DELETE at all, refuses an unrecognised argument rather than ignoring it, and
-refuses to run under any web SAPI before it connects to anything.
-
-**Production provisioning deliberately refuses before DB access.** The pinned canonical identity
-schema does not define `CUSTOMER` tenant/workspace types or a `PRODUCTION` environment class. This
-projection therefore uses canonical `TEST` identity vocabulary for staging/testing and does not
-promote new Core words merely to get a row through a CHECK constraint. Production customer identity
-and onboarding require an explicit canonical decision first.
-
-**It fails closed and says how far it got.** The first module refusal stops the run and reports
-which module refused, why, and what was provisioned before it — because a half-provisioned tenant is
-a real state and implying a rollback that did not happen would be worse than reporting the truth.
-Exit codes: 2 bad arguments, 3 database unreachable, 4 tenant key already exists (pass
-`--allow-existing` only if minting a second set of per-tenant Valkyries is what you intend), 5 a
-module refused, **6 production provisioning refused because the pinned canonical identity
-vocabulary has no production/customer classes**.
-
-**P02 became provisionable** when its governed lifecycle was ported. The provisioner registers the
-ENTITY-twin curator capability: curator, contract, read tool, `P02_TWIN_STATE_ADMISSION` policy set
-and tiers. The entity **and relationship** runtime lifecycles are present, including governed
-state-change admission, M10 release and M16 snapshot composition; the relationship path is not a
-separate registration or browser surface. Offering twins remain excluded by the upstream gate.
-See [`PORT_SCOPE_MATRIX.md`](./PORT_SCOPE_MATRIX.md) §3.7.
-
-**The P02 audit profiles are a separate operator step.** `TwinAssurance::seedProfiles($tenantId,
-$workspaceId)` creates the twelve, and provisioning does not call it — for the same reason it does
-not seed P01's, P04's or P05's: audit profiles are assurance, not registration, and folding them
-into the registration act would make one call do two different jobs. Seeding is idempotent per
-scope.
-
-**Provisioning is not activation.** It establishes capability, never authority to use it against the
-outside world: `live_read_activated` and `external_action_authorized` are restated as false on every
-successful run.
-
-## 5a. Onboard a beta partner
-
-Provisioning establishes the tenant. Onboarding gives one invited person a way in. One command, and
-no hand-written SQL at any step:
-
-    read -rs -p 'Initial password: ' PW; echo
-    printf '%s\n' "$PW" | php ops/onboard-beta-user.php \
-      --tenant-key=acme --workspace-key=main \
-      --email=partner@example.com --display-name="A Partner" --operator-name="A Partner" \
-      --roles=ROLE_COMPETITION_MONITOR,ROLE_MARKETING_CUSTOMIZER \
-      --password-stdin [--env=path] [--dry-run]
-
-It creates the governed operator if there is none, ensures the `LOOPIA_SME_BETA` tier exists exactly
-as declared, subscribes the tenant to it as a `TRIAL`, creates the platform login, grants the named
-EXISTING roles, and marks an initial password change required. Run `--dry-run` first: it validates
-the scope, the role keys and the tier definition and writes nothing.
-
-**The password never touches the command line.** `--password` is refused by name, with the reason:
-anything on argv is in the process list and in the shell history file. `--password-stdin` is the
-only way in — see §5b for why there is no interactive prompt. The value appears in no output, no log
-and no JSON result.
-
-**It grants only what already exists.** A role key that is not an ACTIVE role is refused rather than
-created — checked before anything is written, so an unknown role key cannot leave a half-onboarded
-partner. `--roles` names roles from the canonical M02 set seeded in step 5.
-
-**`--dry-run` mirrors every refusal the real run can know in advance**, which for a preflight is the
-only useful definition of one: scope, role keys, tier definition, address, display name, the
-tenant's live subscription conflict, the governed operator's lifecycle, and the state of any
-membership the requested roles already have. It creates nothing — not even the beta tier, which
-`inspectTier` judges read-only.
-
-**A stood-down identity accumulates no authority.** A membership is granted only to an `ACTIVE`
-operator. M02 denies while the operator is inactive, so a membership granted then would be latent
-authority springing into effect the moment somebody reinstates the identity — with nobody having
-decided to grant a role. An existing account skips `createLogin`, so this rule lives on the grant
-path where the re-run actually reaches it.
-
-**A withdrawn membership is not restored by a re-run.** Only `ACTIVE` is idempotent convergence;
-`REVOKED`, `EXPIRED`, `SUSPENDED` and `DRAFT` are refused with the row left exactly as it is, status
-and `valid_until` both, so the withdrawal and the record of it survive.
-
-**The beta tier is exactly six read permissions** — `battlecard.read`, `entity_twin.read`,
-`marketing_asset.read`, `priority_outreach_queue.read`, `prospect.read`, `role_briefing.read` — at
-zero charge. A tier already present under that key with a different permission set, status or price
-is REFUSED rather than reused or repaired. A tenant already on a different live subscription is
-refused too; `--replace-live-subscription` transitions the old one to `CANCELLED` transactionally,
-and is the only way to do it.
-
-**The two gates stay independent.** The tier is a commercial gate in front of M02, never a second
-authority: a partner whose role lacks a permission is denied whatever the tier says, and a tenant
-whose tier lacks one is denied whatever the role says.
-
-## 5b. Support a beta partner
-
-    php ops/manage-beta-user.php <command> --email=partner@example.com \
-      [--tenant-key=acme] [--password-stdin] [--reason=...] [--env=path]
-
-| Command | Effect |
-| --- | --- |
-| `inspect` | sanitized account state, memberships and commercial state |
-| `suspend` | stops sign-in; every live session ends in the same transaction |
-| `reactivate` | returns the account to full service — status `ACTIVE`, lock-out cleared, outstanding sessions ended so it signs in again |
-| `reset-password` | issues a replacement password and requires the holder to change it again |
-| `revoke-sessions` | ends every live session, leaving the lifecycle state alone |
-| `retire` | terminal — no transition out of it exists |
-
-**Two locks, and `reactivate` owns one.** `platform_users.failed_attempts` / `locked_until` is the
-account lock, and reactivate clears it. `auth_attempts` additionally rate-limits an ADDRESS for
-fifteen minutes, and that ledger is append-only by trigger — nothing clears it, deliberately. A
-partner who still cannot sign in straight after a reactivation is waiting out a window that expires
-by itself, not sitting behind a reactivation that did not work. The normal failed-login path never
-writes `status = 'LOCKED'`: a locked-out account is `ACTIVE` with a lock window, which is why
-reactivate is expressed as an end state rather than as a status transition.
-
-**The password is read from stdin and nowhere else.** There is no interactive prompt: PHP has no
-portable way to suppress terminal echo — the readline trick works on some builds and displays the
-password on others — and shelling out to `stty` is process execution, which the no-external-action
-tripwire forbids across this codebase. A prompt that might show the password is worse than none, so
-the command refuses and names the flag. Use your shell's own no-echo read, which is a mechanism you
-can inspect:
-
-    read -rs -p 'Password: ' PW; echo
-    printf '%s\n' "$PW" | php ops/onboard-beta-user.php ... --password-stdin
-
-or pipe straight from a secret manager, which is better again because the value never enters a
-shell variable.
-
-`--tenant-key` is a SCOPE, not a filter: an address outside the named tenant reports exactly as an
-address that does not exist, so the command cannot be used to ask whether somebody has a login
-elsewhere in the deployment. Every command emits identifiers, lifecycle states, counts and
-timestamps — never a password, hash, algorithm, session token, CSRF token or provider credential.
-
-**A partner's first sign-in lands on `/account/password`.** The redirect is a courtesy; the
-enforcement is a Kernel gate between routing and dispatch, so `/console`, `/console/app`, the
-workspace routes and every JSON read refuse until the password is replaced — the JSON reads with a
-distinct `PASSWORD_CHANGE_REQUIRED` status and no data envelope at all.
-
-**Every response carries `X-Request-ID`**, an opaque 22-character reference that encodes nothing
-about the tenant, workspace, user, address or time. It is shown on the authenticated `/support` page
-and on safe error pages, so a partner can report a failure by quoting it rather than describing it.
-Set `SUPPORT_CONTACT_TEXT` in `.env` or the support page will say no contact is configured; set
-`APP_RELEASE_REF` to the deployed SHA so a report and a build agree about which code produced it.
-
-Afterwards, grant the operator any further roles and workspace memberships, and confirm the tenant's
-tier — a role grant is not a purchase, and both gates are checked independently at every surface.
-
-## 6. Stand-down and rollback
-
-**Rollback is never a delete.** The storage refuses one, and the reason is that a rollback which
-destroyed the record would also destroy the proof the rollback happened. Five levers, in
-increasing order of scope:
-
-| Lever | Effect | Reversible? |
-| --- | --- | --- |
-| `M16::deactivateVisibility` | removes an artifact from the surface | yes, by a new activation |
-| `EvidenceSpine::setSourceStatus(..., 'REVOKED')` | stops NEW captures immediately; existing evidence stays valid as history | yes, by re-activating |
-| `OutreachArtifacts::revokeAuthorization` | an outstanding permission to act can never be consumed | no — issue a new one |
-| `DecisionLedger::supersede` | withdraws reliance on a release; the original stays byte-intact | no — restoring reliance is a NEW decision |
-| `M11::openIncident` | records that something needs looking at | resolved, not deleted |
-
-A CONSUMED authorization is **not** revocable. What it authorized already happened, and that is
-historical fact — recorded truthfully, never un-recorded.
-
-A CODE ROLLBACK IS A DIFFERENT THING and is not in the table above, because it touches no governed
-row at all: it restores the previous release and the Operator Console manifest that matches it. The
-full procedure — including why there are no down-migrations and why the manifest step is the one
-whose failure looks healthiest — is [`ops/rollback/README.md`](../ops/rollback/README.md).
-
-After any stand-down or rollback, verify it took effect:
-
-    php ops/rollback/verify-stand-down.php \
-      --expect-release=<the 40-character SHA that should now be live> \
-      --expect-fingerprint=<the source_fingerprint preflight printed for that release> \
-      --email=<an internal test account> \
-      --env=.env
-
-The fingerprint is what distinguishes "the configuration names this release" from "this release is
-what is on disk". Omitting it is permitted and raises a finding saying so.
-
-Read-only: no table, no file, no incident closed, no flag set. It checks the running release, the
-console manifest, the scheduler's inert posture, the live-read posture from the evidence registry,
-one named account, and **M10 stream integrity recomputed** rather than read from a status column.
-That last one is the difference between a ledger that verifies and one that merely says it does.
-
-The chain must verify WITH the correction in it. That is what makes the withdrawal provable rather
-than merely performed.
-
-## 6a. The scheduler tick
-
-Loopia gives no daemon **and no shell cron** — verbatim from its SSH page: *"Nej. För återkommande
-jobb (cronjobb) hänvisar vi i stället till schemaläggaren i Kundzonen."* This is distinct from SSH
-shell access, which Loopia does provide. An earlier draft of this runbook offered a Loopia crontab
-line. That was wrong and is gone.
-
-The full capability analysis and the decision table are in
-[`LOOPIA_HOST_MODEL.md`](./LOOPIA_HOST_MODEL.md) §4. In short:
-
-**Available fallback — an external scheduler over SSH.** If an external scheduler is deliberately
-chosen, a host you control can run the tick. Authority is SSH key possession; this is an option, not
-an assumption or a requirement silently added to the Loopia-only deployment:
-
-    */15 * * * * ssh <user>@<host> 'php ~/<domain>/worker/tick.php' >> /var/log/allfather-tick.log 2>&1
-
-or, equivalently, a POST from anywhere that can make one:
-
-    */15 * * * * curl -fsS -X POST -H "X-Scheduler-Token: $TOKEN" https://<domain>/scheduler.php
-
-**Kundzon's own scheduler is BLOCKED pending one answer from Loopia support.** It visits a URL, and
-Loopia documents neither the HTTP method nor whether custom headers can be set. The endpoint here is
-POST-only and requires `X-Scheduler-Token`, so a plain GET with no headers would get 405 and the
-schedule would silently do nothing. **Do not weaken the endpoint to fit an assumption.** The
-question to ask is written out in `LOOPIA_HOST_MODEL.md` §4.
-
-Kundzon also **emails the response body**, so nothing this endpoint returns may carry a credential —
-it does not, and that is a property to preserve if the response shape ever changes.
-
-**Token handling.** Generate it, store only its digest, keep the token in the caller:
-
-    php -r 'echo rtrim(strtr(base64_encode(random_bytes(32)), "+/", "-_"), "=") . PHP_EOL;'
-    # the sha256 of that value goes in .env as SCHEDULER_TOKEN_HASH
-
-The token goes in a HEADER, never a query string: a scheduler's configured URL sits in a control
-panel, in access logs, and in any Referer it generates. `SCHEDULER_TOKEN_HASH` is preferred over
-`SCHEDULER_TOKEN` because a read of `.env` then yields nothing presentable; if both are set the
-digest wins, so a rotation cannot be undone by a stale plaintext value left beside it.
-
-**An unconfigured scheduler is unreachable, not open.** With neither key set, every token is refused
-with `SCHEDULER_CREDENTIAL_NOT_CONFIGURED`.
-
-**What a tick does today.** The step registry is closed and EMPTY: `LIVE_READ_ACTIVATED` is false,
-so no handler performing an external read is registered, and the internal steps are a separate act
-to wire. The registry BOUNDS THE CLAIM, so a tick today claims nothing and reports:
-
-    {"status":"OK","claimed":0,"advanced":0,"failed":0,"released":0,
-     "executable_states":[],"stopped_reason":"SCHEDULER_INACTIVE"}
-
-That is a successful run with zero effect. No lease is taken, no attempt is consumed, no transition
-is written — so a scheduler firing every fifteen minutes against an inactive capability leaves every
-waiting job exactly as claimable on the day it is switched on. **Do not read a quiet log as work
-being done**, and do not read `SCHEDULER_INACTIVE` as a fault.
-
-## 7. Monitoring
-
-Run the audits on a schedule; each opens an incident through the certified M11 intake on failure:
-
-| Audit | Asks |
-| --- | --- |
-| P01 source freshness | is the authority behind this source still current? |
-| P01 diff integrity | does the recorded change still reconcile with its snapshots? |
-| P04 distribution authority | is every released briefing still routed to a configured recipient? |
-| P04 redaction policy | does each frozen profile still cover its role's current rules? |
-| P04 stakeholder provenance + no-covert-telemetry | role-class only, individual-free, public-sourced |
-| P05 evidence citation, draft-only, content compliance | every comparative claim cited; nothing external; no forbidden copy |
-| P07-A × 5 | reconciliation, consent integrity, content, PII firewall, **external-effect guard** |
-| M11 ledger integrity | does the decision chain still verify? |
-
-The external-effect guard is the one to alert on loudest. It is S5, and a positive finding means
-the deployment did something this codebase has no path to do.
-
-## 7a. ROAD_TEST_001 — operator-assisted, and it cannot be otherwise
-
-A road test is something an operator does WITH this build. It is not something the build does, and
-the difference is structural rather than procedural.
-
-**What this build cannot do on its own:**
-
-- **It cannot fetch anything.** `CurlHttpsTransport` and `DnsHostResolver` exist, are reviewed and
-  are tested — and nothing constructs either. The default transport refuses every request with
-  `LIVE_READ_NOT_ACTIVATED`. `tests/foundation/no_external_action_surface.php` asserts that no file
-  in the application, the entry points or the worker wires them, so activating live read is an
-  owner act with its own review rather than a line that could arrive in a refactor.
-- **It cannot record that a road test happened.** The claim-boundary flags live in
-  `upstream.lock.json`, which no code path writes. `road_test_001_executed`,
-  `live_read_activated`, `owner_go_granted` and `production_launch_authorized` are a human's to
-  change, and the foundation suite fails if any of them is true.
-- **It cannot approve itself.** The P07-A approval seat requires a human principal; there is no
-  service actor that can occupy it.
-
-**What an operator supplies, in order:**
-
-1. **A real source card, reviewed and approved** — a public page whose robots and terms have
-   actually been read by a person, recorded through `P01\SourceCards::project`. The card is the
-   authority; nothing downstream can manufacture one.
-2. **A decision to activate live read**, recorded before anything is wired. This is the owner act
-   the two unwired classes exist to make visible.
-3. **The wiring itself**: construct `CurlHttpsTransport` and `DnsHostResolver` and pass them to
-   `P01\Capture::captureMonitoredSource`. They are constructor arguments precisely so this is one
-   reviewable line at a call site rather than a default buried in a factory.
-4. **A capture**, then **a second capture** after the source changes, so change detection has two
-   snapshots to reconcile.
-5. **A reading of what it found** — including anything the change detector classified badly. A road
-   test whose findings are not read is a deployment rehearsal, not a road test.
-
-**What to record afterwards** is a record first and a flag second, and the order is the point. An
-operational claim is true only while `deployment-evidence.json` carries a record supporting it, and
-`tests/foundation/deployment_evidence_boundary.php` fails the build if the lock asserts one without.
-
-| Claim | Supported by |
-| --- | --- |
-| `live_read_activated` | a `LIVE_READ_ACTIVATION` PASS for the exact release, not later withdrawn |
-| `road_test_001_executed` | a `ROAD_TEST_001` record — **of any result**; execution is not success |
-| `loopia_capability_validated` | a `STAGING_DEPLOYMENT` PASS **and** a `LOOPIA_PROBE_001` PASS, from a host environment, for the same release |
-| `staging_deployed` | a `STAGING_DEPLOYMENT` PASS from a host environment |
-
-`road_test_001_executed` is the one worth reading twice: a road test that went badly is still a road
-test that was executed, and collapsing the two is how a failure becomes a green flag. The flag says
-it ran; the record says how it went; both are true and both are readable.
-
-The mechanics, the closed schema and the validator are in
-[`DEPLOYMENT_EVIDENCE_MODEL.md`](./DEPLOYMENT_EVIDENCE_MODEL.md).
-
-`owner_go_granted` and `production_launch_authorized` are separate from all of the above and depend
-on nothing in this file — no evidence collected on any host can support one. **Build completion is
-not launch authority**, and a green suite is evidence for a decision somebody else makes.
-
-## 8. Known untested surface
-
-Stated so nobody assumes otherwise:
-
-- **This has never run on Loopia shared hosting.** Development and CI verify PHP/MariaDB behavior,
-  but §4.2 and §4.3 exist precisely because the real shared host can differ in configuration,
-  privileges and import behavior. `deployment-evidence.json` carries **no records**, which is the
-  machine-readable form of the same statement.
-- **Cross-site isolation of the SSH/CLI identity on Loopia is unproved.** §3.2's canaries exist to
-  answer it and have never been run on a real host.
-- **Cross-site isolation of the WEB PHP identity is unproved, and this repository has no tool that
-  can prove it.** `LOOPIA_WEB_PHP_CROSS_SITE_ISOLATION_BLOCKER` closes only on Loopia's written
-  assurance or an equivalent host proof; it is a non-waivable prerequisite to placing any secret on
-  the host. See `LOOPIA_HOST_MODEL.md` §5 blocker 4 and `BETA_RUNBOOK.md` Gate E.3.
-- **`open_basedir`, the MariaDB account's TRIGGER privilege, row locking, foreign-key enforcement
-  and outbound HTTPS are unproved ON LOOPIA.** The probe demonstrates each rather than inferring it,
-  and it has only ever been run in CI and in development.
-- **The Kundzon scheduler's HTTP semantics are unknown**, recorded as
-  `LOOPIA_SCHEDULER_TRANSPORT_BLOCKER` in `LOOPIA_HOST_MODEL.md` §4. The probe reports
-  `scheduler_transport_verdict: UNVERIFIED` and will not report anything else; it is closed by a
-  question to Loopia support.
-- **No `.htaccess` directive has ever been interpreted by a web server.** Apache runs neither in
-  development nor in CI. §3.1's and §3.2's HTTP probes are what establish it, on a real host.
-- Hosted CI runs the full suite on PHP 8.2 — the supported floor — against **both MariaDB 10.6 and
-  10.11**, with each server version read back and asserted before the suite runs, and a
-  `release qualification` job that re-reads both machine-readable reports rather than trusting the
-  job status.
-- No road test has been executed. No live source has been captured outside the test suite. Nothing
-  in this repository constructs `CurlHttpsTransport` or `DnsHostResolver`.
+Production provisioning remains structurally refused because canonical customer/production identity
+vocabulary does not exist at the pinned head.

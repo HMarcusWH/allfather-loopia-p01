@@ -24,7 +24,7 @@
     "canonical_reresolved_note": "Re-fetched at the start of the repair pass. Canonical has not moved since the pin, so no AUTHORITY_CHANGE was raised and the P07-A conformance vectors generated from it speak for the pinned head."
   },
 
-  "alignment_status": "PINNED_PENDING_CONFORMANCE_IMPLEMENTATION",
+  "alignment_status": "PINNED_CODE_QUALIFIED_PENDING_LOOPIA_QUALIFICATION",
 
   "scope": {
     "product_modules": [

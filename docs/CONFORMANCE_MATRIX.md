@@ -10,31 +10,40 @@ is not.
 
 ## 1. Test execution, stated truthfully
 
-**Executed in this development container** — PHP 8.4.19, against BOTH servers: MariaDB
-10.6.21-MariaDB and MariaDB 10.11.14-MariaDB, each rebuilt from an EMPTY database and each version
-read back from the server it ran on rather than assumed from how the run was launched:
+**Current PR9 qualification measurement** — hosted GitHub Actions on PHP 8.2.33, against BOTH
+supported MariaDB lines: 10.6.28-MariaDB and 10.11.19-MariaDB. Each matrix leg starts from an empty
+database, reads back and asserts the actual server version, applies all migrations, re-applies them
+to prove idempotency/no drift, runs the capability probe, validates the empty deployment-evidence
+registry, then runs the full strict suite and publishes a sanitized machine-readable report.
 
 | Layer | Files | Assertions | 10.6 | 10.11 |
 | --- | --- | --- | --- | --- |
-| foundation | 8 | 919 | PASS | PASS |
+| foundation | 10 | 953 | PASS | PASS |
 | unit | 2 | 153 | PASS | PASS |
 | integration | 32 | 1797 | PASS | PASS |
 | conformance | 6 | 395 | PASS | PASS |
-| acceptance | 5 | 652 | PASS | PASS |
-| security | 20 | 1286 | PASS | PASS |
-| rollback | 2 | 76 | PASS | PASS |
-| **TOTAL** | **75** | **5278** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
+| acceptance | 6 | 668 | PASS | PASS |
+| security | 21 | 1302 | PASS | PASS |
+| rollback | 3 | 92 | PASS | PASS |
+| **TOTAL** | **80** | **5360** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
 
 Migrations were applied from empty and then re-applied on both servers: 19 applied, 0 drift, then
-19 skipped, 0 drift. **PR8 added no migration**; 19 is the same count the previous revision carried.
+19 skipped, 0 drift. **PR9 adds no migration.** The migration count remains 19.
 
-### One local run that did not pass, recorded rather than dropped
+The CI probe on both database versions reports `staging_host_verdict: READY` while deliberately
+reporting `live_read_host_verdict: NOT_QUALIFIED`, because CI does not perform the host-specific DNS
+resolution/outbound-HTTPS proof. `scheduler_transport_verdict` remains `UNVERIFIED`, the handler
+registry remains empty, and the probe explicitly grants no runtime authority, live-read activation,
+or deployment authorization. That distinction is part of the qualification result, not a caveat
+added afterwards.
 
-At this head, one 10.6 run in the development container failed a single test —
+### Earlier local lock-timeout observation, retained rather than erased
+
+At an earlier PR8 development revision, one local 10.6 run failed a single test —
 `security/p07a_privacy_foundation`, with `SQLSTATE[HY000] 1205 Lock wait timeout exceeded` raised
-by the harness's `TRUNCATE` reset at `tests/support/Harness.php:140`. It is recorded here because a
+by the harness's `TRUNCATE` reset at `tests/support/Harness.php:140`. It remains recorded because a
 matrix that only ever shows the runs that passed is a matrix nobody can use to recognise this if it
-happens again.
+happens again. It is **historical evidence**, not the current PR9 result above.
 
 **What was ruled out.** The probe lowers `innodb_lock_wait_timeout` to demonstrate row locking, which
 would produce exactly this symptom if it leaked — it does not: it is `SET SESSION`, and both servers
@@ -48,13 +57,14 @@ The container's MariaDB instances had been hard-killed by the sandbox and restar
 and the 10.6 instance logged InnoDB crash recovery on startup; that is a difference from CI, not an
 explanation, and it is not offered as one.
 
-**So it is UNATTRIBUTED, not dismissed.** CI has run this suite against real 10.6 and 10.11 on every
-commit of this branch without it. If it recurs, the thing to capture before anything else is
-`information_schema.innodb_trx` and the full process list *while the run is blocked* — after the
-timeout there is nothing left to see, which is why this entry cannot say more than it does.
+**So it is UNATTRIBUTED, not dismissed.** Hosted CI has since run the full strict suite cleanly on
+both supported MariaDB lines, including the current PR9 qualification above. If the timeout recurs,
+the thing to capture before anything else is `information_schema.innodb_trx` and the full process
+list *while the run is blocked* — after the timeout there is nothing left to see.
 
-These numbers are MEASURED, not remembered. They were taken by running the suite at the exact head
-this document describes, and the same run wrote a machine-readable report:
+These current numbers are MEASURED, not remembered. CI wrote the same result as machine-readable
+qualification reports for both database lines, and the final `release qualification` job downloaded
+and re-read them rather than trusting matrix-job status alone.
 
 **And they are measured in a way that cannot vary with the checkout.** A CI run once reported four
 fewer than a developer machine at the same commit, because an assertion loop in
@@ -88,6 +98,17 @@ went stale — a count in two places is a count that will eventually disagree wi
 | rollback | `stand_down_verifier.php` | that every contradiction of a stood-down posture produces a finding — and that the stood-down posture itself produces none |
 | foundation | the web-PHP isolation policy block in `deployment_boundary.php` | that the blocker stays a non-waivable pre-secret gate in all three normative documents, and that the CLI canary never starts claiming to close it. It **throws** rather than asserting, deliberately: a structural policy over launch documentation should not inflate a published assertion total, so a violation fails the file while a clean policy adds no count |
 
+### What PR9 adds to the qualification surface
+
+| Layer | Added / changed | What it proves |
+| --- | --- | --- |
+| foundation | `release_packaging_boundary.php`, `runtime_storage_boundary.php` | release preparation comes from the exact Git object; Node and npm are pinned; deployment cannot silently ship a dirty checkout; destructive root rsync cannot own runtime storage or manifest-last console assets |
+| acceptance | `unhandled_failure_over_http.php` | an unexpected handler failure becomes a sanitized 500 that still carries the request support reference rather than escaping the request boundary |
+| security | `runtime_invariant_probe.php` | the real runtime database can be qualified against the TEST workspace external-effect CHECK and a real append-only governance table without widening M10's canonical caller/reference surface |
+| rollback | `source_fingerprint_release_assets.php` | the release fingerprint commits to the current manifest and referenced assets while intentionally retained historical content hashes do not create false rollback failures |
+| runtime/support | `RequestLog` + deployment storage rules | support references are written to deterministic private `storage/request.log`, and release deployment preserves that runtime state rather than deleting or uploading it from a checkout |
+| runbook/rollback | first-release and later-release procedures | the first deployment honestly proves `INITIAL_RELEASE_RESTORE`; only a later deployment can claim `PREVIOUS_RELEASE_ROLLBACK` |
+
 Run with `php tests/run.php --strict`. Under `--strict` a skip is a non-zero exit, so an
 unreachable database cannot be mistaken for a green suite.
 
@@ -106,24 +127,24 @@ Företag is 10.6 while 10.11 is Företag Plus — proving only 10.11 would have 
 customer may not be on. CI runs both as a matrix, and each job asserts the server version it
 actually got rather than the one it asked for.
 
-### What has NOT been independently verified
+### Independently verified vs still unverified
 
-- **Hosted GitHub Actions CI runs the full suite on PHP 8.2.33 against BOTH MariaDB 10.6.28 and
-  10.11.19.** Each matrix leg reads back and asserts the actual server version before migrations and
-  the strict suite. This is the environment that has verified the code on the SUPPORTED PHP floor
-  rather than on 8.4 — worth noting, because the development container runs 8.4.19 and a
-  language-level regression would show up first here.
+- **Hosted GitHub Actions CI has independently verified the full strict suite on PHP 8.2.33 against
+  BOTH MariaDB 10.6.28 and 10.11.19.** Each matrix leg reads back and asserts the actual server
+  version before migrations and the strict suite. The current PR9 qualification is 5360 passing,
+  zero failing and zero skipped on each database line, and the separate release-qualification job
+  re-read both reports successfully.
 
-  CI **failed** on commits `d92c1fd` and `f12d249`, and the failure was real: an acceptance
+  Earlier CI **failed** on commits `d92c1fd` and `f12d249`, and the failure was real: an acceptance
   assertion queried `information_schema` with an unordered `LIMIT 1` and matched a different
   table's constraint on the runner than it did locally. Fixed in `5d1a16e`, which also scoped the
   five other instances of the same pattern. Recorded here rather than quietly repaired, because
   an earlier draft of this document claimed CI had "reported green on pushed commits" — that
   claim was made from notification summaries rather than from the runs, and it was wrong.
 - **Loopia shared hosting has not been tested.** The target host is stated in the README; no
-  deployment to it has occurred. See `DEPLOYMENT_RUNBOOK.md` §8.
+  deployment to it has occurred. See `DEPLOYMENT_RUNBOOK.md`.
 - **No road test has been executed.** See `LOOPIA_CAPABILITY_REPORT.md` §5.
-- **`deployment-evidence.json` carries zero records**, which is the machine-readable form of the two
+- **`deployment-evidence.json` carries zero records**, which is the machine-readable form of the host
   statements above. Every evidence-backed operational claim is therefore false, and
   `tests/foundation/deployment_evidence_boundary.php` fails the build if one is asserted without a
   record. What a green suite establishes is that the CODE is qualified; it establishes nothing about

@@ -4,52 +4,27 @@ declare(strict_types=1);
 
 namespace Allfather\Loopia\Ops;
 
+use Allfather\Loopia\Http\ConsoleAssetManifest;
+
 /**
- * A digest of the code a deployment is actually running.
+ * Deterministic digest of the code a deployment is actually running.
  *
- * WHY THIS EXISTS. `APP_RELEASE_REF` is a line in `.env` that an operator maintains by hand. It says
- * which release somebody INTENDED to deploy, and a rollback is two separate steps — restore the
- * code, update the configuration. If the restore fails or is skipped while the configuration step
- * succeeds, `APP_RELEASE_REF` equals the release you asked for and the old code is still serving.
- * Every other signal an operator has looks healthy: a valid console manifest from the previous
- * build, an unchanged scheduler posture, a ledger that verifies. So a verifier that read
- * `APP_RELEASE_REF` and called that proof of the running code was reporting the operator's
- * intention back to them under the name of a measurement.
- *
- * This is a measurement. It hashes the bytes on disk.
- *
- * WHAT IT COVERS, and why exactly these four directories: they are what the web server serves and
- * what the runtime loads. `storage/` is excluded because it is runtime state that changes on every
- * request and would make the digest differ from itself a second later; `.env` because it is
- * per-deployment configuration, not code, and must never be hashed into a value that travels in a
- * report. `tests/`, `frontend/` and `docs/` are excluded because the deployment profile decides
- * whether they are copied at all — a digest that changed with the profile could not be compared
- * between the checkout it was computed on and the host it is checked against.
- *
- * WHAT IT IS NOT. It is not a signature and not a tamper seal: anyone who can change the files can
- * recompute it. It answers one question — is the code here the code that was preflighted — and an
- * attacker with write access to the tree was never in the threat model this answers.
+ * Runtime storage and configuration are deliberately excluded. The Operator Console is special:
+ * the release protocol retains older content-hashed assets so already-served pages do not break.
+ * The digest therefore commits to the CURRENT manifest and the files that manifest names, while a
+ * separate verifier rejects unsafe unreferenced files. Historical safe hashes do not make two
+ * otherwise-identical releases look different.
  */
 final class SourceFingerprint
 {
-    /**
-     * The directories that constitute the running deployment.
-     *
-     * @var list<string>
-     */
+    /** @var list<string> */
     public const DIRECTORIES = ['app', 'database', 'public_html', 'worker'];
 
-    /** The digest of a tree that has none of those directories — refused rather than reported. */
     public const NOT_AVAILABLE = 'NOT_AVAILABLE';
 
-    /**
-     * The digest of the tree at `$root`, or `NOT_AVAILABLE` when it holds no application at all.
-     *
-     * DETERMINISTIC, so two machines agree. Paths are collected relative to the root and sorted as
-     * byte strings before anything is hashed — directory iteration order is a property of the
-     * filesystem, and a digest that depended on it would differ between the checkout and the host
-     * for two trees that are identical.
-     */
+    private const CONSOLE_DIR = 'public_html/assets/operator-console';
+    private const CONSOLE_PREFIX = '/assets/operator-console/';
+
     public static function compute(string $root): string
     {
         $inventory = self::inventory($root);
@@ -59,8 +34,6 @@ final class SourceFingerprint
 
         $context = hash_init('sha256');
         foreach ($inventory as $relative => $digest) {
-            // NUL and newline as separators, neither of which a path may contain, so no pair of
-            // different inventories can serialize to the same byte string.
             hash_update($context, $relative . "\0" . $digest . "\n");
         }
 
@@ -68,14 +41,7 @@ final class SourceFingerprint
     }
 
     /**
-     * Every file that counts, as `relative path => sha256`, sorted by path.
-     *
-     * A symlink is followed for its content like any other file. It is not treated as a special
-     * case because the deployment layout forbids one in the served tree and
-     * `tests/foundation/deployment_boundary.php` is what enforces that; this function measures, it
-     * does not police.
-     *
-     * @return array<string, string>
+     * @return array<string, string> POSIX-relative path => sha256/unreadable, sorted by path.
      */
     public static function inventory(string $root): array
     {
@@ -86,8 +52,6 @@ final class SourceFingerprint
         foreach (self::DIRECTORIES as $directory) {
             $base = $root . DIRECTORY_SEPARATOR . $directory;
             if (!is_dir($base)) {
-                // A profile that does not carry this directory is not an error here. The digest
-                // simply describes what is present, and a mismatch is what the comparison reports.
                 continue;
             }
 
@@ -99,21 +63,127 @@ final class SourceFingerprint
                 if (!$file instanceof \SplFileInfo || !$file->isFile()) {
                     continue;
                 }
-                $path = $file->getPathname();
-                $relative = substr($path, strlen($root) + 1);
-                $digest = @hash_file('sha256', $path);
-                if (!is_string($digest)) {
-                    // An unreadable file is recorded as unreadable rather than skipped. Skipping it
-                    // would let a file that cannot be read produce the same digest as one that is
-                    // not there, and those are different deployments.
-                    $digest = 'unreadable';
+                $relative = self::relative($root, $file->getPathname());
+                if (str_starts_with($relative, self::CONSOLE_DIR . '/')) {
+                    // Current console files are added from the validated manifest below. This skips
+                    // deliberately retained old hashes without skipping the current release.
+                    continue;
                 }
-                $files[$relative] = $digest;
+                self::addDigest($files, $relative, $file->getPathname());
             }
         }
 
+        self::addCurrentConsole($root, $files);
         ksort($files, SORT_STRING);
 
         return $files;
+    }
+
+    /**
+     * Unsafe entries in the public Operator Console stage that are not part of the current manifest.
+     * Safe historical hashes are intentionally allowed because manifest-last deployment retains them.
+     *
+     * @return list<string>
+     */
+    public static function unexpectedConsoleEntries(string $root): array
+    {
+        $stage = rtrim($root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
+            . 'public_html' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'operator-console';
+        if (!is_dir($stage) || is_link($stage)) {
+            return [];
+        }
+
+        try {
+            $manifest = (new ConsoleAssetManifest($stage))->load();
+        } catch (\Throwable) {
+            // Manifest validity has its own stand-down finding. Do not manufacture a second list
+            // from a manifest we cannot trust.
+            return [];
+        }
+
+        $current = ['manifest.json' => true];
+        foreach ([$manifest['script'], $manifest['style'], ...$manifest['assets']] as $url) {
+            if (str_starts_with($url, self::CONSOLE_PREFIX)) {
+                $current[substr($url, strlen(self::CONSOLE_PREFIX))] = true;
+            }
+        }
+
+        $unsafe = [];
+        $walk = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($stage, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST,
+        );
+        foreach ($walk as $entry) {
+            if (!$entry instanceof \SplFileInfo) {
+                continue;
+            }
+            $relative = self::relative($stage, $entry->getPathname());
+            if ($entry->isLink()) {
+                $unsafe[] = $relative;
+                continue;
+            }
+            if ($entry->isDir()) {
+                if ($relative !== 'assets') {
+                    $unsafe[] = $relative . '/';
+                }
+                continue;
+            }
+            if (!$entry->isFile() || isset($current[$relative])) {
+                continue;
+            }
+
+            $safeHistorical = preg_match('/^console\.[A-Z0-9]+\.(?:js|css)$/D', $relative) === 1
+                || preg_match('/^assets\/[A-Za-z0-9_-]+\.[A-Z0-9]+\.svg$/D', $relative) === 1;
+            if (!$safeHistorical) {
+                $unsafe[] = $relative;
+            }
+        }
+
+        sort($unsafe, SORT_STRING);
+
+        return array_values(array_unique($unsafe));
+    }
+
+    /** @param array<string, string> $files */
+    private static function addCurrentConsole(string $root, array &$files): void
+    {
+        $stage = rtrim($root, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
+            . 'public_html' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'operator-console';
+        $manifestPath = $stage . DIRECTORY_SEPARATOR . 'manifest.json';
+        if (!is_file($manifestPath)) {
+            return;
+        }
+
+        self::addDigest($files, self::CONSOLE_DIR . '/manifest.json', $manifestPath);
+
+        try {
+            $manifest = (new ConsoleAssetManifest($stage))->load();
+        } catch (\Throwable) {
+            return;
+        }
+
+        foreach ([$manifest['script'], $manifest['style'], ...$manifest['assets']] as $url) {
+            if (!str_starts_with($url, self::CONSOLE_PREFIX)) {
+                continue;
+            }
+            $relativeConsole = substr($url, strlen(self::CONSOLE_PREFIX));
+            $path = $stage . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativeConsole);
+            self::addDigest($files, self::CONSOLE_DIR . '/' . $relativeConsole, $path);
+        }
+    }
+
+    /** @param array<string, string> $files */
+    private static function addDigest(array &$files, string $relative, string $path): void
+    {
+        $digest = @hash_file('sha256', $path);
+        $files[$relative] = is_string($digest) ? $digest : 'unreadable';
+    }
+
+    /** Platform-independent key: checkout on Windows and host on Linux must hash identically. */
+    private static function relative(string $root, string $path): string
+    {
+        $relative = substr($path, strlen(rtrim($root, DIRECTORY_SEPARATOR)) + 1);
+
+        return str_replace('\\', '/', str_replace(DIRECTORY_SEPARATOR, '/', $relative));
     }
 }
