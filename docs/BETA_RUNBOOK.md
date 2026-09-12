@@ -258,6 +258,11 @@ tier.
 `scheduler_transport_verdict` will be `UNVERIFIED`, and that is the finding rather than a gap in the
 probe — see [`LOOPIA_HOST_MODEL.md`](./LOOPIA_HOST_MODEL.md) §4.
 
+**Do not run this at the same time as Gate J.** The probe proves foreign keys, row locking and
+triggers against disposable tables in the database `--env` names, and briefly holds a row lock; the
+test harness truncates every table in its schema. Run them at their own gates, against their own
+databases, and neither will ever see the other.
+
 Save both reports. They become `LOOPIA_PROBE_001` evidence at Gate R.
 
 ## Gate I — Migrations

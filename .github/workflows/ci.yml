@@ -152,8 +152,14 @@ jobs:
       # because nothing was demonstrated, which is the honest answer for a run that made no request.
       # `--allow-network` is deliberately NOT passed: CI must not make an outbound request nobody
       # asked for, and a READY live-read verdict obtained here would say nothing about Loopia anyway.
+      #
+      # `set -o pipefail` is NOT optional here. GitHub's default shell is `bash -e`, which takes the
+      # exit status of the LAST command in a pipeline — so a failing probe piped into `tee` would be
+      # a green step reporting MISSING_CAPABILITY into an artifact nobody read.
       - name: Host capability probe
-        run: php ops/loopia-probe/probe.php --env=.env.testing | tee probe-${{ matrix.mariadb }}.json
+        run: |
+          set -o pipefail
+          php ops/loopia-probe/probe.php --env=.env.testing | tee probe-${{ matrix.mariadb }}.json
 
       - name: Deployment evidence registry
         run: php ops/evidence/validate.php

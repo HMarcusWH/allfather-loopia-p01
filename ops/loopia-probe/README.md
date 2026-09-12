@@ -15,6 +15,15 @@ you that this account may create a trigger, that this instance enforces foreign 
 locking behaves. Each is proved against disposable, randomly-named tables and cleaned up afterwards,
 including when the proof itself failed.
 
+**The disposable tables live in the database `--env` names, and briefly hold a row lock.** That is
+unavoidable: a temporary table supports neither a foreign key nor a trigger, and is invisible to the
+second connection the locking proof needs, so the proofs need real tables. The consequence is
+operational rather than architectural — **do not run the probe and `tests/run.php` against the same
+database at the same time.** The harness truncates every base table in its schema between suites,
+and it would block on the probe's lock for the server's `innodb_lock_wait_timeout`. The runbook
+sequences them at different gates and against different databases, which is why this is a note
+rather than a defect.
+
 ## 2. Three verdicts, because there are three questions
 
 Version 1 emitted one verdict, and it could read `CAPABILITIES_DEMONSTRATED` on a run where outbound

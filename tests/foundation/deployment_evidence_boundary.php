@@ -263,6 +263,10 @@ Assert::equalsList(
     $supports([$activation, [...$standDown, 'recorded_at' => '2026-09-11T10:00:00.000Z']]),
     'and an exact tie resolves against the claim',
 );
+// THE ENVIRONMENT RULE IS ASYMMETRIC, and that is the fail-closed direction: CI cannot activate
+// anything on a host it has never touched, but a withdrawal is honoured from anywhere. Discarding a
+// stand-down because it was filed under the wrong environment would leave the claim standing on a
+// technicality.
 Assert::equalsList(
     [],
     $supports([[...$activation, 'environment' => 'ci']]),
@@ -270,8 +274,61 @@ Assert::equalsList(
 );
 Assert::equalsList(
     [],
+    $supports([$activation, [...$standDown, 'environment' => 'ci']]),
+    'but a stand-down withdraws it from any environment',
+);
+Assert::equalsList(
+    [],
     $supports([[...$activation, 'result' => 'FAIL']]),
     'nor by an activation that FAILED',
+);
+
+// A WITHDRAWAL THAT FAILED IS NOT A WITHDRAWAL. This is the one place where reading only the latest
+// record would be wrong in the dangerous direction: it would report live read OFF at exactly the
+// moment somebody has just discovered they could not turn it off.
+Assert::equalsList(
+    ['live_read_activated'],
+    $supports([$activation, [...$standDown, 'result' => 'FAIL']]),
+    'a FAILED stand-down leaves live read activated — the withdrawal did not happen',
+);
+// And a failed RE-activation of something already on changes nothing either: a failed attempt is
+// not a state transition in either direction.
+Assert::equalsList(
+    ['live_read_activated'],
+    $supports([
+        $activation,
+        [...$activation, 'record_id' => 'LR-ON-2', 'result' => 'FAIL', 'recorded_at' => '2026-09-11T12:00:00.000Z'],
+    ]),
+    'and a failed re-activation does not turn off what is already on',
+);
+// The history is folded in TIMESTAMP order, not file order. A stand-down listed first but timestamped
+// later still wins.
+Assert::equalsList(
+    [],
+    $supports([$standDown, $activation]),
+    'ordering is by recorded_at, whatever order the records appear in the file',
+);
+// ONE TIMELINE, NOT ONE PER RELEASE — and this is the case that makes it necessary rather than
+// merely simpler. Standing live read down means removing the wiring in a reviewed change and
+// DEPLOYING that release, so the stand-down record necessarily names a NEWER release than the
+// activation it withdraws. A per-release rule would file the two in separate buckets and leave the
+// old activation standing forever: the claim would be impossible to withdraw by the exact procedure
+// `ops/rollback/README.md` prescribes.
+Assert::equalsList(
+    [],
+    $supports([
+        $activation,
+        [...$standDown, 'release_ref' => $sha('c')],
+    ]),
+    'a stand-down on the NEXT release withdraws the activation on the previous one',
+);
+Assert::equalsList(
+    ['live_read_activated'],
+    $supports([
+        [...$standDown, 'release_ref' => $sha('c'), 'recorded_at' => '2026-09-11T08:00:00.000Z'],
+        $activation,
+    ]),
+    'and an activation after a stand-down turns it back on',
 );
 
 // EXECUTION IS NOT SUCCESS. This is the one claim a FAIL supports, and it is deliberate: a road
@@ -282,6 +339,23 @@ Assert::equalsList(
     $supports([$record(['kind' => 'ROAD_TEST_001', 'result' => 'FAIL', 'environment' => 'staging'])]),
     'a FAILED road test still makes road_test_001_executed true',
 );
+// STAND_DOWN IS THE THIRD THING, and it supports nothing here either — a road test that was
+// deliberately withdrawn is not a road test that was executed. "Execution is not success" widens
+// what counts as executed; it does not make every record count.
+Assert::equalsList(
+    [],
+    $supports([$record(['kind' => 'ROAD_TEST_001', 'result' => 'STAND_DOWN', 'environment' => 'staging'])]),
+    'a road test that was STOOD DOWN was not executed',
+);
+// The same rule, stated once over the whole vocabulary: no claim anywhere is supported by a
+// STAND_DOWN record alone.
+foreach (DeploymentEvidence::KINDS as $kind) {
+    Assert::equalsList(
+        [],
+        $supports([$record(['kind' => $kind, 'result' => 'STAND_DOWN', 'environment' => 'staging'])]),
+        "a STAND_DOWN {$kind} record supports nothing",
+    );
+}
 Assert::equalsList(
     [],
     $supports([$record(['kind' => 'ROLLBACK_DRILL', 'environment' => 'staging'])]),

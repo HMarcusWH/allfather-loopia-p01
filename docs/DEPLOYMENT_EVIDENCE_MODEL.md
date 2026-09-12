@@ -130,28 +130,50 @@ claim about the real deployment target.
 | `conformance_complete` | a `CONFORMANCE` record with result `PASS` exists |
 | `staging_deployed` | a `STAGING_DEPLOYMENT` `PASS` from a **host** environment exists |
 | `loopia_capability_validated` | a `STAGING_DEPLOYMENT` `PASS` **and** a `LOOPIA_PROBE_001` `PASS`, both from a host environment and both for **the same `release_ref`** |
-| `live_read_activated` | for some release, the latest of its `LIVE_READ_ACTIVATION` / `LIVE_READ_STAND_DOWN` records is an `ACTIVATION` with result `PASS` |
-| `road_test_001_executed` | a `ROAD_TEST_001` record exists, **with any result** |
+| `live_read_activated` | folding all `LIVE_READ_ACTIVATION` / `LIVE_READ_STAND_DOWN` records in time order leaves the deployment activated |
+| `road_test_001_executed` | a `ROAD_TEST_001` record exists with result `PASS` **or** `FAIL` |
 
 Three of these deserve their reasoning stated rather than assumed.
 
 **The host pair must name one release.** A probe of release X beside a deployment of release Y
 qualifies nothing. The pair is the evidence; neither half is.
 
-**Live read is latest-wins, per release.** A registry that answered "an activation record exists"
-would keep the claim true through every withdrawal that came after it. Canonical timestamps sort
-lexicographically by construction, so ordering needs no parsing. An exact tie resolves **against**
-the claim: a registry that cannot tell which happened first is not the thing that should say live
-read is on.
+**Live read is one timeline, folded in time order.** Three decisions here, each with a reason.
 
-**Execution is not success.** `road_test_001_executed` is supported by a `ROAD_TEST_001` record of
-any result, `FAIL` included — because "we ran one" and "it passed" are different facts, and
+*One timeline, not one per release.* `live_read_activated` is a claim about the DEPLOYMENT, and a
+deployment runs one release at a time — so `release_ref` documents which release each event
+concerned rather than partitioning the state. Partitioning it would break the only withdrawal
+procedure there is: standing live read down means removing the wiring in a reviewed change and
+**deploying that release**, so the stand-down necessarily names a *newer* release than the
+activation it withdraws. A per-release rule would file the two in separate buckets and leave the old
+activation standing forever.
+
+*Folded, not read off the latest record.* A `LIVE_READ_STAND_DOWN` whose result is `FAIL` is a
+withdrawal that **did not happen**, so live read is still on. A latest-wins rule would report it off
+at exactly the moment somebody has just discovered they could not turn it off. Each record is
+therefore applied for what it is: an activation that passed turns the claim on, a withdrawal that
+did not fail turns it off, and anything that failed changes nothing, because a failed attempt is not
+a state transition.
+
+*The environment rule is asymmetric.* An **activation** counts only from a host environment — CI has
+never touched Loopia and cannot activate anything there. A **withdrawal** counts from anywhere:
+honouring a stand-down is always the safe move, and discarding one because it was filed under the
+wrong environment would leave the claim standing on a technicality.
+
+Canonical timestamps sort lexicographically by construction, so ordering needs no parsing and the
+order in the file is irrelevant. An exact tie applies the `STAND_DOWN` last and therefore resolves
+**against** the claim.
+
+**Execution is not success.** `road_test_001_executed` is supported by a `ROAD_TEST_001` record
+that `PASS`ed **or** `FAIL`ed — because "we ran one" and "it passed" are different facts, and
 collapsing them is precisely how a failed road test becomes a green flag. Every other claim here
 requires `PASS`. If a road test failed, the flag says it was executed and the record says it failed;
 both are true and both are readable.
 
-`STAND_DOWN` supports nothing. It is neither a pass nor a fault — it records that an activity was
-deliberately withdrawn, and it must not read as either.
+`STAND_DOWN` supports nothing, here included. It is neither a pass nor a fault — it records that an
+activity was deliberately withdrawn, and a road test that was stood down is not a road test that was
+executed. "Execution is not success" widens what counts as executed; it does not make every record
+count.
 
 ## 7. Recording evidence
 

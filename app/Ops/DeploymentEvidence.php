@@ -400,16 +400,20 @@ final class DeploymentEvidence
                 'LOOPIA_PROBE_001',
             ),
             'live_read_activated' => $this->liveReadStandsActivated(),
-            // ANY result. Execution is not success, and a failed road test is still a road test
-            // that was executed — see the class docblock.
-            'road_test_001_executed' => $this->hasAny('ROAD_TEST_001'),
+            // PASS **OR FAIL**, and deliberately not STAND_DOWN. Execution is not success: a road
+            // test that went badly is still a road test that was executed, and collapsing the two
+            // is how a failure becomes a green flag. A STAND_DOWN is the third thing — a road test
+            // that was deliberately withdrawn rather than run — and it supports nothing, which is
+            // what `STAND_DOWN supports nothing` means everywhere else in this model.
+            'road_test_001_executed' => $this->hasResultIn('ROAD_TEST_001', ['PASS', 'FAIL']),
         ];
     }
 
-    private function hasAny(string $kind): bool
+    /** @param list<string> $results */
+    private function hasResultIn(string $kind, array $results): bool
     {
         foreach ($this->records as $record) {
-            if ($record['kind'] === $kind) {
+            if ($record['kind'] === $kind && in_array((string) $record['result'], $results, true)) {
                 return true;
             }
         }
@@ -474,46 +478,75 @@ final class DeploymentEvidence
     }
 
     /**
-     * Whether live read currently stands activated for any release.
+     * Whether live read currently stands activated for this deployment.
      *
-     * LATEST WINS, PER RELEASE. An activation followed by a stand-down is not activated, and a
-     * registry that answered "an activation record exists" would keep the claim true through every
-     * withdrawal that came after it. Canonical timestamps sort lexicographically by construction
-     * (`Core\Clock`), so ordering needs no parsing; on an exact tie the STAND_DOWN wins, because a
-     * registry that cannot tell which happened first should not be the thing that says live read is
-     * on.
+     * ONE TIMELINE, NOT ONE PER RELEASE. `live_read_activated` is a claim about the DEPLOYMENT, and
+     * a deployment runs one release at a time — so activation and withdrawal are events on a single
+     * history, and `release_ref` documents which release each event concerned rather than
+     * partitioning the state.
+     *
+     * Partitioning it would break the only withdrawal procedure there is. Standing live read down
+     * means removing the wiring in a reviewed change and DEPLOYING THAT RELEASE, so the stand-down
+     * record necessarily names a NEWER release than the activation it withdraws
+     * (`ops/rollback/README.md` §4). A per-release rule would file the two in different buckets and
+     * leave the old activation standing forever — the claim would be impossible to withdraw by the
+     * exact procedure the runbook prescribes.
+     *
+     * FOLDED, NOT READ OFF THE LATEST RECORD, because a FAILED withdrawal matters in the dangerous
+     * direction: a `LIVE_READ_STAND_DOWN` whose result is `FAIL` is a withdrawal that DID NOT
+     * HAPPEN, so live read is still on. A latest-wins rule would report it off at exactly the moment
+     * somebody has just discovered they could not turn it off. Each record is therefore applied for
+     * what it is: an activation that passed turns the claim on; a withdrawal that did not fail turns
+     * it off; anything that failed changes nothing, because a failed attempt is not a state
+     * transition.
+     *
+     * THE ENVIRONMENT RULE IS ASYMMETRIC, and that asymmetry is the fail-closed direction. An
+     * ACTIVATION counts only from a host environment — CI has never touched Loopia and cannot
+     * activate anything there. A WITHDRAWAL counts from anywhere: honouring a stand-down is always
+     * the safe move, and discarding one because it was filed under the wrong environment would leave
+     * the claim standing on a technicality.
+     *
+     * Canonical timestamps sort lexicographically by construction (`Core\Clock`), so ordering needs
+     * no parsing and the order in the file is irrelevant. On an exact tie the STAND_DOWN is applied
+     * last and therefore wins: a registry that cannot tell which happened first should not be the
+     * thing that says live read is on.
      */
     private function liveReadStandsActivated(): bool
     {
-        /** @var array<string, array{at: string, kind: string, result: string}> $latest */
-        $latest = [];
+        $history = [];
         foreach ($this->records as $record) {
             $kind = (string) $record['kind'];
-            if ($kind !== 'LIVE_READ_ACTIVATION' && $kind !== 'LIVE_READ_STAND_DOWN') {
+            if ($kind === 'LIVE_READ_ACTIVATION') {
+                if (!$this->supportsHostClaim($record)) {
+                    continue;
+                }
+            } elseif ($kind !== 'LIVE_READ_STAND_DOWN') {
                 continue;
             }
-            if (!$this->supportsHostClaim($record)) {
-                continue;
-            }
-            $release = (string) $record['release_ref'];
-            $at = (string) $record['recorded_at'];
-            $current = $latest[$release] ?? null;
-            if ($current === null || $at > $current['at']) {
-                $latest[$release] = ['at' => $at, 'kind' => $kind, 'result' => (string) $record['result']];
-                continue;
-            }
-            if ($at === $current['at'] && $kind === 'LIVE_READ_STAND_DOWN') {
-                $latest[$release] = ['at' => $at, 'kind' => $kind, 'result' => (string) $record['result']];
+            $history[] = [
+                'at' => (string) $record['recorded_at'],
+                'kind' => $kind,
+                'result' => (string) $record['result'],
+            ];
+        }
+
+        usort(
+            $history,
+            // Timestamp first; then ACTIVATION before STAND_DOWN, so a tie resolves against the
+            // claim rather than by whichever order the file happened to list them in.
+            static fn (array $a, array $b): int => [$a['at'], $a['kind']] <=> [$b['at'], $b['kind']],
+        );
+
+        $activated = false;
+        foreach ($history as $event) {
+            if ($event['kind'] === 'LIVE_READ_ACTIVATION' && $event['result'] === 'PASS') {
+                $activated = true;
+            } elseif ($event['kind'] === 'LIVE_READ_STAND_DOWN' && $event['result'] !== 'FAIL') {
+                $activated = false;
             }
         }
 
-        foreach ($latest as $state) {
-            if ($state['kind'] === 'LIVE_READ_ACTIVATION' && $state['result'] === 'PASS') {
-                return true;
-            }
-        }
-
-        return false;
+        return $activated;
     }
 
     /**
