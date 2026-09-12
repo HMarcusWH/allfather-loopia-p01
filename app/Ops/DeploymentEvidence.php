@@ -127,6 +127,57 @@ final class DeploymentEvidence
         'production_launch_authorized',
     ];
 
+    /**
+     * The two files whose content is a human's to change, and which no tool in this repository may
+     * write.
+     *
+     * `tests/foundation/no_external_action_surface.php` proves that no code path in `app/`,
+     * `public_html/`, `worker/` or `ops/` writes either. It cannot prove it of `tests/`, because the
+     * test tree is full of code that legitimately writes files — so a writer that lives there and
+     * takes a caller-chosen path has to refuse these two itself. `tests/run.php --report-json` is
+     * the one such writer, and `isGovernedPath()` is what it asks.
+     *
+     * @var list<string>
+     */
+    public const GOVERNED_FILES = ['upstream.lock.json', 'deployment-evidence.json'];
+
+    /**
+     * Whether `$candidate` is one of this repository's governed files.
+     *
+     * RESOLVED THE WAY A WRITE WOULD RESOLVE IT. `dirname('upstream.lock.json')` is `.`, and a
+     * naive "is the directory real?" check therefore accepts a bare governed filename and writes it
+     * into the working directory — which, for anybody running from the repository root, IS the
+     * governed file. So the directory is resolved through `realpath` and recombined with the
+     * basename, which collapses `./`, `docs/../` and a symlinked path alike.
+     *
+     * A governed FILENAME somewhere else entirely — `/tmp/upstream.lock.json` — is not this
+     * repository's governed file and is not refused. Refusing by basename would be refusing a name
+     * rather than a file, which is a different and less honest rule.
+     */
+    public static function isGovernedPath(string $root, string $candidate): bool
+    {
+        $rootReal = realpath($root);
+        if ($rootReal === false || $candidate === '') {
+            return false;
+        }
+
+        $directory = dirname($candidate);
+        $directoryReal = realpath($directory === '' ? '.' : $directory);
+        if ($directoryReal === false) {
+            // The directory does not exist, so nothing can be written there at all.
+            return false;
+        }
+
+        $resolved = $directoryReal . DIRECTORY_SEPARATOR . basename($candidate);
+        foreach (self::GOVERNED_FILES as $governed) {
+            if ($resolved === $rootReal . DIRECTORY_SEPARATOR . $governed) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** @var list<string> */
     public const REQUIRED_TOP_LEVEL = ['schema_version', 'projection_id', 'canonical_pin', 'records'];
 

@@ -11,23 +11,46 @@ is not.
 ## 1. Test execution, stated truthfully
 
 **Executed in this development container** — PHP 8.4.19, against BOTH servers: MariaDB
-10.6.28-MariaDB-ubu2204 and MariaDB 10.11.19-MariaDB-ubu2204, each rebuilt from an EMPTY database
-and each version read back from the server it ran on rather than assumed from how the run was
-launched:
+10.6.21-MariaDB and MariaDB 10.11.14-MariaDB, each rebuilt from an EMPTY database and each version
+read back from the server it ran on rather than assumed from how the run was launched:
 
 | Layer | Files | Assertions | 10.6 | 10.11 |
 | --- | --- | --- | --- | --- |
-| foundation | 3 | 159 | PASS | PASS |
+| foundation | 8 | 869 | PASS | PASS |
 | unit | 2 | 153 | PASS | PASS |
-| integration | 29 | 1607 | PASS | PASS |
+| integration | 32 | 1797 | PASS | PASS |
 | conformance | 6 | 395 | PASS | PASS |
-| acceptance | 3 | 163 | PASS | PASS |
-| security | 14 | 821 | PASS | PASS |
+| acceptance | 5 | 644 | PASS | PASS |
+| security | 19 | 1185 | PASS | PASS |
 | rollback | 1 | 27 | PASS | PASS |
-| **TOTAL** | **58** | **3325** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
+| **TOTAL** | **73** | **5070** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
 
-Migrations were applied from empty and then re-applied on both servers: 18 applied, 0 drift, then
-18 skipped, 0 drift.
+Migrations were applied from empty and then re-applied on both servers: 19 applied, 0 drift, then
+19 skipped, 0 drift. **PR8 added no migration**; 19 is the same count the previous revision carried.
+
+These numbers are MEASURED, not remembered. They were taken by running the suite at the exact head
+this document describes, and the same run wrote a machine-readable report:
+
+    php tests/run.php --strict --report-json=qualification-10.11.json
+    TEST_ENV_FILE=.env.testing106 php tests/run.php --strict --report-json=qualification-10.6.json
+
+The report carries the counts above, the PHP version, and the MariaDB version read back from the
+connection the suite actually used — and no credential, DSN, fixture or assertion message, because
+it is uploaded as a CI artifact. It also carries `"complete": true`, which is true only when neither
+a layer nor a file filter narrowed the run: a partial run cannot be filed as a full one. CI writes
+one per MariaDB lane and a `release qualification` job re-reads both and asserts `fail: 0`,
+`skip: 0`, `complete` and `strict` rather than trusting the job status.
+
+**The counts live here and nowhere else.** `DEPLOYMENT_RUNBOOK.md` used to carry its own, and it
+went stale — a count in two places is a count that will eventually disagree with itself.
+
+### What PR8 added to these numbers
+
+| Layer | Added | What it proves |
+| --- | --- | --- |
+| foundation | `deployment_evidence_boundary.php`, `loopia_probe_contract.php` | that a claim asserted true is backed by a record, and that the probe's verdicts cannot quietly widen |
+| acceptance | `beta_launch_journey.php` | the whole invited-partner journey as ONE composition, through the real HTTP kernel |
+| security | `loopia_probe_safety.php`, `isolation_canary.php`, `staging_smoke_safety.php` | that the three new host-facing commands touch no governed table, leak no secret, and cannot hang |
 
 Run with `php tests/run.php --strict`. Under `--strict` a skip is a non-zero exit, so an
 unreachable database cannot be mistaken for a green suite.
@@ -64,6 +87,12 @@ actually got rather than the one it asked for.
 - **Loopia shared hosting has not been tested.** The target host is stated in the README; no
   deployment to it has occurred. See `DEPLOYMENT_RUNBOOK.md` §8.
 - **No road test has been executed.** See `LOOPIA_CAPABILITY_REPORT.md` §5.
+- **`deployment-evidence.json` carries zero records**, which is the machine-readable form of the two
+  statements above. Every evidence-backed operational claim is therefore false, and
+  `tests/foundation/deployment_evidence_boundary.php` fails the build if one is asserted without a
+  record. What a green suite establishes is that the CODE is qualified; it establishes nothing about
+  Loopia, which is why a CI-produced record can only ever be filed with `environment: "ci"` and
+  supports no host claim. See `DEPLOYMENT_EVIDENCE_MODEL.md` §4.2.
 
 ## 2. Conformance cases
 

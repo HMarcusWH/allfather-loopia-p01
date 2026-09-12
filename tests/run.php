@@ -18,6 +18,7 @@ require __DIR__ . '/support/Assert.php';
 require __DIR__ . '/support/Harness.php';
 require __DIR__ . '/support/Seed.php';
 
+use Allfather\Loopia\Ops\DeploymentEvidence;
 use Allfather\Loopia\Tests\Assert;
 use Allfather\Loopia\Tests\Harness;
 
@@ -47,6 +48,14 @@ if ($reportPath !== null) {
     $reportDir = dirname($reportPath);
     if (!is_dir($reportDir)) {
         fwrite(STDERR, "--report-json: no such directory: {$reportDir}\n");
+        exit(2);
+    }
+    // THE GOVERNED FILES ARE REFUSED HERE, because this is the one writer in the repository that
+    // takes a caller-chosen path and lives outside the tree the governed-writer tripwire scans.
+    // `--report-json=upstream.lock.json` would otherwise pass the directory check — `dirname()` of a
+    // bare name is `.`, which exists — and overwrite the lock with a test report.
+    if (DeploymentEvidence::isGovernedPath(dirname(__DIR__), $reportPath)) {
+        fwrite(STDERR, "--report-json refuses to write a governed file: {$reportPath}\n");
         exit(2);
     }
 }

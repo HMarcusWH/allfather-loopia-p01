@@ -320,26 +320,39 @@ one most likely to be lost in a dump/import round-trip:
 
 ## Gate L — Provision one internal test tenant
 
-Dry run first:
+Dry run first — it validates the arguments and the composition and writes nothing:
 
-    php ops/provision-staging.php --env=.env --dry-run ...
+    php ops/provision-staging.php --env=.env --dry-run \
+      --tenant-key=<tenant> --workspace-key=<workspace> \
+      --display-name='<Tenant display name>' --operator-name='<Operator>' \
+      --modules=P01,P02,P03,P04,P05
 
-Then for real. The provisioner **refuses `APP_ENV=production` before it opens the database**, and
+Then the same command without `--dry-run`.
+
+`--tenant-key`, `--workspace-key` and `--display-name` are required; an unknown flag is fatal rather
+than ignored, because a silently dropped flag is a provisioning decision an operator believes they
+made. The provisioner **refuses `APP_ENV=production` before it opens the database**, and
 that is not a bug to work around: the pinned canonical identity vocabulary defines no `CUSTOMER`
 tenant type and no `PRODUCTION` environment class. Closed beta work is `TEST` identity in canonical
 terms. See `LOOPIA_CAPABILITY_REPORT.md` §5.
 
 ## Gate M — Onboard one internal beta login
 
-Dry run first:
+Dry run first. `--tenant-key`, `--workspace-key`, `--email` and `--display-name` are all required:
 
     php ops/onboard-beta-user.php --env=.env --dry-run \
-      --tenant-key=<tenant> --email=<address> --display-name='<name>'
+      --tenant-key=<tenant> --workspace-key=<workspace> \
+      --email=<address> --display-name='<Partner name>'
+
+The dry run exits **before any write**, and it uses the read-only tier inspection rather than the
+creating one — so a preflight cannot add a row to the platform's commercial catalogue and then
+report that nothing was written.
 
 Then for real, with the password **through stdin only**:
 
     read -rs PW; printf '%s\n' "$PW" | php ops/onboard-beta-user.php --env=.env \
-      --tenant-key=<tenant> --email=<address> --display-name='<name>' --password-stdin
+      --tenant-key=<tenant> --workspace-key=<workspace> \
+      --email=<address> --display-name='<Partner name>' --password-stdin
 
 A password on argv is in `ps` and in the shell history file. `--password` is refused **by name**,
 with the reason, rather than being ignored as an unknown flag.

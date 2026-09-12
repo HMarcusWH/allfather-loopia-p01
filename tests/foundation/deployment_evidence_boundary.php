@@ -362,6 +362,65 @@ Assert::equalsList(
     'a rollback drill supports none of the five on its own — it is filed, not inferred from',
 );
 
+// ============================================================ nothing may write the governed files
+
+// `no_external_action_surface.php` proves no code path in app/, public_html/, worker/ or ops/ writes
+// either file. It cannot prove it of tests/, because the test tree legitimately writes files — and
+// `tests/run.php --report-json` takes a caller-chosen path. `dirname('upstream.lock.json')` is `.`
+// and `is_dir('.')` is true, so a directory check alone accepts a bare governed filename and
+// overwrites the lock with a test report. This is the guard, exercised rather than grepped.
+foreach (DeploymentEvidence::GOVERNED_FILES as $governed) {
+    Assert::true(
+        DeploymentEvidence::isGovernedPath($root, $root . '/' . $governed),
+        "an absolute path to {$governed} is governed",
+    );
+    Assert::true(
+        DeploymentEvidence::isGovernedPath($root, $root . '/./' . $governed),
+        "and so is the same path written with ./ : {$governed}",
+    );
+    Assert::true(
+        DeploymentEvidence::isGovernedPath($root, $root . '/docs/../' . $governed),
+        "and one that traverses back into the root: {$governed}",
+    );
+    // A governed FILENAME somewhere else is not this repository's governed file. Refusing by
+    // basename would be refusing a name rather than a file.
+    Assert::false(
+        DeploymentEvidence::isGovernedPath($root, sys_get_temp_dir() . '/' . $governed),
+        "but the same name elsewhere is not: {$governed}",
+    );
+}
+Assert::false(
+    DeploymentEvidence::isGovernedPath($root, $root . '/qualification-10.6.json'),
+    'an ordinary report path is not governed',
+);
+Assert::false(
+    DeploymentEvidence::isGovernedPath($root, $root . '/no/such/directory/upstream.lock.json'),
+    'a path whose directory does not exist is not governed — nothing can be written there anyway',
+);
+Assert::false(DeploymentEvidence::isGovernedPath($root, ''), 'an empty path is not governed');
+// The relative case is the one the guard exists for, and it is only meaningful when the working
+// directory IS the repository root — which is where an operator runs `php tests/run.php` from.
+if (realpath(getcwd() ?: '.') === realpath($root)) {
+    foreach (DeploymentEvidence::GOVERNED_FILES as $governed) {
+        Assert::true(
+            DeploymentEvidence::isGovernedPath($root, $governed),
+            "a BARE {$governed} resolves against the working directory and is governed",
+        );
+    }
+}
+
+// And the runner asks, before it writes.
+$runner = (string) file_get_contents($root . '/tests/run.php');
+Assert::contains(
+    'DeploymentEvidence::isGovernedPath(dirname(__DIR__), $reportPath)',
+    $runner,
+    'tests/run.php asks whether the report path is governed',
+);
+Assert::true(
+    strpos($runner, 'isGovernedPath(dirname(__DIR__), $reportPath)') < strpos($runner, 'file_put_contents($reportPath'),
+    'and asks BEFORE it writes — a refusal after the write would refuse nothing',
+);
+
 // ============================================================ the model is documented, not implied
 
 // The same rule the capability report is held to: a vocabulary that lives only in code is one the
