@@ -36,6 +36,7 @@ use Allfather\Loopia\Auth\Authenticator;
 use Allfather\Loopia\Beta\BetaBundle;
 use Allfather\Loopia\Core\Ids;
 use Allfather\Loopia\Http\ConsoleAssetManifest;
+use Allfather\Loopia\Http\ConsoleReadEnvelope;
 use Allfather\Loopia\Http\Controllers\AccountController;
 use Allfather\Loopia\Http\Controllers\ConsoleController;
 use Allfather\Loopia\Http\Controllers\ConsoleReadController;
@@ -588,6 +589,30 @@ Assert::same(
     $kernel->handle($request('GET', '/console/api/v1/context', [], $cookies))->status,
     'restoring the role restores the read on the next regenerated pass',
 );
+
+// ============================================================ and UNAVAILABLE is its own answer too
+
+// FIVE DISTINCT SEMANTICS, not four. 401 (no identity), 403 (identity without authority), 409 (a
+// state no grant fixes) and 200+EMPTY (authorized, nothing to show) are exercised above against the
+// live kernel. The fifth is the one a journey cannot stage without breaking the deployment it is
+// driving: a read that FAILED. It is pinned here against the envelope itself.
+//
+// The distinction that matters is EMPTY versus UNAVAILABLE. An authorized read that found nothing
+// is a fact about the tenant; a read that could not run is a fact about the deployment, and a
+// console that showed the second as the first would tell a partner their workspace is empty when
+// the truth is that nobody knows.
+$unavailable = ConsoleReadEnvelope::unavailable('m10.decisions');
+Assert::same(503, $unavailable->status, 'a read that could not run is a 503');
+$unavailableBody = json_decode($unavailable->body, true, 512, JSON_THROW_ON_ERROR);
+Assert::same('m10.decisions', $unavailableBody['source'], 'reporting which read it was');
+Assert::equalsList(['READ_UNAVAILABLE'], $unavailableBody['reason_codes'], 'and naming the state');
+Assert::same('UNAVAILABLE', $unavailableBody['projection']['state'], 'the projection is UNAVAILABLE');
+Assert::notSame('EMPTY', $unavailableBody['projection']['state'], 'never EMPTY — that is a different fact');
+Assert::same('ERROR', $unavailableBody['projection']['stale_status'], 'and its staleness is unknown-because-error');
+Assert::same(null, $unavailableBody['data'], 'carrying no data');
+// NOT DRESSED AS A DENIAL EITHER. A failed read is not a statement about the caller's authority,
+// and naming a required permission would send them to ask for one they may already hold.
+Assert::same(null, $unavailableBody['access']['required_permission'], 'and no permission to go and ask for');
 
 // ============================================================ the browser cannot choose its scope
 

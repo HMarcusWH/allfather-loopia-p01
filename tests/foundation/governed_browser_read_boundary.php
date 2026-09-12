@@ -49,6 +49,64 @@ Assert::false(str_contains($controller, "\$request->query['operator_id']"), 'bro
 Assert::contains("\$request->query['visibility_scope']", $controller, 'P02 exposes only its explicit owner visibility lens');
 Assert::contains("\$request->query['target_org_role']", $controller, 'P04 exposes only its explicit owner role lens');
 
+// EVERY READ FAILS CLOSED, and it is the COVERAGE that is the invariant rather than any one read.
+// `safe()` converts a throw into a 503 UNAVAILABLE envelope carrying no data; a read method that
+// forgot to route through it would answer a caller with whatever an uncaught exception produces —
+// a 500 page, a stack trace, or in a misconfigured deployment the query that failed.
+//
+// So the assertion is arithmetic rather than a spot-check: as many `safe()` calls as there are
+// public read methods, and no route registered for a method that is not one of them.
+$readMethods = [];
+foreach ((new ReflectionClass(\Allfather\Loopia\Http\Controllers\ConsoleReadController::class))
+    ->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+    if (!$method->isConstructor()) {
+        $readMethods[] = $method->getName();
+    }
+}
+sort($readMethods, SORT_STRING);
+Assert::equalsList(
+    [
+        'context', 'decisions', 'p01Battlecards', 'p02Entities', 'p02Relationships',
+        'p03Monitored', 'p03PriorityQueue', 'p04Distributions', 'p05Drafts',
+    ],
+    $readMethods,
+    'the browser read controller exposes exactly the nine registered reads and nothing else',
+);
+// ASSERTED PER METHOD, not by counting call sites. The two P03 siblings delegate to one private
+// helper, so there are eight `safe()` sites for nine reads — and a count would therefore have to
+// encode that arithmetic, which is exactly the kind of assertion that gets "fixed" by bumping the
+// number when a tenth read arrives unwrapped.
+$controllerLines = file($root . '/app/Http/Controllers/ConsoleReadController.php');
+foreach ($readMethods as $name) {
+    $method = new ReflectionMethod(\Allfather\Loopia\Http\Controllers\ConsoleReadController::class, $name);
+    $body = implode('', array_slice(
+        $controllerLines,
+        $method->getStartLine() - 1,
+        $method->getEndLine() - $method->getStartLine() + 1,
+    ));
+    Assert::true(
+        str_contains($body, '$this->safe(') || str_contains($body, '$this->p03Read('),
+        "{$name}() routes its read through the fail-closed wrapper",
+    );
+}
+// And the wrapper is what the name claims: the helper the P03 pair delegates to wraps too, so the
+// indirection cannot be the way a read escapes.
+$p03Helper = new ReflectionMethod(\Allfather\Loopia\Http\Controllers\ConsoleReadController::class, 'p03Read');
+Assert::contains(
+    '$this->safe(',
+    implode('', array_slice(
+        $controllerLines,
+        $p03Helper->getStartLine() - 1,
+        $p03Helper->getEndLine() - $p03Helper->getStartLine() + 1,
+    )),
+    'and the shared P03 helper wraps as well — the indirection is not an escape hatch',
+);
+Assert::contains(
+    'catch (\\Throwable) { return ConsoleReadEnvelope::unavailable($source); }',
+    $controller,
+    'which converts ANY throw into an UNAVAILABLE envelope rather than letting it reach the caller',
+);
+
 Assert::contains('environment_class = ? AND status = \'ACTIVE\'', $ledgerAdapter, 'M10 lookup pins environment as part of active stream identity');
 Assert::false(str_contains($ledgerAdapter, 'LIMIT 1'), 'environment-pinned M10 lookup has no ambiguous LIMIT 1 fallback');
 Assert::false(str_contains($ledgerAdapter, "\$request"), 'M10 environment cannot come from HTTP caller input');

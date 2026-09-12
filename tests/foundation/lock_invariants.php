@@ -74,6 +74,45 @@ foreach (DeploymentEvidence::EVIDENCE_BACKED_CLAIMS as $key) {
     );
 }
 
+// --- and the lock SAYS which kind each boolean is ----------------------------------------------
+
+// The ten booleans look identical in the file, and the person most likely to edit one is the person
+// least likely to have read the model first. So the classification lives beside them — and is
+// asserted against the CODE, so the description cannot drift from the rule it describes. Adding a
+// claim to `DeploymentEvidence` without classifying it here fails the build, which is the only
+// thing that keeps a self-describing governance file honest.
+$semantics = $lock['claim_boundary_semantics'] ?? [];
+Assert::equalsList(
+    DeploymentEvidence::PERMANENT_AUTHORITY_LOCKS,
+    $semantics['permanent_authority_locks'] ?? null,
+    'the lock names exactly the permanent authority locks the model defines',
+);
+Assert::equalsList(
+    DeploymentEvidence::EVIDENCE_BACKED_CLAIMS,
+    $semantics['evidence_backed_operational_states'] ?? null,
+    'and exactly the evidence-backed operational states',
+);
+Assert::same(
+    'deployment-evidence.json',
+    $semantics['evidence_registry'] ?? null,
+    'and points at the registry that decides them',
+);
+// Every classified claim is a claim that actually exists in the boundary, and every boundary
+// boolean except `no_external_charge_executed` is classified. Neither list may drift from the map.
+$classified = [
+    ...($semantics['permanent_authority_locks'] ?? []),
+    ...($semantics['evidence_backed_operational_states'] ?? []),
+];
+sort($classified, SORT_STRING);
+$declared = array_keys($lock['claim_boundary'] ?? []);
+$declared = array_values(array_diff($declared, ['no_external_charge_executed']));
+sort($declared, SORT_STRING);
+Assert::equalsList(
+    $declared,
+    $classified,
+    'every claim-boundary boolean is classified, and nothing is classified that is not one',
+);
+
 // --- scope ------------------------------------------------------------------------------------
 
 $modules = $lock['scope']['product_modules'] ?? [];
