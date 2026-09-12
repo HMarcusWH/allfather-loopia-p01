@@ -46,6 +46,7 @@ git archive "$release" | tar -x -C "$output"
 pushd "$output/frontend/console" >/dev/null
 expected_node="$(tr -d '[:space:]' < .node-version)"
 actual_node="$(node --version)"
+actual_node="${actual_node#v}"
 if [ "$actual_node" != "$expected_node" ]; then
   echo "prepare-release: Node mismatch: expected $expected_node, got $actual_node" >&2
   exit 5

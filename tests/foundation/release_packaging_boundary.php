@@ -13,6 +13,7 @@ Assert::contains('npm ci', $prepare, 'the prepared tree installs the pinned fron
 Assert::contains('npm test', $prepare, 'the prepared tree runs frontend tests before staging');
 Assert::contains('npm run build', $prepare, 'the prepared tree builds the production console');
 Assert::contains('npm run stage', $prepare, 'the prepared tree stages the reviewed manifest-last console payload');
+Assert::contains('actual_node="${actual_node#v}"', $prepare, 'node --version is normalized to the bare .node-version value before comparison');
 Assert::false(str_contains($prepare, 'rsync '), 'release preparation cannot deploy anything');
 Assert::false(str_contains($prepare, 'ssh '), 'release preparation cannot reach the host');
 
