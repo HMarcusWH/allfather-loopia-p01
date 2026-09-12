@@ -275,12 +275,25 @@ foreach (['storage', '.env', 'tests', 'frontend', 'docs'] as $excluded) {
         "{$excluded} is not hashed — it is runtime state, configuration, or profile-dependent",
     );
 }
-foreach ($inventory as $relative => $_digest) {
-    Assert::true(
-        in_array(explode(DIRECTORY_SEPARATOR, $relative)[0], SourceFingerprint::DIRECTORIES, true),
-        "every hashed path is inside a covered directory: {$relative}",
-    );
-}
+// ONE ASSERTION OVER THE SET, not one per file. A loop asserting each path would make this file's
+// assertion COUNT depend on how many files happen to be in the tree — and it did: the staged console
+// bundle under `public_html/assets/operator-console/` is generated and gitignored, so a developer
+// machine that has run the frontend build counts four more than a CI lane that has not. A
+// conformance total that moves with the build state of the checkout is not a measurement of the
+// suite, and `CONFORMANCE_MATRIX.md` publishes that total as one.
+$roots = array_values(array_unique(array_map(
+    static fn (string $relative): string => explode(DIRECTORY_SEPARATOR, $relative)[0],
+    array_keys($inventory),
+)));
+sort($roots, SORT_STRING);
+Assert::equalsList(
+    array_values(array_filter(
+        SourceFingerprint::DIRECTORIES,
+        static fn (string $directory): bool => in_array($directory, $roots, true),
+    )),
+    $roots,
+    'every hashed path lives under a covered directory, and nothing else is hashed',
+);
 Assert::same(
     SourceFingerprint::NOT_AVAILABLE,
     SourceFingerprint::compute(sys_get_temp_dir() . '/allfather-nonexistent-' . bin2hex(random_bytes(4))),

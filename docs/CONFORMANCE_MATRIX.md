@@ -22,14 +22,23 @@ read back from the server it ran on rather than assumed from how the run was lau
 | conformance | 6 | 395 | PASS | PASS |
 | acceptance | 5 | 652 | PASS | PASS |
 | security | 20 | 1286 | PASS | PASS |
-| rollback | 2 | 261 | PASS | PASS |
-| **TOTAL** | **75** | **5463** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
+| rollback | 2 | 76 | PASS | PASS |
+| **TOTAL** | **75** | **5278** | **0 failing, 0 skipped** | **0 failing, 0 skipped** |
 
 Migrations were applied from empty and then re-applied on both servers: 19 applied, 0 drift, then
 19 skipped, 0 drift. **PR8 added no migration**; 19 is the same count the previous revision carried.
 
 These numbers are MEASURED, not remembered. They were taken by running the suite at the exact head
 this document describes, and the same run wrote a machine-readable report:
+
+**And they are measured in a way that cannot vary with the checkout.** A CI run once reported four
+fewer than a developer machine at the same commit, because an assertion loop in
+`tests/rollback/stand_down_verifier.php` ran once per file in the source-fingerprint inventory — and
+the staged Operator Console bundle under `public_html/assets/operator-console/` is generated and
+gitignored, so a tree that had run the frontend build carried four more files than one that had not.
+A total that moves with the build state of the checkout is not a measurement of the suite. That
+assertion is now one statement over the SET of covered directories, and the count is identical with
+the bundle present and absent.
 
     php tests/run.php --strict --report-json=qualification-10.11.json
     TEST_ENV_FILE=.env.testing106 php tests/run.php --strict --report-json=qualification-10.6.json
