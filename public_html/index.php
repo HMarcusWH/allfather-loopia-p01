@@ -45,31 +45,42 @@ use Allfather\Loopia\Support\Bootstrap;
 
 $root = dirname(__DIR__);
 
-// BUILT BEFORE ANYTHING CAN FAIL, and deliberately before configuration is even read.
-//
-// Reading the superglobals needs no configuration, so the request can exist before the two failures
-// below — a misconfigured deployment and an unreachable database — which happen before a Kernel
-// does. Those are exactly the two a stuck partner is most likely to be looking at when they go
-// hunting for something to quote, so a reference that existed for every response EXCEPT them would
-// be a feature that works whenever it does not matter.
-//
-// Building it here rather than issuing a bare id also means these branches can record through the
-// same sanitized sink every other response uses: a reference nobody can look up is not a reference,
-// it is a string that invites a question with no answer.
+// Build the request before configuration/database bootstrap so every failure can carry one reference.
 $request = Request::fromGlobals($_SERVER, $_GET, $_POST, $_COOKIE);
 
-/** Emit one pre-Kernel failure: stamped, recorded, and carrying no detail a caller should not have. */
+/** Emit one pre-Kernel failure: stamped, recorded, and carrying no private diagnostic detail. */
 $earlyFailure = static function (Response $response) use ($request): void {
     $stamped = $response->withHeader(RequestId::HEADER, $request->requestId);
     RequestLog::record($request->requestId, $request->method, $request->path, $stamped->status);
     $stamped->send();
 };
 
+// Last-resort boundary for failures that happen after bootstrap but before a request reaches Kernel
+// (for example while a future composition root is being assembled). Kernel has its own boundary for
+// dispatch/controller failures. This handler is deliberately content-free and records only the
+// request id + exception class in the private PHP diagnostic stream.
+set_exception_handler(static function (\Throwable $error) use ($request, $earlyFailure): void {
+    RequestLog::recordFailure($request->requestId, $error);
+    if (str_starts_with($request->path, '/console/api/')) {
+        $earlyFailure(Response::json([
+            'status' => 'UNAVAILABLE',
+            'reason_codes' => ['UNEXPECTED_ERROR'],
+        ], 500));
+        return;
+    }
+
+    $id = htmlspecialchars($request->requestId, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $earlyFailure(Response::html(
+        '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>500</title></head>'
+        . '<body><main><h1>500</h1><p>Something went wrong.</p><p>Support reference: <code>'
+        . $id . '</code></p></main></body></html>',
+        500,
+    ));
+});
+
 try {
     $boot = Bootstrap::load($root);
 } catch (\RuntimeException $error) {
-    // The detail names MISSING CONFIGURATION KEYS, never their values — see Bootstrap, which is
-    // explicit that the key names are already public in .env.example and the values never appear.
     $earlyFailure(Response::json(
         ['status' => 'MISCONFIGURED', 'detail' => $error->getMessage()],
         503,
@@ -112,17 +123,12 @@ $workspaces = new WorkspaceController($db, $auth, $view);
 $kernel->route('GET', '/console/workspaces', $workspaces->choose(...));
 $kernel->route('POST', '/console/workspace', $workspaces->select(...));
 
-// The account lifecycle surfaces. `/account/password` is the ONE authenticated path reachable while
-// `must_change_password` is set, which is why it is a server-rendered form rather than a screen in
-// the React shell: the shell's own route is behind the same gate.
 $accounts = new AccountService($db, $clock, $auth);
 $account = new AccountController($accounts, $view);
 $kernel->route('GET', '/account', $account->show(...));
 $kernel->route('GET', '/account/password', $account->showPasswordForm(...));
 $kernel->route('POST', '/account/password', $account->changePassword(...));
 
-// Help and support. It holds no database handle and no governed service — one session-scoped read
-// through its adapter, and two non-secret configuration keys.
 $support = new SupportController($view, $env, new SupportContextAdapter($db), $boot['environment']);
 $kernel->route('GET', '/support', $support->show(...));
 
