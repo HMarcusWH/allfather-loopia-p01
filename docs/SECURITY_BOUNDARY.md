@@ -187,16 +187,17 @@ parsing the rule and replaying it against real paths — that the rule the incid
 match carries `F`, not the catch-all.
 
 **One exception, named and narrow:** on Loopia, `/.env` may instead answer `302` whose `Location`
-resolves to exactly `https://roadblock.loopia.com/...` — the platform's own WAF, refusing ahead of
-this deployment's web server entirely. Gate E.2 itself enforces that mechanically:
-`ops/deploy/verify-e2-private-path-refusal.sh` is the executable procedure the runbook now runs, and
-its exit code — not a transcript an operator reads — is the gate result. `ops/staging-smoke.php`
-carries the identical narrow rule for the later gates it covers. Both accept the exception for
-`/.env` alone, checked by exact host equality under HTTPS, never by a prefix of the `Location`. Every
-other path, and a `/.env` redirect to any other host, scheme, or 3xx status other than 302, is an
-arbitrary redirect and still fails — `tests/security/gate_e2_probe_refusal.php` executes the script's
-own `--self-test` classifier against 18 cases to prove that, and
-`tests/security/staging_smoke_safety.php` asserts the equivalent for the PHP client.
+parses as HTTPS with host exactly `roadblock.loopia.com`. Gate E.2 additionally requires the port
+to be absent or `443`; the path/query portion does not establish trust, so the observed query-only
+redirect `https://roadblock.loopia.com?id=430057&host=staging.allfatherbi.com` is valid. Gate E.2
+enforces this mechanically in `ops/deploy/verify-e2-private-path-refusal.sh`, using parsed URL
+components rather than a raw-string regex or prefix, and its exit code — not a transcript an
+operator reads — is the gate result. `ops/staging-smoke.php` carries the corresponding
+`/.env`-only WAF exception for the later gates. Every other path, and a `/.env` redirect to any
+other host or scheme (or, for Gate E.2, a non-default port), or any 3xx status other than `302`, is
+an arbitrary redirect and still fails — `tests/security/gate_e2_probe_refusal.php` executes the
+script's own `--self-test` classifier against 24 cases to prove that, and
+`tests/security/staging_smoke_safety.php` asserts the corresponding PHP-client rule.
 
 ### 5.2 The qualification database is not the runtime database
 

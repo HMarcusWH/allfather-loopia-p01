@@ -201,7 +201,7 @@ the script's own exit code IS the gate result. It classifies every private path 
 (below), never follows a redirect (`--max-redirs 0`, no `-L` anywhere in the script), and requires
 `--base-url` to be `https://` — refused rather than upgraded, so a run against unconfirmed TLS cannot
 report a result. Run `ops/deploy/verify-e2-private-path-refusal.sh --self-test` first if you want to
-see the classifier itself exercised against 18 cases with no network access at all.
+see the classifier itself exercised against 24 cases with no network access at all.
 
 **Never 200, never 503.** A 503 means the request reached `index.php` and its configuration
 bootstrap failed — expected during Gate D, since there is no `.env` yet, but not the refusal this
@@ -212,16 +212,15 @@ and `tests/foundation/deployment_boundary.php` asserts both that the refusal rul
 they cover the full private-directory list, not only the paths probed here.
 
 **The one accepted exception, enforced by the script rather than merely documented here:** `/.env`
-alone may answer `302` with `Location` resolving to exactly `https://roadblock.loopia.com`, or a path
-under it — Loopia's own WAF, refusing before this deployment's web server is reached at all. The
-script checks this by parsed, exact host equality under HTTPS
-(`ROADBLOCK_HOST_PATTERN='^https://roadblock\.loopia\.com(/.*)?$'`), never by string-prefixing the
-`Location` — a prefix check would also accept `roadblock.loopia.com.evil.example`, a different host
-that merely starts the same way. Any other path answering a redirect, `/.env` redirecting to any
-other host or over plain HTTP, or any 3xx other than 302, is an arbitrary redirect and is a **hard
-fail**. `ops/staging-smoke.php`'s anonymous mode carries the same narrow rule
-(`LOOPIA_WAF_ROADBLOCK_HOST`) for the later gates it covers, and both are asserted in
-`tests/security/`.
+alone may answer `302` when `Location` parses as an HTTPS URL whose host is exactly
+`roadblock.loopia.com` and whose port is absent or `443`. The path/query portion does not establish
+trust; the real observed Loopia response was
+`https://roadblock.loopia.com?id=430057&host=staging.allfatherbi.com`, with a query immediately
+after the host. The script parses `Location` with PHP `parse_url()` and compares the scheme, host
+and port components directly — never by a raw-URL regex or string prefix. Any other host or scheme,
+a non-default port, a redirect on any path other than `/.env`, or any 3xx other than `302` is a
+**hard fail**. `ops/staging-smoke.php`'s anonymous mode carries the corresponding `/.env`-only WAF
+exception for the later gates, and `tests/security/` covers both clients.
 
 ### E.3 Web-PHP cross-site isolation — must close before Gate F
 
