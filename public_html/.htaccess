@@ -32,6 +32,27 @@ Options -Indexes -MultiViews
   # including its 404: a 404 rendered by the application carries the same security headers every
   # other application response does, while the server's default error page carries none of them.
   RewriteRule ^(assets/.*|index\.php|scheduler\.php)$ - [L]
+
+  # PRIVATE RELEASE NAMESPACES, refused HERE rather than being handed to the front controller.
+  #
+  # The catch-all below sends every unmatched path to index.php, and index.php resolves
+  # configuration (`Bootstrap::load`) before it decides anything about routing — including the 404
+  # it would otherwise answer. Before secrets are placed (Gate D of `docs/BETA_RUNBOOK.md`, the
+  # state this rule exists for), that bootstrap always fails, so a caller-invented path and a probe
+  # of `/app/autoload.php` were indistinguishable: BOTH answered 503. Gate E.2 requires 403 or 404,
+  # never 200 — and, as the incident this rule closes showed, never 503 either.
+  #
+  # Matched by REQUEST PATH, not by file existence: none of these directories exist inside
+  # `public_html/` on a correct deployment (`docs/DEPLOYMENT_RUNBOOK.md` §2), and the failure this
+  # closes happens before any file is looked up. Keep this list aligned with
+  # `tests/foundation/deployment_boundary.php`'s private-directory list — that test asserts
+  # membership in both directions, so an addition to one without the other fails the suite.
+  RewriteRule ^(app|database|docs|frontend|ops|storage|tests|worker|vendor|node_modules|config|\.git|\.github)(/|$) - [F,L]
+
+  # SENSITIVE ROOT FILENAMES — the same reasoning, for the sibling files the deployed layout carries
+  # beside `public_html/` rather than a directory.
+  RewriteRule ^(composer\.json|upstream\.lock\.json|deployment-evidence\.json|BOOTSTRAP\.md|PROJECT_BOUNDARY\.md|UPSTREAM_AUTHORITY\.md|README\.md)$ - [F,L]
+
   RewriteRule ^ index.php [L]
 </IfModule>
 

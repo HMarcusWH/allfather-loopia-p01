@@ -189,19 +189,39 @@ This measures `SSH_CLI` only. It does **not** close E.3.
 
 ### E.2 HTTP private-path refusal
 
-From outside:
+From outside, run the mechanically-enforced check rather than reading a transcript of codes:
 
 ```bash
-for path in /.env /app/autoload.php /database/migrations/001_identity_scope.sql \
-            /storage/request.log /worker/tick.php /ops/migrate.php \
-            /frontend/console/package.json /tests/run.php \
-            /composer.json /upstream.lock.json /deployment-evidence.json; do
-  printf '%s -> ' "$path"
-  curl -sS -o /dev/null -w '%{http_code}\n' "https://staging.allfatherbi.com${path}"
-done
+ops/deploy/verify-e2-private-path-refusal.sh --base-url=https://staging.allfatherbi.com
 ```
 
-Every path must return 403 or 404, never 200.
+**Require exit code 0.** This is not a loop that prints a status per line for an operator to judge —
+the script's own exit code IS the gate result. It classifies every private path independently
+(403/404 → pass; anything else → fail), with exactly one named exception scoped to exactly one path
+(below), never follows a redirect (`--max-redirs 0`, no `-L` anywhere in the script), and requires
+`--base-url` to be `https://` — refused rather than upgraded, so a run against unconfirmed TLS cannot
+report a result. Run `ops/deploy/verify-e2-private-path-refusal.sh --self-test` first if you want to
+see the classifier itself exercised against 18 cases with no network access at all.
+
+**Never 200, never 503.** A 503 means the request reached `index.php` and its configuration
+bootstrap failed — expected during Gate D, since there is no `.env` yet, but not the refusal this
+gate exists to prove: it means the web server rewrote a private path to the front controller instead
+of refusing it, and the SAME rewrite would 503 for a misconfigured production host too.
+`public_html/.htaccess` refuses every probed path **before** the catch-all rewrite, by request path,
+and `tests/foundation/deployment_boundary.php` asserts both that the refusal rules exist and that
+they cover the full private-directory list, not only the paths probed here.
+
+**The one accepted exception, enforced by the script rather than merely documented here:** `/.env`
+alone may answer `302` with `Location` resolving to exactly `https://roadblock.loopia.com`, or a path
+under it — Loopia's own WAF, refusing before this deployment's web server is reached at all. The
+script checks this by parsed, exact host equality under HTTPS
+(`ROADBLOCK_HOST_PATTERN='^https://roadblock\.loopia\.com(/.*)?$'`), never by string-prefixing the
+`Location` — a prefix check would also accept `roadblock.loopia.com.evil.example`, a different host
+that merely starts the same way. Any other path answering a redirect, `/.env` redirecting to any
+other host or over plain HTTP, or any 3xx other than 302, is an arbitrary redirect and is a **hard
+fail**. `ops/staging-smoke.php`'s anonymous mode carries the same narrow rule
+(`LOOPIA_WAF_ROADBLOCK_HOST`) for the later gates it covers, and both are asserted in
+`tests/security/`.
 
 ### E.3 Web-PHP cross-site isolation — must close before Gate F
 

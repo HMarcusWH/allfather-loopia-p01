@@ -242,17 +242,19 @@ repository test proves the **layout** — that nothing private sits inside the s
 does not run in CI, and every `.htaccess` directive here is `<IfModule>`-guarded and therefore a
 silent no-op on a host missing the module, so this is the only thing that establishes it.
 
-Run from outside, against the deployed site, after the copy and before any secret:
+Run from outside, against the deployed site, after the copy and before any secret — this is the same
+check `docs/BETA_RUNBOOK.md` §E.2 requires, and its exit code is the result:
 
-    for path in /.env /app/autoload.php /database/migrations/001_identity_scope.sql \
-                /storage/request.log /worker/tick.php /ops/migrate.php \
-                /frontend/console/package.json /tests/run.php; do
-      printf '%s -> ' "$path"
-      curl -sS -o /dev/null -w '%{http_code}\n' "https://<domain>${path}"
-    done
+    ops/deploy/verify-e2-private-path-refusal.sh --base-url=https://<domain>
 
 **403 or 404 are both correct. A 200 from any of them means the layout is wrong** — and the fix is
-the layout, not the `.htaccess`.
+the layout, not the `.htaccess`. **A 503 means the path was rewritten to `index.php` instead of
+being refused**, which is a different fault: the front controller resolves configuration before it
+answers anything, including its own 404, so a private path and a typo were indistinguishable before
+secrets exist. `public_html/.htaccess` refuses the private-directory list and the sensitive root
+filenames above by request path, before that rewrite runs. See `docs/BETA_RUNBOOK.md` §E.2 for the
+one accepted exception (`/.env` may 302 to Loopia's own `roadblock.loopia.com`, and only that host) —
+the script checks it by exact host equality, never by a prefix of the `Location`.
 
 ## 7. Filing the result
 

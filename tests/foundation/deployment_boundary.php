@@ -73,7 +73,8 @@ foreach (['.env', '.env.testing', '.env.example', 'composer.json'] as $mustNotBe
 // port does not have — git carries no empty directory, so the assertion passed on a developer
 // machine that happened to have one and failed in every fresh clone. A test that asserts the shape
 // of somebody's working copy is worse than no test, because it is green where it matters least.
-foreach (['app', 'database', 'ops', 'frontend', 'worker', 'tests', 'storage', 'docs'] as $private) {
+$privateDirectories = ['app', 'database', 'ops', 'frontend', 'worker', 'tests', 'storage', 'docs'];
+foreach ($privateDirectories as $private) {
     Assert::true(
         is_dir($root . '/' . $private),
         "{$private}/ exists as a sibling of the served directory",
@@ -86,7 +87,8 @@ foreach (['app', 'database', 'ops', 'frontend', 'worker', 'tests', 'storage', 'd
 // Names that must never appear under the served tree, whether or not this port has one. `config/`
 // is here rather than above: the boundary rule is about where such a directory may live IF it is
 // ever added, and that rule holds now, before anyone adds it.
-foreach (['config', 'vendor', 'node_modules', '.git'] as $neverServed) {
+$neverServedNames = ['config', 'vendor', 'node_modules', '.git'];
+foreach ($neverServedNames as $neverServed) {
     Assert::false(
         is_dir($root . '/public_html/' . $neverServed),
         "public_html/{$neverServed} does not exist — it would be reachable over the web",
@@ -135,6 +137,130 @@ Assert::contains(
     'RewriteRule ^(assets/.*|index\.php|scheduler\.php)$ - [L]',
     $publicHt,
     'while the two entry points and the stylesheet are served as themselves',
+);
+
+// ============================================================ the private tree is refused before the front controller
+
+// REAL-HOST INCIDENT, 2026-09-18: staging.allfatherbi.com answered 503 for every private path Gate
+// E.2 probes, not 403/404. `public_html/.htaccess` rewrote each of them to `index.php`, and
+// `index.php` resolves configuration before it decides anything about routing — including its own
+// 404 — so a bootstrap that always fails before secrets exist (Gate D) made a private path and a
+// typo indistinguishable. The fix refuses these BY REQUEST PATH, before the catch-all rewrite, so
+// this section is checked in both directions: the canonical private-directory list above must be
+// covered by the `.htaccess` rule, and the rule's own pattern must actually refuse the incident's
+// paths rather than merely mentioning the right words in a comment.
+Assert::contains('[F,L]', $publicHt, 'at least one rule refuses outright rather than rewriting');
+foreach ($privateDirectories as $private) {
+    Assert::contains(
+        $private,
+        $publicHt,
+        "private directory namespace '{$private}' is named in the served directory's deny rule",
+    );
+}
+foreach ($neverServedNames as $neverServed) {
+    // `.git` is named in the pattern as `\.git` — the escaped dot is still a substring match here.
+    Assert::contains(
+        $neverServed,
+        $publicHt,
+        "name '{$neverServed}' that must never be served is named in the deny rule too",
+    );
+}
+foreach ([
+    'composer.json', 'upstream.lock.json', 'deployment-evidence.json',
+    'BOOTSTRAP.md', 'PROJECT_BOUNDARY.md', 'UPSTREAM_AUTHORITY.md', 'README.md',
+] as $sensitiveRootFile) {
+    // The `.htaccess` pattern escapes the literal dot for the regex engine (`composer\.json`), so
+    // the needle here is escaped the same way rather than checking for a substring the file never
+    // actually contains.
+    Assert::contains(
+        str_replace('.', '\\.', $sensitiveRootFile),
+        $publicHt,
+        "sensitive root filename '{$sensitiveRootFile}' is named in the deny rule",
+    );
+}
+
+// THE PATTERN ITSELF IS EXERCISED, not just its presence. Apache evaluates per-directory
+// `RewriteRule`s top to bottom and `[L]` stops at the first match, so a rule that merely EXISTS
+// somewhere in the file proves nothing about which one a given request actually hits — a deny rule
+// placed AFTER the catch-all would never fire. Parsing the rules in file order and replaying them
+// against real paths is what `tests/foundation/deployment_boundary.php`'s prose promises: "not that
+// a web server honoured it", except for the one part of that gap a plain PCRE replay CAN close —
+// whether the pattern as written would match, in order, the way Apache's engine would.
+preg_match_all(
+    '/^\s*RewriteRule\s+(\S+)\s+(\S+)(?:\s+(\[[^\]]*\]))?/m',
+    $publicHt,
+    $rewriteMatches,
+    PREG_SET_ORDER,
+);
+$rewriteRules = array_map(
+    static fn (array $m): array => ['pattern' => $m[1], 'target' => $m[2], 'flags' => $m[3] ?? ''],
+    $rewriteMatches,
+);
+Assert::true(count($rewriteRules) >= 4, 'the rewrite block parsed at least the four rules this file expects');
+
+$firstMatchingRule = static function (string $requestPath) use ($rewriteRules): ?array {
+    foreach ($rewriteRules as $rule) {
+        if (preg_match('#' . $rule['pattern'] . '#', $requestPath) === 1) {
+            return $rule;
+        }
+    }
+
+    return null;
+};
+
+// The exact paths a caller probed on the real host, plus one representative path per private
+// directory and per sensitive root file — "not only the currently probed examples".
+$mustBeRefused = [
+    'app/autoload.php',
+    'database/migrations/001_identity_scope.sql',
+    'storage/request.log',
+    'worker/tick.php',
+    'ops/migrate.php',
+    'frontend/console/package.json',
+    'tests/run.php',
+    'docs/SECURITY_BOUNDARY.md',
+    'composer.json',
+    'upstream.lock.json',
+    'deployment-evidence.json',
+    'BOOTSTRAP.md',
+    'PROJECT_BOUNDARY.md',
+    'UPSTREAM_AUTHORITY.md',
+    'README.md',
+    // Defence in depth beyond what this deployment ships: never served if it ever showed up.
+    'vendor/autoload.php',
+    'node_modules/.bin/anything',
+    'config/app.php',
+    '.git/config',
+    '.github/workflows/ci.yml',
+];
+foreach ($mustBeRefused as $requestPath) {
+    $rule = $firstMatchingRule($requestPath);
+    Assert::true(
+        $rule !== null && str_contains($rule['flags'], 'F'),
+        "GET /{$requestPath} is refused [F] by the first rule it matches, before the catch-all rewrite"
+        . ($rule === null ? ' (matched nothing)' : " (matched target={$rule['target']} flags={$rule['flags']})"),
+    );
+}
+
+// The intentionally public entry points and asset tree are unaffected by any of the above.
+foreach ([
+    'index.php',
+    'scheduler.php',
+    'assets/operator-console/console.ABCDEF123456.js',
+] as $stillPublic) {
+    $rule = $firstMatchingRule($stillPublic);
+    Assert::true(
+        $rule !== null && $rule['target'] === '-' && str_contains($rule['flags'], 'L') && !str_contains($rule['flags'], 'F'),
+        "GET /{$stillPublic} still matches the entry-point/asset rule, served as itself",
+    );
+}
+
+// A genuinely unknown path is still the front controller's to answer, including its own 404 —
+// this fix narrows the catch-all's reach, it does not remove the catch-all itself.
+$unknown = $firstMatchingRule('there-is-no-such-surface');
+Assert::true(
+    $unknown !== null && $unknown['target'] === 'index.php',
+    'an unmatched path still reaches the front controller rather than being refused',
 );
 
 // ============================================================ the CLI tick refuses a web SAPI
