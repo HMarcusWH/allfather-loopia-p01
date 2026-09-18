@@ -131,17 +131,25 @@ literal sibling layout above.
 ## 4. Verify the public/private boundary before secrets
 
 The initial copy contains no `.env`, DB password, master key or scheduler credential. From outside,
-require 403 or 404, never 200:
+run the mechanically-enforced Gate E.2 check rather than reading a transcript of codes — its own
+exit code is the result, require 0:
 
 ```bash
-for path in /.env /app/autoload.php /database/migrations/001_identity_scope.sql \
-            /storage/request.log /worker/tick.php /ops/migrate.php \
-            /frontend/console/package.json /tests/run.php \
-            /composer.json /upstream.lock.json /deployment-evidence.json; do
-  printf '%s -> ' "$path"
-  curl -sS -o /dev/null -w '%{http_code}\n' "https://<domain>${path}"
-done
+ops/deploy/verify-e2-private-path-refusal.sh --base-url=https://<domain>
 ```
+
+See `BETA_RUNBOOK.md` §E.2 for the full rule the script enforces (403/404 pass; 200 and 503 fail;
+one named `/.env`-only redirect exception checked by exact host equality, never a prefix). Run
+`ops/deploy/verify-e2-private-path-refusal.sh --self-test` to exercise the classifier with no
+network access.
+
+A 503 here means the request reached `index.php` and its configuration bootstrap failed — expected
+during this gate, since there is no `.env` yet, but not the refusal this gate proves. It means the
+path was rewritten to the front controller instead of being refused by the web server, which is the
+gap `public_html/.htaccess` closes: every private path is refused **before** the catch-all rewrite
+that hands everything else to `index.php`, matched by request path against the same
+private-directory list `tests/foundation/deployment_boundary.php` asserts, not by whether a file
+happens to exist there.
 
 Run the SSH/CLI cross-site canary matrix in `ops/loopia-probe/README.md`. A clean matrix proves only
 `SSH_CLI` isolation, not sibling-site web-PHP isolation.

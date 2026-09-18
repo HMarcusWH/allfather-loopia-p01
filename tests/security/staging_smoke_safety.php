@@ -402,8 +402,9 @@ foreach ([
         'the scheduler entry point is exempt — it never runs the Kernel'],
     ["], \$served, 'NOT_APPLICABLE');",
         'and so are the static assets, which the web server serves without the application'],
-    ["], true, 'EITHER');",
-        'a private path is either — the web server may refuse it before the application ever runs'],
+    ["], true, 'EITHER', \$isEnvPath ? LOOPIA_WAF_ROADBLOCK_HOST : null);",
+        'a private path is either — the web server may refuse it before the application ever runs — '
+        . 'and only /.env may instead carry the named foreign-redirect exception'],
 ] as [$needle, $why]) {
     Assert::contains($needle, $code, $why);
 }
@@ -439,3 +440,73 @@ Assert::contains(
     'and must not be a redirect, which is the HTML sign-in path this step exists to exclude',
 );
 Assert::contains('], $anonIsJson);', $code, 'and all of that is the step verdict, not a field beside it');
+
+// ============================================================ the Loopia WAF roadblock is a named, single-path exception
+
+// REAL-HOST INCIDENT, 2026-09-18: `/.env` on staging.allfatherbi.com answered 302 to
+// `https://roadblock.loopia.com/...` — Loopia's own WAF, refusing before this deployment is ever
+// reached. That is a refusal and belongs in the accepted set, but ONLY for that one path and ONLY
+// for that one host: `$record`'s general rule ("a redirect that leaves this origin fails the step")
+// must still hold everywhere else, or a qualification run could bless an open redirect on any other
+// private path by mistake.
+Assert::contains(
+    "?string \$allowedForeignRedirectHost = null,",
+    $code,
+    '$record takes an explicit, named exception for one foreign redirect host per step — nothing is accepted by default',
+);
+Assert::contains(
+    "const LOOPIA_WAF_ROADBLOCK_HOST = 'roadblock.loopia.com';",
+    $code,
+    'the one accepted host is a named constant, not a string repeated at each use',
+);
+Assert::contains(
+    "\$isEnvPath = \$private === '/.env';",
+    $code,
+    'the exception is scoped to exactly one probed path',
+);
+Assert::contains(
+    "\$isEnvPath ? [403, 404, 302] : [403, 404]",
+    $code,
+    'every other private path still requires exactly 403 or 404 — 302 is only ever expected for /.env',
+);
+Assert::contains(
+    "\$isEnvPath ? LOOPIA_WAF_ROADBLOCK_HOST : null",
+    $code,
+    'and the foreign-host allowance is passed only for /.env — every other call passes null',
+);
+// EXACT HOST EQUALITY, not a prefix. A prefix check would also accept
+// `roadblock.loopia.com.evil.example`, a different host that merely starts the same way — the same
+// mistake `$sameOrigin` above already guards against for this deployment's own origin.
+Assert::contains(
+    "(\$foreign['host'] ?? '') === \$allowedForeignRedirectHost",
+    $code,
+    'the foreign redirect target is checked by host EQUALITY, not by string-prefixing the Location',
+);
+Assert::contains(
+    "(\$foreign['scheme'] ?? '') === 'https'",
+    $code,
+    'and the scheme is checked too — a plaintext redirect claiming that host is not the same guarantee',
+);
+Assert::false(
+    str_contains($code, "str_starts_with(\$response['location'], 'https://" . 'roadblock.loopia.com'),
+    'the exception is never implemented as a Location prefix check',
+);
+// THE EXCEPTION ONLY WIDENS ONE STEP'S VERDICT WHEN THE CALLER ASKS FOR IT — the default parameter
+// is null, so every OTHER `$record` call in this file (there are many) is unaffected and a redirect
+// leaving the origin still fails those steps exactly as before.
+Assert::same(
+    2,
+    substr_count($code, 'LOOPIA_WAF_ROADBLOCK_HOST'),
+    // Declared once, referenced once at the single call site that may pass it — a third occurrence
+    // would mean a second path had quietly been granted the same allowance.
+    'the roadblock host constant is declared once and referenced exactly once',
+);
+
+// The private-path probe covers more than the paths one incident happened to be checked with — one
+// representative path per private directory named in `tests/foundation/deployment_boundary.php`,
+// plus a sensitive root filename beyond the two already asserted above.
+foreach ([
+    '/docs/SECURITY_BOUNDARY.md', '/BOOTSTRAP.md', '/PROJECT_BOUNDARY.md', '/UPSTREAM_AUTHORITY.md', '/README.md',
+] as $expanded) {
+    Assert::contains("'{$expanded}',", $code, "the private-path probe covers {$expanded}, not only the originally reported paths");
+}

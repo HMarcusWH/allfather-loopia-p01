@@ -309,6 +309,15 @@ $sameOrigin = static function (?string $location) use ($origin): bool {
  * that demanded one everywhere counted those as faults and could never reach SMOKE_PASS on a
  * correctly configured host, which made Gate N unpassable rather than strict.
  *
+ * `$allowedForeignRedirectHost` is a NAMED, SINGLE-STEP exception to "leaves this origin fails the
+ * step" — nothing else in this client may redirect cross-origin. It exists for one case: Loopia's
+ * own WAF answers `/.env` with a 302 to a host of its own, `roadblock.loopia.com`, before this
+ * deployment's web server is ever reached. The comparison is host EQUALITY under HTTPS, decided
+ * here rather than by string-prefixing the caller's `Location` — a prefix check would also accept
+ * `roadblock.loopia.com.evil.example`, a different host that merely starts the same way, which is
+ * the same mistake `$sameOrigin` above exists to rule out for this origin. Passing anything here
+ * for any other step, or a redirect to any other host, still fails.
+ *
  * @param list<int> $expected
  * @param array<string, mixed> $safe
  * @param 'REQUIRED'|'NOT_APPLICABLE'|'EITHER' $reference
@@ -322,8 +331,15 @@ $record = static function (
     array $safe = [],
     bool $alsoRequires = true,
     string $reference = 'REQUIRED',
+    ?string $allowedForeignRedirectHost = null,
 ) use (&$steps, &$failures, $sameOrigin): bool {
     $redirectStaysHere = $response['location'] === null || $sameOrigin($response['location']);
+    if (!$redirectStaysHere && $allowedForeignRedirectHost !== null && $response['location'] !== null) {
+        $foreign = parse_url($response['location']);
+        $redirectStaysHere = is_array($foreign)
+            && ($foreign['scheme'] ?? '') === 'https'
+            && ($foreign['host'] ?? '') === $allowedForeignRedirectHost;
+    }
     $ok = in_array($response['status'], $expected, true)
         && $response['error'] === null
         && $redirectStaysHere
@@ -471,8 +487,15 @@ $schedulerGet = $send('GET', '/scheduler.php');
 // fail a correctly configured deployment for a header that entry point has never sent.
 $record('scheduler endpoint refuses GET', 'GET', '/scheduler.php', $schedulerGet, [405], [], true, 'NOT_APPLICABLE');
 
+// Loopia's own WAF, ahead of this deployment's web server, answers `/.env` with a redirect to a
+// host of its own rather than letting the request reach `public_html/`. That is a REFUSAL — the
+// secret is not served — and is accepted here for exactly that one path and exactly that one host.
+const LOOPIA_WAF_ROADBLOCK_HOST = 'roadblock.loopia.com';
+
 // THE PRIVATE TREE, over HTTP. This is the half `tests/foundation/deployment_boundary.php` cannot
-// reach: it proves the layout, and this proves the host honours it.
+// reach: it proves the layout, and this proves the host honours it. Every private directory named
+// there has at least one path probed here, plus a representative sensitive root filename — not only
+// the paths a prior incident happened to be checked with.
 foreach ([
     '/.env',
     '/app/autoload.php',
@@ -482,18 +505,23 @@ foreach ([
     '/ops/migrate.php',
     '/frontend/console/package.json',
     '/tests/run.php',
+    '/docs/SECURITY_BOUNDARY.md',
     '/composer.json',
     '/upstream.lock.json',
     '/deployment-evidence.json',
+    '/BOOTSTRAP.md',
+    '/PROJECT_BOUNDARY.md',
+    '/UPSTREAM_AUTHORITY.md',
+    '/README.md',
 ] as $private) {
     $response = $send('GET', $private);
-    // EITHER, and both are correct. `.env` is refused by the web server's own dotfile rule before
-    // the application runs, so no reference exists; a path that does not exist in the served tree
-    // is rewritten to the front controller and answered by the application, which stamps one. Which
-    // of the two happens is a property of the host's configuration, not a fault.
-    $record('private path is not served', 'GET', $private, $response, [403, 404], [
+    // `/.env` ALONE may also answer 302 to Loopia's named roadblock host — its own WAF, refusing
+    // before this deployment is reached at all. No other path gets this allowance: a 302 anywhere
+    // else, or a 302 on `/.env` to any other host, is an arbitrary redirect and must still fail.
+    $isEnvPath = $private === '/.env';
+    $record('private path is not served', 'GET', $private, $response, $isEnvPath ? [403, 404, 302] : [403, 404], [
         'body_bytes' => strlen($response['body']),
-    ], true, 'EITHER');
+    ], true, 'EITHER', $isEnvPath ? LOOPIA_WAF_ROADBLOCK_HOST : null);
 }
 
 // ============================================================ authenticated modes

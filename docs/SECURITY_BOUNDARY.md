@@ -168,9 +168,36 @@ outside the document root — the same boundary that protects `app/` and `.env`,
 `tests/foundation/deployment_boundary.php` proves the layout: the served directory is a closed set
 of four entries, no private directory exists inside it, and each exists as a sibling. What a
 repository test cannot prove is that a web server honoured it, so the runbook's HTTP probes now
-include `/tests/run.php`, `/frontend/console/package.json`, `/composer.json`,
-`/upstream.lock.json` and `/deployment-evidence.json` alongside `/.env` and `/app/...`. **403 or 404;
-never 200.**
+include `/tests/run.php`, `/frontend/console/package.json`, `/docs/SECURITY_BOUNDARY.md`,
+`/composer.json`, `/upstream.lock.json`, `/deployment-evidence.json`, `/BOOTSTRAP.md`,
+`/PROJECT_BOUNDARY.md`, `/UPSTREAM_AUTHORITY.md` and `/README.md` alongside `/.env` and `/app/...`.
+**403 or 404; never 200 — and never 503.**
+
+A real-host run against `staging.allfatherbi.com` (2026-09-18) found exactly that fourth case:
+`public_html/.htaccess` rewrote every one of these private paths to `index.php` before it was
+refused, and `index.php` resolves configuration (`Bootstrap::load`) before it decides anything about
+routing — including its own 404. Before secrets exist (Gate D), that bootstrap always fails, so a
+private path and an unrelated typo both answered 503, and the 503 was mistaken for a routing
+question when it was a refused-too-late one. The fix refuses each private directory namespace and
+sensitive root filename **in `public_html/.htaccess` itself**, with `[F,L]`, before the catch-all
+rewrite ever hands the request to `index.php` — a 403 the web server decides, not one the
+application would have to. `tests/foundation/deployment_boundary.php` asserts this two ways: that
+the private-directory list it already maintains is named in the `.htaccess` deny rule, and — by
+parsing the rule and replaying it against real paths — that the rule the incident's paths actually
+match carries `F`, not the catch-all.
+
+**One exception, named and narrow:** on Loopia, `/.env` may instead answer `302` whose `Location`
+parses as HTTPS with host exactly `roadblock.loopia.com`. Gate E.2 additionally requires the port
+to be absent or `443`; the path/query portion does not establish trust, so the observed query-only
+redirect `https://roadblock.loopia.com?id=430057&host=staging.allfatherbi.com` is valid. Gate E.2
+enforces this mechanically in `ops/deploy/verify-e2-private-path-refusal.sh`, using parsed URL
+components rather than a raw-string regex or prefix, and its exit code — not a transcript an
+operator reads — is the gate result. `ops/staging-smoke.php` carries the corresponding
+`/.env`-only WAF exception for the later gates. Every other path, and a `/.env` redirect to any
+other host or scheme (or, for Gate E.2, a non-default port), or any 3xx status other than `302`, is
+an arbitrary redirect and still fails — `tests/security/gate_e2_probe_refusal.php` executes the
+script's own `--self-test` classifier against 24 cases to prove that, and
+`tests/security/staging_smoke_safety.php` asserts the corresponding PHP-client rule.
 
 ### 5.2 The qualification database is not the runtime database
 
