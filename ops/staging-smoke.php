@@ -588,9 +588,13 @@ if ($mode === 'beta-journey') {
     // EVERY SESSION ENDED, including the one that made the change. The jar still holds whatever the
     // response left; the point is that the server no longer honours it.
     $afterChange = $send('GET', '/console/api/v1/context');
+    $afterChangeDecision = $decision($afterChange);
+    $afterChangeIsJson = ($afterChangeDecision['envelope'] ?? null) === 'JSON'
+        && str_contains(strtolower(explode(';', $afterChange['content_type'])[0]), 'json');
     $record('the old session is gone', 'GET', '/console/api/v1/context', $afterChange, [401], [
-        ...$decision($afterChange),
-    ]);
+        ...$afterChangeDecision,
+        'json_envelope_and_type' => $afterChangeIsJson,
+    ], $afterChangeIsJson);
 
     $cookies = [];
     $password = $newPassword;
@@ -625,9 +629,13 @@ if ($mode !== 'anonymous') {
         // but NO_ACTIVE_WORKSPACE is no longer an acceptable answer after a successful selection.
         $selectedContext = $send('GET', '/console/api/v1/context');
         $selectedDecision = $decision($selectedContext);
-        $workspaceIsActive = !in_array('NO_ACTIVE_WORKSPACE', $selectedDecision['reason_codes'] ?? [], true);
+        $selectedContextIsJson = ($selectedDecision['envelope'] ?? null) === 'JSON'
+            && str_contains(strtolower(explode(';', $selectedContext['content_type'])[0]), 'json');
+        $workspaceIsActive = $selectedContextIsJson
+            && !in_array('NO_ACTIVE_WORKSPACE', $selectedDecision['reason_codes'] ?? [], true);
         $record('workspace selection becomes session state', 'GET', '/console/api/v1/context', $selectedContext, [200, 403, 503], [
             ...$selectedDecision,
+            'json_envelope_and_type' => $selectedContextIsJson,
             'workspace_active' => $workspaceIsActive,
         ], $workspaceIsActive);
     } else {
@@ -702,10 +710,17 @@ if ($mode !== 'anonymous') {
 
     foreach ($readPaths as $path) {
         $response = $send('GET', $path);
-        // 200, 403, 409 and 503 are all VALID ANSWERS and are recorded as what they are. A smoke
-        // test that demanded 200 everywhere would be demanding that the deployment grant every
-        // permission to whichever account it was pointed at.
-        $record('governed read', 'GET', $path, $response, [200, 403, 409, 503], $decision($response));
+        // 200, 403, 409 and 503 are all VALID ACCESS/availability answers. The RESPONSE CONTRACT is
+        // not optional, though: every /console/api/ route is JSON. An HTML rewrite or login page with
+        // one of those status codes is a broken browser API and must fail Gate N.
+        $readDecision = $decision($response);
+        $readIsJson = ($readDecision['envelope'] ?? null) === 'JSON'
+            && str_contains(strtolower(explode(';', $response['content_type'])[0]), 'json')
+            && $response['location'] === null;
+        $record('governed read', 'GET', $path, $response, [200, 403, 409, 503], [
+            ...$readDecision,
+            'json_envelope_and_type' => $readIsJson,
+        ], $readIsJson);
     }
 
     // THE SCOPE-OVERRIDE ATTEMPT. The browser must never be able to choose its own tenant,
@@ -725,7 +740,9 @@ if ($mode !== 'anonymous') {
     // whether or not the injected scope changed the decision, so gating on the status alone would
     // let the artifact report SMOKE_PASS while explicitly stating that the scope-override check
     // failed. It is passed as the extra predicate so a difference fails the run.
-    $identical = $plain['status'] === $injected['status']
+    $identical = ($plainDecision['envelope'] ?? null) === 'JSON'
+        && ($injectedDecision['envelope'] ?? null) === 'JSON'
+        && $plain['status'] === $injected['status']
         && ($plainDecision['access_decision'] ?? null) === ($injectedDecision['access_decision'] ?? null)
         && ($plainDecision['owner_state'] ?? null) === ($injectedDecision['owner_state'] ?? null)
         && ($plainDecision['has_data'] ?? null) === ($injectedDecision['has_data'] ?? null);
@@ -752,9 +769,13 @@ if ($mode !== 'anonymous') {
     ], $signedOutToLogin);
 
     $afterSignOut = $send('GET', '/console/api/v1/context');
+    $afterSignOutDecision = $decision($afterSignOut);
+    $afterSignOutIsJson = ($afterSignOutDecision['envelope'] ?? null) === 'JSON'
+        && str_contains(strtolower(explode(';', $afterSignOut['content_type'])[0]), 'json');
     $record('the session is gone after sign-out', 'GET', '/console/api/v1/context', $afterSignOut, [401], [
-        ...$decision($afterSignOut),
-    ]);
+        ...$afterSignOutDecision,
+        'json_envelope_and_type' => $afterSignOutIsJson,
+    ], $afterSignOutIsJson);
 }
 
 // ============================================================ report
