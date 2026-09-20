@@ -425,15 +425,15 @@ $decision = static function (array $response): array {
 };
 
 $readPaths = [
-    '/console/api/v1/context',
-    '/console/api/v1/p01/battlecards',
-    '/console/api/v1/p02/entities',
-    '/console/api/v1/p02/relationships',
-    '/console/api/v1/p03/priority-queue',
-    '/console/api/v1/p03/monitored',
-    '/console/api/v1/p04/distributions',
-    '/console/api/v1/p05/drafts',
-    '/console/api/v1/m10/decisions',
+    '/console/api/v1/context' => 'm12.consoleContext',
+    '/console/api/v1/p01/battlecards' => 'p01.releasedBattlecards',
+    '/console/api/v1/p02/entities' => 'p02.entitySnapshots',
+    '/console/api/v1/p02/relationships' => 'p02.relationshipSnapshots',
+    '/console/api/v1/p03/priority-queue' => 'p03.priorityQueue',
+    '/console/api/v1/p03/monitored' => 'p03.monitoredProspects',
+    '/console/api/v1/p04/distributions' => 'p04.roleDistributions',
+    '/console/api/v1/p05/drafts' => 'p05.internalMarketingDrafts',
+    '/console/api/v1/m10/decisions' => 'm10.decisions',
 ];
 
 // ============================================================ anonymous, always
@@ -742,18 +742,23 @@ if ($mode !== 'anonymous') {
         ], $served, 'NOT_APPLICABLE');
     }
 
-    foreach ($readPaths as $path) {
+    foreach ($readPaths as $path => $expectedSource) {
         $response = $send('GET', $path);
         // After workspace selection, 200, 403 and 503 are valid access/availability answers. A 409
         // is specifically NO_ACTIVE_WORKSPACE in this API and would contradict the selection proof
-        // above. The RESPONSE CONTRACT is not optional either: every /console/api/ route is JSON.
+        // above. The RESPONSE CONTRACT is not optional either: every /console/api/ route is JSON
+        // and each route names its own canonical source, so a rewrite to another JSON endpoint fails.
         $readDecision = $decision($response);
+        $sourceMatches = ($readDecision['source'] ?? null) === $expectedSource;
         $readIsJson = ($readDecision['envelope'] ?? null) === 'JSON'
             && ($readDecision['browser_envelope'] ?? false) === true
             && str_contains(strtolower(explode(';', $response['content_type'])[0]), 'json')
-            && $response['location'] === null;
+            && $response['location'] === null
+            && $sourceMatches;
         $record('governed read', 'GET', $path, $response, [200, 403, 503], [
             ...$readDecision,
+            'expected_source' => $expectedSource,
+            'source_as_expected' => $sourceMatches,
             'json_envelope_and_type' => $readIsJson,
         ], $readIsJson);
     }
