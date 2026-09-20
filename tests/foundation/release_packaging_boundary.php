@@ -43,5 +43,20 @@ foreach ([
         "{$surface} admits /.env.example before the broad host-secret exclusion file",
     );
 }
+foreach ([
+    'docs/BETA_RUNBOOK.md' => $betaRunbook,
+    'docs/DEPLOYMENT_RUNBOOK.md' => $deploymentRunbook,
+] as $surface => $source) {
+    Assert::contains(
+        'rsync -naci',
+        $source,
+        "{$surface} mechanically verifies the deployed .env.example by checksum after the root sync",
+    );
+    Assert::contains(
+        'ENV_TEMPLATE_DRIFT',
+        $source,
+        "{$surface} treats any itemized .env.example difference as a hard stop",
+    );
+}
 Assert::contains('/frontend/console/node_modules/***', $excludes, 'private frontend dependencies are never deployed');
 Assert::contains('/frontend/console/dist/***', $excludes, 'private frontend build output is never deployed');
