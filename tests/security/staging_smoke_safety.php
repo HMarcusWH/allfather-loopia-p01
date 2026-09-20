@@ -345,9 +345,24 @@ Assert::contains(
 Assert::contains('bool $alsoRequires = true,', $code, 'a step can carry an extra pass predicate');
 Assert::contains('&& $alsoRequires;', $code, 'and it is part of the verdict, not a reported field');
 Assert::contains(
-    '&& $redirectStaysHere',
+    '&& $redirectAccepted',
     $code,
-    'a redirect that leaves this origin fails the step rather than being noted beside a pass',
+    'a redirect that is neither same-origin nor the one named exception fails the step',
+);
+Assert::contains(
+    '&& $namedForeignRedirectSatisfied',
+    $code,
+    'when a step names a foreign exception, an expected redirect must satisfy that exact exception',
+);
+Assert::contains(
+    "'redirect_stays_on_origin' => \$redirectStaysOnOrigin,",
+    $code,
+    'the report distinguishes true same-origin redirects from a separately accepted provider exception',
+);
+Assert::contains(
+    "'foreign_redirect_exception_accepted' => \$foreignRedirectAccepted,",
+    $code,
+    'and reports when the provider exception — rather than same-origin routing — was the reason a redirect was accepted',
 );
 // SCHEME-RELATIVE IS THE CASE THAT LOOKS SAME-ORIGIN. `//evil.example/path` begins with a slash.
 Assert::contains(
@@ -757,6 +772,16 @@ Assert::contains(
     "(!isset(\$foreign['port']) || (int) \$foreign['port'] === 443)",
     $code,
     'and the WAF exception permits only the default HTTPS endpoint, matching the stricter Gate E.2 classifier',
+);
+Assert::contains(
+    "\$namedForeignRedirectSatisfied = \$allowedForeignRedirectHost === null",
+    $code,
+    'the provider exception has an explicit redirect-only gate rather than widening ordinary redirects',
+);
+Assert::contains(
+    "|| \$foreignRedirectAccepted;",
+    $code,
+    'an expected redirect on /.env is accepted only when the named foreign host check itself passed',
 );
 Assert::false(
     str_contains($code, "str_starts_with(\$response['location'], 'https://" . 'roadblock.loopia.com'),
