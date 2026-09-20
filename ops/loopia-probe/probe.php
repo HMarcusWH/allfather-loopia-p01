@@ -640,7 +640,7 @@ if (!extension_loaded('curl')) {
     $ok = curl_exec($handle) !== false;
     $code = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
     $err = curl_error($handle);
-    curl_close($handle);
+    // CurlHandle is object-backed on PHP 8+; curl_close() is a deprecated no-op in PHP 8.5.
     $record('outbound_https', $ok ? 'PRESENT' : 'MISSING',
         ['reached' => $ok, 'status' => $code, 'error' => $ok ? null : substr($err, 0, 120), 'proxy_disabled' => true],
         'Governed read-only capture requires outbound HTTPS with TLS verification, through a DIRECT '
