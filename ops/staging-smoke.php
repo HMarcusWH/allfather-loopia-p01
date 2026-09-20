@@ -661,11 +661,20 @@ if ($mode !== 'anonymous') {
         $selectedDecision = $decision($selectedContext);
         $selectedContextIsJson = ($selectedDecision['envelope'] ?? null) === 'JSON'
             && ($selectedDecision['browser_envelope'] ?? false) === true
+            && ($selectedDecision['source'] ?? null) === 'm12.consoleContext'
             && str_contains(strtolower(explode(';', $selectedContext['content_type'])[0]), 'json')
             && $selectedContext['location'] === null;
+        $contextStatusMatchesDecision = (
+            $selectedContext['status'] === 200
+            && ($selectedDecision['access_decision'] ?? null) === 'VISIBLE'
+            && ($selectedDecision['owner_state'] ?? null) === 'VISIBLE'
+        ) || (
+            $selectedContext['status'] === 403
+            && ($selectedDecision['access_decision'] ?? null) === 'DENIED'
+            && ($selectedDecision['owner_state'] ?? null) === 'DENIED'
+        );
         $workspaceIsActive = $selectedContextIsJson
-            && in_array($selectedDecision['access_decision'] ?? null, ['VISIBLE', 'DENIED'], true)
-            && in_array($selectedDecision['owner_state'] ?? null, ['VISIBLE', 'DENIED'], true)
+            && $contextStatusMatchesDecision
             && !in_array('NO_ACTIVE_WORKSPACE', $selectedDecision['reason_codes'] ?? [], true);
         $record('workspace selection becomes session state', 'GET', '/console/api/v1/context', $selectedContext, [200, 403], [
             ...$selectedDecision,
@@ -750,15 +759,26 @@ if ($mode !== 'anonymous') {
         // and each route names its own canonical source, so a rewrite to another JSON endpoint fails.
         $readDecision = $decision($response);
         $sourceMatches = ($readDecision['source'] ?? null) === $expectedSource;
+        $statusSemantics = match ($response['status']) {
+            200 => ($readDecision['access_decision'] ?? null) === 'VISIBLE'
+                && ($readDecision['owner_state'] ?? null) === 'VISIBLE',
+            403 => ($readDecision['access_decision'] ?? null) === 'DENIED',
+            503 => ($readDecision['access_decision'] ?? null) === 'VISIBLE'
+                && ($readDecision['owner_state'] ?? null) === 'UNAVAILABLE'
+                && in_array('READ_UNAVAILABLE', $readDecision['reason_codes'] ?? [], true),
+            default => false,
+        };
         $readIsJson = ($readDecision['envelope'] ?? null) === 'JSON'
             && ($readDecision['browser_envelope'] ?? false) === true
             && str_contains(strtolower(explode(';', $response['content_type'])[0]), 'json')
             && $response['location'] === null
-            && $sourceMatches;
+            && $sourceMatches
+            && $statusSemantics;
         $record('governed read', 'GET', $path, $response, [200, 403, 503], [
             ...$readDecision,
             'expected_source' => $expectedSource,
             'source_as_expected' => $sourceMatches,
+            'status_semantics_as_expected' => $statusSemantics,
             'json_envelope_and_type' => $readIsJson,
         ], $readIsJson);
     }
@@ -782,10 +802,12 @@ if ($mode !== 'anonymous') {
     // failed. It is passed as the extra predicate so a difference fails the run.
     $plainEnvelopeValid = ($plainDecision['envelope'] ?? null) === 'JSON'
         && ($plainDecision['browser_envelope'] ?? false) === true
+        && ($plainDecision['source'] ?? null) === 'm12.consoleContext'
         && str_contains(strtolower(explode(';', $plain['content_type'])[0]), 'json')
         && $plain['location'] === null;
     $injectedEnvelopeValid = ($injectedDecision['envelope'] ?? null) === 'JSON'
         && ($injectedDecision['browser_envelope'] ?? false) === true
+        && ($injectedDecision['source'] ?? null) === 'm12.consoleContext'
         && str_contains(strtolower(explode(';', $injected['content_type'])[0]), 'json')
         && $injected['location'] === null;
     $identical = $plainEnvelopeValid
