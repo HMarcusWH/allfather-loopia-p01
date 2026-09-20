@@ -335,17 +335,27 @@ $record = static function (
     string $reference = 'REQUIRED',
     ?string $allowedForeignRedirectHost = null,
 ) use (&$steps, &$failures, $sameOrigin): bool {
-    $redirectStaysHere = $response['location'] === null || $sameOrigin($response['location']);
-    if (!$redirectStaysHere && $allowedForeignRedirectHost !== null && $response['location'] !== null) {
+    $redirectStaysOnOrigin = $response['location'] === null || $sameOrigin($response['location']);
+    $foreignRedirectAccepted = false;
+    if (!$redirectStaysOnOrigin && $allowedForeignRedirectHost !== null && $response['location'] !== null) {
         $foreign = parse_url($response['location']);
-        $redirectStaysHere = is_array($foreign)
+        $foreignRedirectAccepted = is_array($foreign)
             && ($foreign['scheme'] ?? '') === 'https'
             && ($foreign['host'] ?? '') === $allowedForeignRedirectHost
             && (!isset($foreign['port']) || (int) $foreign['port'] === 443);
     }
+    $redirectAccepted = $redirectStaysOnOrigin || $foreignRedirectAccepted;
+    $isRedirectStatus = $response['status'] >= 300 && $response['status'] < 400;
+    // When a caller names a foreign-host exception, an expected redirect is accepted ONLY by that
+    // named exception. This prevents /.env from passing on an ordinary same-origin 302 produced by
+    // a catch-all rewrite; the exception exists for Loopia's roadblock response, not for redirects.
+    $namedForeignRedirectSatisfied = $allowedForeignRedirectHost === null
+        || !$isRedirectStatus
+        || $foreignRedirectAccepted;
     $ok = in_array($response['status'], $expected, true)
         && $response['error'] === null
-        && $redirectStaysHere
+        && $redirectAccepted
+        && $namedForeignRedirectSatisfied
         && $alsoRequires;
     $steps[] = [
         'step' => $step,
@@ -355,7 +365,8 @@ $record = static function (
         'expected' => $expected,
         'request_id' => RequestId::isWellFormed($response['request_id']) ? $response['request_id'] : null,
         'content_type' => explode(';', $response['content_type'])[0],
-        'redirect_stays_on_origin' => $redirectStaysHere,
+        'redirect_stays_on_origin' => $redirectStaysOnOrigin,
+        'foreign_redirect_exception_accepted' => $foreignRedirectAccepted,
         'request_reference' => $reference,
         ...$safe,
         'result' => $ok ? 'PASS' : 'FAIL',
