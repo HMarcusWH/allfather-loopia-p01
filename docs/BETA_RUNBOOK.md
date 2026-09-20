@@ -112,7 +112,7 @@ capability is not the Loopia launch profile.
 
 The rsync source is **`$RELEASE_DIR/`**, never the developer checkout.
 
-The destructive root sync uses the reviewed exclusion file:
+The destructive root sync uses the reviewed filter contract. The explicit include MUST precede the exclusion file:
 
 ```bash
 rsync -av --delete \
@@ -128,8 +128,31 @@ The exclusions protect all of these from the root `--delete`:
 - frontend private dependency/build trees;
 - the separately published Operator Console bundle.
 
-`rsync` does not honor `.gitignore`; this exclusion is therefore load-bearing. A deploy must neither
+`rsync` does not honor `.gitignore`; this filter contract is therefore load-bearing. A deploy must neither
 delete host runtime logs/evidence nor upload ignored runtime state from a developer machine.
+
+Immediately after the root sync, prove the tracked template arrived **through that normal path**, not
+through a one-off repair copy. This checksum-mode dry run must produce **no output**; any
+`.env.example` itemized line means the deployed bytes still differ, and a non-zero rsync exit is a
+hard stop:
+
+```bash
+if ! ENV_TEMPLATE_DRIFT="$(rsync -naci \
+  --include='/.env.example' \
+  --exclude='*' \
+  "$RELEASE_DIR/" <user>@<host>:~/<domain>/)"; then
+  echo "STOP: could not verify deployed .env.example" >&2
+  exit 1
+fi
+if [ -n "$ENV_TEMPLATE_DRIFT" ]; then
+  printf '%s\n' "$ENV_TEMPLATE_DRIFT" >&2
+  echo "STOP: deployed .env.example is not byte-identical to the prepared release" >&2
+  exit 1
+fi
+```
+
+Do not SCP `.env.example` as a repair. If this check fails, repair the release filter contract and
+redeploy the exact prepared artifact.
 
 Create the private runtime directory and copy only its committed policy files, without delete:
 
