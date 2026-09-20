@@ -393,8 +393,8 @@ foreach ([
         => 'the smoke client explicitly visits the chooser instead of waiting for an impossible login redirect',
     "\$selectionReturnsToConsole = \$selected['location'] === '/console';"
         => 'workspace selection must return to the console',
-    "\$workspaceIsActive = !in_array('NO_ACTIVE_WORKSPACE', \$selectedDecision['reason_codes'] ?? [], true);"
-        => 'the selection is re-read from session state and NO_ACTIVE_WORKSPACE is forbidden afterwards',
+    "\$workspaceIsActive = \$selectedContextIsJson"
+        => 'workspace activation is conditional on the JSON contract before NO_ACTIVE_WORKSPACE is excluded',
     "\$signedOutToLogin = \$signedOut['location'] === '/login';"
         => 'sign-out must return to the sign-in surface',
 ] as $needle => $why) {
