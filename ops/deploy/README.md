@@ -29,6 +29,18 @@ It never calls `ssh` or `rsync`, never reads host secrets, and never changes a b
 The root staging sync is destructive (`--delete`), so the exclusions are part of the deployment
 contract rather than copy/paste suggestions.
 
+The broad env rules protect private host configuration, while the tracked non-secret template is
+release-owned. The root sync therefore MUST order the rules this way:
+
+```text
+--include='/.env.example'
+--exclude-from=<prepared-release>/ops/deploy/staging-rsync-excludes.txt
+```
+
+Rsync evaluates these filter rules in order. The explicit include is what lets `.env.example`
+arrive while the file's `/.env` and `/.env.*` rules keep the real runtime, qualification and any
+future host env files outside destructive `--delete` ownership.
+
 In particular:
 
 ```text
