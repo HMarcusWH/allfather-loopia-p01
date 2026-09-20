@@ -234,6 +234,33 @@ Assert::contains('$options[CURLOPT_COOKIE] = implode(\'; \', $pairs);', $code, '
 Assert::false(str_contains($code, 'file_put_contents'), 'the client writes no file at all');
 Assert::false(str_contains($code, 'error_log('), 'and no log line');
 
+// ============================================================ CSRF reads the LIVE cookie jar
+
+// Gate N's authenticated failure on Loopia came from the qualification client itself: GET /login
+// rotated the CSRF cookie, while an arrow-function accessor had already captured the initial empty
+// array by value. The POST therefore paired the fresh cookie with a stale/empty form token. Lock the
+// causal shape here, not merely the existence of a CSRF field.
+Assert::contains(
+    '$csrfToken = static function () use (&$cookies): string {',
+    $code,
+    'the CSRF accessor captures the in-memory jar BY REFERENCE, so a Set-Cookie mutation is observable',
+);
+Assert::false(
+    str_contains($code, '$csrfToken = static fn'),
+    'an arrow-function snapshot cannot return as the CSRF accessor',
+);
+$signInStart = (int) strpos($code, '$signIn = static function');
+$signInEnd = (int) strpos($code, "if ($mode === 'beta-journey')");
+$signInFn = substr($code, $signInStart, $signInEnd - $signInStart);
+Assert::true(
+    strpos($signInFn, "$send('GET', '/login');") < strpos($signInFn, "'csrf_token' => $csrfToken()"),
+    'sign-in first lets /login rotate the jar and only then reads the current token for the POST',
+);
+Assert::false(
+    str_contains($code, 'curl_close('),
+    'the smoke client carries no PHP 8.5-deprecated curl_close() call',
+);
+
 // ============================================================ every request is bounded
 
 Assert::contains('CURLOPT_TIMEOUT => 20', $code, 'each request has a total time bound');
