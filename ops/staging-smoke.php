@@ -715,9 +715,9 @@ if ($mode !== 'anonymous') {
 
     foreach ($readPaths as $path) {
         $response = $send('GET', $path);
-        // 200, 403, 409 and 503 are all VALID ACCESS/availability answers. The RESPONSE CONTRACT is
-        // not optional, though: every /console/api/ route is JSON. An HTML rewrite or login page with
-        // one of those status codes is a broken browser API and must fail Gate N.
+        // After workspace selection, 200, 403 and 503 are valid access/availability answers. A 409
+        // is specifically NO_ACTIVE_WORKSPACE in this API and would contradict the selection proof
+        // above. The RESPONSE CONTRACT is not optional either: every /console/api/ route is JSON.
         $readDecision = $decision($response);
         $readIsJson = ($readDecision['envelope'] ?? null) === 'JSON'
             && str_contains(strtolower(explode(';', $response['content_type'])[0]), 'json')
