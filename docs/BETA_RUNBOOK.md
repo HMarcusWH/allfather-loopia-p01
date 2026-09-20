@@ -137,7 +137,7 @@ through a one-off repair copy. This checksum-mode dry run must produce **no outp
 hard stop:
 
 ```bash
-if ! ENV_TEMPLATE_DRIFT="$(rsync -naci \
+if ! ENV_TEMPLATE_DRIFT="$(rsync -nric \
   --include='/.env.example' \
   --exclude='*' \
   "$RELEASE_DIR/" <user>@<host>:~/<domain>/)"; then
