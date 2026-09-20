@@ -7,7 +7,7 @@ use Allfather\Loopia\Tests\Assert;
 $root = dirname(__DIR__, 2);
 $violations = [];
 
-foreach (['app', 'ops', 'public_html', 'worker'] as $top) {
+foreach (['app', 'ops', 'public_html', 'worker', 'tests'] as $top) {
     $dir = $root . '/' . $top;
     $walk = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
@@ -39,5 +39,5 @@ sort($violations, SORT_STRING);
 Assert::same(
     [],
     $violations,
-    'deployable PHP contains no curl_close() call — it is a no-op on PHP 8+ and deprecated in PHP 8.5',
+    'runtime and qualification PHP contain no curl_close() call — it is a no-op on PHP 8+ and deprecated in PHP 8.5',
 );
