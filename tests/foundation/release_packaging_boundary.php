@@ -48,7 +48,7 @@ foreach ([
     'docs/DEPLOYMENT_RUNBOOK.md' => $deploymentRunbook,
 ] as $surface => $source) {
     Assert::contains(
-        'rsync -naci',
+        'rsync -nric',
         $source,
         "{$surface} mechanically verifies the deployed .env.example by checksum after the root sync",
     );
