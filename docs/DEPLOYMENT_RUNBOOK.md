@@ -87,6 +87,26 @@ The `storage/***` rule is load-bearing. Root `rsync --delete` must never delete 
 request logs/evidence or future private files. `rsync` does not honor `.gitignore`, so the same rule
 also prevents ignored local runtime state from being uploaded.
 
+After the root copy, verify the release-owned env template with rsync's checksum comparison:
+
+```bash
+if ! ENV_TEMPLATE_DRIFT="$(rsync -naci \
+  --include='/.env.example' \
+  --exclude='*' \
+  "$RELEASE_DIR/" <user>@<host>:~/<domain>/)"; then
+  echo "STOP: could not verify deployed .env.example" >&2
+  exit 1
+fi
+test -z "$ENV_TEMPLATE_DRIFT" || {
+  printf '%s\n' "$ENV_TEMPLATE_DRIFT" >&2
+  echo "STOP: deployed .env.example differs from the prepared release" >&2
+  exit 1
+}
+```
+
+Empty output is the only pass. This is deliberately the normal root-sync path; do not hide a filter
+regression by copying `.env.example` separately.
+
 Create storage and copy only committed policy metadata, without delete:
 
 ```bash
