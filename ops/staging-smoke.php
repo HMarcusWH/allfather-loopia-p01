@@ -502,6 +502,8 @@ $anonContext = $send('GET', '/console/api/v1/context');
 // envelope, a JSON content type and the absence of a redirect are all part of the verdict.
 $anonDecision = $decision($anonContext);
 $anonIsJson = ($anonDecision['envelope'] ?? null) === 'JSON'
+    && ($anonDecision['envelope_status'] ?? null) === 'UNAUTHENTICATED'
+    && in_array('AUTHENTICATION_REQUIRED', $anonDecision['reason_codes'] ?? [], true)
     && str_contains(strtolower(explode(';', $anonContext['content_type'])[0]), 'json')
     && $anonContext['location'] === null;
 $record('anonymous JSON read is a JSON 401', 'GET', '/console/api/v1/context', $anonContext, [401], [
@@ -633,7 +635,10 @@ if ($mode === 'beta-journey') {
     $afterChange = $send('GET', '/console/api/v1/context');
     $afterChangeDecision = $decision($afterChange);
     $afterChangeIsJson = ($afterChangeDecision['envelope'] ?? null) === 'JSON'
-        && str_contains(strtolower(explode(';', $afterChange['content_type'])[0]), 'json');
+        && ($afterChangeDecision['envelope_status'] ?? null) === 'UNAUTHENTICATED'
+        && in_array('AUTHENTICATION_REQUIRED', $afterChangeDecision['reason_codes'] ?? [], true)
+        && str_contains(strtolower(explode(';', $afterChange['content_type'])[0]), 'json')
+        && $afterChange['location'] === null;
     $record('the old session is gone', 'GET', '/console/api/v1/context', $afterChange, [401], [
         ...$afterChangeDecision,
         'json_envelope_and_type' => $afterChangeIsJson,
@@ -864,7 +869,10 @@ if ($mode !== 'anonymous') {
     $afterSignOut = $send('GET', '/console/api/v1/context');
     $afterSignOutDecision = $decision($afterSignOut);
     $afterSignOutIsJson = ($afterSignOutDecision['envelope'] ?? null) === 'JSON'
-        && str_contains(strtolower(explode(';', $afterSignOut['content_type'])[0]), 'json');
+        && ($afterSignOutDecision['envelope_status'] ?? null) === 'UNAUTHENTICATED'
+        && in_array('AUTHENTICATION_REQUIRED', $afterSignOutDecision['reason_codes'] ?? [], true)
+        && str_contains(strtolower(explode(';', $afterSignOut['content_type'])[0]), 'json')
+        && $afterSignOut['location'] === null;
     $record('the session is gone after sign-out', 'GET', '/console/api/v1/context', $afterSignOut, [401], [
         ...$afterSignOutDecision,
         'json_envelope_and_type' => $afterSignOutIsJson,
