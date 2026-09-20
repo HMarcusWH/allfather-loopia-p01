@@ -69,6 +69,7 @@ rules below make the critical exclusions visible at the command that uses `--del
 
 ```bash
 rsync -av --delete \
+  --include='/.env.example' \
   --exclude-from="$RELEASE_DIR/ops/deploy/staging-rsync-excludes.txt" \
   --exclude 'frontend/console/node_modules' \
   --exclude 'frontend/console/dist' \
@@ -77,8 +78,10 @@ rsync -av --delete \
   "$RELEASE_DIR/" <user>@<host>:~/<domain>/
 ```
 
-`ops/deploy/staging-rsync-excludes.txt` also excludes `.git`, `.github`, all `.env*` configuration,
-`storage/***`, private frontend dependency/build output, and generated Operator Console assets.
+`ops/deploy/staging-rsync-excludes.txt` also excludes `.git`, `.github`, host `.env`/`.env.*` configuration,
+`storage/***`, private frontend dependency/build output, and generated Operator Console assets. The command's
+preceding `--include='/.env.example'` is intentionally evaluated first so the tracked non-secret template remains
+release-managed while every host runtime/qualification env file stays protected.
 
 The `storage/***` rule is load-bearing. Root `rsync --delete` must never delete runtime-generated
 request logs/evidence or future private files. `rsync` does not honor `.gitignore`, so the same rule
