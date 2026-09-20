@@ -425,9 +425,19 @@ Assert::contains(
     'a non-canonical response can never be called an active workspace',
 );
 Assert::contains(
-    "&& in_array(\$selectedDecision['access_decision'] ?? null, ['VISIBLE', 'DENIED'], true)",
+    "(\$selectedDecision['source'] ?? null) === 'm12.consoleContext'",
     $code,
-    'workspace state requires a canonical context access decision rather than merely absence of one reason code',
+    'workspace activation requires the context route to identify itself as m12.consoleContext',
+);
+Assert::contains(
+    "\$contextStatusMatchesDecision = (",
+    $code,
+    'workspace activation checks HTTP status against the canonical access/owner decision pair',
+);
+Assert::contains(
+    "&& \$contextStatusMatchesDecision",
+    $code,
+    'a canonical-looking envelope with contradictory status semantics cannot mark the workspace active',
 );
 
 // The decoder classifies the ConsoleReadEnvelope shape without returning governed data.
@@ -461,9 +471,24 @@ Assert::contains(
     'every authenticated governed read also requires a JSON media type',
 );
 Assert::contains(
+    "\$sourceMatches = (\$readDecision['source'] ?? null) === \$expectedSource;",
+    $code,
+    'each governed route must return the source identifier assigned to that exact path',
+);
+Assert::contains(
+    "\$statusSemantics = match (\$response['status']) {",
+    $code,
+    'each allowed HTTP status is cross-checked against the envelope decision semantics',
+);
+Assert::contains(
+    "&& \$statusSemantics;",
+    $code,
+    'the status/envelope consistency check gates the governed-read verdict',
+);
+Assert::contains(
     "], \$readIsJson);",
     $code,
-    'that JSON contract is part of the governed-read step verdict',
+    'that full route/envelope/status contract is part of the governed-read step verdict',
 );
 Assert::contains(
     "\$plainEnvelopeValid = (\$plainDecision['envelope'] ?? null) === 'JSON'",
@@ -476,9 +501,19 @@ Assert::contains(
     'the unscoped response must have the canonical browser-envelope shape',
 );
 Assert::contains(
+    "&& (\$plainDecision['source'] ?? null) === 'm12.consoleContext'",
+    $code,
+    'the unscoped comparison side must be the actual context route, not just any valid envelope',
+);
+Assert::contains(
     "&& (\$injectedDecision['browser_envelope'] ?? false) === true",
     $code,
     'the injected response must have the canonical browser-envelope shape too',
+);
+Assert::contains(
+    "&& (\$injectedDecision['source'] ?? null) === 'm12.consoleContext'",
+    $code,
+    'the injected comparison side must still be the context route',
 );
 Assert::contains(
     "&& (\$plainDecision['reason_codes'] ?? null) === (\$injectedDecision['reason_codes'] ?? null)",
