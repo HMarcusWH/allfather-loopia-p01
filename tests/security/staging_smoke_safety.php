@@ -249,11 +249,18 @@ Assert::false(
     str_contains($code, '$csrfToken = static fn'),
     'an arrow-function snapshot cannot return as the CSRF accessor',
 );
-$signInStart = (int) strpos($code, '$signIn = static function');
-$signInEnd = (int) strpos($code, "if (\$mode === 'beta-journey')");
-$signInFn = substr($code, $signInStart, $signInEnd - $signInStart);
+$signInStart = strpos($code, '$signIn = static function');
+$signInEnd = strpos($code, "if (\$mode === 'beta-journey')");
+Assert::notSame(false, $signInStart, 'the sign-in helper exists');
+Assert::notSame(false, $signInEnd, 'the beta-journey block exists after the sign-in helper');
+Assert::true($signInStart < $signInEnd, 'the sign-in helper is bounded before beta-journey execution');
+$signInFn = substr($code, (int) $signInStart, (int) $signInEnd - (int) $signInStart);
+$getLogin = strpos($signInFn, "\$send('GET', '/login');");
+$csrfRead = strpos($signInFn, "'csrf_token' => \$csrfToken()");
+Assert::notSame(false, $getLogin, 'sign-in explicitly refreshes /login before posting credentials');
+Assert::notSame(false, $csrfRead, 'sign-in reads the CSRF accessor for the credential POST');
 Assert::true(
-    strpos($signInFn, "\$send('GET', '/login');") < strpos($signInFn, "'csrf_token' => \$csrfToken()"),
+    $getLogin < $csrfRead,
     'sign-in first lets /login rotate the jar and only then reads the current token for the POST',
 );
 Assert::false(
