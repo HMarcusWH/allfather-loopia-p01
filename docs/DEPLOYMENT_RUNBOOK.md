@@ -90,7 +90,7 @@ also prevents ignored local runtime state from being uploaded.
 After the root copy, verify the release-owned env template with rsync's checksum comparison:
 
 ```bash
-if ! ENV_TEMPLATE_DRIFT="$(rsync -naci \
+if ! ENV_TEMPLATE_DRIFT="$(rsync -nric \
   --include='/.env.example' \
   --exclude='*' \
   "$RELEASE_DIR/" <user>@<host>:~/<domain>/)"; then
