@@ -116,13 +116,14 @@ The destructive root sync uses the reviewed exclusion file:
 
 ```bash
 rsync -av --delete \
+  --include='/.env.example' \
   --exclude-from="$RELEASE_DIR/ops/deploy/staging-rsync-excludes.txt" \
   "$RELEASE_DIR/" <user>@<host>:~/<domain>/
 ```
 
 The exclusions protect all of these from the root `--delete`:
 
-- host `.env*` configuration;
+- host `.env` and `.env.*` runtime/qualification configuration; the tracked `.env.example` is explicitly admitted by the preceding include rule;
 - **all runtime `storage/` contents**;
 - frontend private dependency/build trees;
 - the separately published Operator Console bundle.
