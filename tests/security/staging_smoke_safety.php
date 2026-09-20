@@ -376,6 +376,40 @@ foreach (['customer_visible_output', 'external_effect'] as $claim) {
 Assert::contains("\$healthClaims['envelope'] === 'JSON'", $code, 'and requires a JSON object at all');
 Assert::contains('], $healthInert);', $code, 'and that predicate is passed to the step, not merely reported');
 
+// ============================================================ the beta journey actually traverses its named gates
+
+foreach ([
+    "\$firstLandsOnPassword = \$first['location'] === '/account/password';"
+        => 'the first beta sign-in must land on the forced-password surface',
+    "\$shellGatedToPassword = \$gatedShell['location'] === '/account/password';"
+        => 'the React shell must be redirected to the password surface while the lifecycle gate is active',
+    "\$readGatedByPassword = (\$gatedDecision['envelope_status'] ?? null) === 'PASSWORD_CHANGE_REQUIRED'"
+        => 'the governed-read refusal is verified as the password-change gate, not merely as some 403',
+    "\$changedReturnsToLogin = \$changed['location'] === '/login?changed=1';"
+        => 'password change must revoke the session and return to sign-in',
+    "\$signedInToConsole = \$signedIn['location'] === '/console';"
+        => 'the post-change sign-in must enter the console flow',
+    "\$chooser = \$send('GET', '/console/workspaces');"
+        => 'the smoke client explicitly visits the chooser instead of waiting for an impossible login redirect',
+    "\$selectionReturnsToConsole = \$selected['location'] === '/console';"
+        => 'workspace selection must return to the console',
+    "\$workspaceIsActive = !in_array('NO_ACTIVE_WORKSPACE', \$selectedDecision['reason_codes'] ?? [], true);"
+        => 'the selection is re-read from session state and NO_ACTIVE_WORKSPACE is forbidden afterwards',
+    "\$signedOutToLogin = \$signedOut['location'] === '/login';"
+        => 'sign-out must return to the sign-in surface',
+] as $needle => $why) {
+    Assert::contains($needle, $code, $why);
+}
+Assert::false(
+    str_contains($code, "if (\$signedIn['location'] === '/console/workspaces')"),
+    'the old dead branch is gone: SessionController never redirects login directly to the chooser',
+);
+Assert::contains(
+    "], \$workspaceIsActive);",
+    $code,
+    'workspace activation is part of the step verdict, not a diagnostic beside a pass',
+);
+
 // ============================================================ the console shell is not the console
 
 // A host can serve the document perfectly and answer 404, or the front controller's HTML, for the
@@ -520,6 +554,11 @@ Assert::contains(
     "(\$foreign['scheme'] ?? '') === 'https'",
     $code,
     'and the scheme is checked too — a plaintext redirect claiming that host is not the same guarantee',
+);
+Assert::contains(
+    "(!isset(\$foreign['port']) || (int) \$foreign['port'] === 443)",
+    $code,
+    'and the WAF exception permits only the default HTTPS endpoint, matching the stricter Gate E.2 classifier',
 );
 Assert::false(
     str_contains($code, "str_starts_with(\$response['location'], 'https://" . 'roadblock.loopia.com'),
