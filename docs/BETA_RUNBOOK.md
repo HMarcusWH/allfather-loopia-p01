@@ -433,8 +433,15 @@ read -rs PW; read -rs NEW; printf '%s\n%s\n' "$PW" "$NEW" | php ops/staging-smok
 
 Require `SMOKE_PASS` and zero required responses missing `X-Request-ID`.
 
+For `beta-journey`, that pass must include the actual lifecycle path: first sign-in lands on the
+forced-password surface; the pre-change session is replayed and refused after password replacement;
+the replacement password signs in to `/console`; a workspace offered by the chooser is selected and
+re-read as active session state; governed API responses keep their canonical route/source/status
+semantics; caller-supplied tenant/workspace/operator/environment query scope changes nothing; and
+the session token captured immediately before logout is replayed and refused afterwards.
+
 Then manually inspect: sign-in → forced password change → workspace chooser → React console → P01 →
-P02 → P03 → P04 → P05 → M10 → Help & support → sign out.
+P02 → P03 → P04 → P05 → M10 → Help & support → Account → sign out.
 
 ## Gate O — Security negatives on the real host
 
