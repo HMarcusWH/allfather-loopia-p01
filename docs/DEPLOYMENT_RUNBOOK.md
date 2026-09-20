@@ -64,11 +64,12 @@ cross-site isolation blocker closes.
 #### Deploy the application tree
 
 The root application copy is destructive for release-owned code and deliberately non-destructive for
-runtime state. The committed exclusion file is authoritative; the repeated explicit frontend/asset
-rules below make the critical exclusions visible at the command that uses `--delete`.
+runtime state. The committed exclusion file plus the explicit `.env.example` include are the authoritative
+filter contract; the repeated frontend/asset rules below make the critical exclusions visible at the command that uses `--delete`.
 
 ```bash
 rsync -av --delete \
+  --include='/.env.example' \
   --exclude-from="$RELEASE_DIR/ops/deploy/staging-rsync-excludes.txt" \
   --exclude 'frontend/console/node_modules' \
   --exclude 'frontend/console/dist' \
@@ -77,12 +78,34 @@ rsync -av --delete \
   "$RELEASE_DIR/" <user>@<host>:~/<domain>/
 ```
 
-`ops/deploy/staging-rsync-excludes.txt` also excludes `.git`, `.github`, all `.env*` configuration,
-`storage/***`, private frontend dependency/build output, and generated Operator Console assets.
+`ops/deploy/staging-rsync-excludes.txt` also excludes `.git`, `.github`, host `.env`/`.env.*` configuration,
+`storage/***`, private frontend dependency/build output, and generated Operator Console assets. The command's
+preceding `--include='/.env.example'` is intentionally evaluated first so the tracked non-secret template remains
+release-managed while every host runtime/qualification env file stays protected.
 
 The `storage/***` rule is load-bearing. Root `rsync --delete` must never delete runtime-generated
 request logs/evidence or future private files. `rsync` does not honor `.gitignore`, so the same rule
 also prevents ignored local runtime state from being uploaded.
+
+After the root copy, verify the release-owned env template with rsync's checksum comparison:
+
+```bash
+if ! ENV_TEMPLATE_DRIFT="$(rsync -nric \
+  --include='/.env.example' \
+  --exclude='*' \
+  "$RELEASE_DIR/" <user>@<host>:~/<domain>/)"; then
+  echo "STOP: could not verify deployed .env.example" >&2
+  exit 1
+fi
+test -z "$ENV_TEMPLATE_DRIFT" || {
+  printf '%s\n' "$ENV_TEMPLATE_DRIFT" >&2
+  echo "STOP: deployed .env.example differs from the prepared release" >&2
+  exit 1
+}
+```
+
+Empty output is the only pass. This is deliberately the normal root-sync path; do not hide a filter
+regression by copying `.env.example` separately.
 
 Create storage and copy only committed policy metadata, without delete:
 

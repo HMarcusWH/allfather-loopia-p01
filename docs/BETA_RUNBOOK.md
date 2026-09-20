@@ -112,23 +112,47 @@ capability is not the Loopia launch profile.
 
 The rsync source is **`$RELEASE_DIR/`**, never the developer checkout.
 
-The destructive root sync uses the reviewed exclusion file:
+The destructive root sync uses the reviewed filter contract. The explicit include MUST precede the exclusion file:
 
 ```bash
 rsync -av --delete \
+  --include='/.env.example' \
   --exclude-from="$RELEASE_DIR/ops/deploy/staging-rsync-excludes.txt" \
   "$RELEASE_DIR/" <user>@<host>:~/<domain>/
 ```
 
 The exclusions protect all of these from the root `--delete`:
 
-- host `.env*` configuration;
+- host `.env` and `.env.*` runtime/qualification configuration; the tracked `.env.example` is explicitly admitted by the preceding include rule;
 - **all runtime `storage/` contents**;
 - frontend private dependency/build trees;
 - the separately published Operator Console bundle.
 
-`rsync` does not honor `.gitignore`; this exclusion is therefore load-bearing. A deploy must neither
+`rsync` does not honor `.gitignore`; this filter contract is therefore load-bearing. A deploy must neither
 delete host runtime logs/evidence nor upload ignored runtime state from a developer machine.
+
+Immediately after the root sync, prove the tracked template arrived **through that normal path**, not
+through a one-off repair copy. This checksum-mode dry run must produce **no output**; any
+`.env.example` itemized line means the deployed bytes still differ, and a non-zero rsync exit is a
+hard stop:
+
+```bash
+if ! ENV_TEMPLATE_DRIFT="$(rsync -nric \
+  --include='/.env.example' \
+  --exclude='*' \
+  "$RELEASE_DIR/" <user>@<host>:~/<domain>/)"; then
+  echo "STOP: could not verify deployed .env.example" >&2
+  exit 1
+fi
+if [ -n "$ENV_TEMPLATE_DRIFT" ]; then
+  printf '%s\n' "$ENV_TEMPLATE_DRIFT" >&2
+  echo "STOP: deployed .env.example is not byte-identical to the prepared release" >&2
+  exit 1
+fi
+```
+
+Do not SCP `.env.example` as a repair. If this check fails, repair the release filter contract and
+redeploy the exact prepared artifact.
 
 Create the private runtime directory and copy only its committed policy files, without delete:
 
@@ -409,8 +433,15 @@ read -rs PW; read -rs NEW; printf '%s\n%s\n' "$PW" "$NEW" | php ops/staging-smok
 
 Require `SMOKE_PASS` and zero required responses missing `X-Request-ID`.
 
+For `beta-journey`, that pass must include the actual lifecycle path: first sign-in lands on the
+forced-password surface; the pre-change session is replayed and refused after password replacement;
+the replacement password signs in to `/console`; a workspace offered by the chooser is selected and
+re-read as active session state; governed API responses keep their canonical route/source/status
+semantics; caller-supplied tenant/workspace/operator/environment query scope changes nothing; and
+the session token captured immediately before logout is replayed and refused afterwards.
+
 Then manually inspect: sign-in → forced password change → workspace chooser → React console → P01 →
-P02 → P03 → P04 → P05 → M10 → Help & support → sign out.
+P02 → P03 → P04 → P05 → M10 → Help & support → Account → sign out.
 
 ## Gate O — Security negatives on the real host
 

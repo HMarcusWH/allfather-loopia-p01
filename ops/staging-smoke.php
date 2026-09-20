@@ -27,10 +27,11 @@ declare(strict_types=1);
  *   opaque request reference, and a reason code. That list is closed, and `record()` is the only
  *   thing that writes to it.
  *
- *   GOVERNED DATA IS NEVER READ. The product endpoints are exercised for their ACCESS DECISION —
- *   200 versus 403 versus 409 — and the payload is discarded without being parsed for content. A
- *   smoke test that printed a battlecard would be a smoke test that exported a tenant's
- *   intelligence to whoever reads the terminal.
+ *   GOVERNED DATA CONTENT IS NEVER READ. Product endpoints are exercised for their browser-envelope
+ *   contract and access/availability decision. The client parses only safe envelope metadata
+ *   (source, decision, projection state, reason codes, and whether data is empty); it never returns,
+ *   iterates or prints the governed `data` payload. A smoke test that printed a battlecard would be
+ *   a smoke test that exported a tenant's intelligence to whoever reads the terminal.
  *
  *   HTTPS ONLY, AND NO CROSS-ORIGIN REDIRECT. Plain HTTP is refused rather than upgraded, and
  *   redirects are never followed automatically — each step decides what to do with a `Location`,
@@ -221,7 +222,8 @@ $send = static function (string $method, string $path, array $form = []) use ($o
         $executed === false => curl_error($handle),
         default => null,
     };
-    curl_close($handle);
+    // PHP 8+ CurlHandle objects release their resource when they leave scope. Calling
+    // curl_close() is a no-op there and is deprecated in PHP 8.5, so do not reintroduce it.
 
     $location = null;
     $requestId = '';
@@ -333,16 +335,27 @@ $record = static function (
     string $reference = 'REQUIRED',
     ?string $allowedForeignRedirectHost = null,
 ) use (&$steps, &$failures, $sameOrigin): bool {
-    $redirectStaysHere = $response['location'] === null || $sameOrigin($response['location']);
-    if (!$redirectStaysHere && $allowedForeignRedirectHost !== null && $response['location'] !== null) {
+    $redirectStaysOnOrigin = $response['location'] === null || $sameOrigin($response['location']);
+    $foreignRedirectAccepted = false;
+    if (!$redirectStaysOnOrigin && $allowedForeignRedirectHost !== null && $response['location'] !== null) {
         $foreign = parse_url($response['location']);
-        $redirectStaysHere = is_array($foreign)
+        $foreignRedirectAccepted = is_array($foreign)
             && ($foreign['scheme'] ?? '') === 'https'
-            && ($foreign['host'] ?? '') === $allowedForeignRedirectHost;
+            && ($foreign['host'] ?? '') === $allowedForeignRedirectHost
+            && (!isset($foreign['port']) || (int) $foreign['port'] === 443);
     }
+    $redirectAccepted = $redirectStaysOnOrigin || $foreignRedirectAccepted;
+    $isRedirectStatus = $response['status'] >= 300 && $response['status'] < 400;
+    // When a caller names a foreign-host exception, an expected redirect is accepted ONLY by that
+    // named exception. This prevents /.env from passing on an ordinary same-origin 302 produced by
+    // a catch-all rewrite; the exception exists for Loopia's roadblock response, not for redirects.
+    $namedForeignRedirectSatisfied = $allowedForeignRedirectHost === null
+        || !$isRedirectStatus
+        || $foreignRedirectAccepted;
     $ok = in_array($response['status'], $expected, true)
         && $response['error'] === null
-        && $redirectStaysHere
+        && $redirectAccepted
+        && $namedForeignRedirectSatisfied
         && $alsoRequires;
     $steps[] = [
         'step' => $step,
@@ -352,7 +365,8 @@ $record = static function (
         'expected' => $expected,
         'request_id' => RequestId::isWellFormed($response['request_id']) ? $response['request_id'] : null,
         'content_type' => explode(';', $response['content_type'])[0],
-        'redirect_stays_on_origin' => $redirectStaysHere,
+        'redirect_stays_on_origin' => $redirectStaysOnOrigin,
+        'foreign_redirect_exception_accepted' => $foreignRedirectAccepted,
         'request_reference' => $reference,
         ...$safe,
         'result' => $ok ? 'PASS' : 'FAIL',
@@ -368,9 +382,10 @@ $record = static function (
 /**
  * A governed read's ACCESS DECISION, and nothing else.
  *
- * The body is decoded to reach the reason codes, which are the thing a smoke test is for, and the
- * `data` key is never touched. A helper that returned the payload would be the point where a
- * tenant's intelligence started reaching a terminal.
+ * The body is decoded only far enough to validate the canonical browser envelope and safe decision
+ * metadata. The governed `data` value is never returned or iterated; only its presence, null/array
+ * shape and empty/non-empty state are observed. A helper that returned the payload would be the
+ * point where a tenant's intelligence started reaching a terminal.
  *
  * @param array{body: string} $response
  * @return array<string, mixed>
@@ -385,10 +400,48 @@ $decision = static function (array $response): array {
         return ['envelope' => 'NOT_AN_OBJECT'];
     }
 
+    $access = $payload['access'] ?? null;
+    $projection = $payload['projection'] ?? null;
+    $asOf = $payload['as_of'] ?? null;
+    $stringList = static function (mixed $value): bool {
+        if (!is_array($value) || !array_is_list($value)) {
+            return false;
+        }
+        foreach ($value as $item) {
+            if (!is_string($item)) {
+                return false;
+            }
+        }
+
+        return true;
+    };
+    $browserEnvelope = is_string($payload['source'] ?? null)
+        && array_key_exists('as_of', $payload)
+        && ($asOf === null || is_string($asOf))
+        && is_array($access)
+        && in_array($access['decision'] ?? null, ['VISIBLE', 'DENIED'], true)
+        && array_key_exists('required_permission', $access)
+        && (($access['required_permission'] ?? null) === null || is_string($access['required_permission']))
+        && $stringList($access['reason_codes'] ?? null)
+        && is_array($projection)
+        && in_array($projection['state'] ?? null, ['READY', 'EMPTY', 'UNAVAILABLE'], true)
+        && in_array($projection['stale_status'] ?? null, ['CURRENT', 'UNKNOWN', 'ERROR'], true)
+        && is_string($payload['owner_state'] ?? null)
+        && $stringList($payload['reason_codes'] ?? null)
+        && array_key_exists('data', $payload)
+        && ($payload['data'] === null || is_array($payload['data']));
+
     return [
         'envelope' => 'JSON',
+        // status belongs to the Kernel's special auth/lifecycle JSON refusals. Normal browser reads
+        // use the structured ConsoleReadEnvelope fields below.
         'envelope_status' => is_string($payload['status'] ?? null) ? $payload['status'] : null,
-        'access_decision' => is_string($payload['access']['decision'] ?? null) ? $payload['access']['decision'] : null,
+        'browser_envelope' => $browserEnvelope,
+        'source' => $browserEnvelope ? (string) $payload['source'] : null,
+        'access_decision' => is_string($access['decision'] ?? null) ? $access['decision'] : null,
+        'required_permission' => is_string($access['required_permission'] ?? null) ? $access['required_permission'] : null,
+        'projection_state' => is_string($projection['state'] ?? null) ? $projection['state'] : null,
+        'stale_status' => is_string($projection['stale_status'] ?? null) ? $projection['stale_status'] : null,
         'owner_state' => is_string($payload['owner_state'] ?? null) ? $payload['owner_state'] : null,
         'reason_codes' => array_values(array_map('strval', (array) ($payload['reason_codes'] ?? []))),
         // WHETHER there is data, never what it is. The distinction between an owner denial and a
@@ -398,15 +451,15 @@ $decision = static function (array $response): array {
 };
 
 $readPaths = [
-    '/console/api/v1/context',
-    '/console/api/v1/p01/battlecards',
-    '/console/api/v1/p02/entities',
-    '/console/api/v1/p02/relationships',
-    '/console/api/v1/p03/priority-queue',
-    '/console/api/v1/p03/monitored',
-    '/console/api/v1/p04/distributions',
-    '/console/api/v1/p05/drafts',
-    '/console/api/v1/m10/decisions',
+    '/console/api/v1/context' => 'm12.consoleContext',
+    '/console/api/v1/p01/battlecards' => 'p01.releasedBattlecards',
+    '/console/api/v1/p02/entities' => 'p02.entitySnapshots',
+    '/console/api/v1/p02/relationships' => 'p02.relationshipSnapshots',
+    '/console/api/v1/p03/priority-queue' => 'p03.priorityQueue',
+    '/console/api/v1/p03/monitored' => 'p03.monitoredProspects',
+    '/console/api/v1/p04/distributions' => 'p04.roleDistributions',
+    '/console/api/v1/p05/drafts' => 'p05.internalMarketingDrafts',
+    '/console/api/v1/m10/decisions' => 'm10.decisions',
 ];
 
 // ============================================================ anonymous, always
@@ -462,6 +515,8 @@ $anonContext = $send('GET', '/console/api/v1/context');
 // envelope, a JSON content type and the absence of a redirect are all part of the verdict.
 $anonDecision = $decision($anonContext);
 $anonIsJson = ($anonDecision['envelope'] ?? null) === 'JSON'
+    && ($anonDecision['envelope_status'] ?? null) === 'UNAUTHENTICATED'
+    && in_array('AUTHENTICATION_REQUIRED', $anonDecision['reason_codes'] ?? [], true)
     && str_contains(strtolower(explode(';', $anonContext['content_type'])[0]), 'json')
     && $anonContext['location'] === null;
 $record('anonymous JSON read is a JSON 401', 'GET', '/console/api/v1/context', $anonContext, [401], [
@@ -526,7 +581,12 @@ foreach ([
 
 // ============================================================ authenticated modes
 
-$csrfToken = static fn (): string => $cookies[Csrf::COOKIE_NAME] ?? '';
+// LOGIN ROTATES THE CSRF COOKIE. This accessor must observe the jar AFTER the GET /login
+// response has updated it. An arrow function captures $cookies by value and snapshots the empty jar,
+// which makes the following POST submit a stale token even though the live cookie is correct.
+$csrfToken = static function () use (&$cookies): string {
+    return $cookies[Csrf::COOKIE_NAME] ?? '';
+};
 
 /** Sign in through the front door. Returns the response; the cookie jar updates itself. */
 $signIn = static function (string $withPassword) use ($send, $csrfToken, $email): array {
@@ -541,19 +601,30 @@ $signIn = static function (string $withPassword) use ($send, $csrfToken, $email)
 
 if ($mode === 'beta-journey') {
     $first = $signIn($password);
+    $firstLandsOnPassword = $first['location'] === '/account/password';
     $record('first sign-in lands on the password surface', 'POST', '/login', $first, [303], [
         'location' => $first['location'],
-    ]);
+        'lands_on_password_surface' => $firstLandsOnPassword,
+    ], $firstLandsOnPassword);
 
     $gatedShell = $send('GET', '/console/app');
+    $shellGatedToPassword = $gatedShell['location'] === '/account/password';
     $record('the console is gated before the password changes', 'GET', '/console/app', $gatedShell, [303], [
         'location' => $gatedShell['location'],
-    ]);
+        'gated_to_password_surface' => $shellGatedToPassword,
+    ], $shellGatedToPassword);
 
+    $oldSessionToken = $cookies['af_session'] ?? '';
+    $oldSessionPresent = $oldSessionToken !== '';
     $gatedRead = $send('GET', '/console/api/v1/context');
+    $gatedDecision = $decision($gatedRead);
+    $readGatedByPassword = ($gatedDecision['envelope_status'] ?? null) === 'PASSWORD_CHANGE_REQUIRED'
+        && in_array('PASSWORD_CHANGE_REQUIRED', $gatedDecision['reason_codes'] ?? [], true);
     $record('and so is every governed read', 'GET', '/console/api/v1/context', $gatedRead, [403], [
-        ...$decision($gatedRead),
-    ]);
+        ...$gatedDecision,
+        'password_change_gate' => $readGatedByPassword,
+        'session_cookie_present' => $oldSessionPresent,
+    ], $readGatedByPassword && $oldSessionPresent);
 
     $passwordForm = $send('GET', '/account/password');
     $record('the password surface itself is reachable', 'GET', '/account/password', $passwordForm, [200]);
@@ -564,16 +635,27 @@ if ($mode === 'beta-journey') {
         'new_password' => $newPassword,
         'confirm_password' => $newPassword,
     ]);
+    $changedReturnsToLogin = $changed['location'] === '/login?changed=1';
     $record('the password change succeeds', 'POST', '/account/password', $changed, [303], [
         'location' => $changed['location'],
-    ]);
+        'returns_to_login' => $changedReturnsToLogin,
+    ], $changedReturnsToLogin);
 
-    // EVERY SESSION ENDED, including the one that made the change. The jar still holds whatever the
-    // response left; the point is that the server no longer honours it.
+    // EVERY SESSION ENDED, including the one that made the change. Do not prove only that the
+    // response cleared the browser cookie: deliberately replay the exact OLD session token in memory
+    // and require the server to refuse it. The token is never printed, recorded or written to disk.
+    $cookies = ['af_session' => $oldSessionToken];
     $afterChange = $send('GET', '/console/api/v1/context');
+    $afterChangeDecision = $decision($afterChange);
+    $afterChangeIsJson = ($afterChangeDecision['envelope'] ?? null) === 'JSON'
+        && ($afterChangeDecision['envelope_status'] ?? null) === 'UNAUTHENTICATED'
+        && in_array('AUTHENTICATION_REQUIRED', $afterChangeDecision['reason_codes'] ?? [], true)
+        && str_contains(strtolower(explode(';', $afterChange['content_type'])[0]), 'json')
+        && $afterChange['location'] === null;
     $record('the old session is gone', 'GET', '/console/api/v1/context', $afterChange, [401], [
-        ...$decision($afterChange),
-    ]);
+        ...$afterChangeDecision,
+        'json_envelope_and_type' => $afterChangeIsJson,
+    ], $afterChangeIsJson);
 
     $cookies = [];
     $password = $newPassword;
@@ -581,27 +663,60 @@ if ($mode === 'beta-journey') {
 
 if ($mode !== 'anonymous') {
     $signedIn = $signIn($password);
-    $record('sign-in', 'POST', '/login', $signedIn, [303], ['location' => $signedIn['location']]);
+    $signedInToConsole = $signedIn['location'] === '/console';
+    $record('sign-in', 'POST', '/login', $signedIn, [303], [
+        'location' => $signedIn['location'],
+        'lands_on_console' => $signedInToConsole,
+    ], $signedInToConsole);
 
-    // A workspace may not be selected yet. The chooser is the remedy, and the smoke run follows it
-    // rather than reporting the 409 as a failure — that state is correct, not broken.
-    if ($signedIn['location'] === '/console/workspaces') {
-        $chooser = $send('GET', '/console/workspaces');
-        $record('workspace chooser', 'GET', '/console/workspaces', $chooser, [200]);
-        if (preg_match('/name="workspace_id" value="([0-9a-f-]{36})"/', $chooser['body'], $m) === 1) {
-            $selected = $send('POST', '/console/workspace', [
-                'csrf_token' => $csrfToken(),
-                'workspace_id' => $m[1],
-            ]);
-            $record('workspace selected', 'POST', '/console/workspace', $selected, [303], [
-                'location' => $selected['location'],
-            ]);
-        } else {
-            $record('workspace chooser offers a workspace', 'GET', '/console/workspaces', [
-                'status' => 0, 'location' => null, 'request_id' => '', 'content_type' => '',
-                'body' => '', 'error' => 'no selectable workspace was offered', 'oversized' => false,
-            ], [200]);
-        }
+    // EVERY fresh session starts with active_workspace_id = NULL. The login controller redirects to
+    // /console, not to the chooser, so waiting for a /console/workspaces Location can never select
+    // anything. Gate N must exercise the chooser explicitly or every governed read may return the
+    // accepted 409 NO_ACTIVE_WORKSPACE and the smoke artifact can pass without testing a workspace.
+    $chooser = $send('GET', '/console/workspaces');
+    $record('workspace chooser', 'GET', '/console/workspaces', $chooser, [200]);
+    if (preg_match('/name="workspace_id" value="([0-9a-f-]{36})"/', $chooser['body'], $m) === 1) {
+        $selected = $send('POST', '/console/workspace', [
+            'csrf_token' => $csrfToken(),
+            'workspace_id' => $m[1],
+        ]);
+        $selectionReturnsToConsole = $selected['location'] === '/console';
+        $record('workspace selected', 'POST', '/console/workspace', $selected, [303], [
+            'location' => $selected['location'],
+            'returns_to_console' => $selectionReturnsToConsole,
+        ], $selectionReturnsToConsole);
+
+        // Prove the POST changed session state. Product-specific reads may still legitimately deny,
+        // but NO_ACTIVE_WORKSPACE is no longer an acceptable answer after a successful selection.
+        $selectedContext = $send('GET', '/console/api/v1/context');
+        $selectedDecision = $decision($selectedContext);
+        $selectedContextIsJson = ($selectedDecision['envelope'] ?? null) === 'JSON'
+            && ($selectedDecision['browser_envelope'] ?? false) === true
+            && ($selectedDecision['source'] ?? null) === 'm12.consoleContext'
+            && str_contains(strtolower(explode(';', $selectedContext['content_type'])[0]), 'json')
+            && $selectedContext['location'] === null;
+        $contextStatusMatchesDecision = (
+            $selectedContext['status'] === 200
+            && ($selectedDecision['access_decision'] ?? null) === 'VISIBLE'
+            && ($selectedDecision['owner_state'] ?? null) === 'VISIBLE'
+        ) || (
+            $selectedContext['status'] === 403
+            && ($selectedDecision['access_decision'] ?? null) === 'DENIED'
+            && ($selectedDecision['owner_state'] ?? null) === 'DENIED'
+        );
+        $workspaceIsActive = $selectedContextIsJson
+            && $contextStatusMatchesDecision
+            && !in_array('NO_ACTIVE_WORKSPACE', $selectedDecision['reason_codes'] ?? [], true);
+        $record('workspace selection becomes session state', 'GET', '/console/api/v1/context', $selectedContext, [200, 403], [
+            ...$selectedDecision,
+            'json_envelope_and_type' => $selectedContextIsJson,
+            'workspace_active' => $workspaceIsActive,
+        ], $workspaceIsActive);
+    } else {
+        $record('workspace chooser offers a workspace', 'GET', '/console/workspaces', [
+            'status' => 0, 'location' => null, 'request_id' => '', 'content_type' => '',
+            'body' => '', 'error' => 'no selectable workspace was offered', 'oversized' => false,
+        ], [200]);
     }
 
     $appShell = $send('GET', '/console/app');
@@ -667,12 +782,36 @@ if ($mode !== 'anonymous') {
         ], $served, 'NOT_APPLICABLE');
     }
 
-    foreach ($readPaths as $path) {
+    foreach ($readPaths as $path => $expectedSource) {
         $response = $send('GET', $path);
-        // 200, 403, 409 and 503 are all VALID ANSWERS and are recorded as what they are. A smoke
-        // test that demanded 200 everywhere would be demanding that the deployment grant every
-        // permission to whichever account it was pointed at.
-        $record('governed read', 'GET', $path, $response, [200, 403, 409, 503], $decision($response));
+        // After workspace selection, 200, 403 and 503 are valid access/availability answers. A 409
+        // is specifically NO_ACTIVE_WORKSPACE in this API and would contradict the selection proof
+        // above. The RESPONSE CONTRACT is not optional either: every /console/api/ route is JSON
+        // and each route names its own canonical source, so a rewrite to another JSON endpoint fails.
+        $readDecision = $decision($response);
+        $sourceMatches = ($readDecision['source'] ?? null) === $expectedSource;
+        $statusSemantics = match ($response['status']) {
+            200 => ($readDecision['access_decision'] ?? null) === 'VISIBLE'
+                && ($readDecision['owner_state'] ?? null) === 'VISIBLE',
+            403 => ($readDecision['access_decision'] ?? null) === 'DENIED',
+            503 => ($readDecision['access_decision'] ?? null) === 'VISIBLE'
+                && ($readDecision['owner_state'] ?? null) === 'UNAVAILABLE'
+                && in_array('READ_UNAVAILABLE', $readDecision['reason_codes'] ?? [], true),
+            default => false,
+        };
+        $readIsJson = ($readDecision['envelope'] ?? null) === 'JSON'
+            && ($readDecision['browser_envelope'] ?? false) === true
+            && str_contains(strtolower(explode(';', $response['content_type'])[0]), 'json')
+            && $response['location'] === null
+            && $sourceMatches
+            && $statusSemantics;
+        $record('governed read', 'GET', $path, $response, [200, 403, 503], [
+            ...$readDecision,
+            'expected_source' => $expectedSource,
+            'source_as_expected' => $sourceMatches,
+            'status_semantics_as_expected' => $statusSemantics,
+            'json_envelope_and_type' => $readIsJson,
+        ], $readIsJson);
     }
 
     // THE SCOPE-OVERRIDE ATTEMPT. The browser must never be able to choose its own tenant,
@@ -692,9 +831,26 @@ if ($mode !== 'anonymous') {
     // whether or not the injected scope changed the decision, so gating on the status alone would
     // let the artifact report SMOKE_PASS while explicitly stating that the scope-override check
     // failed. It is passed as the extra predicate so a difference fails the run.
-    $identical = $plain['status'] === $injected['status']
+    $plainEnvelopeValid = ($plainDecision['envelope'] ?? null) === 'JSON'
+        && ($plainDecision['browser_envelope'] ?? false) === true
+        && ($plainDecision['source'] ?? null) === 'm12.consoleContext'
+        && str_contains(strtolower(explode(';', $plain['content_type'])[0]), 'json')
+        && $plain['location'] === null;
+    $injectedEnvelopeValid = ($injectedDecision['envelope'] ?? null) === 'JSON'
+        && ($injectedDecision['browser_envelope'] ?? false) === true
+        && ($injectedDecision['source'] ?? null) === 'm12.consoleContext'
+        && str_contains(strtolower(explode(';', $injected['content_type'])[0]), 'json')
+        && $injected['location'] === null;
+    $identical = $plainEnvelopeValid
+        && $injectedEnvelopeValid
+        && $plain['status'] === $injected['status']
+        && ($plainDecision['source'] ?? null) === ($injectedDecision['source'] ?? null)
         && ($plainDecision['access_decision'] ?? null) === ($injectedDecision['access_decision'] ?? null)
+        && ($plainDecision['required_permission'] ?? null) === ($injectedDecision['required_permission'] ?? null)
+        && ($plainDecision['projection_state'] ?? null) === ($injectedDecision['projection_state'] ?? null)
+        && ($plainDecision['stale_status'] ?? null) === ($injectedDecision['stale_status'] ?? null)
         && ($plainDecision['owner_state'] ?? null) === ($injectedDecision['owner_state'] ?? null)
+        && ($plainDecision['reason_codes'] ?? null) === ($injectedDecision['reason_codes'] ?? null)
         && ($plainDecision['has_data'] ?? null) === ($injectedDecision['has_data'] ?? null);
     $record(
         'caller-supplied scope changes nothing',
@@ -711,13 +867,31 @@ if ($mode !== 'anonymous') {
         $record('operator surface', 'GET', $surface, $response, [200]);
     }
 
+    $sessionBeforeLogout = $cookies['af_session'] ?? '';
+    $sessionBeforeLogoutPresent = $sessionBeforeLogout !== '';
     $signedOut = $send('POST', '/logout', ['csrf_token' => $csrfToken()]);
-    $record('sign-out', 'POST', '/logout', $signedOut, [303], ['location' => $signedOut['location']]);
+    $signedOutToLogin = $signedOut['location'] === '/login';
+    $record('sign-out', 'POST', '/logout', $signedOut, [303], [
+        'location' => $signedOut['location'],
+        'returns_to_login' => $signedOutToLogin,
+        'session_cookie_present_before_logout' => $sessionBeforeLogoutPresent,
+    ], $signedOutToLogin && $sessionBeforeLogoutPresent);
 
+    // As above, replay the OLD token rather than relying on the clear-cookie response as proof.
+    $cookies = ['af_session' => $sessionBeforeLogout];
     $afterSignOut = $send('GET', '/console/api/v1/context');
+    $afterSignOutDecision = $decision($afterSignOut);
+    $afterSignOutIsJson = ($afterSignOutDecision['envelope'] ?? null) === 'JSON'
+        && ($afterSignOutDecision['envelope_status'] ?? null) === 'UNAUTHENTICATED'
+        && in_array('AUTHENTICATION_REQUIRED', $afterSignOutDecision['reason_codes'] ?? [], true)
+        && str_contains(strtolower(explode(';', $afterSignOut['content_type'])[0]), 'json')
+        && $afterSignOut['location'] === null;
     $record('the session is gone after sign-out', 'GET', '/console/api/v1/context', $afterSignOut, [401], [
-        ...$decision($afterSignOut),
-    ]);
+        ...$afterSignOutDecision,
+        'json_envelope_and_type' => $afterSignOutIsJson,
+    ], $afterSignOutIsJson);
+
+    $cookies = [];
 }
 
 // ============================================================ report

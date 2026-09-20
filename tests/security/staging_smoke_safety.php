@@ -13,8 +13,8 @@ declare(strict_types=1);
  * cookies to whatever answered.
  *
  * So the properties are asserted rather than reviewed. The emitted step record is a CLOSED set of
- * fields, and the response body is not among them — the body is read only to count its bytes, to
- * reach a reason code, and to find the workspace identifier the chooser offers.
+ * fields, and the response body is not among them — the body is read only to count bytes, validate
+ * safe browser-envelope metadata, and find the workspace identifier the chooser offers.
  */
 
 use Allfather\Loopia\Ops\BetaCli;
@@ -95,11 +95,16 @@ Assert::true(
 // it: cURL never follows a cross-origin Location, so this is not a credential leak — but a run that
 // recorded PASS for a 303 to another host would be certifying the wrong deployment.
 Assert::contains(
-    "\$redirectStaysHere = \$response['location'] === null || \$sameOrigin(\$response['location']);",
+    "\$redirectStaysOnOrigin = \$response['location'] === null || \$sameOrigin(\$response['location']);",
     $code,
-    'every response with a Location has that Location checked',
+    'every response with a Location has its true same-origin status classified',
 );
-Assert::contains('&& $redirectStaysHere', $code, 'and the result gates the step rather than decorating it');
+Assert::contains(
+    "\$redirectAccepted = \$redirectStaysOnOrigin || \$foreignRedirectAccepted;",
+    $code,
+    'the only widening is the separately validated provider exception',
+);
+Assert::contains('&& $redirectAccepted', $code, 'the accepted-redirect result gates the step rather than decorating it');
 // The same shape for checks whose subject is not the status code. An authenticated context read
 // answers 200 whether or not injected scope changed the decision, so the comparison must gate.
 Assert::contains('bool $alsoRequires = true,', $code, 'a step can carry an extra predicate');
@@ -180,7 +185,7 @@ Assert::same(
 Assert::contains(
     "json_decode(\$response['body'], true, 8, JSON_THROW_ON_ERROR)",
     $code,
-    'once to reach the reason codes of a governed read',
+    'once to validate the safe envelope metadata of a governed read',
 );
 Assert::contains(
     "json_decode(\$health['body'], true, 8, JSON_THROW_ON_ERROR)",
@@ -205,7 +210,7 @@ foreach (['echo $response', 'echo $body', 'print_r(', 'var_dump(', 'var_export('
     Assert::false(str_contains($code, $forbidden), "the client never dumps a response: {$forbidden}");
 }
 
-// THE GOVERNED READ HELPER RETURNS DECISIONS, NEVER ROWS.
+// THE GOVERNED READ HELPER RETURNS A SAFE ENVELOPE SUMMARY, NEVER ROWS OR GOVERNED DATA.
 $decisionStart = (int) strpos($code, '$decision = static function (');
 $decisionEnd = (int) strpos($code, '$sameOrigin = static function');
 $decisionFn = substr($code, $decisionStart, $decisionEnd - $decisionStart);
@@ -233,6 +238,40 @@ Assert::contains('$cookies = [];', $code, 'the jar is an in-memory array');
 Assert::contains('$options[CURLOPT_COOKIE] = implode(\'; \', $pairs);', $code, 'and is sent per request from memory');
 Assert::false(str_contains($code, 'file_put_contents'), 'the client writes no file at all');
 Assert::false(str_contains($code, 'error_log('), 'and no log line');
+
+// ============================================================ CSRF reads the LIVE cookie jar
+
+// Gate N's authenticated failure on Loopia came from the qualification client itself: GET /login
+// rotated the CSRF cookie, while an arrow-function accessor had already captured the initial empty
+// array by value. The POST therefore paired the fresh cookie with a stale/empty form token. Lock the
+// causal shape here, not merely the existence of a CSRF field.
+Assert::contains(
+    '$csrfToken = static function () use (&$cookies): string {',
+    $code,
+    'the CSRF accessor captures the in-memory jar BY REFERENCE, so a Set-Cookie mutation is observable',
+);
+Assert::false(
+    str_contains($code, '$csrfToken = static fn'),
+    'an arrow-function snapshot cannot return as the CSRF accessor',
+);
+$signInStart = strpos($code, '$signIn = static function');
+Assert::notSame(false, $signInStart, 'the sign-in helper exists');
+$signInEnd = strpos($code, "if (\$mode === 'beta-journey')", (int) $signInStart);
+Assert::notSame(false, $signInEnd, 'the beta-journey block exists after the sign-in helper');
+Assert::true($signInStart < $signInEnd, 'the sign-in helper is bounded before beta-journey execution');
+$signInFn = substr($code, (int) $signInStart, (int) $signInEnd - (int) $signInStart);
+$getLogin = strpos($signInFn, "\$send('GET', '/login');");
+$csrfRead = strpos($signInFn, "'csrf_token' => \$csrfToken()");
+Assert::notSame(false, $getLogin, 'sign-in explicitly refreshes /login before posting credentials');
+Assert::notSame(false, $csrfRead, 'sign-in reads the CSRF accessor for the credential POST');
+Assert::true(
+    $getLogin < $csrfRead,
+    'sign-in first lets /login rotate the jar and only then reads the current token for the POST',
+);
+Assert::false(
+    str_contains($code, 'curl_close('),
+    'the smoke client carries no PHP 8.5-deprecated curl_close() call',
+);
 
 // ============================================================ every request is bounded
 
@@ -311,9 +350,24 @@ Assert::contains(
 Assert::contains('bool $alsoRequires = true,', $code, 'a step can carry an extra pass predicate');
 Assert::contains('&& $alsoRequires;', $code, 'and it is part of the verdict, not a reported field');
 Assert::contains(
-    '&& $redirectStaysHere',
+    '&& $redirectAccepted',
     $code,
-    'a redirect that leaves this origin fails the step rather than being noted beside a pass',
+    'a redirect that is neither same-origin nor the one named exception fails the step',
+);
+Assert::contains(
+    '&& $namedForeignRedirectSatisfied',
+    $code,
+    'when a step names a foreign exception, an expected redirect must satisfy that exact exception',
+);
+Assert::contains(
+    "'redirect_stays_on_origin' => \$redirectStaysOnOrigin,",
+    $code,
+    'the report distinguishes true same-origin redirects from a separately accepted provider exception',
+);
+Assert::contains(
+    "'foreign_redirect_exception_accepted' => \$foreignRedirectAccepted,",
+    $code,
+    'and reports when the provider exception — rather than same-origin routing — was the reason a redirect was accepted',
 );
 // SCHEME-RELATIVE IS THE CASE THAT LOOKS SAME-ORIGIN. `//evil.example/path` begins with a slash.
 Assert::contains(
@@ -341,6 +395,228 @@ foreach (['customer_visible_output', 'external_effect'] as $claim) {
 }
 Assert::contains("\$healthClaims['envelope'] === 'JSON'", $code, 'and requires a JSON object at all');
 Assert::contains('], $healthInert);', $code, 'and that predicate is passed to the step, not merely reported');
+
+// ============================================================ the beta journey actually traverses its named gates
+
+foreach ([
+    "\$firstLandsOnPassword = \$first['location'] === '/account/password';"
+        => 'the first beta sign-in must land on the forced-password surface',
+    "\$shellGatedToPassword = \$gatedShell['location'] === '/account/password';"
+        => 'the React shell must be redirected to the password surface while the lifecycle gate is active',
+    "\$readGatedByPassword = (\$gatedDecision['envelope_status'] ?? null) === 'PASSWORD_CHANGE_REQUIRED'"
+        => 'the governed-read refusal is verified as the password-change gate, not merely as some 403',
+    "\$changedReturnsToLogin = \$changed['location'] === '/login?changed=1';"
+        => 'password change must revoke the session and return to sign-in',
+    "\$signedInToConsole = \$signedIn['location'] === '/console';"
+        => 'the post-change sign-in must enter the console flow',
+    "\$chooser = \$send('GET', '/console/workspaces');"
+        => 'the smoke client explicitly visits the chooser instead of waiting for an impossible login redirect',
+    "\$selectionReturnsToConsole = \$selected['location'] === '/console';"
+        => 'workspace selection must return to the console',
+    "\$workspaceIsActive = \$selectedContextIsJson"
+        => 'workspace activation is conditional on the JSON contract before NO_ACTIVE_WORKSPACE is excluded',
+    "\$signedOutToLogin = \$signedOut['location'] === '/login';"
+        => 'sign-out must return to the sign-in surface',
+] as $needle => $why) {
+    Assert::contains($needle, $code, $why);
+}
+Assert::false(
+    str_contains($code, "if (\$signedIn['location'] === '/console/workspaces')"),
+    'the old dead branch is gone: SessionController never redirects login directly to the chooser',
+);
+Assert::contains(
+    "], \$workspaceIsActive);",
+    $code,
+    'workspace activation is part of the step verdict, not a diagnostic beside a pass',
+);
+Assert::contains(
+    "\$selectedContextIsJson = (\$selectedDecision['envelope'] ?? null) === 'JSON'",
+    $code,
+    'workspace activation is proved only from a decoded JSON response',
+);
+Assert::contains(
+    "&& (\$selectedDecision['browser_envelope'] ?? false) === true",
+    $code,
+    'and an empty/arbitrary JSON object cannot masquerade as the canonical console-read envelope',
+);
+Assert::contains(
+    "\$workspaceIsActive = \$selectedContextIsJson",
+    $code,
+    'a non-canonical response can never be called an active workspace',
+);
+Assert::contains(
+    "(\$selectedDecision['source'] ?? null) === 'm12.consoleContext'",
+    $code,
+    'workspace activation requires the context route to identify itself as m12.consoleContext',
+);
+Assert::contains(
+    "\$contextStatusMatchesDecision = (",
+    $code,
+    'workspace activation checks HTTP status against the canonical access/owner decision pair',
+);
+Assert::contains(
+    "&& \$contextStatusMatchesDecision",
+    $code,
+    'a canonical-looking envelope with contradictory status semantics cannot mark the workspace active',
+);
+
+// The decoder classifies the ConsoleReadEnvelope shape without returning governed data.
+foreach ([
+    "array_key_exists('as_of', \$payload)",
+    "array_key_exists('required_permission', \$access)",
+    "\$stringList(\$access['reason_codes'] ?? null)",
+    "in_array(\$access['decision'] ?? null, ['VISIBLE', 'DENIED'], true)",
+    "in_array(\$projection['state'] ?? null, ['READY', 'EMPTY', 'UNAVAILABLE'], true)",
+    "in_array(\$projection['stale_status'] ?? null, ['CURRENT', 'UNKNOWN', 'ERROR'], true)",
+    "\$stringList(\$payload['reason_codes'] ?? null)",
+    "array_key_exists('data', \$payload)",
+    "(\$payload['data'] === null || is_array(\$payload['data']))",
+] as $shapeCheck) {
+    Assert::contains($shapeCheck, $code, "browser-envelope classifier carries: {$shapeCheck}");
+}
+Assert::contains('array_is_list($value)', $code, 'reason-code arrays must be lists, not arbitrary JSON objects');
+Assert::contains('if (!is_string($item)) {', $code, 'every reason code in a canonical browser envelope is a string');
+Assert::contains("'browser_envelope' => \$browserEnvelope,", $code, 'the safe decision summary exposes only the envelope validity boolean');
+
+// ============================================================ authenticated browser reads remain JSON
+
+Assert::contains(
+    "\$readIsJson = (\$readDecision['envelope'] ?? null) === 'JSON'",
+    $code,
+    'every authenticated governed read requires decoded JSON',
+);
+Assert::contains(
+    "&& (\$readDecision['browser_envelope'] ?? false) === true",
+    $code,
+    'and every authenticated read requires the canonical browser-envelope shape, not merely {}',
+);
+Assert::contains(
+    "&& str_contains(strtolower(explode(';', \$response['content_type'])[0]), 'json')",
+    $code,
+    'every authenticated governed read also requires a JSON media type',
+);
+Assert::contains(
+    "\$sourceMatches = (\$readDecision['source'] ?? null) === \$expectedSource;",
+    $code,
+    'each governed route must return the source identifier assigned to that exact path',
+);
+Assert::contains(
+    "\$statusSemantics = match (\$response['status']) {",
+    $code,
+    'each allowed HTTP status is cross-checked against the envelope decision semantics',
+);
+Assert::contains(
+    "&& \$statusSemantics;",
+    $code,
+    'the status/envelope consistency check gates the governed-read verdict',
+);
+Assert::contains(
+    "], \$readIsJson);",
+    $code,
+    'that full route/envelope/status contract is part of the governed-read step verdict',
+);
+Assert::contains(
+    "\$plainEnvelopeValid = (\$plainDecision['envelope'] ?? null) === 'JSON'",
+    $code,
+    'the unscoped side of the override comparison is validated independently',
+);
+Assert::contains(
+    "&& (\$plainDecision['browser_envelope'] ?? false) === true",
+    $code,
+    'the unscoped response must have the canonical browser-envelope shape',
+);
+Assert::contains(
+    "&& (\$plainDecision['source'] ?? null) === 'm12.consoleContext'",
+    $code,
+    'the unscoped comparison side must be the actual context route, not just any valid envelope',
+);
+Assert::contains(
+    "&& (\$injectedDecision['browser_envelope'] ?? false) === true",
+    $code,
+    'the injected response must have the canonical browser-envelope shape too',
+);
+Assert::contains(
+    "&& (\$injectedDecision['source'] ?? null) === 'm12.consoleContext'",
+    $code,
+    'the injected comparison side must still be the context route',
+);
+Assert::contains(
+    "&& (\$plainDecision['reason_codes'] ?? null) === (\$injectedDecision['reason_codes'] ?? null)",
+    $code,
+    'scope injection may not change even the safe reason-code projection',
+);
+Assert::contains(
+    "\$afterChangeIsJson = (\$afterChangeDecision['envelope'] ?? null) === 'JSON'",
+    $code,
+    'session invalidation after password change is verified through the JSON API contract',
+);
+Assert::contains(
+    "&& (\$afterChangeDecision['envelope_status'] ?? null) === 'UNAUTHENTICATED'",
+    $code,
+    'the replayed pre-change session must receive the canonical UNAUTHENTICATED refusal',
+);
+Assert::contains(
+    "&& in_array('AUTHENTICATION_REQUIRED', \$afterChangeDecision['reason_codes'] ?? [], true)",
+    $code,
+    'the replayed pre-change session refusal must carry AUTHENTICATION_REQUIRED',
+);
+Assert::contains(
+    "\$afterSignOutIsJson = (\$afterSignOutDecision['envelope'] ?? null) === 'JSON'",
+    $code,
+    'session invalidation after sign-out is verified through the JSON API contract',
+);
+Assert::contains(
+    "&& (\$afterSignOutDecision['envelope_status'] ?? null) === 'UNAUTHENTICATED'",
+    $code,
+    'the replayed logged-out session must receive the canonical UNAUTHENTICATED refusal',
+);
+Assert::contains(
+    "&& in_array('AUTHENTICATION_REQUIRED', \$afterSignOutDecision['reason_codes'] ?? [], true)",
+    $code,
+    'the replayed logged-out session refusal must carry AUTHENTICATION_REQUIRED',
+);
+
+// ============================================================ session invalidation replays the old token
+
+foreach ([
+    "\$oldSessionToken = \$cookies['af_session'] ?? '';" =>
+        'the session issued before password change is captured only in process memory',
+    "\$cookies = ['af_session' => \$oldSessionToken];" =>
+        'the old password-change session token is deliberately replayed after the clear-cookie response',
+    "\$sessionBeforeLogout = \$cookies['af_session'] ?? '';" =>
+        'the live session is captured immediately before logout',
+    "\$cookies = ['af_session' => \$sessionBeforeLogout];" =>
+        'the logged-out token is deliberately replayed to prove server-side revocation',
+] as $needle => $why) {
+    Assert::contains($needle, $code, $why);
+}
+Assert::contains(
+    "], \$readGatedByPassword && \$oldSessionPresent);",
+    $code,
+    'the beta lifecycle gate cannot pass unless a real session cookie was actually issued',
+);
+Assert::contains(
+    "], \$signedOutToLogin && \$sessionBeforeLogoutPresent);",
+    $code,
+    'the sign-out step cannot pass unless there was a real session to revoke',
+);
+
+// A selected workspace has already been proved as session state. From that point NO_ACTIVE_WORKSPACE
+// is no longer an accepted browser-read outcome; a 409 would mean the selection disappeared.
+Assert::contains(
+    "\$selectedContext, [200, 403], [",
+    $code,
+    'the immediate workspace-state proof cannot hide behind a generic 503',
+);
+Assert::contains(
+    "\$response, [200, 403, 503], [",
+    $code,
+    'post-selection governed reads no longer accept 409 NO_ACTIVE_WORKSPACE',
+);
+Assert::false(
+    str_contains($code, "\$response, [200, 403, 409, 503], ["),
+    'the pre-repair post-selection 409 allowance is gone',
+);
 
 // ============================================================ the console shell is not the console
 
@@ -430,6 +706,16 @@ Assert::contains(
     'the anonymous refusal must decode as a JSON envelope',
 );
 Assert::contains(
+    "&& (\$anonDecision['envelope_status'] ?? null) === 'UNAUTHENTICATED'",
+    $code,
+    'the anonymous refusal must be the canonical UNAUTHENTICATED envelope',
+);
+Assert::contains(
+    "&& in_array('AUTHENTICATION_REQUIRED', \$anonDecision['reason_codes'] ?? [], true)",
+    $code,
+    'the anonymous refusal must carry AUTHENTICATION_REQUIRED',
+);
+Assert::contains(
     "str_contains(strtolower(explode(';', \$anonContext['content_type'])[0]), 'json')",
     $code,
     'and be served with a JSON media type',
@@ -486,6 +772,21 @@ Assert::contains(
     "(\$foreign['scheme'] ?? '') === 'https'",
     $code,
     'and the scheme is checked too — a plaintext redirect claiming that host is not the same guarantee',
+);
+Assert::contains(
+    "(!isset(\$foreign['port']) || (int) \$foreign['port'] === 443)",
+    $code,
+    'and the WAF exception permits only the default HTTPS endpoint, matching the stricter Gate E.2 classifier',
+);
+Assert::contains(
+    "\$namedForeignRedirectSatisfied = \$allowedForeignRedirectHost === null",
+    $code,
+    'the provider exception has an explicit redirect-only gate rather than widening ordinary redirects',
+);
+Assert::contains(
+    "|| \$foreignRedirectAccepted;",
+    $code,
+    'an expected redirect on /.env is accepted only when the named foreign host check itself passed',
 );
 Assert::false(
     str_contains($code, "str_starts_with(\$response['location'], 'https://" . 'roadblock.loopia.com'),

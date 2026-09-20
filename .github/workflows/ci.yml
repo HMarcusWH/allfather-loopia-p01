@@ -229,10 +229,11 @@ jobs:
   # all. A regression that kept the source text matching while breaking the behaviour would have
   # been green.
   #
-  # IT PREPARES, IT DOES NOT DEPLOY. There is no ssh, no rsync, no remote host, no Loopia
-  # credential and no evidence record here. Everything happens in $RUNNER_TEMP and dies with the
-  # runner. `prepare-release.sh` itself contains no network verb, and preflight opens no database
-  # connection — it checks that the database fields are PRESENT, never what they contain.
+  # IT PREPARES, IT DOES NOT DEPLOY. There is no ssh, no remote host, no Loopia credential and no
+  # evidence record here. PR13 adds one LOCAL rsync rehearsal against $RUNNER_TEMP to execute the
+  # destructive-copy filter contract; it has no remote destination and dies with the runner.
+  # `prepare-release.sh` itself still contains no network/deployment verb, and preflight opens no
+  # database connection — it checks that the database fields are PRESENT, never what they contain.
   release-preparation:
     name: release preparation
     runs-on: ubuntu-latest
@@ -408,6 +409,49 @@ jobs:
             exit 1
           fi
           echo "  every tracked file is byte-identical to ${RELEASE_SHA}"
+
+      # THE ROOT RSYNC CONTRACT IS EXECUTED, NOT GREPPED. The real Loopia deployment exposed a
+      # semantic gap that source-text assertions missed: /.env.* protected host secrets but also
+      # suppressed the tracked .env.example required by the strict suite. Rehearse the destructive
+      # sync against a disposable fake remote and prove both halves at once.
+      - name: Root rsync preserves host state and deploys the tracked env template
+        run: |
+          set -euo pipefail
+          command -v rsync >/dev/null
+
+          target="${RUNNER_TEMP}/rsync-contract-target"
+          rm -rf "$target"
+          mkdir -p \
+            "$target/storage" \
+            "$target/public_html/assets/operator-console" \
+            "$target/frontend/console/node_modules" \
+            "$target/frontend/console/dist"
+
+          printf 'HOST_RUNTIME_SECRET_SENTINEL\n' > "$target/.env"
+          printf 'HOST_QUALIFICATION_SECRET_SENTINEL\n' > "$target/.env.qualification"
+          printf 'HOST_FUTURE_SECRET_SENTINEL\n' > "$target/.env.future"
+          printf 'OLD_TEMPLATE_SENTINEL\n' > "$target/.env.example"
+          printf 'RUNTIME_LOG_SENTINEL\n' > "$target/storage/request.log"
+          printf 'OLD_HASH_SENTINEL\n' > "$target/public_html/assets/operator-console/console.OLDHASH.js"
+          printf 'NODE_MODULE_SENTINEL\n' > "$target/frontend/console/node_modules/keep.txt"
+          printf 'DIST_SENTINEL\n' > "$target/frontend/console/dist/keep.txt"
+          printf 'DELETE_ME\n' > "$target/obsolete-release-file.txt"
+
+          rsync -a --delete \
+            --include='/.env.example' \
+            --exclude-from="$PREPARED_DIR/ops/deploy/staging-rsync-excludes.txt" \
+            "$PREPARED_DIR/" "$target/"
+
+          cmp "$PREPARED_DIR/.env.example" "$target/.env.example"
+          grep -qx 'HOST_RUNTIME_SECRET_SENTINEL' "$target/.env"
+          grep -qx 'HOST_QUALIFICATION_SECRET_SENTINEL' "$target/.env.qualification"
+          grep -qx 'HOST_FUTURE_SECRET_SENTINEL' "$target/.env.future"
+          grep -qx 'RUNTIME_LOG_SENTINEL' "$target/storage/request.log"
+          grep -qx 'OLD_HASH_SENTINEL' "$target/public_html/assets/operator-console/console.OLDHASH.js"
+          grep -qx 'NODE_MODULE_SENTINEL' "$target/frontend/console/node_modules/keep.txt"
+          grep -qx 'DIST_SENTINEL' "$target/frontend/console/dist/keep.txt"
+          test ! -e "$target/obsolete-release-file.txt"
+          echo "  root rsync contract: template deployed; host secrets/storage/assets/private build state preserved"
 
       # PREFLIGHT FROM THE PREPARED TREE, which is the whole point: preflighting the runner's
       # checkout would validate bytes nobody would deploy. The configuration below is disposable and

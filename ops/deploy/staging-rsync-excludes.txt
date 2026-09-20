@@ -1,5 +1,7 @@
 /.git
 /.github
+# IMPORTANT: the deployment command passes --include='/.env.example' BEFORE this file.
+# These broad rules then protect every host runtime/qualification .env file from --delete.
 /.env
 /.env.*
 /storage/***

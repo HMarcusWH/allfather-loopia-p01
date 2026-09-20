@@ -7,6 +7,9 @@ use Allfather\Loopia\Tests\Assert;
 $root = dirname(__DIR__, 2);
 $prepare = (string) file_get_contents($root . '/ops/deploy/prepare-release.sh');
 $excludes = (string) file_get_contents($root . '/ops/deploy/staging-rsync-excludes.txt');
+$workflow = (string) file_get_contents($root . '/.github/workflows/ci.yml');
+$betaRunbook = (string) file_get_contents($root . '/docs/BETA_RUNBOOK.md');
+$deploymentRunbook = (string) file_get_contents($root . '/docs/DEPLOYMENT_RUNBOOK.md');
 
 Assert::contains('git archive "$release"', $prepare, 'release preparation exports the exact Git object, not the developer working tree');
 Assert::contains('npm ci', $prepare, 'the prepared tree installs the pinned frontend dependency graph');
@@ -22,6 +25,47 @@ Assert::false(str_contains($prepare, 'ssh '), 'release preparation cannot reach 
 
 Assert::contains('/storage/***', $excludes, 'the destructive root rsync never manages runtime storage');
 Assert::contains('/public_html/assets/operator-console/***', $excludes, 'the root rsync never deletes manifest-last console assets');
-Assert::contains('/.env', $excludes, 'host configuration is never copied from a release tree');
+Assert::contains('/.env', $excludes, 'the host runtime .env is protected from the destructive root sync');
+Assert::contains('/.env.*', $excludes, 'all host qualification/future .env.* files remain protected too');
+
+// The tracked template is release-owned, but the broad /.env.* rule would also match it. The root
+// sync therefore has to admit exactly /.env.example BEFORE the exclusion file is read. Assert the
+// actual command fragments, not just the first occurrence of each option somewhere in a document:
+// prose mentioning the include before a broken command must not make this boundary look green.
+foreach ([
+    '.github/workflows/ci.yml' => [
+        $workflow,
+        "rsync -a --delete \\\n            --include='/.env.example' \\\n            --exclude-from=",
+    ],
+    'docs/BETA_RUNBOOK.md' => [
+        $betaRunbook,
+        "rsync -av --delete \\\n  --include='/.env.example' \\\n  --exclude-from=",
+    ],
+    'docs/DEPLOYMENT_RUNBOOK.md' => [
+        $deploymentRunbook,
+        "rsync -av --delete \\\n  --include='/.env.example' \\\n  --exclude-from=",
+    ],
+] as $surface => [$source, $orderedRootSync]) {
+    Assert::contains(
+        $orderedRootSync,
+        $source,
+        "{$surface} places /.env.example before the broad host-secret exclusion file in the actual root-sync command",
+    );
+}
+foreach ([
+    'docs/BETA_RUNBOOK.md' => $betaRunbook,
+    'docs/DEPLOYMENT_RUNBOOK.md' => $deploymentRunbook,
+] as $surface => $source) {
+    Assert::contains(
+        "rsync -nric \\\n  --include='/.env.example' \\\n  --exclude='*'",
+        $source,
+        "{$surface} byte-checks only the deployed .env.example after the root sync",
+    );
+    Assert::contains(
+        'ENV_TEMPLATE_DRIFT',
+        $source,
+        "{$surface} treats any itemized .env.example difference as a hard stop",
+    );
+}
 Assert::contains('/frontend/console/node_modules/***', $excludes, 'private frontend dependencies are never deployed');
 Assert::contains('/frontend/console/dist/***', $excludes, 'private frontend build output is never deployed');
