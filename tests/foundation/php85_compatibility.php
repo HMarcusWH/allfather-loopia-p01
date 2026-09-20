@@ -18,7 +18,16 @@ foreach (['app', 'ops', 'public_html', 'worker'] as $top) {
         }
         $source = (string) file_get_contents($file->getPathname());
         foreach (token_get_all($source) as $token) {
-            if (is_array($token) && $token[0] === T_STRING && strtolower($token[1]) === 'curl_close') {
+            if (!is_array($token) || !in_array($token[0], [
+                T_STRING,
+                T_NAME_FULLY_QUALIFIED,
+                T_NAME_QUALIFIED,
+                T_NAME_RELATIVE,
+            ], true)) {
+                continue;
+            }
+            $name = strtolower(ltrim($token[1], '\\'));
+            if ($name === 'curl_close' || str_ends_with($name, '\\curl_close')) {
                 $relative = substr($file->getPathname(), strlen($root) + 1);
                 $violations[] = $relative . ':' . $token[2];
             }
