@@ -95,11 +95,16 @@ Assert::true(
 // it: cURL never follows a cross-origin Location, so this is not a credential leak — but a run that
 // recorded PASS for a 303 to another host would be certifying the wrong deployment.
 Assert::contains(
-    "\$redirectStaysHere = \$response['location'] === null || \$sameOrigin(\$response['location']);",
+    "\$redirectStaysOnOrigin = \$response['location'] === null || \$sameOrigin(\$response['location']);",
     $code,
-    'every response with a Location has that Location checked',
+    'every response with a Location has its true same-origin status classified',
 );
-Assert::contains('&& $redirectStaysHere', $code, 'and the result gates the step rather than decorating it');
+Assert::contains(
+    "\$redirectAccepted = \$redirectStaysOnOrigin || \$foreignRedirectAccepted;",
+    $code,
+    'the only widening is the separately validated provider exception',
+);
+Assert::contains('&& $redirectAccepted', $code, 'the accepted-redirect result gates the step rather than decorating it');
 // The same shape for checks whose subject is not the status code. An authenticated context read
 // answers 200 whether or not injected scope changed the decision, so the comparison must gate.
 Assert::contains('bool $alsoRequires = true,', $code, 'a step can carry an extra predicate');
