@@ -390,20 +390,33 @@ $decision = static function (array $response): array {
     $access = $payload['access'] ?? null;
     $projection = $payload['projection'] ?? null;
     $asOf = $payload['as_of'] ?? null;
+    $stringList = static function (mixed $value): bool {
+        if (!is_array($value) || !array_is_list($value)) {
+            return false;
+        }
+        foreach ($value as $item) {
+            if (!is_string($item)) {
+                return false;
+            }
+        }
+
+        return true;
+    };
     $browserEnvelope = is_string($payload['source'] ?? null)
         && array_key_exists('as_of', $payload)
         && ($asOf === null || is_string($asOf))
         && is_array($access)
-        && is_string($access['decision'] ?? null)
+        && in_array($access['decision'] ?? null, ['VISIBLE', 'DENIED'], true)
         && array_key_exists('required_permission', $access)
         && (($access['required_permission'] ?? null) === null || is_string($access['required_permission']))
-        && is_array($access['reason_codes'] ?? null)
+        && $stringList($access['reason_codes'] ?? null)
         && is_array($projection)
-        && is_string($projection['state'] ?? null)
-        && is_string($projection['stale_status'] ?? null)
+        && in_array($projection['state'] ?? null, ['READY', 'EMPTY', 'UNAVAILABLE'], true)
+        && in_array($projection['stale_status'] ?? null, ['CURRENT', 'UNKNOWN', 'ERROR'], true)
         && is_string($payload['owner_state'] ?? null)
-        && is_array($payload['reason_codes'] ?? null)
-        && array_key_exists('data', $payload);
+        && $stringList($payload['reason_codes'] ?? null)
+        && array_key_exists('data', $payload)
+        && ($payload['data'] === null || is_array($payload['data']));
 
     return [
         'envelope' => 'JSON',
