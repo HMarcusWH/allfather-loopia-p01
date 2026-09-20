@@ -409,6 +409,49 @@ Assert::contains(
     $code,
     'workspace activation is part of the step verdict, not a diagnostic beside a pass',
 );
+Assert::contains(
+    "\$selectedContextIsJson = (\$selectedDecision['envelope'] ?? null) === 'JSON'",
+    $code,
+    'workspace activation is proved only from the browser API JSON contract',
+);
+Assert::contains(
+    "\$workspaceIsActive = \$selectedContextIsJson",
+    $code,
+    'a non-JSON response can never be called an active workspace',
+);
+
+// ============================================================ authenticated browser reads remain JSON
+
+Assert::contains(
+    "\$readIsJson = (\$readDecision['envelope'] ?? null) === 'JSON'",
+    $code,
+    'every authenticated governed read requires a JSON envelope',
+);
+Assert::contains(
+    "&& str_contains(strtolower(explode(';', \$response['content_type'])[0]), 'json')",
+    $code,
+    'every authenticated governed read also requires a JSON media type',
+);
+Assert::contains(
+    "], \$readIsJson);",
+    $code,
+    'that JSON contract is part of the governed-read step verdict',
+);
+Assert::contains(
+    "\$identical = (\$plainDecision['envelope'] ?? null) === 'JSON'",
+    $code,
+    'the scope-override comparison cannot pass by comparing two equally broken non-JSON responses',
+);
+Assert::contains(
+    "\$afterChangeIsJson = (\$afterChangeDecision['envelope'] ?? null) === 'JSON'",
+    $code,
+    'session invalidation after password change is verified through the JSON API contract',
+);
+Assert::contains(
+    "\$afterSignOutIsJson = (\$afterSignOutDecision['envelope'] ?? null) === 'JSON'",
+    $code,
+    'session invalidation after sign-out is verified through the JSON API contract',
+);
 
 // ============================================================ the console shell is not the console
 
