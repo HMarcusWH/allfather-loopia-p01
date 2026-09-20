@@ -250,10 +250,10 @@ Assert::false(
     'an arrow-function snapshot cannot return as the CSRF accessor',
 );
 $signInStart = (int) strpos($code, '$signIn = static function');
-$signInEnd = (int) strpos($code, "if ($mode === 'beta-journey')");
+$signInEnd = (int) strpos($code, "if (\$mode === 'beta-journey')");
 $signInFn = substr($code, $signInStart, $signInEnd - $signInStart);
 Assert::true(
-    strpos($signInFn, "$send('GET', '/login');") < strpos($signInFn, "'csrf_token' => $csrfToken()"),
+    strpos($signInFn, "\$send('GET', '/login');") < strpos($signInFn, "'csrf_token' => \$csrfToken()"),
     'sign-in first lets /login rotate the jar and only then reads the current token for the POST',
 );
 Assert::false(
