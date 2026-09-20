@@ -387,10 +387,35 @@ $decision = static function (array $response): array {
         return ['envelope' => 'NOT_AN_OBJECT'];
     }
 
+    $access = $payload['access'] ?? null;
+    $projection = $payload['projection'] ?? null;
+    $asOf = $payload['as_of'] ?? null;
+    $browserEnvelope = is_string($payload['source'] ?? null)
+        && array_key_exists('as_of', $payload)
+        && ($asOf === null || is_string($asOf))
+        && is_array($access)
+        && is_string($access['decision'] ?? null)
+        && array_key_exists('required_permission', $access)
+        && (($access['required_permission'] ?? null) === null || is_string($access['required_permission']))
+        && is_array($access['reason_codes'] ?? null)
+        && is_array($projection)
+        && is_string($projection['state'] ?? null)
+        && is_string($projection['stale_status'] ?? null)
+        && is_string($payload['owner_state'] ?? null)
+        && is_array($payload['reason_codes'] ?? null)
+        && array_key_exists('data', $payload);
+
     return [
         'envelope' => 'JSON',
+        // status belongs to the Kernel's special auth/lifecycle JSON refusals. Normal browser reads
+        // use the structured ConsoleReadEnvelope fields below.
         'envelope_status' => is_string($payload['status'] ?? null) ? $payload['status'] : null,
-        'access_decision' => is_string($payload['access']['decision'] ?? null) ? $payload['access']['decision'] : null,
+        'browser_envelope' => $browserEnvelope,
+        'source' => $browserEnvelope ? (string) $payload['source'] : null,
+        'access_decision' => is_string($access['decision'] ?? null) ? $access['decision'] : null,
+        'required_permission' => is_string($access['required_permission'] ?? null) ? $access['required_permission'] : null,
+        'projection_state' => is_string($projection['state'] ?? null) ? $projection['state'] : null,
+        'stale_status' => is_string($projection['stale_status'] ?? null) ? $projection['stale_status'] : null,
         'owner_state' => is_string($payload['owner_state'] ?? null) ? $payload['owner_state'] : null,
         'reason_codes' => array_values(array_map('strval', (array) ($payload['reason_codes'] ?? []))),
         // WHETHER there is data, never what it is. The distinction between an owner denial and a
@@ -635,8 +660,12 @@ if ($mode !== 'anonymous') {
         $selectedContext = $send('GET', '/console/api/v1/context');
         $selectedDecision = $decision($selectedContext);
         $selectedContextIsJson = ($selectedDecision['envelope'] ?? null) === 'JSON'
-            && str_contains(strtolower(explode(';', $selectedContext['content_type'])[0]), 'json');
+            && ($selectedDecision['browser_envelope'] ?? false) === true
+            && str_contains(strtolower(explode(';', $selectedContext['content_type'])[0]), 'json')
+            && $selectedContext['location'] === null;
         $workspaceIsActive = $selectedContextIsJson
+            && in_array($selectedDecision['access_decision'] ?? null, ['VISIBLE', 'DENIED'], true)
+            && in_array($selectedDecision['owner_state'] ?? null, ['VISIBLE', 'DENIED'], true)
             && !in_array('NO_ACTIVE_WORKSPACE', $selectedDecision['reason_codes'] ?? [], true);
         $record('workspace selection becomes session state', 'GET', '/console/api/v1/context', $selectedContext, [200, 403], [
             ...$selectedDecision,
@@ -720,6 +749,7 @@ if ($mode !== 'anonymous') {
         // above. The RESPONSE CONTRACT is not optional either: every /console/api/ route is JSON.
         $readDecision = $decision($response);
         $readIsJson = ($readDecision['envelope'] ?? null) === 'JSON'
+            && ($readDecision['browser_envelope'] ?? false) === true
             && str_contains(strtolower(explode(';', $response['content_type'])[0]), 'json')
             && $response['location'] === null;
         $record('governed read', 'GET', $path, $response, [200, 403, 503], [
@@ -745,11 +775,24 @@ if ($mode !== 'anonymous') {
     // whether or not the injected scope changed the decision, so gating on the status alone would
     // let the artifact report SMOKE_PASS while explicitly stating that the scope-override check
     // failed. It is passed as the extra predicate so a difference fails the run.
-    $identical = ($plainDecision['envelope'] ?? null) === 'JSON'
-        && ($injectedDecision['envelope'] ?? null) === 'JSON'
+    $plainEnvelopeValid = ($plainDecision['envelope'] ?? null) === 'JSON'
+        && ($plainDecision['browser_envelope'] ?? false) === true
+        && str_contains(strtolower(explode(';', $plain['content_type'])[0]), 'json')
+        && $plain['location'] === null;
+    $injectedEnvelopeValid = ($injectedDecision['envelope'] ?? null) === 'JSON'
+        && ($injectedDecision['browser_envelope'] ?? false) === true
+        && str_contains(strtolower(explode(';', $injected['content_type'])[0]), 'json')
+        && $injected['location'] === null;
+    $identical = $plainEnvelopeValid
+        && $injectedEnvelopeValid
         && $plain['status'] === $injected['status']
+        && ($plainDecision['source'] ?? null) === ($injectedDecision['source'] ?? null)
         && ($plainDecision['access_decision'] ?? null) === ($injectedDecision['access_decision'] ?? null)
+        && ($plainDecision['required_permission'] ?? null) === ($injectedDecision['required_permission'] ?? null)
+        && ($plainDecision['projection_state'] ?? null) === ($injectedDecision['projection_state'] ?? null)
+        && ($plainDecision['stale_status'] ?? null) === ($injectedDecision['stale_status'] ?? null)
         && ($plainDecision['owner_state'] ?? null) === ($injectedDecision['owner_state'] ?? null)
+        && ($plainDecision['reason_codes'] ?? null) === ($injectedDecision['reason_codes'] ?? null)
         && ($plainDecision['has_data'] ?? null) === ($injectedDecision['has_data'] ?? null);
     $record(
         'caller-supplied scope changes nothing',
