@@ -229,10 +229,11 @@ jobs:
   # all. A regression that kept the source text matching while breaking the behaviour would have
   # been green.
   #
-  # IT PREPARES, IT DOES NOT DEPLOY. There is no ssh, no rsync, no remote host, no Loopia
-  # credential and no evidence record here. Everything happens in $RUNNER_TEMP and dies with the
-  # runner. `prepare-release.sh` itself contains no network verb, and preflight opens no database
-  # connection — it checks that the database fields are PRESENT, never what they contain.
+  # IT PREPARES, IT DOES NOT DEPLOY. There is no ssh, no remote host, no Loopia credential and no
+  # evidence record here. PR13 adds one LOCAL rsync rehearsal against $RUNNER_TEMP to execute the
+  # destructive-copy filter contract; it has no remote destination and dies with the runner.
+  # `prepare-release.sh` itself still contains no network/deployment verb, and preflight opens no
+  # database connection — it checks that the database fields are PRESENT, never what they contain.
   release-preparation:
     name: release preparation
     runs-on: ubuntu-latest
