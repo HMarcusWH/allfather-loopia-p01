@@ -27,10 +27,11 @@ declare(strict_types=1);
  *   opaque request reference, and a reason code. That list is closed, and `record()` is the only
  *   thing that writes to it.
  *
- *   GOVERNED DATA IS NEVER READ. The product endpoints are exercised for their ACCESS DECISION —
- *   200 versus 403 versus 409 — and the payload is discarded without being parsed for content. A
- *   smoke test that printed a battlecard would be a smoke test that exported a tenant's
- *   intelligence to whoever reads the terminal.
+ *   GOVERNED DATA CONTENT IS NEVER READ. Product endpoints are exercised for their browser-envelope
+ *   contract and access/availability decision. The client parses only safe envelope metadata
+ *   (source, decision, projection state, reason codes, and whether data is empty); it never returns,
+ *   iterates or prints the governed `data` payload. A smoke test that printed a battlecard would be
+ *   a smoke test that exported a tenant's intelligence to whoever reads the terminal.
  *
  *   HTTPS ONLY, AND NO CROSS-ORIGIN REDIRECT. Plain HTTP is refused rather than upgraded, and
  *   redirects are never followed automatically — each step decides what to do with a `Location`,
@@ -370,9 +371,10 @@ $record = static function (
 /**
  * A governed read's ACCESS DECISION, and nothing else.
  *
- * The body is decoded to reach the reason codes, which are the thing a smoke test is for, and the
- * `data` key is never touched. A helper that returned the payload would be the point where a
- * tenant's intelligence started reaching a terminal.
+ * The body is decoded only far enough to validate the canonical browser envelope and safe decision
+ * metadata. The governed `data` value is never returned or iterated; only its presence, null/array
+ * shape and empty/non-empty state are observed. A helper that returned the payload would be the
+ * point where a tenant's intelligence started reaching a terminal.
  *
  * @param array{body: string} $response
  * @return array<string, mixed>
