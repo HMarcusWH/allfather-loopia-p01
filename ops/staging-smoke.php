@@ -339,7 +339,8 @@ $record = static function (
         $foreign = parse_url($response['location']);
         $redirectStaysHere = is_array($foreign)
             && ($foreign['scheme'] ?? '') === 'https'
-            && ($foreign['host'] ?? '') === $allowedForeignRedirectHost;
+            && ($foreign['host'] ?? '') === $allowedForeignRedirectHost
+            && (!isset($foreign['port']) || (int) $foreign['port'] === 443);
     }
     $ok = in_array($response['status'], $expected, true)
         && $response['error'] === null
@@ -547,19 +548,27 @@ $signIn = static function (string $withPassword) use ($send, $csrfToken, $email)
 
 if ($mode === 'beta-journey') {
     $first = $signIn($password);
+    $firstLandsOnPassword = $first['location'] === '/account/password';
     $record('first sign-in lands on the password surface', 'POST', '/login', $first, [303], [
         'location' => $first['location'],
-    ]);
+        'lands_on_password_surface' => $firstLandsOnPassword,
+    ], $firstLandsOnPassword);
 
     $gatedShell = $send('GET', '/console/app');
+    $shellGatedToPassword = $gatedShell['location'] === '/account/password';
     $record('the console is gated before the password changes', 'GET', '/console/app', $gatedShell, [303], [
         'location' => $gatedShell['location'],
-    ]);
+        'gated_to_password_surface' => $shellGatedToPassword,
+    ], $shellGatedToPassword);
 
     $gatedRead = $send('GET', '/console/api/v1/context');
+    $gatedDecision = $decision($gatedRead);
+    $readGatedByPassword = ($gatedDecision['envelope_status'] ?? null) === 'PASSWORD_CHANGE_REQUIRED'
+        && in_array('PASSWORD_CHANGE_REQUIRED', $gatedDecision['reason_codes'] ?? [], true);
     $record('and so is every governed read', 'GET', '/console/api/v1/context', $gatedRead, [403], [
-        ...$decision($gatedRead),
-    ]);
+        ...$gatedDecision,
+        'password_change_gate' => $readGatedByPassword,
+    ], $readGatedByPassword);
 
     $passwordForm = $send('GET', '/account/password');
     $record('the password surface itself is reachable', 'GET', '/account/password', $passwordForm, [200]);
@@ -570,9 +579,11 @@ if ($mode === 'beta-journey') {
         'new_password' => $newPassword,
         'confirm_password' => $newPassword,
     ]);
+    $changedReturnsToLogin = $changed['location'] === '/login?changed=1';
     $record('the password change succeeds', 'POST', '/account/password', $changed, [303], [
         'location' => $changed['location'],
-    ]);
+        'returns_to_login' => $changedReturnsToLogin,
+    ], $changedReturnsToLogin);
 
     // EVERY SESSION ENDED, including the one that made the change. The jar still holds whatever the
     // response left; the point is that the server no longer honours it.
@@ -587,27 +598,43 @@ if ($mode === 'beta-journey') {
 
 if ($mode !== 'anonymous') {
     $signedIn = $signIn($password);
-    $record('sign-in', 'POST', '/login', $signedIn, [303], ['location' => $signedIn['location']]);
+    $signedInToConsole = $signedIn['location'] === '/console';
+    $record('sign-in', 'POST', '/login', $signedIn, [303], [
+        'location' => $signedIn['location'],
+        'lands_on_console' => $signedInToConsole,
+    ], $signedInToConsole);
 
-    // A workspace may not be selected yet. The chooser is the remedy, and the smoke run follows it
-    // rather than reporting the 409 as a failure — that state is correct, not broken.
-    if ($signedIn['location'] === '/console/workspaces') {
-        $chooser = $send('GET', '/console/workspaces');
-        $record('workspace chooser', 'GET', '/console/workspaces', $chooser, [200]);
-        if (preg_match('/name="workspace_id" value="([0-9a-f-]{36})"/', $chooser['body'], $m) === 1) {
-            $selected = $send('POST', '/console/workspace', [
-                'csrf_token' => $csrfToken(),
-                'workspace_id' => $m[1],
-            ]);
-            $record('workspace selected', 'POST', '/console/workspace', $selected, [303], [
-                'location' => $selected['location'],
-            ]);
-        } else {
-            $record('workspace chooser offers a workspace', 'GET', '/console/workspaces', [
-                'status' => 0, 'location' => null, 'request_id' => '', 'content_type' => '',
-                'body' => '', 'error' => 'no selectable workspace was offered', 'oversized' => false,
-            ], [200]);
-        }
+    // EVERY fresh session starts with active_workspace_id = NULL. The login controller redirects to
+    // /console, not to the chooser, so waiting for a /console/workspaces Location can never select
+    // anything. Gate N must exercise the chooser explicitly or every governed read may return the
+    // accepted 409 NO_ACTIVE_WORKSPACE and the smoke artifact can pass without testing a workspace.
+    $chooser = $send('GET', '/console/workspaces');
+    $record('workspace chooser', 'GET', '/console/workspaces', $chooser, [200]);
+    if (preg_match('/name="workspace_id" value="([0-9a-f-]{36})"/', $chooser['body'], $m) === 1) {
+        $selected = $send('POST', '/console/workspace', [
+            'csrf_token' => $csrfToken(),
+            'workspace_id' => $m[1],
+        ]);
+        $selectionReturnsToConsole = $selected['location'] === '/console';
+        $record('workspace selected', 'POST', '/console/workspace', $selected, [303], [
+            'location' => $selected['location'],
+            'returns_to_console' => $selectionReturnsToConsole,
+        ], $selectionReturnsToConsole);
+
+        // Prove the POST changed session state. Product-specific reads may still legitimately deny,
+        // but NO_ACTIVE_WORKSPACE is no longer an acceptable answer after a successful selection.
+        $selectedContext = $send('GET', '/console/api/v1/context');
+        $selectedDecision = $decision($selectedContext);
+        $workspaceIsActive = !in_array('NO_ACTIVE_WORKSPACE', $selectedDecision['reason_codes'] ?? [], true);
+        $record('workspace selection becomes session state', 'GET', '/console/api/v1/context', $selectedContext, [200, 403, 503], [
+            ...$selectedDecision,
+            'workspace_active' => $workspaceIsActive,
+        ], $workspaceIsActive);
+    } else {
+        $record('workspace chooser offers a workspace', 'GET', '/console/workspaces', [
+            'status' => 0, 'location' => null, 'request_id' => '', 'content_type' => '',
+            'body' => '', 'error' => 'no selectable workspace was offered', 'oversized' => false,
+        ], [200]);
     }
 
     $appShell = $send('GET', '/console/app');
@@ -718,7 +745,11 @@ if ($mode !== 'anonymous') {
     }
 
     $signedOut = $send('POST', '/logout', ['csrf_token' => $csrfToken()]);
-    $record('sign-out', 'POST', '/logout', $signedOut, [303], ['location' => $signedOut['location']]);
+    $signedOutToLogin = $signedOut['location'] === '/login';
+    $record('sign-out', 'POST', '/logout', $signedOut, [303], [
+        'location' => $signedOut['location'],
+        'returns_to_login' => $signedOutToLogin,
+    ], $signedOutToLogin);
 
     $afterSignOut = $send('GET', '/console/api/v1/context');
     $record('the session is gone after sign-out', 'GET', '/console/api/v1/context', $afterSignOut, [401], [
