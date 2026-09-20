@@ -453,6 +453,48 @@ Assert::contains(
     'session invalidation after sign-out is verified through the JSON API contract',
 );
 
+// ============================================================ session invalidation replays the old token
+
+foreach ([
+    "\$oldSessionToken = \$cookies['af_session'] ?? '';" =>
+        'the session issued before password change is captured only in process memory',
+    "\$cookies = ['af_session' => \$oldSessionToken];" =>
+        'the old password-change session token is deliberately replayed after the clear-cookie response',
+    "\$sessionBeforeLogout = \$cookies['af_session'] ?? '';" =>
+        'the live session is captured immediately before logout',
+    "\$cookies = ['af_session' => \$sessionBeforeLogout];" =>
+        'the logged-out token is deliberately replayed to prove server-side revocation',
+] as $needle => $why) {
+    Assert::contains($needle, $code, $why);
+}
+Assert::contains(
+    "], \$readGatedByPassword && \$oldSessionPresent);",
+    $code,
+    'the beta lifecycle gate cannot pass unless a real session cookie was actually issued',
+);
+Assert::contains(
+    "], \$signedOutToLogin && \$sessionBeforeLogoutPresent);",
+    $code,
+    'the sign-out step cannot pass unless there was a real session to revoke',
+);
+
+// A selected workspace has already been proved as session state. From that point NO_ACTIVE_WORKSPACE
+// is no longer an accepted browser-read outcome; a 409 would mean the selection disappeared.
+Assert::contains(
+    "\$selectedContext, [200, 403], [",
+    $code,
+    'the immediate workspace-state proof cannot hide behind a generic 503',
+);
+Assert::contains(
+    "\$response, [200, 403, 503], [",
+    $code,
+    'post-selection governed reads no longer accept 409 NO_ACTIVE_WORKSPACE',
+);
+Assert::false(
+    str_contains($code, "\$response, [200, 403, 409, 503], ["),
+    'the pre-repair post-selection 409 allowance is gone',
+);
+
 // ============================================================ the console shell is not the console
 
 // A host can serve the document perfectly and answer 404, or the front controller's HTML, for the
