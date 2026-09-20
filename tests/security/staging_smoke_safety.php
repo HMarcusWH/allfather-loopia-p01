@@ -250,8 +250,8 @@ Assert::false(
     'an arrow-function snapshot cannot return as the CSRF accessor',
 );
 $signInStart = strpos($code, '$signIn = static function');
-$signInEnd = strpos($code, "if (\$mode === 'beta-journey')");
 Assert::notSame(false, $signInStart, 'the sign-in helper exists');
+$signInEnd = strpos($code, "if (\$mode === 'beta-journey')", (int) $signInStart);
 Assert::notSame(false, $signInEnd, 'the beta-journey block exists after the sign-in helper');
 Assert::true($signInStart < $signInEnd, 'the sign-in helper is bounded before beta-journey execution');
 $signInFn = substr($code, (int) $signInStart, (int) $signInEnd - (int) $signInStart);
@@ -412,20 +412,48 @@ Assert::contains(
 Assert::contains(
     "\$selectedContextIsJson = (\$selectedDecision['envelope'] ?? null) === 'JSON'",
     $code,
-    'workspace activation is proved only from the browser API JSON contract',
+    'workspace activation is proved only from a decoded JSON response',
+);
+Assert::contains(
+    "&& (\$selectedDecision['browser_envelope'] ?? false) === true",
+    $code,
+    'and an empty/arbitrary JSON object cannot masquerade as the canonical console-read envelope',
 );
 Assert::contains(
     "\$workspaceIsActive = \$selectedContextIsJson",
     $code,
-    'a non-JSON response can never be called an active workspace',
+    'a non-canonical response can never be called an active workspace',
 );
+Assert::contains(
+    "&& in_array(\$selectedDecision['access_decision'] ?? null, ['VISIBLE', 'DENIED'], true)",
+    $code,
+    'workspace state requires a canonical context access decision rather than merely absence of one reason code',
+);
+
+// The decoder classifies the ConsoleReadEnvelope shape without returning governed data.
+foreach ([
+    "array_key_exists('as_of', \$payload)",
+    "array_key_exists('required_permission', \$access)",
+    "is_array(\$access['reason_codes'] ?? null)",
+    "is_string(\$projection['state'] ?? null)",
+    "is_string(\$projection['stale_status'] ?? null)",
+    "array_key_exists('data', \$payload)",
+] as $shapeCheck) {
+    Assert::contains($shapeCheck, $code, "browser-envelope classifier carries: {$shapeCheck}");
+}
+Assert::contains("'browser_envelope' => \$browserEnvelope,", $code, 'the safe decision summary exposes only the envelope validity boolean');
 
 // ============================================================ authenticated browser reads remain JSON
 
 Assert::contains(
     "\$readIsJson = (\$readDecision['envelope'] ?? null) === 'JSON'",
     $code,
-    'every authenticated governed read requires a JSON envelope',
+    'every authenticated governed read requires decoded JSON',
+);
+Assert::contains(
+    "&& (\$readDecision['browser_envelope'] ?? false) === true",
+    $code,
+    'and every authenticated read requires the canonical browser-envelope shape, not merely {}',
 );
 Assert::contains(
     "&& str_contains(strtolower(explode(';', \$response['content_type'])[0]), 'json')",
@@ -438,9 +466,24 @@ Assert::contains(
     'that JSON contract is part of the governed-read step verdict',
 );
 Assert::contains(
-    "\$identical = (\$plainDecision['envelope'] ?? null) === 'JSON'",
+    "\$plainEnvelopeValid = (\$plainDecision['envelope'] ?? null) === 'JSON'",
     $code,
-    'the scope-override comparison cannot pass by comparing two equally broken non-JSON responses',
+    'the unscoped side of the override comparison is validated independently',
+);
+Assert::contains(
+    "&& (\$plainDecision['browser_envelope'] ?? false) === true",
+    $code,
+    'the unscoped response must have the canonical browser-envelope shape',
+);
+Assert::contains(
+    "&& (\$injectedDecision['browser_envelope'] ?? false) === true",
+    $code,
+    'the injected response must have the canonical browser-envelope shape too',
+);
+Assert::contains(
+    "&& (\$plainDecision['reason_codes'] ?? null) === (\$injectedDecision['reason_codes'] ?? null)",
+    $code,
+    'scope injection may not change even the safe reason-code projection',
 );
 Assert::contains(
     "\$afterChangeIsJson = (\$afterChangeDecision['envelope'] ?? null) === 'JSON'",
