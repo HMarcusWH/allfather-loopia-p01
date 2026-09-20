@@ -561,6 +561,8 @@ if ($mode === 'beta-journey') {
         'gated_to_password_surface' => $shellGatedToPassword,
     ], $shellGatedToPassword);
 
+    $oldSessionToken = $cookies['af_session'] ?? '';
+    $oldSessionPresent = $oldSessionToken !== '';
     $gatedRead = $send('GET', '/console/api/v1/context');
     $gatedDecision = $decision($gatedRead);
     $readGatedByPassword = ($gatedDecision['envelope_status'] ?? null) === 'PASSWORD_CHANGE_REQUIRED'
@@ -568,7 +570,8 @@ if ($mode === 'beta-journey') {
     $record('and so is every governed read', 'GET', '/console/api/v1/context', $gatedRead, [403], [
         ...$gatedDecision,
         'password_change_gate' => $readGatedByPassword,
-    ], $readGatedByPassword);
+        'session_cookie_present' => $oldSessionPresent,
+    ], $readGatedByPassword && $oldSessionPresent);
 
     $passwordForm = $send('GET', '/account/password');
     $record('the password surface itself is reachable', 'GET', '/account/password', $passwordForm, [200]);
@@ -585,8 +588,10 @@ if ($mode === 'beta-journey') {
         'returns_to_login' => $changedReturnsToLogin,
     ], $changedReturnsToLogin);
 
-    // EVERY SESSION ENDED, including the one that made the change. The jar still holds whatever the
-    // response left; the point is that the server no longer honours it.
+    // EVERY SESSION ENDED, including the one that made the change. Do not prove only that the
+    // response cleared the browser cookie: deliberately replay the exact OLD session token in memory
+    // and require the server to refuse it. The token is never printed, recorded or written to disk.
+    $cookies = ['af_session' => $oldSessionToken];
     $afterChange = $send('GET', '/console/api/v1/context');
     $afterChangeDecision = $decision($afterChange);
     $afterChangeIsJson = ($afterChangeDecision['envelope'] ?? null) === 'JSON'
@@ -633,7 +638,7 @@ if ($mode !== 'anonymous') {
             && str_contains(strtolower(explode(';', $selectedContext['content_type'])[0]), 'json');
         $workspaceIsActive = $selectedContextIsJson
             && !in_array('NO_ACTIVE_WORKSPACE', $selectedDecision['reason_codes'] ?? [], true);
-        $record('workspace selection becomes session state', 'GET', '/console/api/v1/context', $selectedContext, [200, 403, 503], [
+        $record('workspace selection becomes session state', 'GET', '/console/api/v1/context', $selectedContext, [200, 403], [
             ...$selectedDecision,
             'json_envelope_and_type' => $selectedContextIsJson,
             'workspace_active' => $workspaceIsActive,
@@ -717,7 +722,7 @@ if ($mode !== 'anonymous') {
         $readIsJson = ($readDecision['envelope'] ?? null) === 'JSON'
             && str_contains(strtolower(explode(';', $response['content_type'])[0]), 'json')
             && $response['location'] === null;
-        $record('governed read', 'GET', $path, $response, [200, 403, 409, 503], [
+        $record('governed read', 'GET', $path, $response, [200, 403, 503], [
             ...$readDecision,
             'json_envelope_and_type' => $readIsJson,
         ], $readIsJson);
@@ -761,13 +766,18 @@ if ($mode !== 'anonymous') {
         $record('operator surface', 'GET', $surface, $response, [200]);
     }
 
+    $sessionBeforeLogout = $cookies['af_session'] ?? '';
+    $sessionBeforeLogoutPresent = $sessionBeforeLogout !== '';
     $signedOut = $send('POST', '/logout', ['csrf_token' => $csrfToken()]);
     $signedOutToLogin = $signedOut['location'] === '/login';
     $record('sign-out', 'POST', '/logout', $signedOut, [303], [
         'location' => $signedOut['location'],
         'returns_to_login' => $signedOutToLogin,
-    ], $signedOutToLogin);
+        'session_cookie_present_before_logout' => $sessionBeforeLogoutPresent,
+    ], $signedOutToLogin && $sessionBeforeLogoutPresent);
 
+    // As above, replay the OLD token rather than relying on the clear-cookie response as proof.
+    $cookies = ['af_session' => $sessionBeforeLogout];
     $afterSignOut = $send('GET', '/console/api/v1/context');
     $afterSignOutDecision = $decision($afterSignOut);
     $afterSignOutIsJson = ($afterSignOutDecision['envelope'] ?? null) === 'JSON'
@@ -776,6 +786,8 @@ if ($mode !== 'anonymous') {
         ...$afterSignOutDecision,
         'json_envelope_and_type' => $afterSignOutIsJson,
     ], $afterSignOutIsJson);
+
+    $cookies = [];
 }
 
 // ============================================================ report
