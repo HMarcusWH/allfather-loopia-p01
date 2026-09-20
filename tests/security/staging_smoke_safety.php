@@ -531,9 +531,29 @@ Assert::contains(
     'session invalidation after password change is verified through the JSON API contract',
 );
 Assert::contains(
+    "&& (\$afterChangeDecision['envelope_status'] ?? null) === 'UNAUTHENTICATED'",
+    $code,
+    'the replayed pre-change session must receive the canonical UNAUTHENTICATED refusal',
+);
+Assert::contains(
+    "&& in_array('AUTHENTICATION_REQUIRED', \$afterChangeDecision['reason_codes'] ?? [], true)",
+    $code,
+    'the replayed pre-change session refusal must carry AUTHENTICATION_REQUIRED',
+);
+Assert::contains(
     "\$afterSignOutIsJson = (\$afterSignOutDecision['envelope'] ?? null) === 'JSON'",
     $code,
     'session invalidation after sign-out is verified through the JSON API contract',
+);
+Assert::contains(
+    "&& (\$afterSignOutDecision['envelope_status'] ?? null) === 'UNAUTHENTICATED'",
+    $code,
+    'the replayed logged-out session must receive the canonical UNAUTHENTICATED refusal',
+);
+Assert::contains(
+    "&& in_array('AUTHENTICATION_REQUIRED', \$afterSignOutDecision['reason_codes'] ?? [], true)",
+    $code,
+    'the replayed logged-out session refusal must carry AUTHENTICATION_REQUIRED',
 );
 
 // ============================================================ session invalidation replays the old token
@@ -664,6 +684,16 @@ Assert::contains(
     "\$anonIsJson = (\$anonDecision['envelope'] ?? null) === 'JSON'",
     $code,
     'the anonymous refusal must decode as a JSON envelope',
+);
+Assert::contains(
+    "&& (\$anonDecision['envelope_status'] ?? null) === 'UNAUTHENTICATED'",
+    $code,
+    'the anonymous refusal must be the canonical UNAUTHENTICATED envelope',
+);
+Assert::contains(
+    "&& in_array('AUTHENTICATION_REQUIRED', \$anonDecision['reason_codes'] ?? [], true)",
+    $code,
+    'the anonymous refusal must carry AUTHENTICATION_REQUIRED',
 );
 Assert::contains(
     "str_contains(strtolower(explode(';', \$anonContext['content_type'])[0]), 'json')",
