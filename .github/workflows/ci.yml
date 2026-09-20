@@ -420,7 +420,11 @@ jobs:
 
           target="${RUNNER_TEMP}/rsync-contract-target"
           rm -rf "$target"
-          mkdir -p             "$target/storage"             "$target/public_html/assets/operator-console"             "$target/frontend/console/node_modules"             "$target/frontend/console/dist"
+          mkdir -p \
+            "$target/storage" \
+            "$target/public_html/assets/operator-console" \
+            "$target/frontend/console/node_modules" \
+            "$target/frontend/console/dist"
 
           printf 'HOST_RUNTIME_SECRET_SENTINEL\n' > "$target/.env"
           printf 'HOST_QUALIFICATION_SECRET_SENTINEL\n' > "$target/.env.qualification"
@@ -432,7 +436,10 @@ jobs:
           printf 'DIST_SENTINEL\n' > "$target/frontend/console/dist/keep.txt"
           printf 'DELETE_ME\n' > "$target/obsolete-release-file.txt"
 
-          rsync -a --delete             --include='/.env.example'             --exclude-from="$PREPARED_DIR/ops/deploy/staging-rsync-excludes.txt"             "$PREPARED_DIR/" "$target/"
+          rsync -a --delete \
+            --include='/.env.example' \
+            --exclude-from="$PREPARED_DIR/ops/deploy/staging-rsync-excludes.txt" \
+            "$PREPARED_DIR/" "$target/"
 
           cmp "$PREPARED_DIR/.env.example" "$target/.env.example"
           grep -qx 'HOST_RUNTIME_SECRET_SENTINEL' "$target/.env"
