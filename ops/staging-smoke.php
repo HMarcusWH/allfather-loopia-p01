@@ -221,7 +221,8 @@ $send = static function (string $method, string $path, array $form = []) use ($o
         $executed === false => curl_error($handle),
         default => null,
     };
-    curl_close($handle);
+    // PHP 8+ CurlHandle objects release their resource when they leave scope. Calling
+    // curl_close() is a no-op there and is deprecated in PHP 8.5, so do not reintroduce it.
 
     $location = null;
     $requestId = '';
@@ -526,7 +527,12 @@ foreach ([
 
 // ============================================================ authenticated modes
 
-$csrfToken = static fn (): string => $cookies[Csrf::COOKIE_NAME] ?? '';
+// LOGIN ROTATES THE CSRF COOKIE. This accessor must observe the jar AFTER the GET /login
+// response has updated it. An arrow function captures $cookies by value and snapshots the empty jar,
+// which makes the following POST submit a stale token even though the live cookie is correct.
+$csrfToken = static function () use (&$cookies): string {
+    return $cookies[Csrf::COOKIE_NAME] ?? '';
+};
 
 /** Sign in through the front door. Returns the response; the cookie jar updates itself. */
 $signIn = static function (string $withPassword) use ($send, $csrfToken, $email): array {
