@@ -64,8 +64,8 @@ cross-site isolation blocker closes.
 #### Deploy the application tree
 
 The root application copy is destructive for release-owned code and deliberately non-destructive for
-runtime state. The committed exclusion file is authoritative; the repeated explicit frontend/asset
-rules below make the critical exclusions visible at the command that uses `--delete`.
+runtime state. The committed exclusion file plus the explicit `.env.example` include are the authoritative
+filter contract; the repeated frontend/asset rules below make the critical exclusions visible at the command that uses `--delete`.
 
 ```bash
 rsync -av --delete \
