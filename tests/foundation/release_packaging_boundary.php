@@ -29,18 +29,27 @@ Assert::contains('/.env', $excludes, 'the host runtime .env is protected from th
 Assert::contains('/.env.*', $excludes, 'all host qualification/future .env.* files remain protected too');
 
 // The tracked template is release-owned, but the broad /.env.* rule would also match it. The root
-// sync therefore has to admit exactly /.env.example BEFORE the exclusion file is read. First-match
-// filter semantics are load-bearing here: reversing these options recreates the real-host incident.
+// sync therefore has to admit exactly /.env.example BEFORE the exclusion file is read. Assert the
+// actual command fragments, not just the first occurrence of each option somewhere in a document:
+// prose mentioning the include before a broken command must not make this boundary look green.
 foreach ([
-    '.github/workflows/ci.yml' => $workflow,
-    'docs/BETA_RUNBOOK.md' => $betaRunbook,
-    'docs/DEPLOYMENT_RUNBOOK.md' => $deploymentRunbook,
-] as $surface => $source) {
-    $include = strpos($source, "--include='/.env.example'");
-    $excludeFrom = strpos($source, '--exclude-from=');
-    Assert::true(
-        $include !== false && $excludeFrom !== false && $include < $excludeFrom,
-        "{$surface} admits /.env.example before the broad host-secret exclusion file",
+    '.github/workflows/ci.yml' => [
+        $workflow,
+        "rsync -a --delete \\\n            --include='/.env.example' \\\n            --exclude-from=",
+    ],
+    'docs/BETA_RUNBOOK.md' => [
+        $betaRunbook,
+        "rsync -av --delete \\\n  --include='/.env.example' \\\n  --exclude-from=",
+    ],
+    'docs/DEPLOYMENT_RUNBOOK.md' => [
+        $deploymentRunbook,
+        "rsync -av --delete \\\n  --include='/.env.example' \\\n  --exclude-from=",
+    ],
+] as $surface => [$source, $orderedRootSync]) {
+    Assert::contains(
+        $orderedRootSync,
+        $source,
+        "{$surface} places /.env.example before the broad host-secret exclusion file in the actual root-sync command",
     );
 }
 foreach ([
@@ -48,9 +57,9 @@ foreach ([
     'docs/DEPLOYMENT_RUNBOOK.md' => $deploymentRunbook,
 ] as $surface => $source) {
     Assert::contains(
-        'rsync -nric',
+        "rsync -nric \\\n  --include='/.env.example' \\\n  --exclude='*'",
         $source,
-        "{$surface} mechanically verifies the deployed .env.example by checksum after the root sync",
+        "{$surface} byte-checks only the deployed .env.example after the root sync",
     );
     Assert::contains(
         'ENV_TEMPLATE_DRIFT',
