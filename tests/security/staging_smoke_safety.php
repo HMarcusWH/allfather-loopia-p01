@@ -444,13 +444,18 @@ Assert::contains(
 foreach ([
     "array_key_exists('as_of', \$payload)",
     "array_key_exists('required_permission', \$access)",
-    "is_array(\$access['reason_codes'] ?? null)",
-    "is_string(\$projection['state'] ?? null)",
-    "is_string(\$projection['stale_status'] ?? null)",
+    "\$stringList(\$access['reason_codes'] ?? null)",
+    "in_array(\$access['decision'] ?? null, ['VISIBLE', 'DENIED'], true)",
+    "in_array(\$projection['state'] ?? null, ['READY', 'EMPTY', 'UNAVAILABLE'], true)",
+    "in_array(\$projection['stale_status'] ?? null, ['CURRENT', 'UNKNOWN', 'ERROR'], true)",
+    "\$stringList(\$payload['reason_codes'] ?? null)",
     "array_key_exists('data', \$payload)",
+    "(\$payload['data'] === null || is_array(\$payload['data']))",
 ] as $shapeCheck) {
     Assert::contains($shapeCheck, $code, "browser-envelope classifier carries: {$shapeCheck}");
 }
+Assert::contains('array_is_list($value)', $code, 'reason-code arrays must be lists, not arbitrary JSON objects');
+Assert::contains('if (!is_string($item)) {', $code, 'every reason code in a canonical browser envelope is a string');
 Assert::contains("'browser_envelope' => \$browserEnvelope,", $code, 'the safe decision summary exposes only the envelope validity boolean');
 
 // ============================================================ authenticated browser reads remain JSON
