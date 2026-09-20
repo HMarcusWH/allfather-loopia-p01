@@ -13,8 +13,8 @@ declare(strict_types=1);
  * cookies to whatever answered.
  *
  * So the properties are asserted rather than reviewed. The emitted step record is a CLOSED set of
- * fields, and the response body is not among them — the body is read only to count its bytes, to
- * reach a reason code, and to find the workspace identifier the chooser offers.
+ * fields, and the response body is not among them — the body is read only to count bytes, validate
+ * safe browser-envelope metadata, and find the workspace identifier the chooser offers.
  */
 
 use Allfather\Loopia\Ops\BetaCli;
@@ -180,7 +180,7 @@ Assert::same(
 Assert::contains(
     "json_decode(\$response['body'], true, 8, JSON_THROW_ON_ERROR)",
     $code,
-    'once to reach the reason codes of a governed read',
+    'once to validate the safe envelope metadata of a governed read',
 );
 Assert::contains(
     "json_decode(\$health['body'], true, 8, JSON_THROW_ON_ERROR)",
@@ -205,7 +205,7 @@ foreach (['echo $response', 'echo $body', 'print_r(', 'var_dump(', 'var_export('
     Assert::false(str_contains($code, $forbidden), "the client never dumps a response: {$forbidden}");
 }
 
-// THE GOVERNED READ HELPER RETURNS DECISIONS, NEVER ROWS.
+// THE GOVERNED READ HELPER RETURNS A SAFE ENVELOPE SUMMARY, NEVER ROWS OR GOVERNED DATA.
 $decisionStart = (int) strpos($code, '$decision = static function (');
 $decisionEnd = (int) strpos($code, '$sameOrigin = static function');
 $decisionFn = substr($code, $decisionStart, $decisionEnd - $decisionStart);
