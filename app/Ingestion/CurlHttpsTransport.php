@@ -204,7 +204,9 @@ final class CurlHttpsTransport implements FetchTransport
         $ok = curl_exec($handle);
         $errno = curl_errno($handle);
         $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
-        curl_close($handle);
+
+        // PHP 8+ CurlHandle objects release automatically; curl_close() is a deprecated no-op in
+        // PHP 8.5 and must not be used here.
 
         // A short write from the size cap surfaces as CURLE_WRITE_ERROR. That is the cap doing its
         // job, not a transport failure: return what was read and let the guard refuse it.
