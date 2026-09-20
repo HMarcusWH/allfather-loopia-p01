@@ -41,7 +41,7 @@ Rsync evaluates these filter rules in order. The explicit include is what lets `
 arrive while the file's `/.env` and `/.env.*` rules keep the real runtime, qualification and any
 future host env files outside destructive `--delete` ownership.
 
-After a real root sync, use the runbook's `rsync -naci` checksum-only comparison and require empty
+After a real root sync, use the runbook's `rsync -nric` checksum-only comparison and require empty
 output for `.env.example`. A separate SCP/copy is not an acceptable repair because it would hide a
 broken deployment filter.
 
