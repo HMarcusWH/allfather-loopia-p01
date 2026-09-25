@@ -4,6 +4,11 @@
 **Base runbook:** `BETA_RUNBOOK.md`.  
 **Risk decision:** `MVP_SHARED_HOST_RISK_ACCEPTANCE.md`.
 
+**Current execution:** [25 September owner-directed staging deviation](STAGING_OWNER_DIRECTED_DEVIATION_2026-09-25.md).
+That record covers the observed E.1 failure, expanded owner-controlled inventory and expressly
+excluded WordPress maintenance for this inert continuation. It does not claim this historical
+checklist passed or technical isolation was verified.
+
 This addendum changes one thing only: the treatment of
 `LOOPIA_WEB_PHP_CROSS_SITE_ISOLATION_BLOCKER` before Gate F.
 
