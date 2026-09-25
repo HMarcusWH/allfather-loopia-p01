@@ -78,7 +78,8 @@ rsync -av --delete \
   "$RELEASE_DIR/" <user>@<host>:~/<domain>/
 ```
 
-`ops/deploy/staging-rsync-excludes.txt` also excludes `.git`, `.github`, host `.env`/`.env.*` configuration,
+`ops/deploy/staging-rsync-excludes.txt` also excludes `.git`, all `.github` paths except the tracked
+`.github/workflows/ci.yml` required by the real-host foundation suite, host `.env`/`.env.*` configuration,
 `storage/***`, private frontend dependency/build output, and generated Operator Console assets. The command's
 preceding `--include='/.env.example'` is intentionally evaluated first so the tracked non-secret template remains
 release-managed while every host runtime/qualification env file stays protected.

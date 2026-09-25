@@ -27,6 +27,12 @@ Assert::contains('/storage/***', $excludes, 'the destructive root rsync never ma
 Assert::contains('/public_html/assets/operator-console/***', $excludes, 'the root rsync never deletes manifest-last console assets');
 Assert::contains('/.env', $excludes, 'the host runtime .env is protected from the destructive root sync');
 Assert::contains('/.env.*', $excludes, 'all host qualification/future .env.* files remain protected too');
+Assert::contains("/.git\n", $excludes, 'Git metadata stays outside the deployed tree');
+Assert::contains(
+    "+ /.github/\n+ /.github/workflows/\n+ /.github/workflows/ci.yml\n/.github/***",
+    $excludes,
+    'only the tracked CI workflow and its parent directories are admitted before the GitHub catch-all exclusion',
+);
 
 // The tracked template is release-owned, but the broad /.env.* rule would also match it. The root
 // sync therefore has to admit exactly /.env.example BEFORE the exclusion file is read. Assert the

@@ -413,8 +413,9 @@ jobs:
       # THE ROOT RSYNC CONTRACT IS EXECUTED, NOT GREPPED. The real Loopia deployment exposed a
       # semantic gap that source-text assertions missed: /.env.* protected host secrets but also
       # suppressed the tracked .env.example required by the strict suite. Rehearse the destructive
-      # sync against a disposable fake remote and prove both halves at once.
-      - name: Root rsync preserves host state and deploys the tracked env template
+      # sync against a disposable fake remote. The deployed foundation suite must also retain its
+      # tracked CI workflow dependency while all other Git/GitHub metadata stays excluded.
+      - name: Root rsync preserves host state and deploys qualification inputs
         run: |
           set -euo pipefail
           command -v rsync >/dev/null
@@ -422,6 +423,8 @@ jobs:
           target="${RUNNER_TEMP}/rsync-contract-target"
           rm -rf "$target"
           mkdir -p \
+            "$target/.git" \
+            "$target/.github/workflows" \
             "$target/storage" \
             "$target/public_html/assets/operator-console" \
             "$target/frontend/console/node_modules" \
@@ -431,6 +434,9 @@ jobs:
           printf 'HOST_QUALIFICATION_SECRET_SENTINEL\n' > "$target/.env.qualification"
           printf 'HOST_FUTURE_SECRET_SENTINEL\n' > "$target/.env.future"
           printf 'OLD_TEMPLATE_SENTINEL\n' > "$target/.env.example"
+          printf 'OLD_WORKFLOW_SENTINEL\n' > "$target/.github/workflows/ci.yml"
+          printf 'HOST_GIT_SENTINEL\n' > "$target/.git/config"
+          printf 'HOST_GITHUB_SENTINEL\n' > "$target/.github/workflows/host-only.yml"
           printf 'RUNTIME_LOG_SENTINEL\n' > "$target/storage/request.log"
           printf 'OLD_HASH_SENTINEL\n' > "$target/public_html/assets/operator-console/console.OLDHASH.js"
           printf 'NODE_MODULE_SENTINEL\n' > "$target/frontend/console/node_modules/keep.txt"
@@ -443,6 +449,21 @@ jobs:
             "$PREPARED_DIR/" "$target/"
 
           cmp "$PREPARED_DIR/.env.example" "$target/.env.example"
+          cmp "$PREPARED_DIR/.github/workflows/ci.yml" "$target/.github/workflows/ci.yml"
+
+          # Adversarial source entries prove the narrow workflow include does not open siblings.
+          excluded_source="$(mktemp -d "${RUNNER_TEMP}/rsync-excluded-source.XXXXXX")"
+          mkdir -p "$excluded_source/.git" "$excluded_source/.github/workflows" "$excluded_source/.github/private"
+          printf 'EXCLUDED_GIT_SENTINEL\n' > "$excluded_source/.git/config"
+          printf 'EXCLUDED_WORKFLOW_SENTINEL\n' > "$excluded_source/.github/workflows/other.yml"
+          printf 'EXCLUDED_GITHUB_SENTINEL\n' > "$excluded_source/.github/private/other.txt"
+          rsync -a --exclude-from="$PREPARED_DIR/ops/deploy/staging-rsync-excludes.txt" \
+            "$excluded_source/" "$target/"
+          grep -qx 'HOST_GIT_SENTINEL' "$target/.git/config"
+          grep -qx 'HOST_GITHUB_SENTINEL' "$target/.github/workflows/host-only.yml"
+          test ! -e "$target/.github/workflows/other.yml"
+          test ! -e "$target/.github/private"
+          cmp "$PREPARED_DIR/.github/workflows/ci.yml" "$target/.github/workflows/ci.yml"
           grep -qx 'HOST_RUNTIME_SECRET_SENTINEL' "$target/.env"
           grep -qx 'HOST_QUALIFICATION_SECRET_SENTINEL' "$target/.env.qualification"
           grep -qx 'HOST_FUTURE_SECRET_SENTINEL' "$target/.env.future"
@@ -451,7 +472,11 @@ jobs:
           grep -qx 'NODE_MODULE_SENTINEL' "$target/frontend/console/node_modules/keep.txt"
           grep -qx 'DIST_SENTINEL' "$target/frontend/console/dist/keep.txt"
           test ! -e "$target/obsolete-release-file.txt"
-          echo "  root rsync contract: template deployed; host secrets/storage/assets/private build state preserved"
+          # Runtime storage is protected from the root sync; deploy its two policy files separately
+          # as on Loopia, then execute the full no-database foundation layer from the copied tree.
+          cp "$PREPARED_DIR/storage/.htaccess" "$PREPARED_DIR/storage/README.md" "$target/storage/"
+          (cd "$target" && php tests/run.php --layer=foundation --strict)
+          echo "  root rsync contract: qualification inputs deployed; host state preserved; target foundation passed"
 
       # PREFLIGHT FROM THE PREPARED TREE, which is the whole point: preflighting the runner's
       # checkout would validate bytes nobody would deploy. The configuration below is disposable and
