@@ -293,6 +293,10 @@ Assert::contains(
 $unrelated = Seed::role($db, $clock, 'console_visitor', ['workspace.read']);
 Seed::membership($db, $clock, $scope['tenant_id'], $scope['workspace_id'], $scope['operator_id'], $unrelated['role_id']);
 
+// Multiple roles confer memberships in the same workspace, not additional workspaces.
+$secondVisitorRole = Seed::role($db, $clock, 'console_second_visitor', ['workspace.read']);
+Seed::membership($db, $clock, $scope['tenant_id'], $scope['workspace_id'], $scope['operator_id'], $secondVisitorRole['role_id']);
+
 // A SECOND WORKSPACE IN THE SAME TENANT, with no membership in it. This is the enumeration case a
 // tenant-scoped query would leak and a cross-tenant test would never catch: same tenant, ACTIVE,
 // and still none of this operator's business.
@@ -312,6 +316,11 @@ $db->insert('workspaces', [
 ]);
 
 $chooser = $kernel->handle($request('GET', '/console/workspaces', [], $cookie));
+Assert::same(
+    1,
+    substr_count($chooser->body, 'name="workspace_id" value="' . $scope['workspace_id'] . '"'),
+    'two active role memberships render one selectable workspace',
+);
 Assert::contains(
     (string) $scope['workspace_id'],
     $chooser->body,

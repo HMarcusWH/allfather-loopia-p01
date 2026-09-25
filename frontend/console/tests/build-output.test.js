@@ -16,6 +16,19 @@ test("clean production build is deterministic and contains only reviewed local o
   assert.ok(files.some((f)=>/^console\.[A-Z0-9]+\.css$/.test(f)));
   assert.equal(files.some((f)=>f.endsWith(".map")),false);
   assert.equal(files.some((f)=>/fixture|screenshot|\.jsx$|package-lock|package\.json/i.test(f)),false);
+  const manifest = JSON.parse(await readFile(path.join(root, "dist", "manifest.json"), "utf8"));
+  const bundle = await readFile(path.join(root, "dist", manifest.entry.script), "utf8");
+  const logo = manifest.assets.find((asset) => /^assets\/logo-lockup\.[A-Z0-9]+\.svg$/.test(asset));
+  assert.ok(logo, "the manifest includes the shell logo");
+  const logoReference = bundle.match(/["']([^"']*logo-lockup\.[A-Z0-9]+\.svg)["']/)?.[1];
+  assert.ok(logoReference, "the built shell references its logo");
+  for (const documentPath of ["/console/app", "/console/app/"]) {
+    assert.equal(
+      new URL(logoReference, `https://example.test${documentPath}`).href,
+      `https://example.test/assets/operator-console/${logo}`,
+      "the browser resolves the logo to its published path from the console route"
+    );
+  }
   const forbiddenRemoteDependency = /(?:https?:)?\/\/(?:unpkg\.com|cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com|esm\.sh|cdn\.skypack\.dev)/i;
   for(const f of files.filter((x)=>x.endsWith(".js"))){
     const text=await readFile(path.join(root,"dist",f),"utf8");
