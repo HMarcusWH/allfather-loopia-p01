@@ -45,6 +45,12 @@ After a real root sync, use the runbook's `rsync -nric` checksum-only comparison
 output for `.env.example`. A separate SCP/copy is not an acceptable repair because it would hide a
 broken deployment filter.
 
+The host runs the same foundation tests as CI, including a check of the actual root-sync command
+in `.github/workflows/ci.yml`. The filter therefore includes that tracked file and its parent
+directories, then excludes every other `.github` path. It remains outside `public_html`; `.git`
+is still excluded entirely. The CI root-sync rehearsal byte-compares the deployed workflow,
+checks that other GitHub/Git files stay excluded, and runs foundation tests from the target tree.
+
 In particular:
 
 ```text

@@ -1,5 +1,10 @@
 /.git
-/.github
+# The real-host foundation suite reads this exact tracked CI workflow. Admit only its
+# parent directories and file; every other GitHub path remains outside deployment ownership.
++ /.github/
++ /.github/workflows/
++ /.github/workflows/ci.yml
+/.github/***
 # IMPORTANT: the deployment command passes --include='/.env.example' BEFORE this file.
 # These broad rules then protect every host runtime/qualification .env file from --delete.
 /.env
