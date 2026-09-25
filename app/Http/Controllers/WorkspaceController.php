@@ -80,7 +80,7 @@ final class WorkspaceController
             // The CEILING is listed alongside the name deliberately. Which workspace a session acts
             // in decides which capability ceiling its work is bounded by, and an operator choosing
             // between them should not have to go elsewhere to find that out.
-            'SELECT w.workspace_id, w.workspace_key, w.display_name, w.environment_class,
+            'SELECT DISTINCT w.workspace_id, w.workspace_key, w.display_name, w.environment_class,
                     w.active_v1_capability_ceiling, w.external_side_effects_allowed
              FROM workspace_memberships m
              JOIN workspaces w ON w.workspace_id = m.workspace_id

@@ -24,6 +24,7 @@ const result = await build({
   write: true,
   entryNames: "console.[hash]",
   assetNames: "assets/[name].[hash]",
+  publicPath: "/assets/operator-console/",
   loader: { ".svg": "file" },
   define: {
     "process.env.NODE_ENV": '"production"'
