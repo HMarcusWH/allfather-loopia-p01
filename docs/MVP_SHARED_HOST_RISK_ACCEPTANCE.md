@@ -5,6 +5,12 @@
 **Decision:** `ACCEPTED_FOR_MVP_STAGING`  
 **Date:** 2026-09-12
 
+**Historical decision:** this acceptance describes the original two-blog scope.
+[The 25 September owner-directed staging record](STAGING_OWNER_DIRECTED_DEVIATION_2026-09-25.md)
+records continuation with the observed E.1 failure, expanded owner-controlled inventory and excluded
+WordPress maintenance. That record carries the actual FAIL/UNVERIFIED findings; it does not certify
+that all mandatory controls below were met.
+
 This document records a narrow, explicit exception for the first Allfather SME MVP deployment on
 Loopia shared hosting. It does **not** claim that Loopia provides per-site web-PHP filesystem
 isolation, and it does **not** convert an unverified isolation property into a verified one.

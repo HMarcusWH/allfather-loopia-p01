@@ -7,6 +7,11 @@ action, customer-visible output, owner GO, or production launch.
 Nothing in this runbook grants authority. Read `CLAIM_CEILING.md`, `SECURITY_BOUNDARY.md`, and
 `DEPLOYMENT_EVIDENCE_MODEL.md` first.
 
+For the owner-directed 25 September 2026 inert staging continuation, read
+[the scoped deviation record](STAGING_OWNER_DIRECTED_DEVIATION_2026-09-25.md) before Gates A and E.
+It preserves measured failures/unknowns, excludes WordPress maintenance, and defines the conditional
+exact-release local qualification route during the recorded hosted billing failure.
+
 ## Two non-negotiable rules
 
 ### 1. The qualification database is not the runtime database
