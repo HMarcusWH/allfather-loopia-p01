@@ -1,0 +1,88 @@
+<?php
+declare(strict_types=1);
+namespace Allfather\Loopia\Workflow;
+
+use Allfather\Loopia\Core\{Clock,Digest,Ids,Outcome};
+use Allfather\Loopia\Db\Database;
+use Allfather\Loopia\Ingestion\{FetchTransport,HostResolver};
+use Allfather\Loopia\Product\P01\Capture;
+use Allfather\Loopia\Storage\EvidenceStore;
+use Allfather\Loopia\Substrate\M05\EvidenceSpine;
+
+/** P01 capture -> policy-checked private M05 body -> replayable composition reference. */
+final class SourceCaptureStage
+{
+    public function __construct(
+        private readonly Database $db, private readonly Clock $clock, private readonly Capture $capture,
+        private readonly EvidenceSpine $evidence, private readonly EvidenceStore $store,
+        private readonly ContextEnvelope $context, private readonly FetchTransport $transport,
+        private readonly HostResolver $resolver,
+    ) {}
+
+    public function execute(array $scope, array $run): Outcome
+    {
+        $definition = $run['definition'];
+        $before = $this->db->one('SELECT source_snapshot_id FROM source_snapshots WHERE monitored_source_id = ? AND tenant_id = ? AND workspace_id = ? ORDER BY snapshot_sequence DESC, source_snapshot_id DESC LIMIT 1', [$definition['monitored_source_id'], $scope['tenant_id'], $scope['workspace_id']]);
+        $transport = new RecordingSourceTransport($this->transport);
+        $captured = $this->capture->captureMonitoredSource([
+            'tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'],
+            'monitored_source_id' => $definition['monitored_source_id'], 'capture_url' => $definition['capture_url'],
+            'idempotency_key' => 'monitor.capture.' . $run['monitor_run_id'], 'correlation_id' => $run['monitor_run_id'],
+            'governance' => array_merge($definition['capture_governance'], ['calling_actor_type'=>'OPERATOR','calling_actor_id'=>$scope['operator_id']]),
+        ], $transport, $this->resolver);
+        if (!$captured->isOk()) {
+            return $transport->failureCode === null ? $captured : Outcome::refuse($transport->failureCode);
+        }
+        // An ambiguous/crashed attempt cannot reconstruct missing source bytes by fetching again.
+        if ($transport->payload === null || !isset($captured->value()['source_snapshot_id'])) {
+            return Outcome::refuse('MONITOR_CAPTURE_REQUIRES_RECONCILIATION');
+        }
+        $snapshotId = $captured->value()['source_snapshot_id'];
+        $snapshot = $this->db->one('SELECT ss.evidence_id,ss.content_hash,ms.source_ref_id FROM source_snapshots ss JOIN monitored_sources ms ON ms.monitored_source_id = ss.monitored_source_id WHERE ss.source_snapshot_id = ? AND ss.tenant_id = ? AND ss.workspace_id = ?', [$snapshotId, $scope['tenant_id'], $scope['workspace_id']]);
+        if ($snapshot === null || !hash_equals($snapshot['content_hash'], Digest::canonicalDigest($transport->payload))) {
+            return Outcome::refuse('MONITOR_CAPTURE_CONTENT_MISMATCH');
+        }
+        $input = $definition['context_selection'];
+        $input['observation_evidence_ids'] = [$snapshot['evidence_id']];
+        $input['observation_payloads'] = [$snapshot['evidence_id'] => $transport->payload];
+        $checked = $this->context->prepare(self::contextScope($scope), $input);
+        if (!$checked->isOk()) { return $checked; }
+        // Policy was resolved by ContextEnvelope before any retained model-input bytes are written.
+        $stored = $this->store->put(Digest::canonicalize($transport->payload));
+        if (!$stored->isOk()) { return $stored; }
+        $bound = $this->db->transaction(function () use ($scope, $snapshot, $snapshotId, $stored): Outcome {
+            $artifact = $this->evidence->recordRawArtifact([
+                'tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'],
+                'source_ref_id' => $snapshot['source_ref_id'], 'artifact_type' => 'HOST_RESULT_CAPTURE',
+                'content_hash' => $snapshot['content_hash'], 'capture_method' => 'GOVERNED_MONITOR_CAPTURE',
+                'storage_reference_safe' => 'sha256:' . $stored->value()['digest'], 'access_classification' => 'INTERNAL_ONLY',
+            ]);
+            if (!$artifact->isOk()) { return $artifact; }
+            $this->db->insert('monitor_capture_payloads', ['source_snapshot_id' => $snapshotId, 'raw_artifact_id' => $artifact->value()['raw_artifact_id'], 'payload_digest' => $stored->value()['digest'], 'created_at' => $this->clock->now()]);
+            return Outcome::ok();
+        });
+        if (!$bound->isOk()) { return $bound; }
+        return Outcome::ok(['before_snapshot_id' => $before['source_snapshot_id'] ?? null, 'after_snapshot_id' => $snapshotId, 'after_evidence_id' => $snapshot['evidence_id'], 'payload_digest' => $stored->value()['digest']]);
+    }
+
+    public function contextFor(array $scope, array $definition, array $snapshotIds): Outcome
+    {
+        $input = $definition['context_selection'];
+        $input['observation_evidence_ids'] = []; $input['observation_payloads'] = [];
+        foreach ($snapshotIds as $id) {
+            $row = $this->db->one('SELECT ss.evidence_id,ss.content_hash,mp.payload_digest FROM source_snapshots ss JOIN monitor_capture_payloads mp ON mp.source_snapshot_id = ss.source_snapshot_id WHERE ss.source_snapshot_id = ? AND ss.tenant_id = ? AND ss.workspace_id = ? AND ss.monitored_source_id = ?', [$id, $scope['tenant_id'], $scope['workspace_id'], $definition['monitored_source_id']]);
+            if ($row === null || $row['content_hash'] !== $row['payload_digest']) { return Outcome::refuse('MONITOR_CAPTURE_BYTES_UNAVAILABLE'); }
+            $stored = $this->store->get($row['payload_digest']);
+            if (!$stored->isOk()) { return $stored; }
+            $payload = json_decode($stored->value(), true, 32, JSON_THROW_ON_ERROR);
+            $input['observation_evidence_ids'][] = $row['evidence_id'];
+            $input['observation_payloads'][$row['evidence_id']] = $payload;
+        }
+        return $this->context->prepare(self::contextScope($scope), $input);
+    }
+
+    public static function contextScope(array $scope): array
+    {
+        return ['tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'], 'actor_type' => 'OPERATOR', 'actor_id' => $scope['operator_id']];
+    }
+}

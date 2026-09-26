@@ -145,6 +145,17 @@ $kernel->route('GET', '/console/decisions', $console->decisions(...));
 $operatorConsole = new OperatorConsoleController(new ConsoleAssetManifest($root . '/public_html/assets/operator-console'), $view);
 $kernel->route('GET', '/console/app', $operatorConsole->shell(...));
 
+// Inspection and manual composition UI. This build grants neither live read nor model activation.
+if ($request->path === '/console/monitor') {
+$monitorService = \Allfather\Loopia\Workflow\MonitorFactory::inactive(
+    $db, $clock, new \Allfather\Loopia\Storage\EvidenceStore($root . '/storage/evidence'),
+    \Allfather\Loopia\Provider\SecretBox::fromMasterKey($env->require('APP_MASTER_KEY')),
+);
+$monitorController = new \Allfather\Loopia\Http\Controllers\MonitorController($monitorService, $view);
+$kernel->route('GET', '/console/monitor', $monitorController->show(...));
+$kernel->route('POST', '/console/monitor', $monitorController->submit(...));
+}
+
 $p01Surfacing = new Surfacing($db, $access, $ledger, $entitlements);
 $p04Release = new P04Release($db, $clock, $ledger, $access, $entitlements);
 $p05Release = new P05Release($db, $clock, $ledger, $access, $entitlements);

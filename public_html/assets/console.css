@@ -226,3 +226,9 @@ td.mono { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
 
 .login { display: grid; place-items: center; min-height: 100vh; padding: 24px; }
 .login__card { width: 100%; max-width: 380px; }
+
+
+/* Monitor remains scriptless: these styles only format scoped text and forms. */
+.monitor-form { display: flex; flex-direction: column; align-items: flex-start; gap: .65rem; margin: 1rem 0 1.6rem; }
+.monitor-form select, .monitor-form textarea { width: min(100%, 48rem); padding: .6rem; font: inherit; }
+.monitor-json { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 32rem; overflow: auto; padding: 1rem; border: 1px solid currentColor; border-radius: .35rem; }
