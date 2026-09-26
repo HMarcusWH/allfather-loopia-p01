@@ -186,13 +186,13 @@ Assert::same(
         'SOURCE_LICENSE_PROHIBITED', 'SOURCE_RETENTION_PROHIBITED', 'SOURCE_REFERENCE_NOT_ACTIVE',
         'SOURCE_SENSITIVITY_PROHIBITED', 'TERMS_RECHECK_OVERDUE', 'ROBOTS_NOT_CHECKED',
         'SOURCE_URL_MISSING_OR_INVALID', 'SOURCE_TYPE_UNSUPPORTED', 'CONNECTOR_NOT_ACTIVATED',
-        'CONNECTOR_CLASS_NOT_PROMOTED', 'SOURCE_SCOPE_MISMATCH',
+        'CONNECTOR_CLASS_NOT_PROMOTED', 'SOURCE_SCOPE_MISMATCH', 'SOURCE_CONTRACT_REQUIRED_BUT_MISSING',
     ]),
     $sorted(SourcePolicy::FAIL_CLOSED_REASON_CODES),
     'the compiler\'s fail-closed vocabulary is canonical\'s fourteen members, no more and no fewer',
 );
 Assert::same(
-    'ing_policy_compiler_v2',
+    'ing_policy_compiler_v3',
     SourcePolicy::COMPILER_VERSION,
     'and the compiler version is canonical\'s — a replay compares digests across versions',
 );

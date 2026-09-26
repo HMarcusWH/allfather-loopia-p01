@@ -77,6 +77,9 @@ $card = $cards->project([
     'robots_policy_checked' => true,
     'terms_policy_checked' => true,
     'review_status' => 'approved',
+    'caching_policy' => 'explicit_contract',
+    'retention_class' => 'standard',
+    'derived_summary_allowed' => true,
 ]);
 $competitorId = $p01->registerCompetitor(
     $scope['tenant_id'], $scope['workspace_id'], 'Competitor A', 'DIRECT', 'OPERATOR', $scope['operator_id']
@@ -126,7 +129,8 @@ $classified = $changes->detect([
 
 // ============================================================ speculation is never a fact
 
-// The SAME change, left UNCLASSIFIED because no text was supplied to measure it.
+// No-cache source retains no comparison proof, so changed content remains unclassified.
+$db->run("UPDATE source_license_cards SET caching_policy='no_cache' WHERE source_license_card_id=?",[$card['source_license_card_id']]);
 $snap3 = $captureOnce($page1, 'sig-3');
 $unclassified = $changes->detect([
     'tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'],
@@ -179,7 +183,6 @@ $noChange = $changes->detect([
     'tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'],
     'monitored_source_id' => $monitoredSourceId,
     'before_snapshot_id' => $snap3['source_snapshot_id'], 'after_snapshot_id' => $identical['source_snapshot_id'],
-    'before_text' => $page1, 'after_text' => $page1,
 ])->value();
 Assert::same('NONE', $noChange['change_significance'], 'an identical capture is NONE');
 Assert::same(

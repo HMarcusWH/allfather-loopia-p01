@@ -268,3 +268,38 @@ Assert::same(
     ])['reason_codes'][0],
     'an unrecognized briefing kind fails closed rather than defaulting to a permission somebody holds',
 );
+
+// Setup converges per workspace while shared registry definitions remain exact and scoped safely.
+$again=$registration->registerCompetitionMonitor($scope);
+Assert::same($registered->value(),$again->value(),'exact workspace setup replays the same immutable registration');
+$secondScope=Seed::tenantWorkspace($db,$clock,'registration-second');
+$second=$registration->registerCompetitionMonitor($secondScope);
+Assert::true($second->isOk(),'a second tenant/workspace registers without colliding with the global tool');
+Assert::same($registered->value()['governed_tool_id'],$second->value()['governed_tool_id'],'compatible read tool is shared');
+Assert::notSame($registered->value()['capability_contract_id'],$second->value()['capability_contract_id'],'capability contract stays workspace-scoped');
+Assert::same($registered->value()['subscription_tier_id'],$second->value()['subscription_tier_id'],'exact tier definition is reused');
+Assert::throws(static fn ()=>$db->run("UPDATE p01_registration_receipts SET input_digest='forged'"),\PDOException::class,'registration receipt is append-only');
+$conflict=$registration->registerCompetitionMonitor([...$scope,'runtime_host_tool_ref'=>'changed']);
+Assert::same('P01_REGISTRATION_INPUT_CONFLICT',$conflict->reasonCode(),'changed setup input never silently replays');
+$runtime=Seed::governedToolChain($db,$clock,$scope);
+$db->run('UPDATE runtime_host_bindings SET tenant_id=?,workspace_id=? WHERE binding_id=?',[$scope['tenant_id'],$scope['workspace_id'],$runtime['binding_id']]);
+Assert::same('P01_RUNTIME_BINDING_NOT_SHAREABLE',$registration->registerCompetitionMonitor([...$scope,'runtime_binding_id'=>$runtime['binding_id']])->reasonCode(),'a workspace binding cannot become a globally shared tool mapping');
+$before=(int)$db->scalar('SELECT COUNT(*) FROM valkyries');
+$thirdScope=Seed::tenantWorkspace($db,$clock,'registration-failure');
+Assert::throws(static fn ()=>$registration->registerCompetitionMonitor([...$thirdScope,'operator_id'=>\Allfather\Loopia\Core\Ids::new()]),\PDOException::class,'late setup exception is surfaced');
+Assert::same($before,(int)$db->scalar('SELECT COUNT(*) FROM valkyries'),'late exception rolls back partial workspace registry rows');
+Assert::same(0,(int)$db->scalar('SELECT COUNT(*) FROM p01_registration_receipts WHERE workspace_id=?',[$thirdScope['workspace_id']]),'failed setup writes no receipt');
+Assert::true($registration->registerCompetitionMonitor($thirdScope)->isOk(),'corrected setup remains retryable');
+// Changed original rights cannot be resurrected by replaying the setup receipt.
+foreach ([['status','REVOKED'],['allowed_operations','[]']] as [$column,$value]) {
+    $savedRight=$db->one('SELECT * FROM tool_rights WHERE tool_right_id=?',[$second->value()['tool_right_id']]);
+    $db->run('UPDATE tool_rights SET '.$column.'=? WHERE tool_right_id=?',[$value,$second->value()['tool_right_id']]);
+    Assert::same('P01_REGISTRATION_STATE_CHANGED',$registration->registerCompetitionMonitor($secondScope)->reasonCode(),'changed original right refuses setup replay');
+    Assert::same($value,$db->scalar('SELECT '.$column.' FROM tool_rights WHERE tool_right_id=?',[$second->value()['tool_right_id']]),'registration did not repair or reactivate right');
+    $db->run('UPDATE tool_rights SET '.$column.'=? WHERE tool_right_id=?',[$savedRight[$column],$second->value()['tool_right_id']]);
+}
+$db->run("UPDATE governed_tools SET maximum_action_class='ANALYZE' WHERE governed_tool_id=?",[$registered->value()['governed_tool_id']]);
+Assert::same('P01_SHARED_TOOL_CONFLICT',$registration->registerCompetitionMonitor($scope)->reasonCode(),'changed global descriptor refuses reuse');
+$db->run("UPDATE governed_tools SET maximum_action_class='OBSERVE' WHERE governed_tool_id=?",[$registered->value()['governed_tool_id']]);
+$db->run("DELETE FROM subscription_tier_permissions WHERE subscription_tier_id=? AND permission_key='briefing.read'",[$registered->value()['subscription_tier_id']]);
+Assert::same('P01_SHARED_TIER_CONFLICT',$registration->registerCompetitionMonitor($scope)->reasonCode(),'changed tier permissions refuse reuse');

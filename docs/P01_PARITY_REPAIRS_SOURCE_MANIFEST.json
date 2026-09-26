@@ -1,0 +1,273 @@
+{
+  "schema_version": "1",
+  "purpose": "Curated P01 upstream repair port; not a blanket canonical-currentness assertion",
+  "upstream_lock_unchanged": true,
+  "upstream_lock_sha256": "008a568a51b4890ff9cdae1ca324d14a77ffe12a3479bb56ae39fa8e09f794d5",
+  "canonical_authority_pin": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+  "canonical_main_inspected": "32c98a7191b7a4ae7a45d745917f39521f8f5112",
+  "canonical_components": [
+    {
+      "pull_request": 365,
+      "url": "https://github.com/HMarcusWH/Allfatherbusinessintelligence/pull/365",
+      "head": "a6948a0048664d01baf33020613b052eadc6fca3",
+      "base": "32c98a7191b7a4ae7a45d745917f39521f8f5112",
+      "status_at_manifest_creation": "DRAFT_UNMERGED",
+      "files": [
+        {
+          "path": "packages/allfather-control-substrate/src/db/open.ts",
+          "sha256": "ef39b9834bae0ffa5931b975e040e5b666ba8c08117628a8bad879c8dfc14eea"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/db/schema.ts",
+          "sha256": "f2240e35a615d5b80198bfead2c6acbb24123463d3db876c8f13237b5f0e42ac"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/ingestion/p02-adapter.test.ts",
+          "sha256": "d679bed8035a1ed2efaa79e275eb2f89a94e774de70034dc59cab20cd64a2405"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/ingestion/policy-version-successor.test.ts",
+          "sha256": "9db224afbd2e430ae9412900248661a6913b38d3d0784ac6ff861e6fb8a025d1"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/ingestion/policy.ts",
+          "sha256": "ef849e502a9f07dc4cf9e5583992da0a411eff9654f1f246e4c3b87ca46c6de7"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/source-authority.test.ts",
+          "sha256": "70d531a0a3522e48984c729538181917b22719a0e6b2d753783696e036f0654a"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/source-cards.ts",
+          "sha256": "8130a6fb9aded75390716eb5d0c2ed335180ea07498fc5c5c0533a581209fc42"
+        }
+      ]
+    },
+    {
+      "pull_request": 366,
+      "url": "https://github.com/HMarcusWH/Allfatherbusinessintelligence/pull/366",
+      "head": "2096c7dac38565c78a3e306bea9af19299ffbeb5",
+      "base": "a6948a0048664d01baf33020613b052eadc6fca3",
+      "status_at_manifest_creation": "DRAFT_UNMERGED",
+      "files": [
+        {
+          "path": "packages/allfather-control-substrate/src/db/open.ts",
+          "sha256": "bed478b03f3bc1b6391a4d9148197e7470305a32968d49b7eebfc84bcbbc973f"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/db/schema.ts",
+          "sha256": "b0644f6e306018723f633929d4216a454681c8ef12245d9c82ec0a1e87e07391"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/acceptance-sf-p01.test.ts",
+          "sha256": "086a511685746e624d6f57693b24c34ca2672bcdcf21e827ed973b31b129b103"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/assurance.test.ts",
+          "sha256": "8fb53781988ec5e7059d2a3f6e2cdef7a2acb97ca4431bd5b5d3d94de884af7a"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/assurance.ts",
+          "sha256": "0a36acc628e70986f3e4f022005aea7f65c420dcf1d87fa0b527854aaccea94a"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/capture-source.test.ts",
+          "sha256": "6c2aadeacef3b63c3a148834df10e70378af2a21d1ad8222d3eff6ed78b780ae"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/capture-source.ts",
+          "sha256": "a79d9e513c77b330be37a6ca3c72ef376e2b116ebe70d9c7d81e9852920b2762"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/change-detection.test.ts",
+          "sha256": "77401f9f62a3e8ea55e37fceaba74e01a9f2d5ae6080aa9a2496cdaf1ee86376"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/change-detection.ts",
+          "sha256": "da2748abb1bd1cf1a6fc1a1b93ac1c8b5aef6cbe5d45ae1b9aa78bb5eb3d985c"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/company-signals.test.ts",
+          "sha256": "e5dd055e92d9f2052e57fda45004bd15df70537eff076e4b7421affc3f42484b"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/competition-verdict.test.ts",
+          "sha256": "1e0f08c3343fde1cf18625e20e31a175201927b5e77be51a57e35f896ce364bf"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/text-provenance.ts",
+          "sha256": "d10da47ee617dc5ce9036a507e41220c40847ddef8b92f2f92012b6ec42e5853"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/release-output/p01-adapter.test.ts",
+          "sha256": "db7441c9887dbc55ae7b8ef2b92a3b322b4877df21fad012ebf9ab0b6c81080a"
+        }
+      ]
+    },
+    {
+      "pull_request": 367,
+      "url": "https://github.com/HMarcusWH/Allfatherbusinessintelligence/pull/367",
+      "head": "d1ccfbff4eeb19a6dde96d2add6bfe0b74211598",
+      "base": "2096c7dac38565c78a3e306bea9af19299ffbeb5",
+      "status_at_manifest_creation": "DRAFT_UNMERGED",
+      "files": [
+        {
+          "path": "packages/allfather-control-substrate/src/p01/battlecards.ts",
+          "sha256": "ca9bd606cdb215f2abb680f79da59777e36a5614126d8377cee40981471dbe7d"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/company-context.ts",
+          "sha256": "21df3729f6f58c1f84f9043776ae8318e87352cc5e6f923566757a0e19321761"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/company-signals.test.ts",
+          "sha256": "d7a7a5e57d1f2a2ea2cd2e73a3bf7e8c1f789ad8796022a81b5c43db9d7ff677"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/company-signals.ts",
+          "sha256": "3108e3113883e0b1ea32ff2dfe214ba6076f7803cb5ca8d8a0f748e7729f1a22"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/release-output/p01-adapter.test.ts",
+          "sha256": "6bb2eb7e1c2b76075ae56d8950b884d93bafbacbb53ffeab1c60877fd46f2177"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/release-output/p01-adapter.ts",
+          "sha256": "895644216aa3836660aa8be23b4f288340fb2fd2c9dd70dcdc7abb5b59449d6f"
+        }
+      ]
+    },
+    {
+      "pull_request": 368,
+      "url": "https://github.com/HMarcusWH/Allfatherbusinessintelligence/pull/368",
+      "head": "af5992c58bdb653f6ca8be905a17ddab992c5702",
+      "base": "d1ccfbff4eeb19a6dde96d2add6bfe0b74211598",
+      "status_at_manifest_creation": "DRAFT_UNMERGED",
+      "files": [
+        {
+          "path": "packages/allfather-control-substrate/src/db/schema.ts",
+          "sha256": "29a4e30e67b218dcc7e73705951c865351b7d43c900d7e39928549f15f21043b"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/entitlements.ts",
+          "sha256": "8f68cac0acd332e83044748cef88c8855381ce682cb47fafb8616a714dd55bf0"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/registration.test.ts",
+          "sha256": "4c8298b02929cd0fc38db508d8f90f79d0c8d148ab913f7b95695624e4cb778f"
+        },
+        {
+          "path": "packages/allfather-control-substrate/src/p01/registration.ts",
+          "sha256": "05caf3098e4368b0c0bbcab0eb61e347d36546b89d979a64ab531ab203386c85"
+        }
+      ]
+    }
+  ],
+  "php_files": [
+    {
+      "path": "app/Ingestion/SourcePolicy.php",
+      "sha256": "2778c29e01fc423cbfc670c7638a6e1d3444744dddc52bff872b48695e8e8687"
+    },
+    {
+      "path": "app/Product/P01/SourceCards.php",
+      "sha256": "8ccfb2ca4f69790f74fc9802d1de8f8b780c6cc2aadcfba0435d3fa2cf0c024f"
+    },
+    {
+      "path": "app/Product/P01/Capture.php",
+      "sha256": "2093cf477f0fdc31ea8d5401acde3f5fd7e6e3b754a76b042f2b8b37642a6f39"
+    },
+    {
+      "path": "app/Product/P01/TextProvenance.php",
+      "sha256": "6b45cbe6a10c4ccf223d4b947c7af2e84ddad99a2fbbde7bf6a89d73268e162d"
+    },
+    {
+      "path": "app/Product/P01/ChangeDetection.php",
+      "sha256": "a3ed28287329c86f4761f378a52dbd1890b4bab18cf8166f2cd5966c3efbe51d"
+    },
+    {
+      "path": "app/Product/P01/Assurance.php",
+      "sha256": "d81e7d56e8d0f3e1432c47cb81878717b63665d1e43889fa35fc39559bea9b29"
+    },
+    {
+      "path": "app/Product/P01/CompanyContext.php",
+      "sha256": "967c2909a414d4d79f9bc0796deea13cf8e1d7972afe61289d1bbb87a4ca5b41"
+    },
+    {
+      "path": "app/Product/P01/CompanySignals.php",
+      "sha256": "4cdddb2024060bdcf365ce5c042db33a423f7c0c862d8bc2637c060e0156c7ae"
+    },
+    {
+      "path": "app/Product/P01/Battlecards.php",
+      "sha256": "794406ea8b3cac8bebaace3e17ae7b73a5e33a41bcedc61daef818e77573dd85"
+    },
+    {
+      "path": "app/Product/P01/Release.php",
+      "sha256": "ef1dd13a347c20efabf03c4be71537c8e9276770901f332c2a842a713c72e877"
+    },
+    {
+      "path": "app/Product/P01/Registration.php",
+      "sha256": "2072c390460c3aa97334665918b6be632ef6aacb1af2db8a2eab2426457846fe"
+    },
+    {
+      "path": "database/migrations/180_p01_source_provenance.sql",
+      "sha256": "69210f6c196d1424b6db36acef5c9a897225d6c52a65fedd02cdb5566aebc349"
+    },
+    {
+      "path": "database/migrations/185_p01_registration_receipts.sql",
+      "sha256": "cd8847623b1ad7e200fd42cc71ba57a905664d1a357ae865e70b419b5e8e52b7"
+    },
+    {
+      "path": "tests/support/Seed.php",
+      "sha256": "c710f7fefd8b1eaa3a3a3a92e492f54291d79bd6fdc225d3291ab80600a9521b"
+    },
+    {
+      "path": "tests/integration/p01_capture_chain.php",
+      "sha256": "eb30e6c62ca3a580867ba80c30cd1a8383f9489df8643e8324890a1971c0343f"
+    },
+    {
+      "path": "tests/integration/p01_company_signals.php",
+      "sha256": "366274d9e23f9ccae3d11aadd418c45a6f9eee0f8840c02c30a89512533df05c"
+    },
+    {
+      "path": "tests/integration/p01_surfacing.php",
+      "sha256": "8bd2873adb534cd9e4cf62bb230ee0d47f888735440e30715b74641f75aeb611"
+    },
+    {
+      "path": "tests/conformance/p01_source_policy_adapter.php",
+      "sha256": "1295ae3b5e99a761cfe9ab3ab19d9e667dd81904b32e08e2c5aad2636821b87a"
+    },
+    {
+      "path": "tests/conformance/governed_vocabulary.php",
+      "sha256": "d8c0196878d6470e78b656e5bfb27f320059719679897dac434116910c39164a"
+    },
+    {
+      "path": "tests/unit/p01_text_provenance.php",
+      "sha256": "53ee1b3966e3d88f7ec52f970beb9026914ff96e3657742d7adffb73e99c6ad1"
+    },
+    {
+      "path": "tests/fixtures/p01-provenance-golden-generator.mts",
+      "sha256": "ff5a3b38f2f7c6dc7690978dcc8328a3984f7d71dd4cf8276f45ab5961a725a2"
+    },
+    {
+      "path": "tests/fixtures/p01_provenance_vectors.json",
+      "sha256": "47f472f7398a8fd68f412c9e1d4f7791c0b0d5fc9a7cd5d9abbf846705e2da0f"
+    }
+  ],
+  "adaptations": [
+    "Loopia snake_case API and Outcome refusals; MariaDB additive migrations and transaction rollback",
+    "Existing Loopia tool/operation keys p01.source.read/source.read and existing commercial tier retained; no pricing or role membership change",
+    "Context contribution implemented only in P01; shared M16 source-card law unchanged",
+    "PHP proof serializer matches actual canonical vectors including ECMAScript trim, binary toFixed rounding and small-number threshold exponent notation"
+  ],
+  "validation": {
+    "canonical_source_authority_pass": 945,
+    "canonical_capture_pass": 1058,
+    "canonical_context_pass": 388,
+    "canonical_registration_pass": 291,
+    "canonical_final_stack_pass": 1201,
+    "php_p01_initial_final_pass": 429,
+    "php_canonical_proof_golden_assertions_pass": 73,
+    "typescript_typecheck": "8 pre-existing errors in unchanged sev/phenotype-host.ts; diagnostics byte-identical to main baseline",
+    "provider_or_staging_execution": false
+  }
+}

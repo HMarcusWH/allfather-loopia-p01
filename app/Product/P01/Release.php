@@ -201,7 +201,7 @@ final class Release
     ): Outcome {
         $card = $this->db->one(
             'SELECT bc.signal_summary_safe, bc.why_it_matters_safe, bc.confidence_band,
-                    bc.uncertainty_summary_safe, ms.source_ref_id
+                    bc.uncertainty_summary_safe, bc.source_evidence_ids, ms.source_ref_id
              FROM battlecard_briefs bc
              JOIN company_signals cs ON cs.company_signal_id = bc.company_signal_id
              LEFT JOIN source_diffs sd ON sd.source_diff_id = cs.source_diff_id
@@ -215,7 +215,13 @@ final class Release
             return Outcome::refuse('ARTIFACT_SOURCE_LINEAGE_MISSING', [], 'PROVENANCE');
         }
 
-        $profile = $this->m16->compileSourceUseProfile($tenantId, $workspaceId, [(string) $card['source_ref_id']]);
+        $evidenceIds = json_decode((string)$card['source_evidence_ids'],true,512,JSON_THROW_ON_ERROR);
+        $built = CompanyContext::contributions($this->db,$tenantId,$workspaceId,(string)$card['source_ref_id'],$evidenceIds);
+        if ($built->isRefusal()) { return $built; }
+        // Preserve the established no-context projection; the additive context route folds each source independently.
+        $profile = count($built->value()['contributions']) === 1
+            ? $this->m16->compileSourceUseProfile($tenantId,$workspaceId,[(string)$card['source_ref_id']])
+            : $this->m16->compileSourceUseProfileFromContributions($tenantId,$workspaceId,$built->value()['contributions']);
         if ($profile->isRefusal()) {
             return Outcome::refuse('SOURCE_USE_PROFILE_REFUSED', [
                 'detail' => $profile->reasonCode(),

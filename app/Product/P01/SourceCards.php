@@ -77,7 +77,7 @@ final class SourceCards
 
         $contractBound = in_array($card['license_class'] ?? '', self::CONTRACT_BOUND_LICENSES, true)
             || ($card['source_type'] ?? '') === 'licensed_api';
-        if ($contractBound && ($card['contract_reference_id'] ?? null) === null) {
+        if ($contractBound && (!is_string($card['contract_reference_id'] ?? null) || trim($card['contract_reference_id']) === '')) {
             return ['admissible' => false, 'reason_code' => 'CONTRACT_REQUIRED_BUT_MISSING'];
         }
 
@@ -139,6 +139,7 @@ final class SourceCards
                 'tenant_id' => $card['tenant_id'],
                 'source_ref_id' => $sourceRefId,
                 'source_name' => $card['source_name'],
+                'contract_reference_id' => is_string($card['contract_reference_id'] ?? null) && trim($card['contract_reference_id']) !== '' ? trim($card['contract_reference_id']) : null,
                 'source_url_safe' => $card['source_url_safe'] ?? null,
                 'owner_company' => $card['owner_company'] ?? null,
                 'source_type' => $card['source_type'],

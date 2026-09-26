@@ -170,7 +170,7 @@ final class Battlecards
         array $content,
     ): string {
         $lineage = $db->one(
-            'SELECT pe.evidence_refs, sd.diff_summary_safe,
+            'SELECT pe.evidence_refs, pe.uncertainty_summary, sd.diff_summary_safe,
                     slc.customer_output_allowed, slc.license_class, slc.allowed_use_class
              FROM company_signals cs
              JOIN proposal_envelopes pe ON pe.proposal_id = cs.proposal_id
@@ -188,6 +188,8 @@ final class Battlecards
         $uncertainty = (string) $signal['interpretation_kind'] === 'HYPOTHESIS'
             ? 'Interpretation recorded as HYPOTHESIS — released as an unverified competitive hypothesis, not an observed fact.'
             : 'Interpretation recorded as FACT_OBSERVED — the structural change is directly observed; downstream customer impact remains a hypothesis.';
+
+        $uncertainty .= trim((string)($lineage['uncertainty_summary'] ?? '')) === '' ? '' : "\n" . trim((string)$lineage['uncertainty_summary']);
 
         $battlecardId = Ids::new();
         $db->insert('battlecard_briefs', [

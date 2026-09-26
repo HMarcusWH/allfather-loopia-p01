@@ -171,6 +171,10 @@ final class CompanySignals
             return Outcome::refuse('SIGNAL_NOT_DRAFT', ['status' => (string) $signal['status']], 'POLICY');
         }
 
+        if ($signal['source_diff_id'] === null && array_key_exists('context_evidence_ids',$input)) {
+            return Outcome::refuse('CONTEXT_EVIDENCE_NOT_ADMISSIBLE',[],'EVIDENCE');
+        }
+
         $governance = $input['governance'];
         $mission = $this->db->one(
             'SELECT tenant_id, workspace_id, status FROM missions WHERE mission_id = ?',
@@ -189,6 +193,20 @@ final class CompanySignals
         }
 
         $citedEvidenceIds = $this->supportingEvidence($signal['source_diff_id']);
+        $contextIds = $input['context_evidence_ids'] ?? [];
+        if (!is_array($contextIds) || !array_is_list($contextIds) || count($contextIds) > 16) {
+            return Outcome::refuse('CONTEXT_EVIDENCE_NOT_ADMISSIBLE',[],'EVIDENCE');
+        }
+        foreach ($contextIds as $id) {
+            if (!is_string($id) || CompanyContext::read($this->db,$id,$input['tenant_id'],$input['workspace_id']) === null) {
+                return Outcome::refuse('CONTEXT_EVIDENCE_NOT_ADMISSIBLE',[],'EVIDENCE');
+            }
+        }
+        if (isset($input['uncertainty_summary_safe']) && (!is_string($input['uncertainty_summary_safe']) || strlen($input['uncertainty_summary_safe']) > 8000)) {
+            return Outcome::refuse('UNCERTAINTY_SUMMARY_INVALID',[],'POLICY');
+        }
+        $citedEvidenceIds = array_values(array_unique([...$citedEvidenceIds,...$contextIds]));
+
 
         return $this->db->transaction(function (Database $tx) use (
             $input, $signal, $governance, $citedEvidenceIds
@@ -235,9 +253,12 @@ final class CompanySignals
                 'proposed_content_or_action_summary' => (string) $signal['summary_safe'],
                 // The uncertainty statement CARRIES the interpretation kind forward, so a reader of
                 // the proposal cannot lose the distinction the signal made.
-                'uncertainty_summary' => (string) $signal['interpretation_kind'] === 'HYPOTHESIS'
-                    ? 'Interpretation recorded as HYPOTHESIS — not an observed fact.'
-                    : 'Interpretation recorded as FACT_OBSERVED — the structural change is directly observed.',
+                'uncertainty_summary' => implode("\n", array_filter([
+                    (string) $signal['interpretation_kind'] === 'HYPOTHESIS'
+                        ? 'Interpretation recorded as HYPOTHESIS — not an observed fact.'
+                        : 'Interpretation recorded as FACT_OBSERVED — the structural change is directly observed.',
+                    trim($input['uncertainty_summary_safe'] ?? ''),
+                ], static fn (string $v): bool => $v !== '')),
                 'declared_limitations' => [
                     // Stated on every brief, because it is true of every brief: this path measures
                     // structure, and relevance is somebody else's judgement.

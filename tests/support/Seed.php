@@ -239,8 +239,11 @@ final class Seed
             'source_type' => 'website',
             'allowed_use_class' => 'customer_visible_allowed',
             'license_class' => $overrides['license_class'] ?? 'PUBLIC_WEB_ALLOWED',
+            'contract_reference_id' => $overrides['contract_reference_id'] ?? (str_starts_with($overrides['license_class'] ?? '', 'LICENSED_') ? 'fixture-approved-source-contract' : null),
             'customer_output_allowed' => $overrides['customer_output_allowed'] ?? 1,
             'derived_summary_allowed' => 1,
+            'caching_policy' => 'standard_cache',
+            'retention_class' => 'standard',
             // Defaults to 'none'. Overridable so a case can produce a RESTRICTED_REVIEW sensitivity
             // ceiling without also holding the compile, which is a different fold branch.
             'pii_risk_class' => $overrides['pii_risk_class'] ?? 'none',
@@ -291,8 +294,11 @@ final class Seed
         // Two snapshots, each backed by its own evidence object — the N-1 / N pair a diff is over.
         $snapshotIds = [];
         $snapshotHashes = [];
+        $snapshotProofs = [];
         foreach ([['449 SEK', 1], ['499 SEK', 2]] as [$body, $sequence]) {
             $contentHash = Digest::contentDigest($body . $monitoredSourceId);
+            // Explicit synthetic capture proof for this fixture; no network capture is claimed.
+            $proof = \Allfather\Loopia\Product\P01\TextProvenance::capture($contentHash, $body);
             $evidenceId = $m05->capture([
                 'tenant_id' => $scope['tenant_id'],
                 'workspace_id' => $scope['workspace_id'],
@@ -317,13 +323,17 @@ final class Seed
                 'content_hash' => $contentHash,
                 'hash_algorithm' => 'sha256',
                 'capture_method' => 'FIXTURE',
+                'text_provenance_json' => json_encode($proof, JSON_THROW_ON_ERROR),
                 'payload_class' => 'html_snapshot',
                 'captured_at' => $now,
             ]);
             $snapshotIds[] = $snapshotId;
             $snapshotHashes[] = $contentHash;
+            $snapshotProofs[] = $proof;
         }
 
+        $classified = \Allfather\Loopia\Product\P01\TextProvenance::classify($snapshotHashes[0], $snapshotHashes[1], $snapshotProofs[0], $snapshotProofs[1], 0.25);
+        $classified['significance'] = $overrides['change_significance'] ?? $classified['significance'];
         $diffId = Ids::new();
         $db->insert('source_diffs', [
             'source_diff_id' => $diffId,
@@ -333,18 +343,16 @@ final class Seed
             'monitored_source_id' => $monitoredSourceId,
             'before_snapshot_id' => $snapshotIds[0],
             'after_snapshot_id' => $snapshotIds[1],
-            // The SAME canonical projection ChangeDetection writes: the two snapshot ids AND their
-            // content hashes. A seed that digested a different shape would build state the product
-            // can never reach, and an audit re-deriving the real projection would call it tampered.
-            'diff_digest' => Digest::canonicalDigest([
-                'beforeSnapshotId' => $snapshotIds[0],
-                'afterSnapshotId' => $snapshotIds[1],
-                'beforeContentHash' => $snapshotHashes[0],
-                'afterContentHash' => $snapshotHashes[1],
+            'diff_digest' => \Allfather\Loopia\Product\P01\TextProvenance::digest([
+                'beforeSnapshotId' => $snapshotIds[0], 'afterSnapshotId' => $snapshotIds[1],
+                'beforeContentHash' => $snapshotHashes[0], 'afterContentHash' => $snapshotHashes[1],
+                'before' => $snapshotProofs[0], 'after' => $snapshotProofs[1], 'threshold' => 0.25, ...$classified,
             ]),
+            'classifier_version' => \Allfather\Loopia\Product\P01\TextProvenance::CLASSIFIER_VERSION,
+            'material_change_threshold' => 0.25,
             'hash_algorithm' => 'sha256',
-            'change_significance' => $overrides['change_significance'] ?? 'MATERIAL',
-            'diff_summary_safe' => 'List price 449 -> 499 SEK.',
+            'change_significance' => $classified['significance'],
+            'diff_summary_safe' => $classified['summary'],
             'detected_at' => $now,
         ]);
 

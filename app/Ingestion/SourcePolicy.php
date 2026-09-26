@@ -31,7 +31,7 @@ use Allfather\Loopia\Core\Digest;
 final class SourcePolicy
 {
     /** Bumped on ANY semantic change: a replay compares digests across versions. */
-    public const COMPILER_VERSION = 'ing_policy_compiler_v2';
+    public const COMPILER_VERSION = 'ing_policy_compiler_v3';
 
     /**
      * The CLOSED vocabulary of fail-closed reason codes this compiler can emit.
@@ -50,6 +50,7 @@ final class SourcePolicy
         'SOURCE_CARD_REVIEW_EXPIRED',
         'SOURCE_USE_PROHIBITED',
         'SOURCE_LICENSE_PROHIBITED',
+        'SOURCE_CONTRACT_REQUIRED_BUT_MISSING',
         'SOURCE_RETENTION_PROHIBITED',
         'SOURCE_REFERENCE_NOT_ACTIVE',
         'SOURCE_SENSITIVITY_PROHIBITED',
@@ -175,6 +176,14 @@ final class SourcePolicy
         if (($card['license_class'] ?? null) === 'PROHIBITED') {
             $refuse('SOURCE_LICENSE_PROHIBITED');
         }
+        $tenantOwnedUpload = ($card['source_type'] ?? null) === 'customer_upload'
+            && ($card['data_ownership'] ?? null) === 'TENANT_OWNED'
+            && ($card['allowed_use_class'] ?? null) === 'customer_owned_tenant_scoped';
+        if ($card !== null && !$tenantOwnedUpload
+            && (($card['source_type'] ?? null) === 'licensed_api' || str_starts_with((string) ($card['license_class'] ?? ''), 'LICENSED_'))
+            && (!is_string($card['contract_reference_id'] ?? null) || trim($card['contract_reference_id']) === '')) {
+            $refuse('SOURCE_CONTRACT_REQUIRED_BUT_MISSING');
+        }
         if (($card['retention_class'] ?? null) === 'prohibited') {
             $refuse('SOURCE_RETENTION_PROHIBITED');
         }
@@ -278,6 +287,7 @@ final class SourcePolicy
             'robots_status' => $robotsStatus,
             'terms_status' => $termsStatus,
             'license_class' => $card['license_class'] ?? 'PROHIBITED',
+            'contract_reference_id' => is_string($card['contract_reference_id'] ?? null) && trim($card['contract_reference_id']) !== '' ? trim($card['contract_reference_id']) : null,
             'allowed_use_class' => $card['allowed_use_class'] ?? 'prohibited',
             'retention_class' => $card['retention_class'] ?? 'prohibited',
             'minimum_fetch_interval_ms' => $card === null ? 0 : self::minimumFetchIntervalMs(
