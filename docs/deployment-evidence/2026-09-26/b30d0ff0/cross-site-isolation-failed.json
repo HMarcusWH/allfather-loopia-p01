@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "kind": "CROSS_SITE_ISOLATION",
+  "result": "FAIL",
+  "release_ref": "b30d0ff0820a33bbfafd5e59a3be9a0872a8a14e",
+  "environment": "staging",
+  "scope": "SSH_CANARY_AND_HTTP_PRIVATE_PATHS",
+  "event_started_at": null,
+  "event_completed_at": null,
+  "event_time_basis": "NOT_RECORDED",
+  "checks": {
+    "SSH_SIBLING_CANARY": "FAIL",
+    "OWN_CONTROL_CANARY_READABLE": "PASS",
+    "CANARY_CLEANUP": "PASS",
+    "WEB_PHP_CROSS_SITE_IDENTITY": "UNVERIFIED",
+    "HTTP_PRIVATE_PATH_REFUSAL": "PASS"
+  },
+  "counts": {
+    "CANARIES_CREATED": 2,
+    "CANARIES_READABLE": 2,
+    "CANARIES_REMOVED": 2,
+    "HTTP_PRIVATE_PATH_CHECKS": 16,
+    "HTTP_403_RESPONSES": 15,
+    "PROVIDER_DOTFILE_BLOCK_REDIRECTS": 1
+  },
+  "versions": {},
+  "bindings": {
+    "CANONICAL_PIN": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d"
+  },
+  "source_files": [
+    {
+      "name": "e1-canary.json",
+      "sha256": "c6b3a09a8e2c188bb832e820fd4155acd9ae4e0039382fc916412e2000de68da"
+    },
+    {
+      "name": "e2-http.txt",
+      "sha256": "bcd94b66967940bfd34a8a98d8dfbb3218067829eb09002e87f64a741437892d"
+    },
+    {
+      "name": "execution-context.json",
+      "sha256": "d441684d0a53d646696cb17559607f1b05751d01a9656ee0abb15176af12d897"
+    }
+  ],
+  "limitations": [
+    "OWNER_DIRECTED_STAGING_DEVIATION",
+    "WORDPRESS_MAINTENANCE_EXCLUDED_BY_OWNER",
+    "WEB_PHP_ISOLATION_UNVERIFIED",
+    "CANARY_EXECUTION_TIME_NOT_RECORDED",
+    "NO_ISOLATION_PASS"
+  ],
+  "target": "staging.allfatherbi.com"
+}

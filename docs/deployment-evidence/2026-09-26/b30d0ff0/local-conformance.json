@@ -1,0 +1,97 @@
+{
+  "schema_version": "1.0",
+  "kind": "CONFORMANCE",
+  "result": "PASS",
+  "release_ref": "b30d0ff0820a33bbfafd5e59a3be9a0872a8a14e",
+  "environment": "ci",
+  "scope": "VERIFIED_EXACT_LOCAL_WORKFLOW",
+  "event_started_at": "2026-09-25T22:22:11.596Z",
+  "event_completed_at": "2026-09-25T22:22:11.596Z",
+  "event_time_basis": "SOURCE_REPORTED",
+  "checks": {
+    "COMPLETE_UNFILTERED_STRICT_SUITE": "PASS",
+    "ZERO_FAILURES_AND_SKIPS": "PASS",
+    "EXACT_RELEASE_BOUND": "PASS",
+    "ALL_WORKFLOW_SHELL_STEPS": "PASS",
+    "BOTH_MARIADB_LANES": "PASS",
+    "ORIGINAL_FINAL_AGGREGATOR": "PASS",
+    "HOST_SHAPED_SUITES": "PASS",
+    "INDEPENDENT_TRACKED_BYTE_AUDIT": "PASS",
+    "GENERATED_ASSETS_IDENTICAL": "PASS",
+    "DISPOSABLE_RUNTIME_CLEANUP": "PASS",
+    "HOSTED_WORKFLOW_EXECUTION": "NOT_RUN"
+  },
+  "counts": {
+    "ORIGINAL_SHELL_STEPS": 31,
+    "ADDITIONAL_HOST_SHAPED_STEPS": 3,
+    "TRACKED_FILES_PER_ARTIFACT": 499,
+    "FRONTEND_TESTS_PASS": 36,
+    "PHP_SYNTAX_FILES_PASS": 256,
+    "QUALIFIED_REPORTS": 4,
+    "GIT_EXPORT_10_6_PASS": 5551,
+    "GIT_EXPORT_10_6_FAIL": 0,
+    "GIT_EXPORT_10_6_SKIP": 0,
+    "GIT_EXPORT_10_11_PASS": 5551,
+    "GIT_EXPORT_10_11_FAIL": 0,
+    "GIT_EXPORT_10_11_SKIP": 0,
+    "HOST_SHAPED_10_6_PASS": 5551,
+    "HOST_SHAPED_10_6_FAIL": 0,
+    "HOST_SHAPED_10_6_SKIP": 0,
+    "HOST_SHAPED_10_11_PASS": 5551,
+    "HOST_SHAPED_10_11_FAIL": 0,
+    "HOST_SHAPED_10_11_SKIP": 0
+  },
+  "versions": {
+    "PHP": "8.2.34",
+    "NODE": "22.16.0",
+    "NPM": "10.9.2",
+    "MARIADB_10_6": "10.6.28-MariaDB-ubu2204",
+    "MARIADB_10_11": "10.11.19-MariaDB-ubu2204"
+  },
+  "bindings": {
+    "CANONICAL_PIN": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+    "WORKFLOW_GIT_BLOB": "a9b3bba3f3c4acba5527d6a1c38640292c99a9e2",
+    "WORKFLOW_SHA256": "2d9c43f73a2a1a5f762b2cc712b85f59cdfc072b3749f98b44b28910baad3411"
+  },
+  "source_files": [
+    {
+      "name": "verified-summary.json",
+      "sha256": "156db52d9c258bb81526b4274ff167189e891cb140bb3dd4f4ac9e19fa745e40"
+    },
+    {
+      "name": "full-local-ci-results.json",
+      "sha256": "09a66cc3c7387e5da7099a453aa12697dad55f5d1dd14603f3705eb4ba0df96a"
+    },
+    {
+      "name": "qualification-10.6.json",
+      "sha256": "3f48227a633a49bcd7f9e9094c6efe3693bd443cefc0dcc9a191282ab0d8c6be"
+    },
+    {
+      "name": "qualification-10.11.json",
+      "sha256": "e7a25e873e0aadbf017aab97f7baca84dffbd659e9d34b17bd857ab9466b7d37"
+    },
+    {
+      "name": "final-artifact-byte-audit.json",
+      "sha256": "77f777bd582492a5a97af54944d976c45acc046948617ae8149f9f3e3809682a"
+    },
+    {
+      "name": "official-image-digests.json",
+      "sha256": "65ff2cab7da4570761981c40a5210ebbe4ee5ce52319a724493d02996246da80"
+    },
+    {
+      "name": "php82-runtime.json",
+      "sha256": "85511c04dfc6b7100ba96c15e40dfae0294198b61881946cda3a45f950c5989b"
+    },
+    {
+      "name": "github-exact-sha.json",
+      "sha256": "53de395ed5438d3e89793ee5f2669ffe1674d87155405de6f6c19626e7c716a4"
+    }
+  ],
+  "limitations": [
+    "EVENT_TIME_IS_VERIFIER_CHECK_TIME",
+    "HOSTED_WORKFLOW_NOT_EXECUTED_BILLING",
+    "LOCAL_RUNTIME_AND_ARTIFACT_TRANSPORT_ADAPTATIONS",
+    "TMPFS_NO_CRASH_DURABILITY_CLAIM",
+    "NOT_LOOPIA_HOST_PROOF"
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.0",
+  "kind": "STAGING_DEPLOYMENT",
+  "result": "PASS",
+  "release_ref": "b30d0ff0820a33bbfafd5e59a3be9a0872a8a14e",
+  "environment": "staging",
+  "scope": "INERT_STAGING_COPY_AND_HTTPS_RESPONSE",
+  "event_started_at": null,
+  "event_completed_at": null,
+  "event_time_basis": "NOT_RECORDED",
+  "checks": {
+    "EXACT_PREPARED_OBJECT": "PASS",
+    "HOST_RELEASE_AND_BYTES_MATCH": "PASS",
+    "HTTPS_RESPONDS": "PASS",
+    "INERT_POSTURE": "PASS",
+    "ENV_TEMPLATE_CHECKSUM": "PASS",
+    "MANIFEST_NEXT_CHECKSUM": "PASS",
+    "RUNTIME_INVARIANTS": "PASS"
+  },
+  "counts": {},
+  "versions": {},
+  "bindings": {
+    "CANONICAL_PIN": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+    "SOURCE_FINGERPRINT": "4b18462db8a03c1c7e4ece75c02f5d0d66fc045b77ba0fd70ea2d3199518ca76"
+  },
+  "source_files": [
+    {
+      "name": "remote-preflight.json",
+      "sha256": "4b79ff5f677c27c7b547e92d7e52f74ae2aa09d45ab1ef4a44652555721e1e09"
+    },
+    {
+      "name": "root-sync.txt",
+      "sha256": "1171bd22a5e1cff30b18ac367a814adc3328ed083344ea853ed219682afb6ae0"
+    },
+    {
+      "name": "env-example-checksum-check.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "manifest-next-checksum-check.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "anonymous-smoke.json",
+      "sha256": "053e2f55728175072f4cd876756614b53447b0aeb2942cfd3f6a27bdc7db1212"
+    },
+    {
+      "name": "execution-context.json",
+      "sha256": "d441684d0a53d646696cb17559607f1b05751d01a9656ee0abb15176af12d897"
+    },
+    {
+      "name": "runtime-invariants.json",
+      "sha256": "a6e01cb63babbca9a6b4b48f042cc28a7d50d5aa7c99a8f9cf21e61dc4ef1744"
+    },
+    {
+      "name": "final-artifact-byte-audit.json",
+      "sha256": "77f777bd582492a5a97af54944d976c45acc046948617ae8149f9f3e3809682a"
+    }
+  ],
+  "limitations": [
+    "DEPLOYMENT_EXECUTION_INTERVAL_NOT_RECORDED",
+    "OWNER_DIRECTED_STAGING_DEVIATION",
+    "ISOLATION_FAILURE_RECORDED_SEPARATELY",
+    "NO_LIVE_READ_OR_PRODUCTION_AUTHORITY"
+  ],
+  "target": "staging.allfatherbi.com"
+}

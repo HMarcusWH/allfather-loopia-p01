@@ -2,5 +2,148 @@
   "schema_version": "1.0",
   "projection_id": "LOOPIA_SME_MVP",
   "canonical_pin": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
-  "records": []
+  "records": [
+    {
+      "record_id": "PR13_HOST_CONFORMANCE_FAIL",
+      "kind": "CONFORMANCE",
+      "result": "FAIL",
+      "release_ref": "322874b17500d837b2b9b974fde1e4e408b318d6",
+      "environment": "staging",
+      "recorded_at": "2026-09-26T14:50:21.698Z",
+      "evidence_ref": "docs/deployment-evidence/2026-09-26/322874b1/host-conformance-failed.json",
+      "evidence_sha256": "d4fe393bb68753006199ad20fc0331bd193853c34b13cb07a4a8668c9d40f55d",
+      "target": "staging.allfatherbi.com",
+      "note": "Historical host packaging failure, 5548/1/0; not relabeled as a later release."
+    },
+    {
+      "record_id": "PR15_LOCAL_CONFORMANCE_PASS",
+      "kind": "CONFORMANCE",
+      "result": "PASS",
+      "release_ref": "b30d0ff0820a33bbfafd5e59a3be9a0872a8a14e",
+      "environment": "ci",
+      "recorded_at": "2026-09-26T14:50:21.699Z",
+      "evidence_ref": "docs/deployment-evidence/2026-09-26/b30d0ff0/local-conformance.json",
+      "evidence_sha256": "05fc3d5b4690840aadb9c63308715b727f179ee053c296326848721ce1c3b0e2",
+      "note": "Local exact-head reproduction; hosted runner allocation was blocked."
+    },
+    {
+      "record_id": "PR15_HOST_CONFORMANCE_PASS",
+      "kind": "CONFORMANCE",
+      "result": "PASS",
+      "release_ref": "b30d0ff0820a33bbfafd5e59a3be9a0872a8a14e",
+      "environment": "staging",
+      "recorded_at": "2026-09-26T14:50:21.701Z",
+      "evidence_ref": "docs/deployment-evidence/2026-09-26/b30d0ff0/host-conformance.json",
+      "evidence_sha256": "f81e85712e61c9ba93c143afac0280772d0c7007b99b4a2a3805110cfa18a719",
+      "target": "staging.allfatherbi.com",
+      "note": "Historical actual-host strict result 5551/0/0."
+    },
+    {
+      "record_id": "PR15_STAGING_DEPLOYMENT_PASS",
+      "kind": "STAGING_DEPLOYMENT",
+      "result": "PASS",
+      "release_ref": "b30d0ff0820a33bbfafd5e59a3be9a0872a8a14e",
+      "environment": "staging",
+      "recorded_at": "2026-09-26T14:50:21.703Z",
+      "evidence_ref": "docs/deployment-evidence/2026-09-26/b30d0ff0/staging-deployment.json",
+      "evidence_sha256": "446104bdfd12743dc42812f8031e9379c435d19199d3f6fbad0fdbc90b45242e",
+      "target": "staging.allfatherbi.com",
+      "note": "Historical PR15 staging deployment; superseded by the current PR16 deployment."
+    },
+    {
+      "record_id": "PR15_LOOPIA_PROBE_PASS",
+      "kind": "LOOPIA_PROBE_001",
+      "result": "PASS",
+      "release_ref": "b30d0ff0820a33bbfafd5e59a3be9a0872a8a14e",
+      "environment": "staging",
+      "recorded_at": "2026-09-26T14:50:21.706Z",
+      "evidence_ref": "docs/deployment-evidence/2026-09-26/b30d0ff0/host-probe.json",
+      "evidence_sha256": "c8b0f0af4c400e8cd386597023e7c8be44739403bc1facbcb055240cd5a39085",
+      "target": "staging.allfatherbi.com",
+      "note": "Historical actual-host baseline/network capability; not activation."
+    },
+    {
+      "record_id": "PR15_CROSS_SITE_ISOLATION_FAIL",
+      "kind": "CROSS_SITE_ISOLATION",
+      "result": "FAIL",
+      "release_ref": "b30d0ff0820a33bbfafd5e59a3be9a0872a8a14e",
+      "environment": "staging",
+      "recorded_at": "2026-09-26T14:50:21.708Z",
+      "evidence_ref": "docs/deployment-evidence/2026-09-26/b30d0ff0/cross-site-isolation-failed.json",
+      "evidence_sha256": "49891e9e3b7f0492064b0b6ece16535ca23211b072a9e13d11b46b7cb7fb1a65",
+      "target": "staging.allfatherbi.com",
+      "note": "E1 FAIL_READABLE; E3 UNVERIFIED. Owner-directed staging deviation is not isolation PASS."
+    },
+    {
+      "record_id": "PR16_LOCAL_CONFORMANCE_PASS",
+      "kind": "CONFORMANCE",
+      "result": "PASS",
+      "release_ref": "392f48deef11380f6dccfe88f2a47ba1fd94575c",
+      "environment": "ci",
+      "recorded_at": "2026-09-26T14:50:21.711Z",
+      "evidence_ref": "docs/deployment-evidence/2026-09-26/392f48de/local-conformance.json",
+      "evidence_sha256": "6c61464a55cd57231d652d1579880014f8510e2d1aca8be8acbcc7fe65a82df8",
+      "note": "34 local shell steps and four strict 5552/0/0 lanes; hosted workflow not executed."
+    },
+    {
+      "record_id": "PR16_STAGING_DEPLOYMENT_PASS",
+      "kind": "STAGING_DEPLOYMENT",
+      "result": "PASS",
+      "release_ref": "392f48deef11380f6dccfe88f2a47ba1fd94575c",
+      "environment": "staging",
+      "recorded_at": "2026-09-26T14:50:21.713Z",
+      "evidence_ref": "docs/deployment-evidence/2026-09-26/392f48de/staging-deployment.json",
+      "evidence_sha256": "3005fdf8cafdbe1cdeb53be5f8a02b34783e1c76b752348a34a3787f67c1c27c",
+      "target": "staging.allfatherbi.com",
+      "note": "Current inert PR16 staging deployment; initial preflight failure and targeted asset cleanup retained."
+    },
+    {
+      "record_id": "PR16_HOST_CONFORMANCE_PASS",
+      "kind": "CONFORMANCE",
+      "result": "PASS",
+      "release_ref": "392f48deef11380f6dccfe88f2a47ba1fd94575c",
+      "environment": "staging",
+      "recorded_at": "2026-09-26T14:50:21.715Z",
+      "evidence_ref": "docs/deployment-evidence/2026-09-26/392f48de/host-conformance.json",
+      "evidence_sha256": "b86e644f3ea967ad763645a0d8e4f8a5ecb8702523f43a6c2ce156fe6c71eb10",
+      "target": "staging.allfatherbi.com",
+      "note": "Actual Loopia complete strict suite 5552/0/0 on a separate qualification database."
+    },
+    {
+      "record_id": "PR16_LOOPIA_PROBE_PASS",
+      "kind": "LOOPIA_PROBE_001",
+      "result": "PASS",
+      "release_ref": "392f48deef11380f6dccfe88f2a47ba1fd94575c",
+      "environment": "staging",
+      "recorded_at": "2026-09-26T14:50:21.716Z",
+      "evidence_ref": "docs/deployment-evidence/2026-09-26/392f48de/host-probe.json",
+      "evidence_sha256": "ccae01f111a4b668aa2523a63b68f025d16511f2e0cc196fede9b72cb7402150",
+      "target": "staging.allfatherbi.com",
+      "note": "Current-release baseline/network capability READY; scheduler transport remains UNVERIFIED."
+    },
+    {
+      "record_id": "PR16_STAGING_SMOKE_PASS",
+      "kind": "STAGING_SMOKE",
+      "result": "PASS",
+      "release_ref": "392f48deef11380f6dccfe88f2a47ba1fd94575c",
+      "environment": "staging",
+      "recorded_at": "2026-09-26T14:50:21.718Z",
+      "evidence_ref": "docs/deployment-evidence/2026-09-26/392f48de/staging-smoke.json",
+      "evidence_sha256": "62c511ff2e6eae9d1677eb435b270f1139415da1b0f880e142268cfcb839abbd",
+      "target": "staging.allfatherbi.com",
+      "note": "Anonymous 23/0, N/O 118/0, manual browser and request-ID proof; deferred panels remain unwired."
+    },
+    {
+      "record_id": "PR16_ROLLBACK_DRILL_PASS",
+      "kind": "ROLLBACK_DRILL",
+      "result": "PASS",
+      "release_ref": "392f48deef11380f6dccfe88f2a47ba1fd94575c",
+      "environment": "staging",
+      "recorded_at": "2026-09-26T14:51:18.529Z",
+      "evidence_ref": "docs/deployment-evidence/2026-09-26/392f48de/rollback-drill.json",
+      "evidence_sha256": "f3e8c8dd76acebf877e5b559db4042a8b0e949b336366ade11fd7bf97c2b8356",
+      "target": "staging.allfatherbi.com",
+      "note": "PR16 to PR15 to PR16 verified; named history preserved. No populated M10 chain or full DB restore claim."
+    }
+  ]
 }

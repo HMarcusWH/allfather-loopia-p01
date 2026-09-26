@@ -141,6 +141,33 @@ and a source fingerprint that excludes documentation do not prove the new Git ob
 
 ## 5. Evidence handling
 
+### 2026-09-26 follow-up: completed PR16 inert staging qualification
+
+PR13's actual host strict result remains a `CONFORMANCE` FAIL: 5,548 passes, one failure and no
+skips because the deployed package omitted `.github/workflows/ci.yml`. PR15 repaired the filter
+and independently passed 5,551/0/0 locally and on Loopia. Its automated N/O/P passed; manual
+inspection then found the relative logo URL and repeated workspace choices. PR16 repaired those
+two defects and received its own exact-object qualification.
+
+PR16 is `392f48deef11380f6dccfe88f2a47ba1fd94575c`, fingerprint
+`d0fd0877a2b7039a129bf8d4f11d632f6066f9afd534eba79bff1a10e8ef8266`.
+Hosted [run 36197550928](https://github.com/HMarcusWH/allfather-loopia-p01/actions/runs/36197550928)
+failed before runner execution, with five zero-step jobs and billing/spending annotations. Local
+exact-head reproduction passed 34 shell steps and four strict lanes at 5,552/0/0. The real Loopia
+strict suite separately measured 5,552/0/0 on PHP 8.5.9 and MariaDB 10.11.19.
+
+PR16 E.2, host probes, 19 unchanged migrations, runtime invariants, anonymous N, authenticated N/O
+(118/0), browser inspection, request-ID proof and PR16-to-PR15-to-PR16 rollback/restore passed.
+The N/O count difference is fixture reuse, with the other 117 steps unchanged. Initial asset-pruning
+and HTTP-wrapper failures remain in the evidence alongside their measured corrections.
+
+Gate R preserves the PR13 failure, PR15 history and current PR16 evidence in 12 hash-bound records.
+The allowed Gate S claim is inert staging qualification **under this owner-directed deviation**.
+E.1 remains FAIL_READABLE, E.3 remains UNVERIFIED and the WordPress maintenance exclusion remains
+in force. Neither ownership nor accepted staging risk is an isolation, hygiene or production PASS.
+No authority lock or activation flag is changed by filing evidence. See
+[the Gate R record](STAGING_GATE_R_EVIDENCE_2026-09-26.md).
+
 Retain owner statements with the current conversation, sanitized canary findings, local account
 inventory/version-header results, configuration-status report, hosted billing annotations and exact
 local/host qualification outputs. Record file hashes only for sanitized non-secret evidence. Never

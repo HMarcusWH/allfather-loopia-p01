@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.0",
+  "kind": "LOOPIA_PROBE_001",
+  "result": "PASS",
+  "release_ref": "b30d0ff0820a33bbfafd5e59a3be9a0872a8a14e",
+  "environment": "staging",
+  "scope": "MEASURED_STAGING_HOST_CAPABILITY",
+  "event_started_at": "2026-09-25T22:18:53.080Z",
+  "event_completed_at": "2026-09-25T22:18:53.080Z",
+  "event_time_basis": "SOURCE_REPORTED",
+  "checks": {
+    "ACTUAL_HOST_PROBE": "PASS",
+    "STAGING_HOST_READY": "PASS",
+    "EXACT_RELEASE_BOUND": "PASS",
+    "SCHEDULER_TRANSPORT": "UNVERIFIED",
+    "LIVE_READ_ACTIVATION": "NOT_RUN"
+  },
+  "counts": {
+    "STAGING_MISSING_CAPABILITIES": 0,
+    "STAGING_UNDEMONSTRATED_CAPABILITIES": 0
+  },
+  "versions": {
+    "PHP": "8.5.9",
+    "MARIADB": "10.11.19-MariaDB-log"
+  },
+  "bindings": {
+    "CANONICAL_PIN": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+    "SOURCE_FINGERPRINT": "4b18462db8a03c1c7e4ece75c02f5d0d66fc045b77ba0fd70ea2d3199518ca76"
+  },
+  "source_files": [
+    {
+      "name": "probe-baseline.json",
+      "sha256": "d44e4c6a3198a0b65a0e7c0fa6233f4ec5bdc301f96329c5e12408e882bf02c1"
+    },
+    {
+      "name": "probe-network.json",
+      "sha256": "93490208370653400c0f6575f8fd8a9a0ec6cd7b66a193155c8d52ae312dae22"
+    },
+    {
+      "name": "execution-context.json",
+      "sha256": "d441684d0a53d646696cb17559607f1b05751d01a9656ee0abb15176af12d897"
+    },
+    {
+      "name": "preflight.json",
+      "sha256": "4b79ff5f677c27c7b547e92d7e52f74ae2aa09d45ab1ef4a44652555721e1e09"
+    }
+  ],
+  "limitations": [
+    "CAPABILITY_READINESS_IS_NOT_ACTIVATION",
+    "NO_SCHEDULER_QUALIFICATION",
+    "NO_PRODUCTION_AUTHORITY"
+  ],
+  "target": "staging.allfatherbi.com"
+}

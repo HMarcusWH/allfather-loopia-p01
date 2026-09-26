@@ -88,56 +88,77 @@ Working end to end today, given seeded authority:
 | schema migrations | complete, 19 files, idempotent |
 | authority seeding | `Permissions` vocabulary + role seeds; product registrations provision their selected tenant capabilities |
 | audit profiles | created on demand per category |
-| CI | PHP 8.2 foundation plus full MariaDB 10.6 and 10.11 lanes, each writing a machine-readable qualification report, gated by a `release qualification` job that re-reads them |
+| CI | PR16 exact-head local workflow reproduction PASS: PHP 8.2.34, MariaDB 10.6/10.11 and both host-shaped lanes at 5,552/0/0; hosted runner allocation blocked by account billing/spending |
 | runbook | `DEPLOYMENT_RUNBOOK.md` for the mechanics, `BETA_RUNBOOK.md` for the sequence |
-| rollback | five governed levers plus a code-rollback procedure and a read-only verifier |
-| host qualification | probe, cross-site canary, release preflight, staging smoke — see §8 |
-| evidence | `deployment-evidence.json`, validated on every commit; **zero records so far** |
+| rollback | PR16 to PR15 to PR16 drill PASS for named immutable history and request-log prefix; no populated M10 stream or full database restore exercised |
+| host qualification | PR16 actual Loopia strict suite 5,552/0/0, probes, N/O/P and browser checks PASS under the staging deviation; E.1 FAIL_READABLE, E.3 UNVERIFIED |
+| evidence | `deployment-evidence.json`, validated on every commit; **12 reviewed records; PR16 inert staging qualified under the recorded staging deviation** |
 
-## 5. What has NOT happened
+## 5. Measured staging state and uncompleted transitions
 
-Stated plainly, because build completion is not launch authority:
+PR16 `392f48deef11380f6dccfe88f2a47ba1fd94575c` is deployed and qualified on
+`staging.allfatherbi.com` under the recorded owner-directed shared-host staging deviation. The
+actual Loopia runtime is PHP 8.5.9 with MariaDB 10.11.19-MariaDB-log. The complete strict suite
+measured 5,552 passes, zero failures and zero skips against the separate qualification database.
+The runtime's 19 migrations were already applied and remained unchanged, with no drift. Host
+probes, runtime invariants, anonymous and authenticated N/O, request-ID proof, manual browser
+inspection and the PR16-to-PR15-to-PR16 rollback/restore drill passed. See
+[the reviewed Gate R filing](STAGING_GATE_R_EVIDENCE_2026-09-26.md) for scope, hashes and limitations.
 
-- `ROAD_TEST_001_EXECUTED` — **false.** No road test has been run.
-- `LIVE_READ_ACTIVATED` — **false**, and structurally so rather than by flag: the production
-  transport and DNS resolver exist and are tested, and NOTHING CONSTRUCTS EITHER. The foundation
-  suite fails if anything does. See `DEPLOYMENT_RUNBOOK.md` §7a for what activating it takes.
-- `OWNER_GO_GRANTED` — **false.** No owner sign-off exists.
-- `PRODUCTION_LAUNCH` — **false.** Nothing is deployed.
-- **Production tenant provisioning is not authorized by the pinned canonical identity vocabulary.**
-  Canonical currently admits TEST/DEMO/LOCAL_DEV identity classes, not projection-invented
-  `CUSTOMER` / `PRODUCTION` synonyms. `ops/provision-staging.php` therefore refuses production
-  before opening the database; a future production identity must be promoted canonically first.
-- Loopia shared hosting — **untested.** The target runtime has not run this code.
-- Hosted CI — runs PHP 8.2.33 with a full MariaDB **10.6 and 10.11 matrix**, including migration
-  idempotency and the strict suite. That is the supported-PHP-floor evidence; the development
-  container runs PHP 8.4.19.
+Hosted GitHub Actions did **not** pass for PR16: run 36197550928 failed before any runner step,
+with account billing/spending annotations. The distinct exact-head local reproduction completed
+34 shell steps using PHP 8.2.34. Its MariaDB 10.6.28 and 10.11.19 lanes, and both host-shaped
+copies, each measured 5,552/0/0. These local results are not substituted for hosted CI or the
+separately measured Loopia result. Earlier runtime-version statements described historical checks.
 
-## 6. What I would want before launch
+The following remain uncompleted or unauthorized:
 
-An honest list, in the order I would do it:
+- **ROAD_TEST_001 and live read remain off.** No road test has run. The reviewed transport and DNS
+  resolver are structurally unconstructed in the production composition roots; scheduler handler
+  registries remain empty. Their implementation and host capability do not activate them.
+- **Production is not deployed or authorized.** The staging owner direction is not a road-test or
+  production launch GO. `OWNER_GO_GRANTED`, customer-visible output, external action and production
+  launch authority remain false.
+- **Production tenant provisioning remains outside the pinned canonical identity vocabulary.**
+  Canonical admits TEST/DEMO/LOCAL_DEV identity classes; this projection must not invent CUSTOMER
+  or PRODUCTION synonyms to bypass that boundary.
+- **Technical cross-site isolation has not passed.** E.1 remains FAIL_READABLE; E.3 web-PHP
+  isolation remains UNVERIFIED. The owner-directed staging deviation and WordPress maintenance
+  exclusion are not isolation or hygiene proof. Production cannot inherit the staging exception.
+- **A complete database backup/import restore has not been proved.** Gate Q preserved the named
+  immutable history rows and prior request-log prefix. All phases had no M10 streams; it did not
+  test a populated-ledger rollback or full database restore.
+- **Credential rotation is not established by this evidence.** Preflight verified that the staging
+  master key is set without disclosing it; that does not prove a rotation exercise or resolve the
+  historical credential-log hygiene item.
 
-1. **Deploy to staging on the actual Loopia host and run the suite there.** Everything in §1 is
-   verified in development/CI rather than on Loopia's shared host. Shared hosting differs in PHP
-   configuration, available extensions, filesystem behaviour and MariaDB privileges, and each of
-   those can invalidate an assumption that is green elsewhere. `BETA_RUNBOOK.md` is that sequence,
-   and its two standing rules are that the qualification database is never the runtime database and
-   that no secret reaches the host before cross-site isolation is proved.
-2. **Confirm the append-only triggers survive the host's import path.** They are the load-bearing
-   half of several guarantees, and `mysqldump`/import round-trips have been known to drop
-   `DELIMITER`-defined triggers.
-3. **Provision a real `APP_MASTER_KEY` and exercise credential rotation** against the deployed
-   configuration, not the test one.
-4. **Run one road test end to end** with a real monitored source, and record what it found —
-   including anything the change detector classified badly.
-5. **Have somebody who did not write this read `CLAIM_CEILING.md`** and confirm the product's
-   marketing does not exceed it.
-6. **Before customer production, resolve the canonical production identity/onboarding model.** Do
-   not widen tenant/workspace/environment vocabulary inside this deployment projection merely to
-   get a production row through a CHECK constraint.
+## 6. Remaining work before live read or production
 
-Items 1 and 2 are the ones I would not skip before staging validation; item 6 is a separate
-pre-customer-production authority decision.
+1. **Review and explicitly authorize ROAD_TEST_001 as a separate activation.** Use only the bounded
+   approved public-source set, with captured evidence, replay and stand-down proof. Keep external
+   effects, customer visibility and production authority off. The staging result alone grants no GO.
+2. **Establish independent backup and full restore evidence.** Retain an off-Loopia backup and
+   exercise its import/restore path, including append-only triggers and a populated ledger where
+   applicable. The qualified host's trigger behavior and Gate Q's limited preservation proof do not
+   replace that evidence.
+3. **Close credential lifecycle evidence.** Plan and verify controlled rotation without losing
+   access to encrypted data, and resolve the historical credential-like log item's status. Do not
+   report either completed from a key-presence check. Production secrets must be new and distinct
+   from staging.
+4. **Close the production hosting boundary.** Obtain written assurance, a safe equivalent proof or
+   a dedicated hosting boundary. Preserve E.1/E.3 findings until actual technical evidence changes
+   them; the staging exception is not a production authorization.
+5. **Resolve production identity and governed customer visibility through reviewed authority and
+   implementation changes.** Do not widen tenant/workspace/environment vocabulary merely to get
+   a production row through a constraint. Review the product's claims against `CLAIM_CEILING.md`
+   and complete required privacy, legal, support and operational material before customer entry.
+6. **Qualify scheduler transport if the production plan needs it.** Its method/header authentication
+   remains UNVERIFIED and the handlers remain empty. Do not make scheduler activation a hidden
+   prerequisite for the first controlled road test.
+7. **Freeze a separately reviewed production candidate and obtain explicit owner GO.** Production
+   readiness must include the completed road test, relevant beta findings, hosting boundary,
+   identity/visibility changes, backup/restore and operational prerequisites. A green staging smoke
+   or evidence-only documentation commit cannot grant that authority.
 
 ## 7. Console
 

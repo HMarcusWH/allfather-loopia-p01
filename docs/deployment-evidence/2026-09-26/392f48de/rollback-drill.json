@@ -1,0 +1,372 @@
+{
+  "schema_version": "1.0",
+  "kind": "ROLLBACK_DRILL",
+  "result": "PASS",
+  "release_ref": "392f48deef11380f6dccfe88f2a47ba1fd94575c",
+  "environment": "staging",
+  "target": "staging.allfatherbi.com",
+  "scope": "PREVIOUS_RELEASE_ROLLBACK_AND_EXACT_CURRENT_RELEASE_RESTORE",
+  "event_started_at": "2026-09-26T14:43:46.952Z",
+  "event_completed_at": "2026-09-26T14:46:51.425Z",
+  "event_time_basis": "EXECUTION_PHASE_RECEIPTS",
+  "bindings": {
+    "CANONICAL_PIN": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+    "SOURCE_FINGERPRINT": "d0fd0877a2b7039a129bf8d4f11d632f6066f9afd534eba79bff1a10e8ef8266"
+  },
+  "drill_kind": "PREVIOUS_RELEASE_ROLLBACK",
+  "previous_release_ref": "b30d0ff0820a33bbfafd5e59a3be9a0872a8a14e",
+  "previous_source_fingerprint": "4b18462db8a03c1c7e4ece75c02f5d0d66fc045b77ba0fd70ea2d3199518ca76",
+  "restored_release_ref": "392f48deef11380f6dccfe88f2a47ba1fd94575c",
+  "restored_source_fingerprint": "d0fd0877a2b7039a129bf8d4f11d632f6066f9afd534eba79bff1a10e8ef8266",
+  "checks": {
+    "THREE_EXACT_RELEASE_PHASES": "PASS",
+    "ANONYMOUS_AND_AUTHENTICATED_SMOKE": "PASS",
+    "HEALTH_REQUEST_ID_AND_INVARIANTS": "PASS",
+    "NAMED_IMMUTABLE_HISTORY_PRESERVATION": "PASS",
+    "PRIOR_REQUEST_LOG_PREFIX_PRESERVATION": "PASS",
+    "FINAL_PR16_RESTORED": "PASS",
+    "FINAL_AUTHENTICATED_BROWSER": "PASS",
+    "POPULATED_M10_LEDGER_CHAIN": "NOT_EXERCISED_NO_STREAMS",
+    "INDEPENDENT_SAVED_EVIDENCE_REVIEW": "PASS"
+  },
+  "phases": [
+    {
+      "status": "PHASE_PASS",
+      "phase": "before",
+      "release_ref": "392f48deef11380f6dccfe88f2a47ba1fd94575c",
+      "source_fingerprint": "d0fd0877a2b7039a129bf8d4f11d632f6066f9afd534eba79bff1a10e8ef8266",
+      "started_at": "2026-09-26T14:43:46.952Z",
+      "completed_at": "2026-09-26T14:43:51.767Z",
+      "reason_code": null
+    },
+    {
+      "status": "PHASE_PASS",
+      "phase": "rollback",
+      "release_ref": "b30d0ff0820a33bbfafd5e59a3be9a0872a8a14e",
+      "source_fingerprint": "4b18462db8a03c1c7e4ece75c02f5d0d66fc045b77ba0fd70ea2d3199518ca76",
+      "started_at": "2026-09-26T14:44:07.789Z",
+      "completed_at": "2026-09-26T14:44:58.452Z",
+      "reason_code": null
+    },
+    {
+      "status": "PHASE_PASS",
+      "phase": "restore",
+      "release_ref": "392f48deef11380f6dccfe88f2a47ba1fd94575c",
+      "source_fingerprint": "d0fd0877a2b7039a129bf8d4f11d632f6066f9afd534eba79bff1a10e8ef8266",
+      "started_at": "2026-09-26T14:45:27.438Z",
+      "completed_at": "2026-09-26T14:46:19.829Z",
+      "reason_code": null
+    }
+  ],
+  "preservation_comparisons": [
+    {
+      "phase": "rollback",
+      "status": "OBSERVED_HISTORY_PRESERVED",
+      "checks": [
+        {
+          "check": "SAME_RUNTIME_DATABASE",
+          "status": "PASS"
+        },
+        {
+          "check": "EXPECTED_STAND_DOWN_POSTURE",
+          "status": "PASS"
+        },
+        {
+          "check": "DECISION_RECORDS_PRESERVED",
+          "status": "PASS",
+          "before_count": 0,
+          "after_count": 0,
+          "missing_count": 0,
+          "changed_count": 0
+        },
+        {
+          "check": "DECISION_INPUT_REFERENCES_PRESERVED",
+          "status": "PASS",
+          "before_count": 0,
+          "after_count": 0,
+          "missing_count": 0,
+          "changed_count": 0
+        },
+        {
+          "check": "LEDGER_INTEGRITY_LINKS_PRESERVED",
+          "status": "PASS",
+          "before_count": 0,
+          "after_count": 0,
+          "missing_count": 0,
+          "changed_count": 0
+        },
+        {
+          "check": "ACCESS_EVALUATION_RECORDS_PRESERVED",
+          "status": "PASS",
+          "before_count": 18,
+          "after_count": 23,
+          "missing_count": 0,
+          "changed_count": 0
+        },
+        {
+          "check": "AUTH_ATTEMPTS_PRESERVED",
+          "status": "PASS",
+          "before_count": 28,
+          "after_count": 39,
+          "missing_count": 0,
+          "changed_count": 0
+        },
+        {
+          "check": "M10_STREAM_IDENTITIES_AND_HEADS_PRESERVED",
+          "status": "PASS",
+          "before_count": 0,
+          "after_count": 0,
+          "missing_count": 0,
+          "changed_scope_count": 0,
+          "regressed_head_count": 0
+        },
+        {
+          "check": "OBSERVED_M10_INTEGRITY_HAS_NO_FAILURE",
+          "status": "PASS",
+          "streams_checked": 0,
+          "records_verified": 0
+        },
+        {
+          "check": "PRIOR_REQUEST_LOG_BYTES_PRESERVED",
+          "status": "PASS",
+          "before_bytes": 43843,
+          "after_bytes": 50510
+        },
+        {
+          "check": "SUPPLIED_RELEASE_REQUEST_REFERENCE_FOUND_ONCE",
+          "status": "PASS",
+          "matching_entry_count": 1
+        }
+      ],
+      "writes_performed": 0
+    },
+    {
+      "phase": "restore",
+      "status": "OBSERVED_HISTORY_PRESERVED",
+      "checks": [
+        {
+          "check": "SAME_RUNTIME_DATABASE",
+          "status": "PASS"
+        },
+        {
+          "check": "EXPECTED_STAND_DOWN_POSTURE",
+          "status": "PASS"
+        },
+        {
+          "check": "DECISION_RECORDS_PRESERVED",
+          "status": "PASS",
+          "before_count": 0,
+          "after_count": 0,
+          "missing_count": 0,
+          "changed_count": 0
+        },
+        {
+          "check": "DECISION_INPUT_REFERENCES_PRESERVED",
+          "status": "PASS",
+          "before_count": 0,
+          "after_count": 0,
+          "missing_count": 0,
+          "changed_count": 0
+        },
+        {
+          "check": "LEDGER_INTEGRITY_LINKS_PRESERVED",
+          "status": "PASS",
+          "before_count": 0,
+          "after_count": 0,
+          "missing_count": 0,
+          "changed_count": 0
+        },
+        {
+          "check": "ACCESS_EVALUATION_RECORDS_PRESERVED",
+          "status": "PASS",
+          "before_count": 23,
+          "after_count": 28,
+          "missing_count": 0,
+          "changed_count": 0
+        },
+        {
+          "check": "AUTH_ATTEMPTS_PRESERVED",
+          "status": "PASS",
+          "before_count": 39,
+          "after_count": 50,
+          "missing_count": 0,
+          "changed_count": 0
+        },
+        {
+          "check": "M10_STREAM_IDENTITIES_AND_HEADS_PRESERVED",
+          "status": "PASS",
+          "before_count": 0,
+          "after_count": 0,
+          "missing_count": 0,
+          "changed_scope_count": 0,
+          "regressed_head_count": 0
+        },
+        {
+          "check": "OBSERVED_M10_INTEGRITY_HAS_NO_FAILURE",
+          "status": "PASS",
+          "streams_checked": 0,
+          "records_verified": 0
+        },
+        {
+          "check": "PRIOR_REQUEST_LOG_BYTES_PRESERVED",
+          "status": "PASS",
+          "before_bytes": 50510,
+          "after_bytes": 57177
+        },
+        {
+          "check": "SUPPLIED_RELEASE_REQUEST_REFERENCE_FOUND_ONCE",
+          "status": "PASS",
+          "matching_entry_count": 1
+        }
+      ],
+      "writes_performed": 0
+    }
+  ],
+  "counts": {
+    "DATABASE_DOWN_MIGRATIONS": 0,
+    "NAMED_HISTORY_DELETIONS_OBSERVED": 0,
+    "M10_STREAMS_EXERCISED": 0,
+    "M10_RECORDS_EXERCISED": 0
+  },
+  "restored_browser": {
+    "verified_at_utc": "2026-09-26 14:48:12 UTC",
+    "support_release_matches": true,
+    "owner_session_survived_rollback": true,
+    "console_rendered": true,
+    "logo_natural_dimensions": [
+      392,
+      96
+    ]
+  },
+  "source_files": [
+    {
+      "name": "gate-q/20260926-gateq01/gate-q-summary.json",
+      "sha256": "d79728ce7ffae6ec941478829b29e18308b143f7a6ca4d5f87e6d8ba9bf514de"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/before/anonymous-smoke.json",
+      "sha256": "f66159e6572ce1ba72a3eb90b8fb29f6157b2b03462eac58167a1d97d18b052f"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/before/health-reference.json",
+      "sha256": "3e0b7c89edbad31c2778bd0cbe13638667a418a6e8d49a6afa251be72fdbed96"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/before/phase.json",
+      "sha256": "e879e8f795e9af45fb9bb77df05bc5ce360bb6842a9e8b1ab2a2e2df65964c88"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/before/preflight.json",
+      "sha256": "055583a55c4d314493a0ba5254be6771f19fe0b75a63e2632f7929343c8d4685"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/before/runtime-invariants.json",
+      "sha256": "79053bf8adbfe3154369cd016858d4182f918fbc93ae0451ccbce04afec152fa"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/before/snapshot.json",
+      "sha256": "6398a857fa6e0a294e719ce6cc2d8ed2208f4eeb0f742908c4334c7542ad6837"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/restore/anonymous-smoke.json",
+      "sha256": "1f1cabcb18b4e4f4d4b68f0012a9e4f7d6ce4f6e825950412419535174683f5c"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/restore/authenticated-execution.json",
+      "sha256": "696fafe8138d855b4547683d38f4c9661d44e3bf1f37788d4f30ea4f57c59cca"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/restore/deployment.json",
+      "sha256": "8fb6d7a4539cb33abb7d7f9d579e853da241b19caed41465f2d5f3b93bb3cf54"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/restore/gate-no/20260926-gateq01pr16/gate-no-status.json",
+      "sha256": "c89f777f4b9efe6afda413647548407c8e8e1cb9316c53035beba5b36eab999d"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/restore/health-reference.json",
+      "sha256": "8b6e50795b5afded6d30f6c2094f7ea9a6f51e9faeac23052472539dd6bea505"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/restore/phase.json",
+      "sha256": "d12d505af7362ef7ce6de6b69216594450e088e267afa890236c4f3911d3e4f4"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/restore/preflight.json",
+      "sha256": "055583a55c4d314493a0ba5254be6771f19fe0b75a63e2632f7929343c8d4685"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/restore/preservation-comparison.json",
+      "sha256": "85c541d66e1a97ac110d66fd6543d42fce0786c2e1ea07c70e8b91a7e1ca8d77"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/restore/runtime-invariants.json",
+      "sha256": "79053bf8adbfe3154369cd016858d4182f918fbc93ae0451ccbce04afec152fa"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/restore/snapshot.json",
+      "sha256": "c39f74507c9431fea1d7433e94519d24a3b0de433b1b420c49f66040573191d9"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/rollback/anonymous-smoke.json",
+      "sha256": "22436ec2e1b9f063ba6613f04cb703fb0f59c8290920259f3511b277ab6bd72a"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/rollback/authenticated-execution.json",
+      "sha256": "c56e1bac3dd190d28735f3c2c037d5cbfedfe45e50e2e2726b4247027d2b6ac6"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/rollback/deployment.json",
+      "sha256": "04e6da01900236f153646ffb3e1f0d95fa1d3c96d967a032727240ac4d9fce38"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/rollback/gate-no/20260926-gateq01pr15/gate-no-status.json",
+      "sha256": "eb54d81aa65a69348916b86a6d9f73e89894cb76ffc643b0032a38ae644835b6"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/rollback/health-reference.json",
+      "sha256": "cb6e83f2dde78c10ee6b54761c854b5e22b72d37166d9fa5a10bb5b3ca3132de"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/rollback/phase.json",
+      "sha256": "1be6cd78a3fe190a439027d2804027bf05516a050031742de7f98b405c408ac2"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/rollback/preflight.json",
+      "sha256": "9d840c53452f86e0fbde19669eae452e0fd393b3338961128a86bfaf6a29fcbf"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/rollback/preservation-comparison.json",
+      "sha256": "62a05f13ea5df88fb75eb1059271b53dda552de704426fc2aaa205822d15ea1c"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/rollback/runtime-invariants.json",
+      "sha256": "79053bf8adbfe3154369cd016858d4182f918fbc93ae0451ccbce04afec152fa"
+    },
+    {
+      "name": "gate-q/20260926-gateq01/rollback/snapshot.json",
+      "sha256": "293c0bdc24f9ec526557b4326f0996d3d241267e9bf9859c695d252b0c16bbcb"
+    },
+    {
+      "name": "host-qualification/pr16/restored-browser-result.json",
+      "sha256": "b8ae87c3cb9ce2240ca8cf95266b2c682eb0beae0438bb3e91c52b8293655c6b"
+    },
+    {
+      "name": "gate-q/20260926-gateq01-independent-review.json",
+      "sha256": "e99199308d6b4959020c66f16b3fba0ca060a190f33220056b1c01689263f3a9"
+    }
+  ],
+  "limitations": [
+    "NAMED_IMMUTABLE_HISTORY_AND_REQUEST_LOG_PREFIX_ONLY",
+    "NOT_FULL_DATABASE_BACKUP_OR_RESTORE",
+    "NO_STREAMS_PRESENT_NOT_EXERCISED",
+    "NOT_POPULATED_LEDGER_ROLLBACK_PROOF",
+    "OWNER_DIRECTED_STAGING_DEVIATION",
+    "NO_PRODUCTION_AUTHORITY"
+  ],
+  "independent_review": {
+    "status": "SAVED_GATE_Q_EVIDENCE_REVIEW_PASS",
+    "summary_sources_verified": 26,
+    "additional_deployment_files_verified": 30
+  }
+}
