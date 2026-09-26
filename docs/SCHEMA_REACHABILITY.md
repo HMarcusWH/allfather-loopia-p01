@@ -9,6 +9,10 @@ document records how the MariaDB schema was derived and which upstream tables ar
 
 ---
 
+The original derivation in sections 1–5 remains pinned to the authority above. The current named
+table inventory, including the reviewed P01 repair and bounded host extensions, is recorded in
+section 6.
+
 ## 1. Derivation method
 
 1. **Enumerate the canonical table set.** `CREATE TABLE` names in `db/schema.ts` → **225 tables**.
@@ -516,3 +520,37 @@ pilot/road-test ceremony machinery contribute no tables to this projection.
 7. job leases are exclusive under concurrent claim.
 
 A migration without its constraint test is not conformed.
+
+## 6. Named inventory addendum — 27 September 2026
+
+The original **188 canonical tables** remain the projection derived from
+`c6d9cf9a7a1001b001ca6118999e9cb75c831c4d`. The explicit baseline list is preserved in
+[`schema_table_inventory.json`](../tests/fixtures/schema_table_inventory.json), extracted from
+sections 2 and 2.1 of this document at projection commit
+`079047598f477edf9d92c531edb744d75923ecc5` and cross-checked against that commit's complete
+`CREATE TABLE` set. The fixture records the original document's SHA-256. This addendum does not
+repin the whole projection or infer canonical authority from tables found in a running database.
+
+| Inventory group | Count | Provenance |
+| --- | ---: | --- |
+| Original canonical projection | 188 | Original authority pin and explicit baseline fixture |
+| Curated canonical repair | 1 | `p01_registration_receipts`, migration `185_p01_registration_receipts.sql` |
+| Original Loopia host adapters | 8 | Explicit list in section 2.1 and baseline fixture |
+| Bounded model host adapters | 2 | `provider_model_attempts`, `provider_model_results`; migration `190_bounded_model_provenance.sql` |
+| Monitor host adapters | 4 | `monitor_mission_configs`, `monitor_runs`, `monitor_run_events`, `monitor_capture_payloads`; migration `200_monitor_runs.sql` |
+| **Current application total** | **203** | **189 canonical + 14 Loopia adapters** |
+
+The single additional canonical table comes from the reviewed repeatable P01 registration repair
+[canonical PR 368](https://github.com/HMarcusWH/Allfatherbusinessintelligence/pull/368), reviewed
+at `af5992c58bdb653f6ca8be905a17ddab992c5702` and merged as
+`1c40306c22e15b2ad3049e8d32abff47450c8921`. It is a curated extension to the retained baseline,
+not evidence that all current canonical schema has been projected. The six new host tables record
+bounded model provenance and Monitor orchestration; they introduce no separate canonical law.
+The projection's `schema_migrations` ledger is excluded from every application-table count above.
+
+[`schema_invariants.php`](../tests/integration/schema_invariants.php) compares the exact sorted
+application-table names returned by MariaDB with the explicit fixture. It separately checks group
+counts and disjointness. A missing, renamed or unexpected table therefore fails even when the
+overall count stays the same; tables outside the declared adapter list are no longer classified
+as canonical by taking a complement. Existing constraint, engine and excluded-family checks
+remain in force. This inventory correction changes no runtime code or migration.

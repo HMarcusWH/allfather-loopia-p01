@@ -14,7 +14,7 @@ use Allfather\Loopia\Substrate\M05\EvidenceSpine;
 /** Explicit setup for offline composition tests. Does not capture, invoke, approve or release. */
 final class MonitorModelFixture
 {
-    public static function create(Database $db,Clock $clock): array
+    public static function create(Database $db,Clock $clock,bool $sourceCustomerOutputAllowed=false): array
     {
         $base=Seed::tenantWorkspace($db,$clock,'monitor-composition');
         $scope=$base+['actor_type'=>'OPERATOR','actor_id'=>$base['operator_id']];
@@ -32,7 +32,7 @@ final class MonitorModelFixture
         $m03->grantToolRight($criticContract,$model['governed_tool_id'],[ModelRegistration::OPERATION_KEY],'INTERNAL_TRANSFORM','ANALYZE');
         $criticAssignment=self::value($m04->assignToMission($capture['mission_id'],$critic,$criticContract,'MODEL_CRITIC',[$model['governed_tool_id']],['ANALYZE'],$scope['operator_id']));
         $url='https://sources.example/pricing';
-        $card=(new SourceCards($db,$clock))->project(['tenant_id'=>$scope['tenant_id'],'source_name'=>'Synthetic monitor fixture','source_url_safe'=>$url,'source_type'=>'website','allowed_use_class'=>'derived_summary_allowed','license_class'=>'PUBLIC_WEB_ALLOWED','customer_output_allowed'=>false,'derived_summary_allowed'=>true,'robots_policy_checked'=>true,'terms_policy_checked'=>true,'review_status'=>'approved','caching_policy'=>'standard_cache','retention_class'=>'standard']);
+        $card=(new SourceCards($db,$clock))->project(['tenant_id'=>$scope['tenant_id'],'source_name'=>'Synthetic monitor fixture','source_url_safe'=>$url,'source_type'=>'website','allowed_use_class'=>'derived_summary_allowed','license_class'=>'PUBLIC_WEB_ALLOWED','customer_output_allowed'=>$sourceCustomerOutputAllowed,'derived_summary_allowed'=>true,'robots_policy_checked'=>true,'terms_policy_checked'=>true,'review_status'=>'approved','caching_policy'=>'standard_cache','retention_class'=>'standard']);
         $registry=new P01Registry($db,$clock);
         $competitor=self::value($registry->registerCompetitor($scope['tenant_id'],$scope['workspace_id'],'Synthetic monitor competitor','DIRECT','OPERATOR',$scope['operator_id']))['competitor_id'];
         $monitored=self::value($registry->registerMonitoredSource($scope['tenant_id'],$scope['workspace_id'],$competitor,$card['source_ref_id'],$card['source_license_card_id'],'WEBSITE'))['monitored_source_id'];

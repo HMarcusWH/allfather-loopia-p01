@@ -56,7 +56,7 @@
         "app/Http/",
         "frontend/console/"
       ],
-      "status": "IMPLEMENTED_SURFACE_PENDING_FACTORY_INTEGRATION",
+      "status": "IMPLEMENTED_SURFACE_FACTORY_WIRED_INACTIVE",
       "not_claimed": [
         "customer output",
         "scope supplied by browser",

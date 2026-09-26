@@ -28,6 +28,7 @@ use Allfather\Loopia\Http\View;
       <a class="rail__link" href="/console/app">Operator Console</a>
       <a class="rail__link" href="/console"<?= ($nav['current'] ?? '') === 'console' ? ' aria-current="page"' : '' ?>>Workspace</a>
       <a class="rail__link" href="/console/workspaces"<?= ($nav['current'] ?? '') === 'workspaces' ? ' aria-current="page"' : '' ?>>Choose workspace</a>
+      <a class="rail__link" href="/console/monitor"<?= ($nav['current'] ?? '') === 'monitor' ? ' aria-current="page"' : '' ?>>Monitor workbench</a>
       <a class="rail__link" href="/console/decisions"<?= ($nav['current'] ?? '') === 'decisions' ? ' aria-current="page"' : '' ?>>Decision ledger</a>
     </div>
 
@@ -63,9 +64,14 @@ use Allfather\Loopia\Http\View;
   <main class="main">
     <?= $content ?>
     <p class="ceiling">
-      <strong>Claim ceiling.</strong> This console shows internally released intelligence only.
-      Nothing here is customer-visible output, and no surface in this projection sends, publishes
-      or performs an external action.
+      <strong>Claim ceiling.</strong>
+      <?php if (($nav['current'] ?? '') === 'monitor'): ?>
+      This workbench includes unreleased requests, drafts and review records. Those records are not
+      released intelligence or authority to execute. Nothing here is customer-visible output.
+      <?php else: ?>
+      This console shows internally released intelligence only. Nothing here is customer-visible
+      output, and no surface in this projection sends, publishes or performs an external action.
+      <?php endif; ?>
     </p>
   </main>
 </div>

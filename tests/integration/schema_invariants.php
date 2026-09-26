@@ -37,16 +37,27 @@ $rejects = static function (callable $work, string $message) use (&$db): void {
 
 // --- structural totals --------------------------------------------------------------------------
 
-// Tables with NO canonical counterpart: the host-adaptation surface Loopia needs and upstream
-// does not have (it runs in-process under Node). Keeping this list explicit is what stops the
-// projection from quietly growing a table that looks canonical but is not.
-$loopiaSpecific = [
-    'jobs', 'job_transitions', 'scheduler_runs',
-    'platform_users', 'platform_sessions', 'auth_attempts',
-    'provider_credentials', 'provider_call_records',
-    'provider_model_attempts', 'provider_model_results',
-];
+// The baseline list is frozen from the documented 188-table projection at 0790475,
+// not inferred from whichever tables happen to exist. Additions are separately classified so
+// a renamed, missing or unexpected table cannot be silently treated as canonical.
+$inventory = json_decode(
+    (string) file_get_contents(__DIR__ . '/../fixtures/schema_table_inventory.json'),
+    true,
+    512,
+    JSON_THROW_ON_ERROR,
+);
+$baselineCanonical = $inventory['baseline_canonical_tables'];
+$canonicalRepairs = $inventory['canonical_repair_tables'];
+$baselineLoopia = $inventory['baseline_loopia_tables'];
+$loopiaExtensions = $inventory['loopia_extension_tables'];
+Assert::same(188, count($baselineCanonical), 'the original pinned canonical inventory remains explicit');
+Assert::same(1, count($canonicalRepairs), 'one separately reviewed upstream repair table is projected');
+Assert::same(8, count($baselineLoopia), 'the original host-adaptation inventory remains explicit');
+Assert::same(6, count($loopiaExtensions), 'six bounded model/Monitor host-adaptation tables are declared');
 
+$expected = array_merge($baselineCanonical, $canonicalRepairs, $baselineLoopia, $loopiaExtensions);
+Assert::same(203, count(array_unique($expected)), 'all table classifications are disjoint and duplicate-free');
+sort($expected, SORT_STRING);
 $present = array_map(
     static fn (array $r): string => (string) $r['t'],
     $db->all(
@@ -54,19 +65,11 @@ $present = array_map(
          WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE' AND table_name <> 'schema_migrations'"
     )
 );
-$canonical = array_values(array_diff($present, $loopiaSpecific));
-
-// 188 pinned tables plus the separately reviewed P01 registration receipt from canonical PR368.
-Assert::same(189, count($canonical), 'all 189 included canonical tables exist');
+sort($present, SORT_STRING);
 Assert::same(
-    count($loopiaSpecific),
-    count(array_intersect($present, $loopiaSpecific)),
-    'every Loopia-specific host-adaptation table exists',
-);
-Assert::same(
-    [],
-    array_values(array_diff($present, $canonical, $loopiaSpecific)),
-    'no table exists that is neither canonical nor a declared Loopia adaptation',
+    $expected,
+    $present,
+    'the exact declared table set exists: 189 canonical + 14 Loopia adapters, with no missing or extra table',
 );
 
 $nonInnodb = (int) $db->scalar(
