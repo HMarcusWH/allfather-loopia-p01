@@ -93,6 +93,22 @@ final class Gateway
         );
     }
 
+    /** Bounded model transform; same gate chain, exact immutable input, no general host executor. */
+    public function requestModelDispatch(array $command, \Allfather\Loopia\Provider\PreparedModelRequest $request, callable $performModel): array
+    {
+        $identity=$request->provenance();
+        foreach (['tenant_id','workspace_id','mission_id'] as $key) {
+            if (($command[$key]??null)!==$identity[$key]) return ['kind'=>'DENIED','reason_codes'=>['MODEL_REQUEST_SCOPE_MISMATCH']];
+        }
+        if (($command['requested_action_class']??'')!=='ANALYZE') return ['kind'=>'DENIED','reason_codes'=>['MODEL_REQUIRES_ANALYZE']];
+        $command['normalized_input_ref_safe']='model-request://'.$request->digest();
+        $prepared=$this->prepare($command);
+        if ($prepared['kind']==='EARLY') return $prepared['decision'];
+        $m01=$prepared['prepared']['m01_command'];
+        $m01['model_request_digest']=$request->digest();
+        return $this->finish($prepared['prepared'],$this->m01->invokeAuthorizedModelTransform($m01,$performModel,$prepared['prepared']['admission']));
+    }
+
     // ---------------------------------------------------------------- phases 1-4
 
     /**
