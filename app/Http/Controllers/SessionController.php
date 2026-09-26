@@ -53,8 +53,8 @@ final class SessionController
     public function login(Request $request, ?array $session): Response
     {
         $result = $this->auth->authenticate(
-            $request->input('email'),
-            $request->input('password'),
+            $request->body('email'),
+            $request->body('password'),
             $request->ip,
             $request->userAgent,
         );

@@ -61,7 +61,7 @@ final class WorkspaceController
 
         $result = $this->auth->setActiveWorkspace(
             (string) $session['session_id'],
-            $request->input('workspace_id'),
+            $request->body('workspace_id'),
         );
         if ($result->isRefusal()) {
             // The SPECIFIC reason, rendered on the chooser. "Could not select" would leave an
