@@ -56,7 +56,8 @@ $present = array_map(
 );
 $canonical = array_values(array_diff($present, $loopiaSpecific));
 
-Assert::same(188, count($canonical), 'all 188 included canonical tables exist');
+// 188 pinned tables plus the separately reviewed P01 registration receipt from canonical PR368.
+Assert::same(189, count($canonical), 'all 189 included canonical tables exist');
 Assert::same(
     count($loopiaSpecific),
     count(array_intersect($present, $loopiaSpecific)),
