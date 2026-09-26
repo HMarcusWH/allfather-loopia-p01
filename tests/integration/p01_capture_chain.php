@@ -72,8 +72,9 @@ $baseCard = [
     'robots_policy_checked' => true,
     'terms_policy_checked' => true,
     'review_status' => 'approved',
-    'caching_policy' => 'no_cache',
-    'retention_class' => 'short',
+    'caching_policy' => 'explicit_contract',
+    'retention_class' => 'standard',
+    'derived_summary_allowed' => true,
 ];
 
 // Each refusal is proved on its own, with everything ELSE about the card left admissible — so a
@@ -105,6 +106,21 @@ foreach ($refusals as $expected => $override) {
         "{$expected}: but the card IS recorded, so the refusal is auditable",
     );
 }
+
+// Contract authority survives persistence and is re-read by the one source-policy compiler.
+$licensed = $cards->project([...$baseCard,'source_url_safe'=>'https://sources.example/licensed','license_class'=>'LICENSED_INTERNAL_ONLY','contract_reference_id'=>'  fixture-contract-2026  ']);
+Assert::same('PROJECTED',$licensed['outcome'],'licensed card with explicit reviewed authority projects');
+$licensedRow=$db->one('SELECT * FROM source_license_cards WHERE source_license_card_id=?',[$licensed['source_license_card_id']]);
+Assert::same('fixture-contract-2026',$licensedRow['contract_reference_id'],'contract reference is trimmed and persisted');
+$ref=['source_ref_id'=>$licensed['source_ref_id'],'tenant_id'=>$scope['tenant_id'],'status'=>'ACTIVE_FOR_CAPTURE','content_sensitivity_class'=>'PUBLIC_OR_NON_SENSITIVE'];
+$policy=\Allfather\Loopia\Ingestion\SourcePolicy::compile($ref,$licensedRow,null,null,strtotime($clock->now())*1000);
+Assert::false(in_array('SOURCE_CONTRACT_REQUIRED_BUT_MISSING',$policy['fail_closed_reason_codes'],true),'persisted authority accepted at compile');
+$legacy=$licensedRow;$legacy['contract_reference_id']=null;
+$policy=\Allfather\Loopia\Ingestion\SourcePolicy::compile($ref,$legacy,null,null,strtotime($clock->now())*1000);
+Assert::true(in_array('SOURCE_CONTRACT_REQUIRED_BUT_MISSING',$policy['fail_closed_reason_codes'],true),'legacy missing licence authority refuses without fabricated migration backfill');
+$firstParty=[...$legacy,'source_type'=>'customer_upload','data_ownership'=>'TENANT_OWNED','allowed_use_class'=>'customer_owned_tenant_scoped'];
+$policy=\Allfather\Loopia\Ingestion\SourcePolicy::compile($ref,$firstParty,null,null,strtotime($clock->now())*1000);
+Assert::false(in_array('SOURCE_CONTRACT_REQUIRED_BUT_MISSING',$policy['fail_closed_reason_codes'],true),'existing explicit P03 tenant-owned upload semantics remain separate from external contracts');
 
 // A high-sensitivity card lands RESTRICTED, not merely REGISTERED: the two are different states and
 // the reference status has to say which.
@@ -375,6 +391,17 @@ Assert::same(
     'returning the same diff rather than appending a second',
 );
 
+// Caller text is checked before replay: it cannot upgrade an unrelated captured change.
+$pair = ['tenant_id'=>$scope['tenant_id'],'workspace_id'=>$scope['workspace_id'],'monitored_source_id'=>$monitoredSourceId,'before_snapshot_id'=>$beforeId,'after_snapshot_id'=>$afterId];
+Assert::same('SNAPSHOT_TEXT_MISMATCH',$changes->detect([...$pair,'before_text'=>'invented text','after_text'=>$page2])->reasonCode(),'arbitrary text cannot reuse a legitimate prior diff');
+Assert::same('DIFF_INPUT_CONFLICT',$changes->detect([...$pair,'material_change_threshold'=>1.0])->reasonCode(),'different threshold cannot silently reuse a prior classification');
+foreach ([-1, 1.01, INF, NAN, '0.25'] as $invalid) {
+    Assert::same('INVALID_MATERIAL_CHANGE_THRESHOLD',$changes->detect([...$pair,'material_change_threshold'=>$invalid])->reasonCode(),'invalid configuration refused before replay');
+}
+Assert::same('ALREADY_DETECTED',$changes->detect($pair)->value()['outcome'],'capture proof supplies comparison without caller text');
+$proofJson = $db->scalar('SELECT text_provenance_json FROM source_snapshots WHERE source_snapshot_id=?',[$beforeId]);
+Assert::false(str_contains((string)$proofJson,'449 SEK'),'retained comparison proof contains hashes, not source text');
+
 // ============================================================ significance is not relevance
 
 // The band is a STRUCTURAL measurement. These cases pin what it does and does not claim.
@@ -418,8 +445,8 @@ Assert::same(
     'a whitespace-only change is MINOR even at a zero threshold — a real change that moved nothing',
 );
 
-// With no text supplied we know it CHANGED but not how much, and UNKNOWN says exactly that rather
-// than guessing a band from a hash difference that carries no magnitude.
+// A no-cache capture retains only its whole-content digest; no structural magnitude is invented.
+$db->run("UPDATE source_license_cards SET caching_policy = 'no_cache' WHERE source_license_card_id = ?", [$approved['source_license_card_id']]);
 $fourth = $capture->captureMonitoredSource([
     'tenant_id' => $scope['tenant_id'],
     'workspace_id' => $scope['workspace_id'],
@@ -438,8 +465,11 @@ $unknownDiff = $changes->detect([
 Assert::same(
     'UNKNOWN',
     $unknownDiff->value()['change_significance'],
-    'without text, the magnitude is UNKNOWN — never a guessed band',
+    'without retained capture proof, the magnitude is UNKNOWN — never a guessed band',
 );
+
+Assert::same(null,$db->scalar('SELECT text_provenance_json FROM source_snapshots WHERE source_snapshot_id=?',[$fourth->value()['source_snapshot_id']]),'no-cache source retains no line-level proof');
+Assert::same('SNAPSHOT_TEXT_PROVENANCE_UNAVAILABLE',$changes->detect(['tenant_id'=>$scope['tenant_id'],'workspace_id'=>$scope['workspace_id'],'monitored_source_id'=>$monitoredSourceId,'before_snapshot_id'=>$third->value()['source_snapshot_id'],'after_snapshot_id'=>$fourth->value()['source_snapshot_id'],'after_text'=>$page1])->reasonCode(),'caller text cannot reconstruct withheld comparison authority');
 
 // ============================================================ nothing here is customer-visible
 

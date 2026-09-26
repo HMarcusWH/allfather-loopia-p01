@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Allfather\Loopia\Product\P01;
 
 use Allfather\Loopia\Core\Clock;
+use Allfather\Loopia\Core\Digest;
 use Allfather\Loopia\Core\Outcome;
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Substrate\M03\Eligibility;
@@ -82,6 +83,26 @@ final class Registration
     public function registerCompetitionMonitor(array $input): Outcome
     {
         return $this->db->transaction(function (Database $tx) use ($input): Outcome {
+            // Serialize setup in this workspace; it also makes receipt creation deterministic.
+            $workspace=$tx->one('SELECT workspace_id FROM workspaces WHERE workspace_id=? AND tenant_id=? FOR UPDATE',[$input['workspace_id'],$input['tenant_id']]);
+            if ($workspace===null) {return Outcome::refuse('P01_REGISTRATION_SCOPE_INVALID',[],'SCOPE');}
+            $digest=Digest::canonicalDigest(['version'=>'p01_registration_v2','tenant_id'=>$input['tenant_id'],'workspace_id'=>$input['workspace_id'],'operator_id'=>$input['operator_id'],'runtime_binding_id'=>$input['runtime_binding_id']??null,'runtime_host_tool_ref'=>$input['runtime_host_tool_ref']??null]);
+            $shared=$this->ensureSharedTool($input); if ($shared->isRefusal()) {return $shared;}
+            $tier=$this->ensureTier(); if ($tier->isRefusal()) {return $tier;}
+            $prior=$tx->one('SELECT input_digest,outcome_json FROM p01_registration_receipts WHERE tenant_id=? AND workspace_id=? AND tool_key=?',[$input['tenant_id'],$input['workspace_id'],'p01.source.read']);
+            if ($prior!==null) {
+                if ($prior['input_digest']!==$digest) {return Outcome::refuse('P01_REGISTRATION_INPUT_CONFLICT',[],'POLICY');}
+                $saved=json_decode((string)$prior['outcome_json'],true,512,JSON_THROW_ON_ERROR);
+                $active=$tx->one("SELECT 1 AS ok FROM valkyries v JOIN capability_contracts c ON c.capability_contract_id=v.active_capability_contract_id JOIN arbiter_policy_sets ps ON ps.arbiter_policy_set_id=? WHERE v.valkyrie_id=? AND v.tenant_id=? AND v.workspace_id=? AND v.status='ACTIVE' AND c.capability_contract_id=? AND c.status='ACTIVE' AND ps.status='ACTIVE'",[$saved['arbiter_policy_set_id'],$saved['valkyrie_id'],$input['tenant_id'],$input['workspace_id'],$saved['capability_contract_id']]);
+                $rights=$tx->all('SELECT * FROM tool_rights WHERE capability_contract_id=? AND governed_tool_id=?',[$saved['capability_contract_id'],$saved['governed_tool_id']]);
+                $right=$rights[0]??null;
+                $rightsActive=count($rights)===1 && $right['tool_right_id']===$saved['tool_right_id'] && $right['status']==='ACTIVE' && $right['tool_class']==='READ_ONLY_SOURCE' && $right['maximum_action_class']==='OBSERVE' && (int)$right['evidence_capture_required']===1 && (int)$right['approval_required']===0 && (int)$right['frozen_artifact_required']===0 && json_decode($right['allowed_operations'],true,512,JSON_THROW_ON_ERROR)===['source.read'];
+                $contract=$tx->one('SELECT tenant_id,workspace_id,allowed_action_classes,role_class,human_approval_or_execution_authority FROM capability_contracts WHERE capability_contract_id=?',[$saved['capability_contract_id']]);
+                $actions=$contract===null?[]:json_decode($contract['allowed_action_classes'],true,512,JSON_THROW_ON_ERROR);sort($actions,SORT_STRING);
+                $contractMatches=$contract!==null && $contract['tenant_id']===$input['tenant_id'] && $contract['workspace_id']===$input['workspace_id'] && $contract['role_class']==='COMPETITION_MONITOR_VALKYRIE' && (int)$contract['human_approval_or_execution_authority']===0 && $actions===['ANALYZE','OBSERVE','RELEASE_INTELLIGENCE'];
+                if ($active===null || !$rightsActive || !$contractMatches || $saved['governed_tool_id']!==$shared->value()['governed_tool_id'] || $saved['governed_tool_operation_id']!==$shared->value()['governed_tool_operation_id'] || $saved['subscription_tier_id']!==$tier->value()['subscription_tier_id']) {return Outcome::refuse('P01_REGISTRATION_STATE_CHANGED',[],'POLICY');}
+                return Outcome::ok($saved);
+            }
             // --- M03: the agent, its contract, its tool right -----------------------------------
             $valkyrieId = $this->m03->registerValkyrie(
                 $input['tenant_id'],
@@ -111,27 +132,8 @@ final class Registration
             }
             $contractId = $contract->value()['capability_contract_id'];
 
-            // --- M06: the governed read tool ------------------------------------------------------
-            $toolId = $this->tools->registerTool([
-                'tool_key' => 'p01.source.read',
-                'display_name' => 'Competitor source read',
-                'purpose_summary' => 'Read an approved public competitor source page.',
-                'tool_class' => 'READ_ONLY_SOURCE',
-                'risk_level' => 'T1',
-                // The tool's own ceiling is OBSERVE: this tool reads, and nothing more. The
-                // contract's higher ceiling covers the agent's other acts, not this tool's.
-                'maximum_action_class' => 'OBSERVE',
-                'runtime_mapping_ref_id' => $input['runtime_binding_id'] ?? null,
-                'evidence_capture_required_by_default' => true,
-            ]);
-            $operationId = $this->tools->registerOperation([
-                'governed_tool_id' => $toolId,
-                'operation_key' => 'source.read',
-                'operation_summary' => 'Fetch one approved source URL.',
-                'operation_class' => 'READ',
-                'classified_action_class' => 'OBSERVE',
-                'requires_evidence_capture' => true,
-            ]);
+            $toolId = $shared->value()['governed_tool_id'];
+            $operationId = $shared->value()['governed_tool_operation_id'];
             $toolRightId = $this->eligibility->grantToolRight(
                 $contractId, $toolId, ['source.read'], 'READ_ONLY_SOURCE', 'OBSERVE'
             );
@@ -148,12 +150,7 @@ final class Registration
             $this->m16->seedVisibilityProfiles($input['tenant_id']);
 
             // --- the commercial tier ---------------------------------------------------------------------
-            $tier = $this->ensureTier();
-            if ($tier->isRefusal()) {
-                return $tier;
-            }
-
-            return Outcome::ok([
+            $result = [
                 'valkyrie_id' => $valkyrieId,
                 'capability_contract_id' => $contractId,
                 'tool_right_id' => $toolRightId,
@@ -161,7 +158,9 @@ final class Registration
                 'governed_tool_operation_id' => $operationId,
                 'arbiter_policy_set_id' => $policySet->value()['arbiter_policy_set_id'],
                 'subscription_tier_id' => $tier->value()['subscription_tier_id'],
-            ]);
+            ];
+            $tx->insert('p01_registration_receipts',['tenant_id'=>$input['tenant_id'],'workspace_id'=>$input['workspace_id'],'tool_key'=>'p01.source.read','input_digest'=>$digest,'outcome_json'=>json_encode($result,JSON_THROW_ON_ERROR),'created_at'=>$this->clock->now()]);
+            return Outcome::ok($result);
         });
     }
 
@@ -174,11 +173,12 @@ final class Registration
      */
     private function ensureTier(): Outcome
     {
-        $existing = $this->db->scalar(
-            "SELECT subscription_tier_id FROM subscription_tiers WHERE tier_key = 'p01_monitor'"
-        );
+        $existing = $this->db->one("SELECT * FROM subscription_tiers WHERE tier_key='p01_monitor' AND tier_version='1' FOR UPDATE");
         if ($existing !== null) {
-            return Outcome::ok(['subscription_tier_id' => (string) $existing]);
+            $permissions=array_column($this->db->all('SELECT permission_key FROM subscription_tier_permissions WHERE subscription_tier_id=? ORDER BY permission_key',[$existing['subscription_tier_id']]),'permission_key');
+            $expected=self::TIER_PERMISSIONS;sort($expected,SORT_STRING);
+            if ($existing['status']!=='ACTIVE' || $existing['display_name']!=='P01 Competition Monitor' || (int)$existing['monthly_fee_minor_units']!==249900 || $existing['currency']!=='SEK' || $existing['billing_period']!=='MONTHLY' || $permissions!==$expected) {return Outcome::refuse('P01_SHARED_TIER_CONFLICT',[],'POLICY');}
+            return Outcome::ok(['subscription_tier_id'=>(string)$existing['subscription_tier_id']]);
         }
 
         // The permissions must already exist in the platform vocabulary. `defineTier` refuses any
@@ -203,4 +203,45 @@ final class Registration
             'p01_monitor', 'P01 Competition Monitor', 249_900, self::TIER_PERMISSIONS
         );
     }
+    /** Reuse exact immutable global definitions only; a scoped mapping can never leak across workspaces. */
+    private function ensureSharedTool(array $input): Outcome
+    {
+        $bindingId=$input['runtime_binding_id']??null;
+        if ($bindingId!==null) {
+            $binding=$this->db->one('SELECT tenant_id,workspace_id,status,safety_classification FROM runtime_host_bindings WHERE binding_id=?',[$bindingId]);
+            if ($binding===null || $binding['tenant_id']!==null || $binding['workspace_id']!==null || $binding['status']!=='ACTIVE' || $binding['safety_classification']!=='SAFE_READ_ONLY') {return Outcome::refuse('P01_RUNTIME_BINDING_NOT_SHAREABLE',[],'SCOPE');}
+        }
+        $row=$this->db->one("SELECT * FROM governed_tools WHERE tool_key='p01.source.read' AND descriptor_version='1.0.0' FOR UPDATE");
+        if ($row!==null) {
+            $expected=['display_name'=>'Competitor source read','purpose_summary'=>'Read an approved public competitor source page.','tool_class'=>'READ_ONLY_SOURCE','risk_level'=>'T1','maximum_action_class'=>'OBSERVE','runtime_mapping_ref_id'=>$bindingId,'evidence_capture_required_by_default'=>1,'approval_required'=>0,'frozen_artifact_required'=>0,'status'=>'ACTIVE'];
+            foreach ($expected as $key=>$value) {if (($value===null && $row[$key]!==null) || ($value!==null && (string)$row[$key] !== (string)$value)) {return Outcome::refuse('P01_SHARED_TOOL_CONFLICT',[],'POLICY');}}
+            $operation=$this->db->one("SELECT * FROM governed_tool_operations WHERE governed_tool_id=? AND operation_key='source.read'",[$row['governed_tool_id']]);
+            if ($operation===null) {return Outcome::refuse('P01_SHARED_TOOL_CONFLICT',[],'POLICY');}
+            $expected=['operation_summary'=>'Fetch one approved source URL.','operation_class'=>'READ','classified_action_class'=>'OBSERVE','requires_mission'=>1,'requires_valkyrie_contract'=>1,'requires_evidence_capture'=>1,'requires_approval'=>0,'requires_frozen_artifact'=>0,'status'=>'ACTIVE'];
+            foreach ($expected as $key=>$value) {if ((string)$operation[$key] !== (string)$value) {return Outcome::refuse('P01_SHARED_TOOL_CONFLICT',[],'POLICY');}}
+            return Outcome::ok(['governed_tool_id'=>$row['governed_tool_id'],'governed_tool_operation_id'=>$operation['governed_tool_operation_id']]);
+        }
+            $toolId = $this->tools->registerTool([
+                'tool_key' => 'p01.source.read',
+                'display_name' => 'Competitor source read',
+                'purpose_summary' => 'Read an approved public competitor source page.',
+                'tool_class' => 'READ_ONLY_SOURCE',
+                'risk_level' => 'T1',
+                // The tool's own ceiling is OBSERVE: this tool reads, and nothing more. The
+                // contract's higher ceiling covers the agent's other acts, not this tool's.
+                'maximum_action_class' => 'OBSERVE',
+                'runtime_mapping_ref_id' => $input['runtime_binding_id'] ?? null,
+                'evidence_capture_required_by_default' => true,
+            ]);
+            $operationId = $this->tools->registerOperation([
+                'governed_tool_id' => $toolId,
+                'operation_key' => 'source.read',
+                'operation_summary' => 'Fetch one approved source URL.',
+                'operation_class' => 'READ',
+                'classified_action_class' => 'OBSERVE',
+                'requires_evidence_capture' => true,
+            ]);
+        return Outcome::ok(['governed_tool_id'=>$toolId,'governed_tool_operation_id'=>$operationId]);
+    }
+
 }

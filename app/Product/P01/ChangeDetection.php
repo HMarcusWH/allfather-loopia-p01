@@ -87,19 +87,39 @@ final class ChangeDetection
             return Outcome::refuse('SNAPSHOTS_NOT_FORWARD_ORDERED', [], 'POLICY');
         }
 
-        // Idempotent: the SAME pair yields the existing diff rather than a duplicate. Two diff rows
-        // for one comparison would let a downstream count of "changes observed" double.
-        $existing = $this->db->one(
-            'SELECT source_diff_id, change_significance FROM source_diffs
-             WHERE monitored_source_id = ? AND before_snapshot_id = ? AND after_snapshot_id = ?',
-            [$input['monitored_source_id'], $input['before_snapshot_id'], $input['after_snapshot_id']]
-        );
+        $threshold = $input['material_change_threshold'] ?? self::DEFAULT_MATERIAL_THRESHOLD;
+        if ((!is_int($threshold) && !is_float($threshold)) || !is_finite((float) $threshold) || $threshold < 0 || $threshold > 1) {
+            return Outcome::refuse('INVALID_MATERIAL_CHANGE_THRESHOLD', [], 'POLICY');
+        }
+        $beforeProof = TextProvenance::read($before['text_provenance_json'], (string) $before['content_hash']);
+        $afterProof = TextProvenance::read($after['text_provenance_json'], (string) $after['content_hash']);
+        if (($before['text_provenance_json'] !== null && $beforeProof === null)
+            || ($after['text_provenance_json'] !== null && $afterProof === null)) {
+            return Outcome::refuse('SNAPSHOT_TEXT_PROVENANCE_INVALID', [], 'PROVENANCE');
+        }
+        foreach ([['before_text', $before, $beforeProof], ['after_text', $after, $afterProof]] as [$key, $snapshot, $proof]) {
+            if (!array_key_exists($key, $input) || $input[$key] === null) { continue; }
+            if (!is_string($input[$key])) { return Outcome::refuse('SNAPSHOT_TEXT_MISMATCH', [], 'PROVENANCE'); }
+            if ($proof === null) { return Outcome::refuse('SNAPSHOT_TEXT_PROVENANCE_UNAVAILABLE', [], 'PROVENANCE'); }
+            if (Digest::canonicalDigest(TextProvenance::capture((string) $snapshot['content_hash'], $input[$key])) !== Digest::canonicalDigest($proof)) {
+                return Outcome::refuse('SNAPSHOT_TEXT_MISMATCH', [], 'PROVENANCE');
+            }
+        }
+        $changeDetected = (string) $before['content_hash'] !== (string) $after['content_hash'];
+        $classified = TextProvenance::classify((string) $before['content_hash'], (string) $after['content_hash'], $beforeProof, $afterProof, (float) $threshold);
+        $diffDigest = TextProvenance::digest(['beforeSnapshotId' => $input['before_snapshot_id'],
+            'afterSnapshotId' => $input['after_snapshot_id'], 'beforeContentHash' => (string) $before['content_hash'],
+            'afterContentHash' => (string) $after['content_hash'], 'before' => $beforeProof, 'after' => $afterProof,
+            'threshold' => $threshold, ...$classified]);
+        $existing = $this->db->one('SELECT source_diff_id, change_significance, diff_digest, classifier_version
+            FROM source_diffs WHERE monitored_source_id = ? AND before_snapshot_id = ? AND after_snapshot_id = ?',
+            [$input['monitored_source_id'], $input['before_snapshot_id'], $input['after_snapshot_id']]);
         if ($existing !== null) {
-            return Outcome::ok([
-                'outcome' => 'ALREADY_DETECTED',
-                'source_diff_id' => (string) $existing['source_diff_id'],
-                'change_significance' => (string) $existing['change_significance'],
-            ]);
+            if ($existing['classifier_version'] !== TextProvenance::CLASSIFIER_VERSION || $existing['diff_digest'] !== $diffDigest) {
+                return Outcome::refuse('DIFF_INPUT_CONFLICT', [], 'PROVENANCE');
+            }
+            return Outcome::ok(['outcome' => 'ALREADY_DETECTED', 'source_diff_id' => (string) $existing['source_diff_id'],
+                'change_significance' => (string) $existing['change_significance']]);
         }
 
         $source = $this->db->one(
@@ -113,26 +133,9 @@ final class ChangeDetection
             return Outcome::refuse('MONITORED_SOURCE_NOT_FOUND', [], 'PROVENANCE');
         }
 
-        $changeDetected = (string) $before['content_hash'] !== (string) $after['content_hash'];
-        $classified = self::classify(
-            $changeDetected,
-            $input['before_text'] ?? null,
-            $input['after_text'] ?? null,
-            $input['material_change_threshold'] ?? self::DEFAULT_MATERIAL_THRESHOLD,
-        );
-
-        // The diff digest binds the two snapshots' CONTENT HASHES, not their ids: it is the stable
-        // identity of "this comparison of these exact bytes". The significance is recorded
-        // separately, because it is derived and could be re-derived differently.
-        $diffDigest = Digest::canonicalDigest([
-            'beforeSnapshotId' => $input['before_snapshot_id'],
-            'afterSnapshotId' => $input['after_snapshot_id'],
-            'beforeContentHash' => (string) $before['content_hash'],
-            'afterContentHash' => (string) $after['content_hash'],
-        ]);
 
         return $this->db->transaction(function (Database $tx) use (
-            $input, $source, $diffDigest, $classified, $changeDetected
+            $input, $source, $diffDigest, $classified, $changeDetected, $threshold
         ): Outcome {
             $captured = $this->evidence->capture([
                 'tenant_id' => $input['tenant_id'],
@@ -172,6 +175,8 @@ final class ChangeDetection
                 'diff_digest' => $diffDigest,
                 'hash_algorithm' => 'sha256',
                 'change_significance' => $classified['significance'],
+                'classifier_version' => TextProvenance::CLASSIFIER_VERSION,
+                'material_change_threshold' => $threshold,
                 // Derived COUNTS only. The raw text of neither capture is ever persisted here — the
                 // snapshots are the record of the bytes, and duplicating them into a summary would
                 // put source content somewhere the licence checks do not reach.
@@ -200,43 +205,6 @@ final class ChangeDetection
     public static function structuralChangeRatio(string $beforeText, string $afterText): float
     {
         return self::jaccardDistance(self::normalizeLines($beforeText), self::normalizeLines($afterText));
-    }
-
-    /** @return array{significance: string, summary: string} */
-    private static function classify(
-        bool $changeDetected,
-        ?string $beforeText,
-        ?string $afterText,
-        float $threshold,
-    ): array {
-        if (!$changeDetected) {
-            return ['significance' => 'NONE', 'summary' => 'no content change (identical capture hash)'];
-        }
-        if ($beforeText === null || $afterText === null) {
-            // We KNOW it changed; we do not know how much. UNKNOWN says exactly that, rather than
-            // guessing a band from a hash difference that carries no magnitude.
-            return [
-                'significance' => 'UNKNOWN',
-                'summary' => 'content hash changed; no normalized text supplied for classification',
-            ];
-        }
-
-        $before = self::normalizeLines($beforeText);
-        $after = self::normalizeLines($afterText);
-        $ratio = self::jaccardDistance($before, $after);
-        $added = count(array_diff($after, $before));
-        $removed = count(array_diff($before, $after));
-
-        // A hash change with NO line-level delta — a whitespace or sub-line edit — is a real but
-        // small change: MINOR, never MATERIAL. So a zero distance is MINOR regardless of the
-        // threshold, which also means a non-positive threshold cannot force MATERIAL onto a capture
-        // whose text did not move.
-        $significance = ($ratio > 0.0 && $ratio >= $threshold) ? 'MATERIAL' : 'MINOR';
-
-        return [
-            'significance' => $significance,
-            'summary' => sprintf('structural change: distance=%.3f, +%d/-%d lines', $ratio, $added, $removed),
-        ];
     }
 
     /** @return list<string> */
@@ -272,7 +240,7 @@ final class ChangeDetection
     private function readSnapshot(string $snapshotId): ?array
     {
         return $this->db->one(
-            'SELECT monitored_source_id, tenant_id, workspace_id, content_hash, snapshot_sequence
+            'SELECT monitored_source_id, tenant_id, workspace_id, content_hash, snapshot_sequence, text_provenance_json
              FROM source_snapshots WHERE source_snapshot_id = ?',
             [$snapshotId]
         );

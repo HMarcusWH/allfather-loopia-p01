@@ -392,9 +392,9 @@ Assert::contains(
     'the capability report states the migration count that actually exists',
 );
 Assert::contains(
-    sprintf('| schema migrations | complete, %d files, idempotent |', $migrationCount),
+    sprintf('| schema migrations | %d files in candidate; deployed-release count is recorded separately |', $migrationCount),
     $capabilityReport,
-    'the operational-readiness table uses the same real migration count',
+    'the operational-readiness table separates actual candidate file count from deployed migration proof',
 );
 Assert::false(
     str_contains($capabilityReport, 'P02 is refused'),

@@ -75,6 +75,7 @@ final class Capture
         ['SOURCE_RETENTION_PROHIBITED', 'SOURCE_RETENTION_PROHIBITED'],
         ['SOURCE_USE_PROHIBITED', 'SOURCE_POLICY_PROHIBITED'],
         ['SOURCE_LICENSE_PROHIBITED', 'SOURCE_POLICY_PROHIBITED'],
+        ['SOURCE_CONTRACT_REQUIRED_BUT_MISSING', 'SOURCE_POLICY_PROHIBITED'],
         ['SOURCE_SENSITIVITY_PROHIBITED', 'SOURCE_POLICY_PROHIBITED'],
         ['SOURCE_SCOPE_MISMATCH', 'MONITORED_SOURCE_SCOPE_MISMATCH'],
         ['SOURCE_URL_MISSING_OR_INVALID', 'SOURCE_URL_MISSING_OR_INVALID'],
@@ -236,7 +237,7 @@ final class Capture
         }
 
         try {
-            return $this->dispatchAndMaterialize($input, $row, $policy, $transport, $resolver);
+            return $this->dispatchAndMaterialize($input, $row, $policy, $card, $transport, $resolver);
         } finally {
             // Released whatever happened. The TTL is the safety net for a process that dies; the
             // release is what keeps the normal path from waiting for it.
@@ -258,6 +259,7 @@ final class Capture
         array $input,
         array $row,
         array $policy,
+        array $card,
         FetchTransport $transport,
         HostResolver $resolver,
     ): Outcome {
@@ -265,7 +267,13 @@ final class Capture
         // report WHY without a second database round trip — and so the reason reaching the audit
         // trail is the guard's own, not a summary of it.
         $guardReason = null;
-        $performLiveFetch = function () use ($input, $policy, $transport, $resolver, &$guardReason): array {
+        $captureProof = null;
+        // Exact source-policy slice: no raw text; no-cache/short/minimized retention stays hash-only.
+        $retainComparison = (int) ($card['derived_summary_allowed'] ?? 0) === 1
+            && in_array($card['caching_policy'] ?? null, ['standard_cache', 'explicit_contract'], true)
+            && in_array($card['allowed_use_class'] ?? null, ['derived_summary_allowed', 'customer_visible_allowed'], true)
+            && ($card['retention_class'] ?? null) === 'standard';
+        $performLiveFetch = function () use ($input, $policy, $transport, $resolver, &$guardReason, &$captureProof, $retainComparison): array {
             $result = EgressGuard::guardedFetch(
                 $input['capture_url'],
                 $policy['allowed_hosts'],
@@ -283,6 +291,8 @@ final class Capture
                 EgressGuard::effectiveHttpsOrigin($policy['allowed_url_scope']),
             );
             if ($result['outcome'] === 'FETCHED') {
+                $captureProof = ['content_hash' => $result['content_hash'], 'text' => $retainComparison
+                    ? json_encode(TextProvenance::capture($result['content_hash'], $result['body']), JSON_THROW_ON_ERROR) : null];
                 return ['kind' => 'FETCHED', 'content_hash' => $result['content_hash']];
             }
             $guardReason = $result['reason_code'];
@@ -335,9 +345,12 @@ final class Capture
         // capture with no provenance; evidence without its snapshot would be provenance for
         // something the monitoring path cannot see.
         $contentHash = (string) $dispatch['result_digest'];
+        if ($captureProof === null || $captureProof['content_hash'] !== $contentHash) {
+            return Outcome::refuse('CAPTURE_PROVENANCE_MISMATCH', [], 'PROVENANCE');
+        }
 
         return $this->db->transaction(function (Database $tx) use (
-            $input, $row, $dispatch, $contentHash
+            $input, $row, $dispatch, $contentHash, $captureProof
         ): Outcome {
             $captured = $this->evidence->capture([
                 'tenant_id' => $input['tenant_id'],
@@ -376,6 +389,7 @@ final class Capture
                 'monitored_source_id' => $input['monitored_source_id'],
                 'evidence_id' => $captured->value()['evidence_id'],
                 'snapshot_sequence' => $sequence,
+                'text_provenance_json' => $captureProof['text'],
                 // The snapshot's content hash IS the captured content hash the guard computed over
                 // the exact bytes read, bound to the URL. It is not recomputed here, because a
                 // second computation over a second reading would describe different bytes.

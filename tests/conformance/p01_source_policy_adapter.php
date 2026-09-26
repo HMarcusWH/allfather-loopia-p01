@@ -327,6 +327,14 @@ $cases = [
         'a prohibited use class NARROWS to SOURCE_POLICY_PROHIBITED — P01 has no historical code for it',
     ],
     [
+        'SOURCE_CONTRACT_REQUIRED_BUT_MISSING',
+        'SOURCE_POLICY_PROHIBITED',
+        function (array $s) use ($db): void {
+            $db->run("UPDATE source_license_cards SET license_class = 'LICENSED_INTERNAL_ONLY', contract_reference_id = NULL WHERE source_license_card_id = ?", [$s['source_license_card_id']]);
+        },
+        'legacy licensed card without retained authority refuses at capture time',
+    ],
+    [
         'SOURCE_LICENSE_PROHIBITED',
         'SOURCE_POLICY_PROHIBITED',
         function (array $s) use ($db): void {

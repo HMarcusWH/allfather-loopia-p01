@@ -185,7 +185,7 @@ final class Assurance
 
         $diff = $this->db->one(
             'SELECT tenant_id, workspace_id, monitored_source_id, before_snapshot_id,
-                    after_snapshot_id, diff_digest
+                    after_snapshot_id, diff_digest, classifier_version, material_change_threshold, change_significance, diff_summary_safe
              FROM source_diffs WHERE source_diff_id = ?',
             [$input['source_diff_id']]
         );
@@ -225,15 +225,27 @@ final class Assurance
             );
         }
 
-        // Re-derived PURELY from the cited snapshots' own content hashes, using the same projection
-        // change detection used. A mismatch means the stored digest no longer describes what it
-        // cites — a finding about the RECORD.
-        $recomputed = Digest::canonicalDigest([
-            'beforeSnapshotId' => (string) $diff['before_snapshot_id'],
-            'afterSnapshotId' => (string) $diff['after_snapshot_id'],
-            'beforeContentHash' => (string) $before['content_hash'],
-            'afterContentHash' => (string) $after['content_hash'],
-        ]);
+        $beforeProof = TextProvenance::read($before['text_provenance_json'], (string) $before['content_hash']);
+        $afterProof = TextProvenance::read($after['text_provenance_json'], (string) $after['content_hash']);
+        $legacy = $diff['classifier_version'] === null;
+        $threshold = $diff['material_change_threshold'] === null ? null : (float) $diff['material_change_threshold'];
+        $validProof = ($before['text_provenance_json'] === null || $beforeProof !== null)
+            && ($after['text_provenance_json'] === null || $afterProof !== null);
+        $classified = TextProvenance::classify((string) $before['content_hash'], (string) $after['content_hash'], $beforeProof, $afterProof, $threshold ?? 0.25);
+        $ids = ['beforeSnapshotId' => (string) $diff['before_snapshot_id'], 'afterSnapshotId' => (string) $diff['after_snapshot_id'],
+            'beforeContentHash' => (string) $before['content_hash'], 'afterContentHash' => (string) $after['content_hash']];
+        $legacyCoherent = in_array($diff['change_significance'], ['MINOR', 'MATERIAL'], true)
+            || ($diff['change_significance'] === 'NONE' && $before['content_hash'] === $after['content_hash'])
+            || ($diff['change_significance'] === 'UNKNOWN' && $before['content_hash'] !== $after['content_hash']);
+        $recomputed = $legacy ? ($legacyCoherent ? Digest::canonicalDigest($ids) : null)
+            : ($diff['classifier_version'] === TextProvenance::CLASSIFIER_VERSION && $threshold !== null
+                && is_finite($threshold) && $threshold >= 0 && $threshold <= 1 && $validProof
+                && $classified['significance'] === $diff['change_significance'] && $classified['summary'] === $diff['diff_summary_safe']
+                ? TextProvenance::digest([...$ids, 'before' => $beforeProof, 'after' => $afterProof, 'threshold' => $threshold, ...$classified]) : null);
+        if ($recomputed === $diff['diff_digest'] && $legacy && in_array($diff['change_significance'], ['MINOR', 'MATERIAL'], true)) {
+            return $this->recordDiffFinding($profile, $input['source_diff_id'], 'REFERENCE_INCOMPLETENESS', 'MISSING', 'S3',
+                ['DIFF_CLASSIFICATION_UNBOUND'], 'Historical structural classification has no capture-bound proof; history is preserved.');
+        }
         if ($recomputed === (string) $diff['diff_digest']) {
             return $this->recordDiffFinding(
                 $profile, $input['source_diff_id'], 'CONTROL_PASS', 'KNOWN', 'S1', [],
@@ -281,7 +293,7 @@ final class Assurance
     private function snapshotForAudit(string $snapshotId): ?array
     {
         return $this->db->one(
-            'SELECT tenant_id, workspace_id, monitored_source_id, content_hash
+            'SELECT tenant_id, workspace_id, monitored_source_id, content_hash, text_provenance_json
              FROM source_snapshots WHERE source_snapshot_id = ?',
             [$snapshotId]
         );
