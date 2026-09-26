@@ -57,8 +57,10 @@ exact current assertion counts are in `CONFORMANCE_MATRIX.md` §1 and the PR tes
 
 Not "does not yet" — cannot, structurally:
 
-- **Send anything.** No channel adapter, no transport, no code path that could acquire one. The
-  P07-B binding producer is not ported at all.
+- **Send business messages or mutate external customer systems.** No email/SMS/CRM outreach
+  channel transport is present, and the P07-B binding producer is not ported. The new bounded
+  model-inference transport is a separate implementation candidate whose default factory and
+  prompt bindings remain inactive; it is not a messaging or external-action adapter.
 - **Publish anything.** The marketing status vocabulary has no published state.
 - **Perform an external or consequential action.** Refused at four independent planes.
 - **Claim buyer intent.** The column admits only `REASON_TO_INVESTIGATE`.
@@ -86,6 +88,9 @@ Working end to end today, given seeded authority:
 The current working candidate has additional migrations. PR16 staging evidence proves the prior
 19-migration release only; candidate migration execution, repeatability and host qualification must
 be evidenced for the new exact release before claiming deployment readiness.
+The candidate also adds the inactive Monitor workbench and bounded model composition described in
+[Monitor delivery and remaining work](MONITOR_DELIVERY_AND_REMAINING_WORK_2026_09_27.md).
+Its local implementation and fixture checks do not update the deployed PR16 claims below.
 
 | Area | State |
 | --- | --- |
@@ -177,6 +182,7 @@ console an earlier revision of this document described.
 | `/account/password` | the compulsory first password change, and the ONE authenticated path reachable while it is outstanding |
 | `/account` | the login, the governed operator it acts as, and the route to changing the password |
 | `/console/workspaces` | the workspace chooser — a membership projection, never a workspace list |
+| `/console/monitor` | candidate workbench for configured missions, exact request/candidate inspection, two human reviews and run history; default execution remains inactive |
 | `/support` | Help & support: the configured contact, the deployed release reference, and the claim ceiling restated |
 | `/console`, `/console/decisions`, `/console/briefings`, `/console/distributions`, `/console/marketing` | the legacy governed SSR surfaces |
 
@@ -222,8 +228,11 @@ merely present:
   are different answers to different questions, and a console that showed the first as the second
   would tell a partner there is nothing to see when the truth is that they may not look.
 
-**Surfaces render from governed projections**, not from live joins across domain tables — which is
-what makes what a viewer saw on a given day reconstructable.
+**Released-intelligence read surfaces use governed projections.** The new Monitor workbench has
+a different purpose: it reads the scoped run journal and private content-addressed request,
+candidate and review artifacts, together with fresh M10 reliance. Those records include unreleased
+work and are not presented as a released-intelligence projection. Historical run completion is
+separate from the currently effective release state.
 
 The navigation rail states on the page that hiding an item is not a permission and showing one is
 not either, because an operator who believes the menu is the boundary will eventually test it.
