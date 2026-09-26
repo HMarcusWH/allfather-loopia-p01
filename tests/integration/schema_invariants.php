@@ -44,6 +44,7 @@ $loopiaSpecific = [
     'jobs', 'job_transitions', 'scheduler_runs',
     'platform_users', 'platform_sessions', 'auth_attempts',
     'provider_credentials', 'provider_call_records',
+    'provider_model_attempts', 'provider_model_results',
 ];
 
 $present = array_map(
