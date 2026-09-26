@@ -1,0 +1,26 @@
+{
+  "source_ref": "32c98a7191b7a4ae7a45d745917f39521f8f5112",
+  "existing_projection_pin": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+  "source_files_identical_between_refs": true,
+  "scope": "Pure contracts/hash/resolver/promotion report; array store only. No durable runtime database or canonical product prompt integration claimed.",
+  "sources": [
+    {
+      "path": "packages/allfather-control-substrate/src/promptops/records.ts",
+      "sha256": "87fda256f6823daca12c883d0f0e38751a6c0cf19f662f57db8d1a68312c693a"
+    },
+    {
+      "path": "packages/allfather-control-substrate/src/promptops/resolver.ts",
+      "sha256": "01ab6bda1743a105d6dd23a74900247aa8807ac5e72453ac53e1e82cd77f432f"
+    },
+    {
+      "path": "packages/allfather-control-substrate/src/promptops/promotion-check.ts",
+      "sha256": "d31775754d056f14785ffb61747f6de48549e488ae9fbaf629bf65043a27db97"
+    },
+    {
+      "path": "packages/allfather-control-substrate/src/promptops/in-memory-prompt-store.ts",
+      "sha256": "93e55fcc234cccc57ac6e11d8b8d88895c61db9681c719f942cc8787212b77ee"
+    }
+  ],
+  "product_prompt_origin": "Deployment-authored extension, outside canonical six-role set; DRAFT/INACTIVE; no M13/M14 promotion",
+  "port_domain": "ASCII JSON object keys; integers/null/booleans/Unicode strings and nested objects/arrays; no floating constraints or arbitrary store callbacks"
+}

@@ -1,0 +1,99 @@
+{
+  "schema_version": "1.0",
+  "recorded_date": "2026-09-27",
+  "status": "BOUNDED_INACTIVE_IMPLEMENTATION_SCOPE",
+  "projection": "LOOPIA_SME_MVP",
+  "baseline_canonical_pin": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+  "canonical_currentness_ref": "32c98a7191b7a4ae7a45d745917f39521f8f5112",
+  "canonical_runtime_diff_from_pin": {
+    "paths": [
+      "packages",
+      "tools",
+      "scripts",
+      "tests"
+    ],
+    "changed_files": []
+  },
+  "direction": "User-directed canonical-to-Loopia implementation of an agent-driven bounded Monitor workflow, after review of current mission/capability matrix. This records implementation scope, not a new canonical runtime owner or live activation act.",
+  "pure_import": {
+    "owner": "Canonical PromptOps owning records/resolver/promotion checks",
+    "source_manifest": "../PROMPTOPS_SOURCE_MANIFEST.json",
+    "runtime": "../../app/PromptOps/CanonicalContracts.php",
+    "status": "IMPLEMENTED_RUNTIME_INERT"
+  },
+  "deployment_authoring": [
+    {
+      "capability": "P01_SIGNAL_CLASSIFIER, BATTLECARD_GENERATOR, MONITOR_REVIEW_CRITIC, MONITOR_ROUTING_CRITIC",
+      "paths": [
+        "app/PromptOps/ProductPromptPack.php",
+        "app/PromptOps/bundles/2026-09-27.monitor.v1.json"
+      ],
+      "status": "DRAFT_INACTIVE_OFFLINE_CONTRACT_TESTED",
+      "not_claimed": [
+        "canonical six-role extension",
+        "real model evaluation",
+        "human approval",
+        "M13/M14 promotion"
+      ]
+    },
+    {
+      "capability": "Scoped model context/request/response adapter and manual Monitor composition",
+      "paths": [
+        "app/Provider/",
+        "app/Workflow/"
+      ],
+      "status": "IMPLEMENTATION_CANDIDATE_SEAMS",
+      "not_claimed": [
+        "native invocation authorization",
+        "complete integration proof",
+        "staging deployment",
+        "provider readiness"
+      ]
+    },
+    {
+      "capability": "Protected Monitor review/inspection UI",
+      "paths": [
+        "app/Http/",
+        "frontend/console/"
+      ],
+      "status": "IMPLEMENTED_SURFACE_PENDING_FACTORY_INTEGRATION",
+      "not_claimed": [
+        "customer output",
+        "scope supplied by browser",
+        "credential editing"
+      ]
+    }
+  ],
+  "unchanged_boundaries": {
+    "live_read_activated": false,
+    "native_model_execution_authorized": false,
+    "external_action_authorized": false,
+    "customer_output_authorized": false,
+    "production_launch_authorized": false,
+    "adaptive_prompt_mutation_authorized": false,
+    "upstream_lock_modified": false
+  },
+  "existing_governed_owners": [
+    "M02 tenancy/access",
+    "M03 capability contracts",
+    "M06/M01 dispatch boundary",
+    "M05 evidence",
+    "M04 proposals",
+    "M07 independent review",
+    "M08 admissibility",
+    "M10 decision release",
+    "M11 replay",
+    "M12 surfaces",
+    "M16 source-use/visibility where adopted"
+  ],
+  "baseline_files": [
+    {
+      "path": "canonical-parity-baseline-2026-09-27.md",
+      "sha256": "d2a895d706687d6835f363ead546d8cc43a941d1c2bd7c4ce10e09bad559f1bd"
+    },
+    {
+      "path": "canonical-parity-baseline-2026-09-27.json",
+      "sha256": "3a2f89897ec32ecb465b57df3a5fa72e8b0369ecc1bdcf0a2089d286393a49b9"
+    }
+  ]
+}

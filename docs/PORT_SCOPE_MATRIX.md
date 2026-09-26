@@ -3,7 +3,8 @@
 **Plane:** Ops / Sources bridge — port scope decision record.
 **Canonical authority:** `HMarcusWH/Allfatherbusinessintelligence` @ `c6d9cf9a7a1001b001ca6118999e9cb75c831c4d`
 **Projection:** `LOOPIA_SME_MVP` (historically `LOOPIA_P01`)
-**As-of:** 2026-09-04
+**Original port record as-of:** 2026-09-04
+**Bounded integration addendum:** 2026-09-27 (§7)
 
 This document records, per upstream object, whether it is INCLUDED in the Loopia deployment
 projection, on what current authority, and where its PHP implementation lives. It is the audit
@@ -12,7 +13,7 @@ any conversation.
 
 ---
 
-## 0. Head resolution (recorded before any change)
+## 0. Historical head resolution (original port decision)
 
 | Repository | Expected head (task prompt) | Live head resolved | Difference |
 | --- | --- | --- | --- |
@@ -453,3 +454,41 @@ connector descriptor at all, and both P01 integration chains now run without one
 Every INCLUDED row above must have at least one fixture in
 [`CONFORMANCE_MATRIX.md`](./CONFORMANCE_MATRIX.md). A row with no fixture is **not** conformed and
 must be recorded as such in `CLAIM_CEILING.md` — code existing is not conformance.
+
+
+---
+
+## 7. Bounded Monitor integration addendum — 2026-09-27
+
+This dated addendum narrows the earlier blanket PromptOps exclusion for one selective import and
+explicitly authored inactive product components. It does not rewrite the historical gate acts or
+claim that upstream fixtures are already deployed agents. [PROJECT_BOUNDARY §7](../PROJECT_BOUNDARY.md)
+records the user-directed scope; the [source/capability baseline](reconciliation/canonical-parity-baseline-2026-09-27.md)
+and [scoped extension manifest](reconciliation/monitor-scoped-extension-2026-09-27.json) distinguish
+existing implementation, inactive machinery, fixtures, specifications and absence.
+
+Currentness: canonical main `32c98a7191b7a4ae7a45d745917f39521f8f5112` contains no tracked
+runtime differences in `packages/`, `tools/`, `scripts/` or `tests/` versus pin
+`c6d9cf9a7a1001b001ca6118999e9cb75c831c4d`. The pin remains unchanged. Later documentation
+registration/currentness does not itself promote runtime. Subsequent owner-local fixes must name
+their exact canonical and PHP evidence independently.
+
+| Component | Dated port/composition decision | Claim ceiling |
+|---|---|---|
+| Canonical PromptOps records/hash/resolver/promotion report | Selective pure PHP import in `app/PromptOps/CanonicalContracts.php`; source hashes and limits in `PROMPTOPS_SOURCE_MANIFEST.json` | Runtime-inert, six unchanged canonical roles; no durable store or invocation authority |
+| Canonical six-role store/templates | Golden conformance fixture only | In-memory/simulator evidence; not product prompts or approved production content |
+| Monitor product prompts | New deployment authoring in private `app/PromptOps/bundles/`; separate role namespace | DRAFT / INACTIVE / OFFLINE_CONTRACT_TESTED; model evaluation not claimed |
+| Provider context/request/response seams | Bounded implementation candidate under `app/Provider/` | Scoped, inspectable, inactive native execution; fixture transport is labelled |
+| Manual Monitor composition | Bounded implementation candidate under `app/Workflow/`, reusing existing product/governance services | No replacement of M02–M12/M15/M16 owners; no automatic release or external action |
+| Operator mission/review surface | Bounded authenticated authoring and inspection surface | Session-derived scope, existing CSRF, explicit human review; no credential or arbitrary tool controls |
+| Full M13/M14 adaptive runtime, Universal Fetch/Port | Exclusion retained | Specification/future architecture; no promotion by this addendum |
+
+Product schemas use canonical P01 signal classes and actual P04 organization role classes. Role
+recommendations do not create memberships or distribution targets. Battlecard output supplies the
+existing five content fields with citations; model output is still a candidate requiring the normal
+review/verdict/release chain. Mechanical citation checks explicitly do not certify semantic truth.
+
+The focused [PromptOps import note](PROMPTOPS_PORT.md) identifies APIs, exact conformance vectors,
+offline cases and what remains untested. Native model evaluation/activation, real-source execution,
+customer-output promotion and production remain separate evidence/owner transitions. No new code,
+test, request inspection or fixture result changes the false claim-boundary flags in §2.

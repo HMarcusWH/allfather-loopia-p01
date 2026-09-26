@@ -5,6 +5,11 @@
 **Historical projection:** `LOOPIA_P01` (see §1)
 **Canonical runtime authority:** `HMarcusWH/Allfatherbusinessintelligence`
 
+**Dated bounded extension — 2026-09-27:** §7 records the user-directed, inactive Monitor
+integration work. The built-and-owner-gated descriptions in §§3–4 describe the existing product
+base; they do not falsely promote the newly authored prompt/provider/workflow seams. The
+canonical owner, pinned baseline and §5 hard prohibitions remain unchanged.
+
 ---
 
 ## 1. Lineage — why this repository is named `allfather-loopia-p01`
@@ -290,3 +295,54 @@ customer_visible_output       = false
 
 Merging code into this repository establishes no deployment, no activation, and no customer-visible
 output. See [`docs/CLAIM_CEILING.md`](./docs/CLAIM_CEILING.md).
+
+
+---
+
+## 7. User-directed bounded Monitor integration — 2026-09-27
+
+The user requested completion of the agent-driven SME Monitor workflow after a current canonical
+and deployment audit. This is authorization to implement and verify the bounded integration;
+it is not an assertion that the new candidate is already promoted, deployed, model-evaluated or
+authorized for native model/source execution. The pre-change capability matrix and exact source
+baseline are retained in [docs/reconciliation/canonical-parity-baseline-2026-09-27.md](docs/reconciliation/canonical-parity-baseline-2026-09-27.md)
+and its JSON companion. The additive [scope manifest](docs/reconciliation/monitor-scoped-extension-2026-09-27.json)
+records the distinction without changing `upstream.lock.json`.
+
+Canonical main was resolved at `32c98a7191b7a4ae7a45d745917f39521f8f5112`. The tracked
+`packages/`, `tools/`, `scripts/` and `tests/` trees are byte-identical to the existing projection
+pin `c6d9cf9a7a1001b001ca6118999e9cb75c831c4d`. There is no newer runtime implementation in
+those trees to import by a blanket pin advance. Shared defects require owner-local canonical
+repairs and explicit PHP parity; omitted composition and product authoring remain separately
+identified work.
+
+The extension permits these bounded implementation candidates:
+
+- A selective PHP port of the pure canonical PromptOps hash, binding-resolution and promotion-report
+  contracts. Exact source hashes and characterized serialization limits are recorded in
+  [docs/PROMPTOPS_SOURCE_MANIFEST.json](docs/PROMPTOPS_SOURCE_MANIFEST.json). The canonical six roles
+  remain unchanged, and their generic fixture templates are not product agents.
+- Deployment-authored `P01_SIGNAL_CLASSIFIER`, `BATTLECARD_GENERATOR` and
+  `MONITOR_REVIEW_CRITIC` and `MONITOR_ROUTING_CRITIC` prompts, strict schemas, private immutable versions and offline contract
+  cases. These are DRAFT/INACTIVE authored candidates; fixture success is not model evaluation or
+  approval. The critic recommends human review and cannot issue a release decision.
+- Scoped model-context/request/response seams and a manual Monitor composition joining the existing
+  capture/evidence/proposal/review/admission/release owners. Native dispatch remains inactive;
+  composing a request or substituting a fixture transport does not grant model authority.
+- An authenticated operator journey for configured missions, request/prompt/candidate inspection,
+  explicit human review, status and stand-down. Browser-supplied scope, credential editing,
+  arbitrary provider/tool selection and automatic approval are outside this slice.
+
+This is not a full M13 tenant-adaptation port, M14 optimization/learning engine, Universal Fetch
+crawler, Universal Port connector platform, general-purpose agent host or replacement for canonical
+runtime owners. Models contribute candidate intelligence. Existing M02/M03 scope, M06/M01 dispatch,
+M05 evidence, M04 proposals, M07 independent review, M08 verdicts, M10 release, M11 replay and
+M12/M16 surface/source-use rules remain the owning paths. No parallel admission, release or egress
+authority is introduced.
+
+`live_read_activated`, native model execution, external-action authority, customer-visible output,
+adaptive prompt mutation and production launch remain false/unapproved for this candidate.
+Real model evaluation and separately evidenced activation are later steps. The existing PR16
+staging qualification applies to PR16, not automatically to this changed tree. Any later staging
+deployment requires exact-release checks and preserves the recorded E.1 failure/E.3 unverified
+shared-host deviation; production does not inherit that exception.
