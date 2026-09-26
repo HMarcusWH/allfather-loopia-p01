@@ -1,0 +1,1008 @@
+{
+  "schema_version": "1.0",
+  "recorded_at": "2026-09-26T22:04:47.047609+00:00",
+  "status": "INITIAL_IMPLEMENTATION_BASELINE_MATRIX",
+  "canonical_head": "32c98a7191b7a4ae7a45d745917f39521f8f5112",
+  "loopia_main_baseline": "079047598f477edf9d92c531edb744d75923ecc5",
+  "loopia_canonical_pin": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+  "running_application_ref": "392f48deef11380f6dccfe88f2a47ba1fd94575c",
+  "scope": "Read-only currentness and source reconciliation; no runtime/host/secret/network activation or tests performed by this matrix task.",
+  "runtime_diff": {
+    "command": "git diff --name-only c6d9cf9a7a1001b001ca6118999e9cb75c831c4d 32c98a7191b7a4ae7a45d745917f39521f8f5112 -- packages tools scripts tests",
+    "paths": [
+      "packages",
+      "tools",
+      "scripts",
+      "tests"
+    ],
+    "changed_files": [],
+    "result": "BYTE_IDENTICAL_TRACKED_RUNTIME_TREES"
+  },
+  "maturity_definitions": {
+    "IMPLEMENTED": "Executable owning component exists; does not assert complete integration, freedom from defects or activation.",
+    "IMPLEMENTED_INACTIVE": "Executable leaf/framework exists but selected live composition/activation is inactive.",
+    "FIXTURE_ONLY": "Synthetic/in-memory fixture or simulator only; not a production implementation.",
+    "SPEC_ONLY": "Owned architecture/specification exists without the named runtime.",
+    "ABSENT": "Named capability has no implementation in this projection; may exist as documentation upstream."
+  },
+  "currentness": [
+    "Git main, not dated promotion headings, controls code existence. Promotion records retain historical statuses and must be read with implementation and exact scope.",
+    "Current graph is composed overlay v24. Read graph.md descriptor as navigation, not a flat overlay registry or runtime promotion.",
+    "State of Build retains TF7-08 lifecycle history, TF7-09 total-order review and documentary/activation debt. No blanket repair claim.",
+    "Canonical runtime did not advance between Loopia pin and current main in packages/tools/scripts/tests. Missing Loopia capabilities are selective port/composition gaps or new requested implementation, not newer runtime commits awaiting sync.",
+    "The user-requested agent-driven MVP requires bounded product prompts, provider and mission runner. Manual authored service execution does not complete it.",
+    "Existing target-local strict5552/0/0, service27/0 and HTTP70/0/readback7 are reused proof of stated old baseline only; no fresh test or model/Loopia run is claimed."
+  ],
+  "rows": [
+    {
+      "id": "P01",
+      "capability": "Competition monitoring and briefings",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "SHARED_UPSTREAM_DEFECT",
+      "implemented_scope_and_limits": "Registry, source cards, guarded capture, deterministic change detection, signals, reviewed battlecards and M10 release exist. Product agent composition is absent.",
+      "required_action": "Repair capture-text/significance binding, contract-reference persistence and shared-tool registration upstream and in PHP; connect approved-source intake and governed agent workflow.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/p01",
+        "docs/allfather-bi/implementation/p01_promotion_record.md"
+      ],
+      "loopia_sources": [
+        "app/Product/P01",
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "P02",
+      "capability": "Entity and relationship twins",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "BOUNDED_PROJECTION_AND_DEFECT",
+      "implemented_scope_and_limits": "Entity/relationship services and read APIs exist; offering twin and EOM are not this projection. Foreign-scope working-state writes were reproduced, not an unauthorized release. External evidence without a P01 card is deliberately held by M16 upstream and here.",
+      "required_action": "Repair affected scope validation before exposing writes. Keep cardless external content held; broader external-source lineage support requires an explicit governed extension.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/p02",
+        "packages/allfather-control-substrate/src/release-output/p02-adapter.ts",
+        "docs/allfather-bi/implementation/p02_promotion_record.md"
+      ],
+      "loopia_sources": [
+        "app/Product/P02",
+        "app/Substrate/M16",
+        "PROJECT_BOUNDARY.md"
+      ]
+    },
+    {
+      "id": "P03",
+      "capability": "Catalogue, ICP and fit qualification",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "PARTIAL_PORT_AND_INPUT_GAP",
+      "implemented_scope_and_limits": "Governed catalogue/fit/watch-list/priority/release paths exist; native structured size discrimination and owner-upload licence mapping need correction. Three canonical assurance profiles are not ported.",
+      "required_action": "Repair structured ICP inputs and truthful owner-upload catalogue mapping when enabling P03; port its three assurance profiles before P03 customer launch.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/p03",
+        "docs/allfather-bi/implementation/p03_promotion_record.md"
+      ],
+      "loopia_sources": [
+        "app/Product/P03",
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "P04",
+      "capability": "Internal role distribution",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "WIRING_GAP",
+      "implemented_scope_and_limits": "Role-class observations, target/redaction policy, reviewed internal package release and acknowledgement exist. Text is caller authored; no external sending.",
+      "required_action": "Connect reviewed P01 findings to configured internal roles and explicit summaries; retain existing admission/M10/acknowledgement gates.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/p04",
+        "docs/allfather-bi/implementation/p04_promotion_record.md"
+      ],
+      "loopia_sources": [
+        "app/Product/P04"
+      ]
+    },
+    {
+      "id": "P05",
+      "capability": "Internal marketing drafts",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "CORRECTNESS_AND_WIRING_GAP",
+      "implemented_scope_and_limits": "Draft/variant/review/release/audit services exist; text is caller authored. Title scan, Swedish lexical coverage and comparative semantic-support shortcomings were reproduced.",
+      "required_action": "Repair guarded title/body and citation evaluation before enabling generated drafts; generated output stays internal, reviewed and cited.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/p05",
+        "docs/allfather-bi/implementation/p05_promotion_record.md"
+      ],
+      "loopia_sources": [
+        "app/Product/P05"
+      ]
+    },
+    {
+      "id": "M01",
+      "capability": "Runtime invocation",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "BOUNDED_PORT",
+      "implemented_scope_and_limits": "PHP includes synthetic and guarded source-capture invocation, not the generic host/agent runtime.",
+      "required_action": "Compose only explicit governed read and model routes; do not introduce a second egress boundary.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/m01"
+      ],
+      "loopia_sources": [
+        "app/Substrate/M01",
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "M02",
+      "capability": "Tenant/workspace access",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "BOUNDED_PORT",
+      "implemented_scope_and_limits": "Tenant/workspace/role/data-scope evaluation is implemented.",
+      "required_action": "Reuse session-bound server scope throughout workflow and authoring.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/m02"
+      ],
+      "loopia_sources": [
+        "app/Substrate/M02",
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "M03",
+      "capability": "Capability contracts",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "BOUNDED_PORT",
+      "implemented_scope_and_limits": "Identity, active contracts, tool rights and forbidden clauses exist.",
+      "required_action": "Register scoped agent capabilities without external action grants.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/m03"
+      ],
+      "loopia_sources": [
+        "app/Substrate/M03",
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "M04",
+      "capability": "Missions and proposals",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "BOUNDED_PORT",
+      "implemented_scope_and_limits": "Proposal envelopes, transitions and review paths exist; no complete autonomous product mission runner.",
+      "required_action": "Compose the product mission through existing proposals and persisted outcomes.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/m04"
+      ],
+      "loopia_sources": [
+        "app/Substrate/M04",
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "M05",
+      "capability": "Evidence and provenance",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "BOUNDED_PORT",
+      "implemented_scope_and_limits": "Source references, evidence, raw artifacts, bundles and missingness exist. Append-only lifecycle transition reconstruction remains canonical debt.",
+      "required_action": "Bind every model input/output to scoped evidence and captured bytes; retain policy-constrained storage.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/m05"
+      ],
+      "loopia_sources": [
+        "app/Substrate/M05",
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "M06",
+      "capability": "Governed tool gateway",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "BOUNDED_PORT",
+      "implemented_scope_and_limits": "Registry, read dispatch, tier checks and idempotency exist.",
+      "required_action": "Use existing authorization and budgets for any added provider operation.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/m06"
+      ],
+      "loopia_sources": [
+        "app/Substrate/M06",
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "M07",
+      "capability": "Independent Council review",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "BOUNDED_PORT",
+      "implemented_scope_and_limits": "Eligibility, producer-self-review refusal and frozen results exist. Fixture reviewer assessments were literal inputs, not actual AI judgement.",
+      "required_action": "Wire distinct reviewer role/output; model criticism cannot self-approve release.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/m07"
+      ],
+      "loopia_sources": [
+        "app/Substrate/M07",
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "M08",
+      "capability": "Arbiter",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "BOUNDED_PORT",
+      "implemented_scope_and_limits": "Selected P01\u2013P05 policy sets are ported and gate release.",
+      "required_action": "Preserve owner-local policy/refusal semantics; model output does not grant authority.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/m08"
+      ],
+      "loopia_sources": [
+        "app/Substrate/M08",
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "M10",
+      "capability": "Decision ledger",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "BOUNDED_PORT",
+      "implemented_scope_and_limits": "Append-only release decisions, streams, supersession and reliance exist.",
+      "required_action": "Bind the composed workflow to actual M10 writer; no direct seeded release truth.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/m10"
+      ],
+      "loopia_sources": [
+        "app/Substrate/M10",
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "M11",
+      "capability": "Audit and replay",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "BOUNDED_PORT",
+      "implemented_scope_and_limits": "Core audit/incidents/no-live-effect replay exist; product audit coverage is selectively ported.",
+      "required_action": "Add connected mission replay with no model/network re-execution and preserve actual limits.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/m11"
+      ],
+      "loopia_sources": [
+        "app/Substrate/M11",
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "M12",
+      "capability": "Authorized surfaces",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "BOUNDED_PORT",
+      "implemented_scope_and_limits": "Governed read projections/readiness/redaction exist.",
+      "required_action": "Use these projections for product UI; do not expose raw model results outside release gates.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/m12"
+      ],
+      "loopia_sources": [
+        "app/Substrate/M12",
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "M09",
+      "capability": "Approval and frozen action",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "BOUNDED_PROJECTION",
+      "implemented_scope_and_limits": "Only P07-A synthetic approval/frozen-artifact/short-lived authorization is included. General live consequential dispatch is excluded.",
+      "required_action": "No new external-action path needed for Monitor; retain synthetic-only boundary.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/m09"
+      ],
+      "loopia_sources": [
+        "app/Product/P07A",
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "M15",
+      "capability": "Governed ingestion services",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "BOUNDED_PORT",
+      "implemented_scope_and_limits": "Policy, egress, raw capture, normalize, candidate/admission, adapters, audits and replay exist. P01 direct capture and generic M15 ingestion are separate compositions.",
+      "required_action": "Reuse the appropriate existing route; never require an invented connector hop for P01 direct capture.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/ingestion",
+        "docs/allfather-bi/implementation/m15_promotion_record.md"
+      ],
+      "loopia_sources": [
+        "app/Ingestion",
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "LIVE_READ",
+      "capability": "HTTPS transport and actual source capture",
+      "canonical_maturity": "IMPLEMENTED_INACTIVE",
+      "loopia_maturity": "IMPLEMENTED_INACTIVE",
+      "finding_category": "ACTIVATION_AND_COMPOSITION_GAP",
+      "implemented_scope_and_limits": "Production transport leaf exists; Loopia roots do not construct it for active monitoring. Prior fixture and host capability proof is not live activation.",
+      "required_action": "Build bounded source allowlist/manual runner, safe status/bytes/retention handling and stand-down. Actual approved-source execution remains a later explicit gate.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/ingestion/https-transport.ts",
+        "packages/allfather-control-substrate/src/m01"
+      ],
+      "loopia_sources": [
+        "app/Ingestion",
+        "app/Support/Bootstrap.php",
+        "worker/tick.php"
+      ]
+    },
+    {
+      "id": "M16",
+      "capability": "Internal release-output spine",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "BOUNDED_PORT",
+      "implemented_scope_and_limits": "Source-use profile \u2192 artifact \u2192 projection \u2192 visibility; P01/P02 integration exists. P03/P04/P05 use their own M10 projections. Customer/export/channel audiences are inactive.",
+      "required_action": "Preserve truthful source ceilings separately from deployment activation. P02 cardless external-content HOLD is deliberate and cannot be relabelled READY content.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/release-output",
+        "docs/allfather-bi/implementation/m16_promotion_record.md"
+      ],
+      "loopia_sources": [
+        "app/Substrate/M16",
+        "PROJECT_BOUNDARY.md"
+      ]
+    },
+    {
+      "id": "UF",
+      "capability": "Universal Fetch architecture",
+      "canonical_maturity": "SPEC_ONLY",
+      "loopia_maturity": "ABSENT",
+      "finding_category": "SPEC_NOT_PORTABLE_RUNTIME",
+      "implemented_scope_and_limits": "Universal Fetch is docs-only, with no crawler/search/browser runtime. Existing M15 transport does not implement Universal Fetch.",
+      "required_action": "Do not claim a ready upstream runtime to port; bounded P01 approved-source acquisition serves the requested first loop without inventing unrestricted Fetch.",
+      "canonical_sources": [
+        "docs/allfather-bi/implementation/universal-fetch/19_runtime_readiness_plan.md"
+      ],
+      "loopia_sources": [
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "UP",
+      "capability": "Universal Port architecture",
+      "canonical_maturity": "SPEC_ONLY",
+      "loopia_maturity": "ABSENT",
+      "finding_category": "SPEC_NOT_PORTABLE_RUNTIME",
+      "implemented_scope_and_limits": "Connected-system/artifact reconstruction, OAuth/connector automation and twin interpretation are docs-only targets.",
+      "required_action": "Do not build or activate arbitrary connectors as a dependency of the first Monitor loop; any selected extension needs its own owner-local contracts.",
+      "canonical_sources": [
+        "docs/allfather-bi/implementation/universal-port/19_runtime_readiness_plan.md"
+      ],
+      "loopia_sources": [
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "PROMPT_CORE",
+      "capability": "PromptOps pure contracts and resolver",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "ABSENT",
+      "finding_category": "REQUIRED_SELECTIVE_PORT",
+      "implemented_scope_and_limits": "Canonical records, approval/window/digest resolver and promotion checks exist as pure runtime-inert components.",
+      "required_action": "Port bounded PHP contracts with canonical hash/refusal golden vectors. Keep approval, evaluation, binding and actual invocation separate.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/promptops/records.ts",
+        "packages/allfather-control-substrate/src/promptops/resolver.ts",
+        "packages/allfather-control-substrate/src/promptops/promotion-check.ts"
+      ],
+      "loopia_sources": [
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "PROMPT_CATALOGUE",
+      "capability": "Canonical prompt catalogue/store",
+      "canonical_maturity": "FIXTURE_ONLY",
+      "loopia_maturity": "ABSENT",
+      "finding_category": "FIXTURE_NOT_PRODUCT",
+      "implemented_scope_and_limits": "Six advisory roles use generic runtime-inert templates and an in-memory/durable-store simulator, not a production DB or product reasoning prompts.",
+      "required_action": "Do not copy fixture templates as completed agents; immutable versioned deployment bundle is an explicit bounded implementation choice.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/promptops/in-memory-prompt-store.ts"
+      ],
+      "loopia_sources": [
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "PRODUCT_AGENTS",
+      "capability": "P01 interpretation/relevance/battlecard/critic prompts",
+      "canonical_maturity": "ABSENT",
+      "loopia_maturity": "ABSENT",
+      "finding_category": "REQUIRED_NEW_BOUNDED_IMPLEMENTATION",
+      "implemented_scope_and_limits": "No evaluated product prompt suite or connected model-driven Monitor loop in either runtime. Human-authored service E2E proof does not fill this gap.",
+      "required_action": "Author deployment-specific roles explicitly, with input/output schemas, citations, uncertainty, injection controls, role separation and offline evaluation. Do not falsely describe roles as an existing canonical port.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/promptops/in-memory-prompt-store.ts",
+        "README.md"
+      ],
+      "loopia_sources": [
+        "app/Product/P01",
+        "PROJECT_BOUNDARY.md"
+      ]
+    },
+    {
+      "id": "M13",
+      "capability": "Tenant adaptation and adaptive prompt binding",
+      "canonical_maturity": "SPEC_ONLY",
+      "loopia_maturity": "ABSENT",
+      "finding_category": "FUTURE_ARCHITECTURE",
+      "implemented_scope_and_limits": "Full adaptive tenant/prompt/code adaptation modules are specifications, not the small pure PromptOps scaffold.",
+      "required_action": "Use explicit tenant context as input to bounded agents; do not claim adaptive learning or promotion.",
+      "canonical_sources": [
+        "docs/allfather-bi/implementation/m13_adaptive_prompt_binding_spec.md",
+        "docs/allfather-bi/implementation/m13_m14_x01_promotion_record.md"
+      ],
+      "loopia_sources": [
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "M14",
+      "capability": "Performance learning and prompt optimization",
+      "canonical_maturity": "SPEC_ONLY",
+      "loopia_maturity": "ABSENT",
+      "finding_category": "FUTURE_ARCHITECTURE",
+      "implemented_scope_and_limits": "Full performance-learning/automatic prompt mutation is not implemented or promoted.",
+      "required_action": "Offline evaluations and immutable approved prompt versions are required now; automatic optimization remains separate.",
+      "canonical_sources": [
+        "docs/allfather-bi/implementation/m14_promptops_performance_learning_spec.md",
+        "docs/allfather-bi/implementation/m13_m14_x01_promotion_record.md"
+      ],
+      "loopia_sources": [
+        "docs/PORT_SCOPE_MATRIX.md"
+      ]
+    },
+    {
+      "id": "PROVIDER",
+      "capability": "Product model provider dispatch",
+      "canonical_maturity": "ABSENT",
+      "loopia_maturity": "ABSENT",
+      "finding_category": "REQUIRED_NEW_BOUNDED_IMPLEMENTATION",
+      "implemented_scope_and_limits": "No connected product inference client/runner. Loopia SecretBox and credential schema are infrastructure only. Private earlier diagnostic is not app integration.",
+      "required_action": "Build a scoped adapter, strict payload/output validation, timeout/budget/idempotency and sanitized evidence. Inactive default; do not read/use secrets during offline construction.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/promptops",
+        "README.md"
+      ],
+      "loopia_sources": [
+        "app/Provider/SecretBox.php",
+        "app/Support/Bootstrap.php"
+      ]
+    },
+    {
+      "id": "SCHEDULER",
+      "capability": "Recurring Monitor execution",
+      "canonical_maturity": "ABSENT",
+      "loopia_maturity": "IMPLEMENTED_INACTIVE",
+      "finding_category": "WIRING_AND_HOST_QUALIFICATION_GAP",
+      "implemented_scope_and_limits": "Loopia scheduler auth/job machine/runner exist, but product handlers are empty. No working recurring Monitor mission demonstrated.",
+      "required_action": "Prefer manual first mission. Then wire explicit cadence/idempotency/stand-down handlers and qualify host transport if recurring monitoring is enabled.",
+      "canonical_sources": [
+        "README.md"
+      ],
+      "loopia_sources": [
+        "app/Jobs",
+        "worker/tick.php",
+        "app/Support/Bootstrap.php"
+      ]
+    },
+    {
+      "id": "REPLAY",
+      "capability": "Connected product replay",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "COMPOSITION_PROOF_GAP",
+      "implemented_scope_and_limits": "Core and product service replay exists; connected synthetic service/HTTP proof passes. No model-generated mission trace yet.",
+      "required_action": "Persist prompt/model/input/output/review/release identities and replay deterministically with network/provider disabled.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/m11",
+        "packages/allfather-control-substrate/src/p01/assurance.ts"
+      ],
+      "loopia_sources": [
+        "app/Substrate/M11",
+        "app/Product/P01"
+      ]
+    },
+    {
+      "id": "CONSOLE",
+      "capability": "Operator console and authoring",
+      "canonical_maturity": "IMPLEMENTED",
+      "loopia_maturity": "IMPLEMENTED",
+      "finding_category": "USER_JOURNEY_GAP",
+      "implemented_scope_and_limits": "Loopia authenticated React reads support P01\u2013P05/M10; numerous architecture descriptors are intentionally deferred. No complete onboarding/source/mission/review authoring journey yet.",
+      "required_action": "Build required Monitor controls and honest progress/refusal surfaces over existing authorization; additional feature panels are not automatically launch requirements.",
+      "canonical_sources": [
+        "packages/allfather-control-substrate/src/m12"
+      ],
+      "loopia_sources": [
+        "frontend",
+        "app/Http",
+        "docs/LOOPIA_CAPABILITY_REPORT.md"
+      ]
+    }
+  ],
+  "dependency_order": [
+    "1. Freeze currentness and this matrix; runtime trees have no changes between pin and current canonical main. No blanket pin advance is needed to obtain runtime fixes.",
+    "2. Repair the shared P01 capture-text/significance binding, contract persistence and multi-workspace registration at the owning canonical source; port exact behavior and negative vectors to PHP.",
+    "3. Port bounded PromptOps pure contracts; add explicitly deployment-authored product prompt roles and offline evaluated inactive versions. Preserve full M13/M14 as future architecture.",
+    "4. Add provider adapter and bounded manual mission runner through existing M02/M03/M06/M01, M05 evidence, M04 proposals and review/release boundaries. Configure no live authority by construction.",
+    "5. Complete tenant/source intake, review and Monitor console controls; connect P01 to P04 internal preparation. Enable P02/P03/P05 only with their affected correctness/input gaps resolved.",
+    "6. Verify connected synthetic happy/negative/replay scenarios on the supported local DB; run owning/full checks and independent review. Distinguish fixtures from real model execution.",
+    "7. Prepare exact release, deploy inert staging, requalify host/UI/security/rollback and file current evidence. Bounded real-source/model activation remains explicit, separately evidenced; customer/production authority remains separate."
+  ],
+  "source_register": [
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/p01",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "docs/allfather-bi/implementation/p01_promotion_record.md",
+      "type": "file",
+      "sha256": "d2943e38268bfce5ce1cee0b7e8b6151b5bb4abce5fcd40891e78d8a190f2cd5"
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Product/P01",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "docs/PORT_SCOPE_MATRIX.md",
+      "type": "file",
+      "sha256": "d3661c40bf2100d46c80a8f5805e9acfdb8e31fae2eed41de29391452a25fe68"
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/p02",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/release-output/p02-adapter.ts",
+      "type": "file",
+      "sha256": "302f384f4893b99dd46525d7610c48b48545e344d1c63b2ffd12a8ce032878c6"
+    },
+    {
+      "kind": "canonical",
+      "path": "docs/allfather-bi/implementation/p02_promotion_record.md",
+      "type": "file",
+      "sha256": "234c328f522ef2ef17c921d820d010f01454878fc8d764cdb4a386eceadfc128"
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Product/P02",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Substrate/M16",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "PROJECT_BOUNDARY.md",
+      "type": "file",
+      "sha256": "782b2de9d78d049aa5d5f66a2edad5da89ea21e5dfeae67cd6981ea67104047b"
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/p03",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "docs/allfather-bi/implementation/p03_promotion_record.md",
+      "type": "file",
+      "sha256": "7e085b14dfa687cb10f0361d9c2332df3fa5ca03e5a9665853328fb3e02b64ce"
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Product/P03",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/p04",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "docs/allfather-bi/implementation/p04_promotion_record.md",
+      "type": "file",
+      "sha256": "d590080b3365c931c12fbca06c02b3bd73a4be67de5fc2f9a20894a2e322a82c"
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Product/P04",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/p05",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "docs/allfather-bi/implementation/p05_promotion_record.md",
+      "type": "file",
+      "sha256": "f263dd66b12d4a19cfb8feb5942209f32e3aa78a78da66c0647e62f9ace201e7"
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Product/P05",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/m01",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Substrate/M01",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/m02",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Substrate/M02",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/m03",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Substrate/M03",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/m04",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Substrate/M04",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/m05",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Substrate/M05",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/m06",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Substrate/M06",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/m07",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Substrate/M07",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/m08",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Substrate/M08",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/m10",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Substrate/M10",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/m11",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Substrate/M11",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/m12",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Substrate/M12",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/m09",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Product/P07A",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/ingestion",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "docs/allfather-bi/implementation/m15_promotion_record.md",
+      "type": "file",
+      "sha256": "b4e68da0231fe9af23edd4051002a57c597554045f22e3c5c83b2d7b0d7bcba2"
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Ingestion",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/ingestion/https-transport.ts",
+      "type": "file",
+      "sha256": "fd4cba585b26e48f3632cb5d0a1a88d055814ebff77bcce3e1af37555145ca60"
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Support/Bootstrap.php",
+      "type": "file",
+      "sha256": "d424f940f93e668341b162e96906f0f39ed8e597141f9a8d2ed8f292676c08ad"
+    },
+    {
+      "kind": "loopia",
+      "path": "worker/tick.php",
+      "type": "file",
+      "sha256": "0c68ac627bdd0499917c6b5dad9282125c15a5a20b6c43fb15df1709868e5ed0"
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/release-output",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "docs/allfather-bi/implementation/m16_promotion_record.md",
+      "type": "file",
+      "sha256": "ea60ad4a1655dc8ffbab9cb803ab2ba25063bbb31440a381e8f3f92676d6dccd"
+    },
+    {
+      "kind": "canonical",
+      "path": "docs/allfather-bi/implementation/universal-fetch/19_runtime_readiness_plan.md",
+      "type": "file",
+      "sha256": "2c079a6c9428650305a9cd7ecf3011ed98f474d7da4c4093a4f323cb210633ad"
+    },
+    {
+      "kind": "canonical",
+      "path": "docs/allfather-bi/implementation/universal-port/19_runtime_readiness_plan.md",
+      "type": "file",
+      "sha256": "a743fc76ffbd4af7c12884328fb87a5da9e9c0906b7f91aa0d555b7d5a655f93"
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/promptops/records.ts",
+      "type": "file",
+      "sha256": "87fda256f6823daca12c883d0f0e38751a6c0cf19f662f57db8d1a68312c693a"
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/promptops/resolver.ts",
+      "type": "file",
+      "sha256": "01ab6bda1743a105d6dd23a74900247aa8807ac5e72453ac53e1e82cd77f432f"
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/promptops/promotion-check.ts",
+      "type": "file",
+      "sha256": "d31775754d056f14785ffb61747f6de48549e488ae9fbaf629bf65043a27db97"
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/promptops/in-memory-prompt-store.ts",
+      "type": "file",
+      "sha256": "93e55fcc234cccc57ac6e11d8b8d88895c61db9681c719f942cc8787212b77ee"
+    },
+    {
+      "kind": "canonical",
+      "path": "README.md",
+      "type": "file",
+      "sha256": "3235c7335f5cfe22d8aa44fde7b234516447a64cb6544a680a8fc5f39080793f"
+    },
+    {
+      "kind": "canonical",
+      "path": "docs/allfather-bi/implementation/m13_adaptive_prompt_binding_spec.md",
+      "type": "file",
+      "sha256": "f9b7faadee7f028706f51656b8407932521432dab1c728464607aa4cc1fd9d22"
+    },
+    {
+      "kind": "canonical",
+      "path": "docs/allfather-bi/implementation/m13_m14_x01_promotion_record.md",
+      "type": "file",
+      "sha256": "14473ca3429b6fb8b552f978beaaaa18e55f2b02ebeecbbbf43ad788aa136034"
+    },
+    {
+      "kind": "canonical",
+      "path": "docs/allfather-bi/implementation/m14_promptops_performance_learning_spec.md",
+      "type": "file",
+      "sha256": "d5a0c2314dceeeb6a039722a2ddf7fa5284f125bf612a067b3a82060ac678c67"
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/promptops",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Provider/SecretBox.php",
+      "type": "file",
+      "sha256": "bc6e42541c7c0a27158c2d4ea89b0add8a97a0633ceb8c28497ac417e036e574"
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Jobs",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "canonical",
+      "path": "packages/allfather-control-substrate/src/p01/assurance.ts",
+      "type": "file",
+      "sha256": "2e36005e396da1abd4d93623dfecb2c5a89fd2fcdaf000fefbb3e8a76b844436"
+    },
+    {
+      "kind": "loopia",
+      "path": "frontend",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "app/Http",
+      "type": "directory",
+      "sha256": null
+    },
+    {
+      "kind": "loopia",
+      "path": "docs/LOOPIA_CAPABILITY_REPORT.md",
+      "type": "file",
+      "sha256": "c2296a7bb3574f81dbcc7561d7f3ba4df4c8c729ffdb67e853db4fb901b64414"
+    },
+    {
+      "kind": "canonical",
+      "path": "GF-AoA_Allfather_Profile_AGENT_SAFE.md",
+      "type": "file",
+      "sha256": "5e1462e153d3b703df2f93208214308c80655dcd9cf8a646ff5390d8e2312ec0"
+    },
+    {
+      "kind": "canonical",
+      "path": "docs/allfather-bi/README.md",
+      "type": "file",
+      "sha256": "b86f12967c416c78f8ff42715b87cd758ab11bbf6da7bc5e9646296e8678c758"
+    },
+    {
+      "kind": "canonical",
+      "path": "docs/allfather-bi/implementation/README.md",
+      "type": "file",
+      "sha256": "6992b3f24c04157f0a4f047da2fbc145a6794d84e873ef2e701edaf36676dcf2"
+    },
+    {
+      "kind": "canonical",
+      "path": "docs/allfather-bi/STATE_OF_THE_BUILD.md",
+      "type": "file",
+      "sha256": "14abc366bb10d9c869a3caeea65f193597e83258c793436486237fb34c99d0a7"
+    },
+    {
+      "kind": "canonical",
+      "path": "docs/allfather-bi/document_graph.md",
+      "type": "file",
+      "sha256": "54c533bbc0fc6d39d93bfbd0629fc7a1083db404e5e3dd1404f4e3eca09cbae9"
+    },
+    {
+      "kind": "canonical",
+      "path": "docs/allfather-bi/document_graph.json",
+      "type": "file",
+      "sha256": "84906d76a800678b203a9ba2013ee95692e2c5d4a196de56089257c1f5c2cc2b"
+    }
+  ],
+  "prior_evidence": [
+    "outputs/mission-audit/mission-and-acceptance.json",
+    "outputs/mission-audit/runtime-coverage.matrix.json",
+    "outputs/mission-audit/promptops-port-assessment.json",
+    "outputs/mission-audit/connected-e2e-independent-review.json",
+    "ALLFATHER_WORKFLOW_AUDIT_2026-09-26.md"
+  ]
+}

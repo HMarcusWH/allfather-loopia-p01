@@ -1,0 +1,1620 @@
+{
+  "scope": "MANUALLY_AUTHORED_CANDIDATE_CONTRACT_CASES_NOT_MODEL_EVALUATION",
+  "model_calls": 0,
+  "cases": [
+    {
+      "name": "swedish_qualified_change",
+      "role": "P01_SIGNAL_CLASSIFIER",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "status": "FINDING",
+        "language": "sv",
+        "observed_changes": [
+          {
+            "statement": "Den planerade seminarietiden ändrades från november till december.",
+            "citations": [
+              "ev-before",
+              "ev-after"
+            ],
+            "confidence": "HIGH"
+          }
+        ],
+        "relevance_hypotheses": [
+          {
+            "hypothesis": "Förskjutningen kan påverka ägarens planering för evenemang.",
+            "basis_citations": [
+              "ev-before",
+              "ev-after"
+            ],
+            "tenant_context_refs": [
+              "ev-profile"
+            ],
+            "uncertainty": "Ägarens erbjudande är inte oberoende verifierat; inget affärsutfall är känt."
+          }
+        ],
+        "significance": "MINOR",
+        "limitations": [
+          "Planen är inte bevis för att evenemanget kommer att genomföras."
+        ],
+        "source_injection_detected": false,
+        "signal_class": "MARKET_CONTEXT_SIGNAL"
+      },
+      "expected_refusal": null,
+      "description": "Manually authored expected candidate; tests references/qualifier examples, not model performance."
+    },
+    {
+      "name": "cited_internal_draft",
+      "role": "BATTLECARD_GENERATOR",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "status": "DRAFT",
+        "language": "sv",
+        "title": "Ändrad planerad seminarietid",
+        "summary": "Konkurrentens uppgift om planerad tid ändrades till december; genomförande är inte bekräftat.",
+        "claims": [
+          {
+            "text": "Planerad seminarietid ändrades från november till december.",
+            "kind": "OBSERVATION",
+            "citations": [
+              "ev-before",
+              "ev-after"
+            ],
+            "confidence": "HIGH"
+          }
+        ],
+        "recommended_internal_roles": [],
+        "uncertainties": [
+          "Planen är inte ett genomfört evenemang."
+        ],
+        "source_injection_detected": false,
+        "content": {
+          "why_it_matters_safe": "Den planerade seminarietiden har ändrats.",
+          "customer_impact_hypothesis_safe": "Tidsändringen kan vara relevant för planering; kundpåverkan är okänd.",
+          "talk_track_safe": "Diskutera internt om tidsändringen berör planeringen.",
+          "recommended_response_safe": "Granska källuppgifterna internt före beslut.",
+          "rejected_claims_safe": "Uppgiften bevisar inte genomförande, köpintresse eller försäljning."
+        },
+        "content_citations": {
+          "why_it_matters_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "customer_impact_hypothesis_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "talk_track_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "recommended_response_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "rejected_claims_safe": [
+            "ev-before",
+            "ev-after"
+          ]
+        }
+      },
+      "expected_refusal": null,
+      "description": ""
+    },
+    {
+      "name": "critic_is_only_human_review_recommendation",
+      "role": "MONITOR_REVIEW_CRITIC",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "verdict": "ACCEPT_FOR_HUMAN_REVIEW",
+        "findings": [
+          {
+            "code": "CLEAN",
+            "severity": "INFO",
+            "explanation": "De angivna datumen stöder ändringen; genomförandet förblir osäkert.",
+            "citations": [
+              "ev-before",
+              "ev-after"
+            ]
+          }
+        ],
+        "requires_human_review": true,
+        "source_injection_detected": false
+      },
+      "expected_refusal": null,
+      "description": ""
+    },
+    {
+      "name": "unknown_or_foreign_citation",
+      "role": "P01_SIGNAL_CLASSIFIER",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "status": "FINDING",
+        "language": "sv",
+        "observed_changes": [
+          {
+            "statement": "Den planerade seminarietiden ändrades från november till december.",
+            "citations": [
+              "ev-foreign"
+            ],
+            "confidence": "HIGH"
+          }
+        ],
+        "relevance_hypotheses": [
+          {
+            "hypothesis": "Förskjutningen kan påverka ägarens planering för evenemang.",
+            "basis_citations": [
+              "ev-before",
+              "ev-after"
+            ],
+            "tenant_context_refs": [
+              "ev-profile"
+            ],
+            "uncertainty": "Ägarens erbjudande är inte oberoende verifierat; inget affärsutfall är känt."
+          }
+        ],
+        "significance": "MINOR",
+        "limitations": [
+          "Planen är inte bevis för att evenemanget kommer att genomföras."
+        ],
+        "source_injection_detected": false,
+        "signal_class": "MARKET_CONTEXT_SIGNAL"
+      },
+      "expected_refusal": "PROMPT_CANDIDATE_OBSERVATION_CITATION_INVALID",
+      "description": ""
+    },
+    {
+      "name": "owner_profile_not_observed_fact",
+      "role": "P01_SIGNAL_CLASSIFIER",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "status": "FINDING",
+        "language": "sv",
+        "observed_changes": [
+          {
+            "statement": "Den planerade seminarietiden ändrades från november till december.",
+            "citations": [
+              "ev-profile"
+            ],
+            "confidence": "HIGH"
+          }
+        ],
+        "relevance_hypotheses": [
+          {
+            "hypothesis": "Förskjutningen kan påverka ägarens planering för evenemang.",
+            "basis_citations": [
+              "ev-before",
+              "ev-after"
+            ],
+            "tenant_context_refs": [
+              "ev-profile"
+            ],
+            "uncertainty": "Ägarens erbjudande är inte oberoende verifierat; inget affärsutfall är känt."
+          }
+        ],
+        "significance": "MINOR",
+        "limitations": [
+          "Planen är inte bevis för att evenemanget kommer att genomföras."
+        ],
+        "source_injection_detected": false,
+        "signal_class": "MARKET_CONTEXT_SIGNAL"
+      },
+      "expected_refusal": "PROMPT_CANDIDATE_OBSERVATION_CITATION_INVALID",
+      "description": ""
+    },
+    {
+      "name": "source_page_not_tenant_profile",
+      "role": "P01_SIGNAL_CLASSIFIER",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "status": "FINDING",
+        "language": "sv",
+        "observed_changes": [
+          {
+            "statement": "Den planerade seminarietiden ändrades från november till december.",
+            "citations": [
+              "ev-before",
+              "ev-after"
+            ],
+            "confidence": "HIGH"
+          }
+        ],
+        "relevance_hypotheses": [
+          {
+            "hypothesis": "Förskjutningen kan påverka ägarens planering för evenemang.",
+            "basis_citations": [
+              "ev-before",
+              "ev-after"
+            ],
+            "tenant_context_refs": [
+              "ev-after"
+            ],
+            "uncertainty": "Ägarens erbjudande är inte oberoende verifierat; inget affärsutfall är känt."
+          }
+        ],
+        "significance": "MINOR",
+        "limitations": [
+          "Planen är inte bevis för att evenemanget kommer att genomföras."
+        ],
+        "source_injection_detected": false,
+        "signal_class": "MARKET_CONTEXT_SIGNAL"
+      },
+      "expected_refusal": "PROMPT_CANDIDATE_RELEVANCE_CITATION_INVALID",
+      "description": ""
+    },
+    {
+      "name": "injection_cannot_be_finding",
+      "role": "P01_SIGNAL_CLASSIFIER",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "status": "FINDING",
+        "language": "sv",
+        "observed_changes": [
+          {
+            "statement": "Den planerade seminarietiden ändrades från november till december.",
+            "citations": [
+              "ev-before",
+              "ev-after"
+            ],
+            "confidence": "HIGH"
+          }
+        ],
+        "relevance_hypotheses": [
+          {
+            "hypothesis": "Förskjutningen kan påverka ägarens planering för evenemang.",
+            "basis_citations": [
+              "ev-before",
+              "ev-after"
+            ],
+            "tenant_context_refs": [
+              "ev-profile"
+            ],
+            "uncertainty": "Ägarens erbjudande är inte oberoende verifierat; inget affärsutfall är känt."
+          }
+        ],
+        "significance": "MINOR",
+        "limitations": [
+          "Planen är inte bevis för att evenemanget kommer att genomföras."
+        ],
+        "source_injection_detected": true,
+        "signal_class": "MARKET_CONTEXT_SIGNAL"
+      },
+      "expected_refusal": "PROMPT_CANDIDATE_INJECTION_REQUIRES_HOLD",
+      "description": ""
+    },
+    {
+      "name": "injection_held_without_command_execution",
+      "role": "P01_SIGNAL_CLASSIFIER",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "status": "HELD",
+        "language": "sv",
+        "observed_changes": [],
+        "relevance_hypotheses": [],
+        "significance": "UNDETERMINED",
+        "limitations": [
+          "Källtexten försöker instruera läsaren att röja hemligheter. Kräver granskning."
+        ],
+        "source_injection_detected": true,
+        "signal_class": "MARKET_CONTEXT_SIGNAL"
+      },
+      "expected_refusal": null,
+      "description": ""
+    },
+    {
+      "name": "finding_requires_observation",
+      "role": "P01_SIGNAL_CLASSIFIER",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "status": "FINDING",
+        "language": "sv",
+        "observed_changes": [],
+        "relevance_hypotheses": [
+          {
+            "hypothesis": "Förskjutningen kan påverka ägarens planering för evenemang.",
+            "basis_citations": [
+              "ev-before",
+              "ev-after"
+            ],
+            "tenant_context_refs": [
+              "ev-profile"
+            ],
+            "uncertainty": "Ägarens erbjudande är inte oberoende verifierat; inget affärsutfall är känt."
+          }
+        ],
+        "significance": "MINOR",
+        "limitations": [
+          "Planen är inte bevis för att evenemanget kommer att genomföras."
+        ],
+        "source_injection_detected": false,
+        "signal_class": "MARKET_CONTEXT_SIGNAL"
+      },
+      "expected_refusal": "PROMPT_CANDIDATE_STATUS_INCONSISTENT",
+      "description": ""
+    },
+    {
+      "name": "battlecard_owner_claim_not_observation",
+      "role": "BATTLECARD_GENERATOR",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "status": "DRAFT",
+        "language": "sv",
+        "title": "Ändrad planerad seminarietid",
+        "summary": "Konkurrentens uppgift om planerad tid ändrades till december; genomförande är inte bekräftat.",
+        "claims": [
+          {
+            "text": "Planerad seminarietid ändrades från november till december.",
+            "kind": "OBSERVATION",
+            "citations": [
+              "ev-profile"
+            ],
+            "confidence": "HIGH"
+          }
+        ],
+        "recommended_internal_roles": [],
+        "uncertainties": [
+          "Planen är inte ett genomfört evenemang."
+        ],
+        "source_injection_detected": false,
+        "content": {
+          "why_it_matters_safe": "Den planerade seminarietiden har ändrats.",
+          "customer_impact_hypothesis_safe": "Tidsändringen kan vara relevant för planering; kundpåverkan är okänd.",
+          "talk_track_safe": "Diskutera internt om tidsändringen berör planeringen.",
+          "recommended_response_safe": "Granska källuppgifterna internt före beslut.",
+          "rejected_claims_safe": "Uppgiften bevisar inte genomförande, köpintresse eller försäljning."
+        },
+        "content_citations": {
+          "why_it_matters_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "customer_impact_hypothesis_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "talk_track_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "recommended_response_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "rejected_claims_safe": [
+            "ev-before",
+            "ev-after"
+          ]
+        }
+      },
+      "expected_refusal": "PROMPT_CANDIDATE_CLAIM_CITATION_INVALID",
+      "description": ""
+    },
+    {
+      "name": "draft_requires_cited_claim",
+      "role": "BATTLECARD_GENERATOR",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "status": "DRAFT",
+        "language": "sv",
+        "title": "Ändrad planerad seminarietid",
+        "summary": "Konkurrentens uppgift om planerad tid ändrades till december; genomförande är inte bekräftat.",
+        "claims": [],
+        "recommended_internal_roles": [],
+        "uncertainties": [
+          "Planen är inte ett genomfört evenemang."
+        ],
+        "source_injection_detected": false,
+        "content": {
+          "why_it_matters_safe": "Den planerade seminarietiden har ändrats.",
+          "customer_impact_hypothesis_safe": "Tidsändringen kan vara relevant för planering; kundpåverkan är okänd.",
+          "talk_track_safe": "Diskutera internt om tidsändringen berör planeringen.",
+          "recommended_response_safe": "Granska källuppgifterna internt före beslut.",
+          "rejected_claims_safe": "Uppgiften bevisar inte genomförande, köpintresse eller försäljning."
+        },
+        "content_citations": {
+          "why_it_matters_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "customer_impact_hypothesis_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "talk_track_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "recommended_response_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "rejected_claims_safe": [
+            "ev-before",
+            "ev-after"
+          ]
+        }
+      },
+      "expected_refusal": "PROMPT_CANDIDATE_STATUS_INCONSISTENT",
+      "description": ""
+    },
+    {
+      "name": "critic_cannot_accept_blocking_findings",
+      "role": "MONITOR_REVIEW_CRITIC",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "verdict": "ACCEPT_FOR_HUMAN_REVIEW",
+        "findings": [
+          {
+            "code": "CLEAN",
+            "severity": "INFO",
+            "explanation": "De angivna datumen stöder ändringen; genomförandet förblir osäkert.",
+            "citations": [
+              "ev-before",
+              "ev-after"
+            ]
+          },
+          {
+            "code": "UNSUPPORTED_CLAIM",
+            "severity": "BLOCK",
+            "explanation": "Ogrundat påstående.",
+            "citations": []
+          }
+        ],
+        "requires_human_review": true,
+        "source_injection_detected": false
+      },
+      "expected_refusal": "PROMPT_CANDIDATE_REVIEW_INCONSISTENT",
+      "description": ""
+    },
+    {
+      "name": "critic_cannot_replace_human",
+      "role": "MONITOR_REVIEW_CRITIC",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "verdict": "ACCEPT_FOR_HUMAN_REVIEW",
+        "findings": [
+          {
+            "code": "CLEAN",
+            "severity": "INFO",
+            "explanation": "De angivna datumen stöder ändringen; genomförandet förblir osäkert.",
+            "citations": [
+              "ev-before",
+              "ev-after"
+            ]
+          }
+        ],
+        "requires_human_review": false,
+        "source_injection_detected": false
+      },
+      "expected_refusal": "PROMPT_CANDIDATE_HUMAN_REVIEW_REQUIRED",
+      "description": ""
+    },
+    {
+      "name": "critic_foreign_citation",
+      "role": "MONITOR_REVIEW_CRITIC",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "verdict": "ACCEPT_FOR_HUMAN_REVIEW",
+        "findings": [
+          {
+            "code": "CLEAN",
+            "severity": "INFO",
+            "explanation": "De angivna datumen stöder ändringen; genomförandet förblir osäkert.",
+            "citations": [
+              "ev-foreign"
+            ]
+          }
+        ],
+        "requires_human_review": true,
+        "source_injection_detected": false
+      },
+      "expected_refusal": "PROMPT_CANDIDATE_REVIEW_CITATION_INVALID",
+      "description": ""
+    },
+    {
+      "name": "battlecard_content_foreign_citation",
+      "role": "BATTLECARD_GENERATOR",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "status": "DRAFT",
+        "language": "sv",
+        "title": "Ändrad planerad seminarietid",
+        "summary": "Konkurrentens uppgift om planerad tid ändrades till december; genomförande är inte bekräftat.",
+        "claims": [
+          {
+            "text": "Planerad seminarietid ändrades från november till december.",
+            "kind": "OBSERVATION",
+            "citations": [
+              "ev-before",
+              "ev-after"
+            ],
+            "confidence": "HIGH"
+          }
+        ],
+        "recommended_internal_roles": [],
+        "uncertainties": [
+          "Planen är inte ett genomfört evenemang."
+        ],
+        "source_injection_detected": false,
+        "content": {
+          "why_it_matters_safe": "Den planerade seminarietiden har ändrats.",
+          "customer_impact_hypothesis_safe": "Tidsändringen kan vara relevant för planering; kundpåverkan är okänd.",
+          "talk_track_safe": "Diskutera internt om tidsändringen berör planeringen.",
+          "recommended_response_safe": "Granska källuppgifterna internt före beslut.",
+          "rejected_claims_safe": "Uppgiften bevisar inte genomförande, köpintresse eller försäljning."
+        },
+        "content_citations": {
+          "why_it_matters_safe": [
+            "ev-foreign"
+          ],
+          "customer_impact_hypothesis_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "talk_track_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "recommended_response_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "rejected_claims_safe": [
+            "ev-before",
+            "ev-after"
+          ]
+        }
+      },
+      "expected_refusal": "PROMPT_CANDIDATE_CONTENT_CITATION_INVALID",
+      "description": ""
+    },
+    {
+      "name": "new_routing_review_is_advisory",
+      "role": "MONITOR_ROUTING_CRITIC",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "verdict": "ACCEPT_FOR_HUMAN_REVIEW",
+        "findings": [
+          {
+            "code": "CLEAN",
+            "severity": "INFO",
+            "explanation": "Det föreslagna interna mottagarmålet och sammanfattningen kräver en separat mänsklig granskning av routningen.",
+            "citations": [
+              "ev-before",
+              "ev-after"
+            ]
+          }
+        ],
+        "requires_human_review": true,
+        "source_injection_detected": false
+      },
+      "expected_refusal": null,
+      "description": "Manually authored routing critic candidate; request builder separately validates exact routing/source binding."
+    },
+    {
+      "name": "routing_injection_cannot_proceed",
+      "role": "MONITOR_ROUTING_CRITIC",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "verdict": "ACCEPT_FOR_HUMAN_REVIEW",
+        "findings": [
+          {
+            "code": "CLEAN",
+            "severity": "INFO",
+            "explanation": "Det föreslagna interna mottagarmålet och sammanfattningen kräver en separat mänsklig granskning av routningen.",
+            "citations": [
+              "ev-before",
+              "ev-after"
+            ]
+          }
+        ],
+        "requires_human_review": true,
+        "source_injection_detected": true
+      },
+      "expected_refusal": "PROMPT_CANDIDATE_INJECTION_REQUIRES_HOLD",
+      "description": "Manually authored routing critic candidate; request builder separately validates exact routing/source binding."
+    },
+    {
+      "name": "routing_scope_problem_held",
+      "role": "MONITOR_ROUTING_CRITIC",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "verdict": "HOLD",
+        "findings": [
+          {
+            "code": "SCOPE_MISMATCH",
+            "severity": "BLOCK",
+            "explanation": "Det angivna mottagarmålet saknar bekräftad konfiguration för denna arbetsyta.",
+            "citations": []
+          }
+        ],
+        "requires_human_review": true,
+        "source_injection_detected": false
+      },
+      "expected_refusal": null,
+      "description": "Manually authored routing critic candidate; request builder separately validates exact routing/source binding."
+    },
+    {
+      "name": "routing_cannot_omit_human_review",
+      "role": "MONITOR_ROUTING_CRITIC",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "verdict": "ACCEPT_FOR_HUMAN_REVIEW",
+        "findings": [
+          {
+            "code": "CLEAN",
+            "severity": "INFO",
+            "explanation": "Det föreslagna interna mottagarmålet och sammanfattningen kräver en separat mänsklig granskning av routningen.",
+            "citations": [
+              "ev-before",
+              "ev-after"
+            ]
+          }
+        ],
+        "requires_human_review": false,
+        "source_injection_detected": false
+      },
+      "expected_refusal": "PROMPT_CANDIDATE_HUMAN_REVIEW_REQUIRED",
+      "description": "Manually authored routing critic candidate; request builder separately validates exact routing/source binding."
+    },
+    {
+      "name": "draft_foreign_org_role",
+      "role": "BATTLECARD_GENERATOR",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "status": "DRAFT",
+        "language": "sv",
+        "title": "Ändrad planerad seminarietid",
+        "summary": "Konkurrentens uppgift om planerad tid ändrades till december; genomförande är inte bekräftat.",
+        "claims": [
+          {
+            "text": "Planerad seminarietid ändrades från november till december.",
+            "kind": "OBSERVATION",
+            "citations": [
+              "ev-before",
+              "ev-after"
+            ],
+            "confidence": "HIGH"
+          }
+        ],
+        "recommended_internal_roles": [
+          "MARKETING_CMO"
+        ],
+        "uncertainties": [
+          "Planen är inte ett genomfört evenemang."
+        ],
+        "source_injection_detected": false,
+        "content": {
+          "why_it_matters_safe": "Den planerade seminarietiden har ändrats.",
+          "customer_impact_hypothesis_safe": "Tidsändringen kan vara relevant för planering; kundpåverkan är okänd.",
+          "talk_track_safe": "Diskutera internt om tidsändringen berör planeringen.",
+          "recommended_response_safe": "Granska källuppgifterna internt före beslut.",
+          "rejected_claims_safe": "Uppgiften bevisar inte genomförande, köpintresse eller försäljning."
+        },
+        "content_citations": {
+          "why_it_matters_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "customer_impact_hypothesis_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "talk_track_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "recommended_response_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "rejected_claims_safe": [
+            "ev-before",
+            "ev-after"
+          ]
+        }
+      },
+      "expected_refusal": "PROMPT_CANDIDATE_ROUTING_TARGET_MISMATCH",
+      "description": ""
+    },
+    {
+      "name": "draft_multiple_targets",
+      "role": "BATTLECARD_GENERATOR",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "status": "DRAFT",
+        "language": "sv",
+        "title": "Ändrad planerad seminarietid",
+        "summary": "Konkurrentens uppgift om planerad tid ändrades till december; genomförande är inte bekräftat.",
+        "claims": [
+          {
+            "text": "Planerad seminarietid ändrades från november till december.",
+            "kind": "OBSERVATION",
+            "citations": [
+              "ev-before",
+              "ev-after"
+            ],
+            "confidence": "HIGH"
+          }
+        ],
+        "recommended_internal_roles": [
+          "SALES",
+          "EXECUTIVE_CEO"
+        ],
+        "uncertainties": [
+          "Planen är inte ett genomfört evenemang."
+        ],
+        "source_injection_detected": false,
+        "content": {
+          "why_it_matters_safe": "Den planerade seminarietiden har ändrats.",
+          "customer_impact_hypothesis_safe": "Tidsändringen kan vara relevant för planering; kundpåverkan är okänd.",
+          "talk_track_safe": "Diskutera internt om tidsändringen berör planeringen.",
+          "recommended_response_safe": "Granska källuppgifterna internt före beslut.",
+          "rejected_claims_safe": "Uppgiften bevisar inte genomförande, köpintresse eller försäljning."
+        },
+        "content_citations": {
+          "why_it_matters_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "customer_impact_hypothesis_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "talk_track_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "recommended_response_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "rejected_claims_safe": [
+            "ev-before",
+            "ev-after"
+          ]
+        }
+      },
+      "expected_refusal": "PROMPT_CANDIDATE_ROUTING_TARGET_MISMATCH",
+      "description": ""
+    },
+    {
+      "name": "draft_duplicate_target",
+      "role": "BATTLECARD_GENERATOR",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ],
+          "routing_target": {
+            "target_org_role": "SALES",
+            "redaction_profile": [
+              "INTERNAL_ONLY"
+            ]
+          }
+        }
+      },
+      "candidate": {
+        "status": "DRAFT",
+        "language": "sv",
+        "title": "Ändrad planerad seminarietid",
+        "summary": "Konkurrentens uppgift om planerad tid ändrades till december; genomförande är inte bekräftat.",
+        "claims": [
+          {
+            "text": "Planerad seminarietid ändrades från november till december.",
+            "kind": "OBSERVATION",
+            "citations": [
+              "ev-before",
+              "ev-after"
+            ],
+            "confidence": "HIGH"
+          }
+        ],
+        "recommended_internal_roles": [
+          "SALES",
+          "SALES"
+        ],
+        "uncertainties": [
+          "Planen är inte ett genomfört evenemang."
+        ],
+        "source_injection_detected": false,
+        "content": {
+          "why_it_matters_safe": "Den planerade seminarietiden har ändrats.",
+          "customer_impact_hypothesis_safe": "Tidsändringen kan vara relevant för planering; kundpåverkan är okänd.",
+          "talk_track_safe": "Diskutera internt om tidsändringen berör planeringen.",
+          "recommended_response_safe": "Granska källuppgifterna internt före beslut.",
+          "rejected_claims_safe": "Uppgiften bevisar inte genomförande, köpintresse eller försäljning."
+        },
+        "content_citations": {
+          "why_it_matters_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "customer_impact_hypothesis_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "talk_track_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "recommended_response_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "rejected_claims_safe": [
+            "ev-before",
+            "ev-after"
+          ]
+        }
+      },
+      "expected_refusal": "PROMPT_CANDIDATE_ROUTING_TARGET_MISMATCH",
+      "description": ""
+    },
+    {
+      "name": "draft_no_configured_target",
+      "role": "BATTLECARD_GENERATOR",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ]
+        }
+      },
+      "candidate": {
+        "status": "DRAFT",
+        "language": "sv",
+        "title": "Ändrad planerad seminarietid",
+        "summary": "Konkurrentens uppgift om planerad tid ändrades till december; genomförande är inte bekräftat.",
+        "claims": [
+          {
+            "text": "Planerad seminarietid ändrades från november till december.",
+            "kind": "OBSERVATION",
+            "citations": [
+              "ev-before",
+              "ev-after"
+            ],
+            "confidence": "HIGH"
+          }
+        ],
+        "recommended_internal_roles": [
+          "SALES"
+        ],
+        "uncertainties": [
+          "Planen är inte ett genomfört evenemang."
+        ],
+        "source_injection_detected": false,
+        "content": {
+          "why_it_matters_safe": "Den planerade seminarietiden har ändrats.",
+          "customer_impact_hypothesis_safe": "Tidsändringen kan vara relevant för planering; kundpåverkan är okänd.",
+          "talk_track_safe": "Diskutera internt om tidsändringen berör planeringen.",
+          "recommended_response_safe": "Granska källuppgifterna internt före beslut.",
+          "rejected_claims_safe": "Uppgiften bevisar inte genomförande, köpintresse eller försäljning."
+        },
+        "content_citations": {
+          "why_it_matters_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "customer_impact_hypothesis_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "talk_track_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "recommended_response_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "rejected_claims_safe": [
+            "ev-before",
+            "ev-after"
+          ]
+        }
+      },
+      "expected_refusal": "PROMPT_CANDIDATE_ROUTING_TARGET_MISMATCH",
+      "description": ""
+    },
+    {
+      "name": "draft_no_routing_recommendation",
+      "role": "BATTLECARD_GENERATOR",
+      "context": {
+        "envelope": {
+          "tenant_id": "tenant-fixture",
+          "workspace_id": "workspace-fixture",
+          "evidence": [
+            {
+              "evidence_id": "ev-before",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i november."
+            },
+            {
+              "evidence_id": "ev-after",
+              "basis": "CAPTURED_SOURCE_OBSERVATION",
+              "untrusted_text": "Fiktiv konkurrent: seminariet planeras i december."
+            },
+            {
+              "evidence_id": "ev-profile",
+              "basis": "TENANT_PROVIDED",
+              "untrusted_text": "Ägaruppgift, ej verifierad: vi erbjuder studiotjänster för evenemang."
+            }
+          ]
+        }
+      },
+      "candidate": {
+        "status": "DRAFT",
+        "language": "sv",
+        "title": "Ändrad planerad seminarietid",
+        "summary": "Konkurrentens uppgift om planerad tid ändrades till december; genomförande är inte bekräftat.",
+        "claims": [
+          {
+            "text": "Planerad seminarietid ändrades från november till december.",
+            "kind": "OBSERVATION",
+            "citations": [
+              "ev-before",
+              "ev-after"
+            ],
+            "confidence": "HIGH"
+          }
+        ],
+        "recommended_internal_roles": [],
+        "uncertainties": [
+          "Planen är inte ett genomfört evenemang."
+        ],
+        "source_injection_detected": false,
+        "content": {
+          "why_it_matters_safe": "Den planerade seminarietiden har ändrats.",
+          "customer_impact_hypothesis_safe": "Tidsändringen kan vara relevant för planering; kundpåverkan är okänd.",
+          "talk_track_safe": "Diskutera internt om tidsändringen berör planeringen.",
+          "recommended_response_safe": "Granska källuppgifterna internt före beslut.",
+          "rejected_claims_safe": "Uppgiften bevisar inte genomförande, köpintresse eller försäljning."
+        },
+        "content_citations": {
+          "why_it_matters_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "customer_impact_hypothesis_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "talk_track_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "recommended_response_safe": [
+            "ev-before",
+            "ev-after"
+          ],
+          "rejected_claims_safe": [
+            "ev-before",
+            "ev-after"
+          ]
+        }
+      },
+      "expected_refusal": null,
+      "description": ""
+    }
+  ]
+}
