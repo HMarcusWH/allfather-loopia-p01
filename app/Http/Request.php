@@ -64,6 +64,12 @@ final class Request
         return $this->form[$key] ?? $this->query[$key] ?? $default;
     }
 
+    /** State-changing actions take values from the submitted body, never the URL. */
+    public function body(string $key, string $default = ''): string
+    {
+        return $this->form[$key] ?? $default;
+    }
+
     public function cookie(string $key): ?string
     {
         return $this->cookies[$key] ?? null;

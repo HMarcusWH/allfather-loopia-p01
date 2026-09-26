@@ -90,17 +90,17 @@ final class AccountController
             return Response::redirect('/login');
         }
 
-        $newPassword = $request->input('new_password');
+        $newPassword = $request->body('new_password');
         // Checked BEFORE the service is called, so a mistyped confirmation writes nothing — and
         // answered 400 like every other refusal on this surface, because a refusal that returns 200
         // is a refusal nothing downstream can distinguish from success.
-        if ($newPassword !== $request->input('confirm_password')) {
+        if ($newPassword !== $request->body('confirm_password')) {
             return $this->renderPasswordForm($request, $session, 'PASSWORD_CONFIRMATION_MISMATCH', 400);
         }
 
         $result = $this->accounts->changePassword(
             (string) $session['platform_user_id'],
-            $request->input('current_password'),
+            $request->body('current_password'),
             $newPassword,
         );
 
