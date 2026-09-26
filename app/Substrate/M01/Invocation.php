@@ -248,6 +248,41 @@ final class Invocation
         ];
     }
 
+    /** New bounded analysis adapter. Caller-supplied text never becomes source evidence or authority. */
+    public function invokeAuthorizedModelTransform(array $command, callable $performModel, mixed $admission = null): array
+    {
+        $validated=$this->validate($command,true);
+        if (!$validated['ok']) return $validated['outcome'];
+        $modelDescriptor=(new \Allfather\Loopia\Provider\ModelRegistration($this->db,$this->clock))->validateDispatchIds((string)$command['governed_tool_id'],$validated['operation']['governed_tool_operation_id']);
+        if(!$modelDescriptor->isOk())return $this->refusePreDispatch($command,'MODEL_DESCRIPTOR_CONFLICT','S4');
+        if ($validated['safety_classification']!=='SAFE_INTERNAL_TRANSFORM' || ($command['action_class']??'')!=='ANALYZE'
+            || $validated['operation']['owning_tool_class']!=='INTERNAL_TRANSFORM'
+            || $validated['operation']['operation_key']!==\Allfather\Loopia\Provider\ModelRegistration::OPERATION_KEY) {
+            return $this->refusePreDispatch($command,'MODEL_TRANSFORM_BINDING_REQUIRED','S4');
+        }
+        $digest=$command['model_request_digest']??'';
+        $ref=$this->db->scalar('SELECT normalized_input_ref_safe FROM tool_requests WHERE tool_request_id=?',[$command['tool_request_id']]);
+        if (!is_string($digest)||preg_match('/^[a-f0-9]{64}$/D',$digest)!==1||$ref!=='model-request://'.$digest) return $this->refusePreDispatch($command,'MODEL_REQUEST_DIGEST_NOT_BOUND','S4');
+        $admitted=$this->admit($command,$validated,$admission);
+        if (!$admitted['ok']) return $admitted['outcome'];
+        $binding=$admitted['binding'];$dispatchId=(string)$binding['tool_dispatch_id'];$startedAt=$this->clock->now();
+        try { $result=$performModel((string)$command['tool_request_id']); }
+        catch (\Throwable) { $result=['kind'=>'FAILED','reason_code'=>'MODEL_ADAPTER_EXCEPTION']; }
+        $success=($result['kind']??'')==='GENERATED' && is_string($result['result_digest']??null) && preg_match('/^[a-f0-9]{64}$/D',$result['result_digest'])===1;
+        $resultDigest=$success?$result['result_digest']:null;
+        $reason=($result['reason_code']??'MODEL_RESULT_INVALID');
+        if (!is_string($reason)||preg_match('/^[A-Z][A-Z0-9_]{0,95}$/D',$reason)!==1) $reason='MODEL_ADAPTER_FAILED';
+        $hostRef='host-exec:'.$command['governed_tool_id'].':'.$command['tool_request_id'];
+        $safeRef='model-result://'.($resultDigest??$digest);
+        $final=$this->finalize($command,$validated,$binding,$startedAt,$success,$resultDigest,
+            fn():string=>$success?$this->appendSucceeded($command,$validated['binding_id'],$dispatchId,[
+                'runtime_host_execution_ref'=>$hostRef,'result_reference_safe'=>$safeRef,'result_digest'=>$resultDigest,'output_classification'=>'TRANSFORM_OUTPUT',
+            ],$startedAt):$this->appendPostDispatchTerminal($command,$validated['binding_id'],$dispatchId,'FAILED',$reason,null,$startedAt));
+        if (!$final['ok']) return $final['outcome'];
+        if (!$success) return ['outcome'=>'REFUSED','reason_code'=>$reason,'execution_ref_id'=>$final['execution_ref_id'],'severity'=>'S3'];
+        return ['outcome'=>'SUCCEEDED','execution_ref_id'=>$final['execution_ref_id'],'runtime_host_execution_ref'=>$hostRef,'result_reference_safe'=>$safeRef,'result_digest'=>$resultDigest,'output_classification'=>'TRANSFORM_OUTPUT'];
+    }
+
     // ---------------------------------------------------------------- pre-dispatch validation
 
     /**

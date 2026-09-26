@@ -10,8 +10,8 @@ declare(strict_types=1);
  * tripwire is the cheapest way to keep that true across future edits, because the way this
  * boundary actually breaks is somebody adding one convenient `mail()` call.
  *
- * The egress guard's cURL transport is the single allowed network leaf; it performs GET/HEAD only
- * and is asserted separately in `tests/security/`.
+ * The reviewed source-read and inactive bounded-model transports are the two network leaves.
+ * Neither grants external-action authority; their activation is asserted separately below.
  */
 
 use Allfather\Loopia\Tests\Assert;
@@ -80,22 +80,27 @@ foreach ($forbidden as $needle => $why) {
     Assert::same([], $hits, "no external-action surface: {$needle} ({$why})");
 }
 
-// `curl_exec` is permitted only in the one reviewed transport leaf.
+// Exact leaves only: adding another file anywhere, including Provider/, must fail this check.
 $curlUsers = [];
 foreach ($sources as $file) {
     if (str_contains((string) file_get_contents($file), 'curl_exec(')) {
         $curlUsers[] = str_replace($root . '/', '', $file);
     }
 }
-Assert::true(
-    count($curlUsers) <= 1,
-    'curl_exec appears in at most one file (the reviewed transport leaf); found: ' . implode(', ', $curlUsers),
-);
-foreach ($curlUsers as $file) {
-    Assert::true(
-        str_contains($file, 'Ingestion/CurlHttpsTransport.php') || str_contains($file, 'Provider/'),
-        "curl_exec lives only in a reviewed leaf, not in {$file}",
-    );
+Assert::same(['app/Ingestion/CurlHttpsTransport.php','app/Provider/OpenAIResponsesTransport.php'], $curlUsers,
+    'curl_exec appears only in the two exact reviewed transport leaves');
+$modelWiring=[];
+foreach ([...$sources,...$phpFiles($root.'/ops')] as $file) {
+    if (preg_match('/new\s+(\\\\?[A-Za-z\\\\]*\\\\)?OpenAIResponsesTransport\s*\(/', $code($file))===1) $modelWiring[]=str_replace($root.'/', '', $file);
+}
+$factoryExists=is_file($root.'/app/Workflow/MonitorFactory.php');
+Assert::same($factoryExists?['app/Workflow/MonitorFactory.php']:[], $modelWiring, 'only the reviewed inactive factory may construct the native model transport');
+if($factoryExists){
+    $factoryCode=$code($root.'/app/Workflow/MonitorFactory.php');
+    Assert::same(1,preg_match_all('/new\s+OpenAIResponsesTransport\s*\(\s*false\s*\)/',$factoryCode),
+        'the sole model constructor is explicitly inactive');
+    Assert::same(1,preg_match_all('/new\s+OpenAIResponsesTransport\s*\(/',$factoryCode),
+        'the factory contains no second native transport constructor');
 }
 
 // ============================================================ the live-read activation boundary
