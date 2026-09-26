@@ -62,15 +62,25 @@ collected in §3.7.
 | [`docs/CLAIM_CEILING.md`](./docs/CLAIM_CEILING.md) | what may and may not be claimed |
 | [`docs/BETA_RUNBOOK.md`](./docs/BETA_RUNBOOK.md) | **the sequence** — Gates A–S, with a pass condition for each |
 | [`docs/DEPLOYMENT_EVIDENCE_MODEL.md`](./docs/DEPLOYMENT_EVIDENCE_MODEL.md) | how an operational claim becomes true, and what it takes |
-| [`deployment-evidence.json`](./deployment-evidence.json) | the evidence registry — currently **empty** |
+| [`deployment-evidence.json`](./deployment-evidence.json) | reviewed, hash-bound operational evidence |
 | [`docs/LOOPIA_HOST_MODEL.md`](./docs/LOOPIA_HOST_MODEL.md) | what the target host actually is, sourced from Loopia's own documentation, and what it does NOT document |
 
 ## Current status
 
-**Nothing has been deployed to Loopia. Nothing is activated.**
+**PR16 is deployed and qualified as inert Loopia staging under the recorded owner-directed
+shared-host staging deviation.** The running application release is
+`392f48deef11380f6dccfe88f2a47ba1fd94575c`; the evidence-only documentation commit is not a new
+deployed application release. See [the Gate R filing](docs/STAGING_GATE_R_EVIDENCE_2026-09-26.md)
+for the measured 5,552/0/0 host result, N/O/P, browser inspection and PR16-to-PR15-to-PR16 rollback.
 
-`deployment-evidence.json` carries **zero records**, which is the machine-readable form of that
-sentence — and the reason none of the operational claims below can be true.
+`deployment-evidence.json` carries **12 records**, preserving historical failures and current
+release evidence. It supports conformance, staging deployment and current-release host capability;
+it does not support live-read activation or ROAD_TEST_001 execution. E.1 remains FAIL_READABLE and
+E.3 remains UNVERIFIED. This is neither technical isolation nor production readiness.
+
+The values below are the stored flags in the unchanged `upstream.lock.json`. Evidence filing does
+not automatically change those flags or grant authority: a separate reviewed edit would be needed
+to assert the three supported operational observations there.
 
 ```text
 # owner acts. No evidence collected on any host can support one.

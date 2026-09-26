@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0",
+  "kind": "CONFORMANCE",
+  "result": "FAIL",
+  "release_ref": "322874b17500d837b2b9b974fde1e4e408b318d6",
+  "environment": "staging",
+  "scope": "HISTORICAL_HOST_STRICT_SUITE",
+  "event_started_at": null,
+  "event_completed_at": null,
+  "event_time_basis": "NOT_RECORDED",
+  "checks": {
+    "COMPLETE_UNFILTERED_STRICT_SUITE": "PASS",
+    "EXACT_RELEASE_BOUND": "PASS",
+    "WORKFLOW_PRESENT_IN_DEPLOYED_PACKAGE": "FAIL"
+  },
+  "counts": {
+    "TOTAL_PASS": 5548,
+    "TOTAL_FAIL": 1,
+    "TOTAL_SKIP": 0,
+    "FOUNDATION_PASS": 1006,
+    "FOUNDATION_FAIL": 1,
+    "FOUNDATION_SKIP": 0,
+    "UNIT_PASS": 153,
+    "UNIT_FAIL": 0,
+    "UNIT_SKIP": 0,
+    "INTEGRATION_PASS": 1797,
+    "INTEGRATION_FAIL": 0,
+    "INTEGRATION_SKIP": 0,
+    "CONFORMANCE_PASS": 395,
+    "CONFORMANCE_FAIL": 0,
+    "CONFORMANCE_SKIP": 0,
+    "ACCEPTANCE_PASS": 668,
+    "ACCEPTANCE_FAIL": 0,
+    "ACCEPTANCE_SKIP": 0,
+    "SECURITY_PASS": 1437,
+    "SECURITY_FAIL": 0,
+    "SECURITY_SKIP": 0,
+    "ROLLBACK_PASS": 92,
+    "ROLLBACK_FAIL": 0,
+    "ROLLBACK_SKIP": 0
+  },
+  "versions": {
+    "PHP": "8.5.9",
+    "MARIADB": "10.11.19-MariaDB-log"
+  },
+  "bindings": {
+    "CANONICAL_PIN": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d"
+  },
+  "source_files": [
+    {
+      "name": "qualification.json",
+      "sha256": "15e54b5d54f15c1386623a7ebbda8cac88378628118eb2ac8004dd7ca5b078f4"
+    },
+    {
+      "name": "remote-preflight.json",
+      "sha256": "c3fa3d077cc9c1128b0d90c228fe12ee78aeaa2db96f192cf6e34d81f6208d09"
+    },
+    {
+      "name": "host-qualification-remote.sh",
+      "sha256": "0e93196233abfc62c2d680196c035971df96de7fc49293701177d18765573f34"
+    }
+  ],
+  "limitations": [
+    "HISTORICAL_EXECUTION_TIME_NOT_RECORDED",
+    "PACKAGING_FAILURE_NOT_APP_AUTH_FAILURE"
+  ],
+  "target": "staging.allfatherbi.com"
+}

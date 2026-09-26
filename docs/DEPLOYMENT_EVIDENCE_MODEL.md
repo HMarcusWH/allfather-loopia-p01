@@ -212,9 +212,20 @@ lock asserts a claim the registry does not support (`CLAIM_WITHOUT_EVIDENCE`). I
 
 ## 8. Current state
 
-The registry carries **no records**. Nothing has been deployed to Loopia, no probe has run on the
-host, no smoke test has been executed against a deployed site, no rollback drill has been performed,
-live read has never been activated, and no road test has been run.
+The registry carries 12 reviewed records for PR13 history, PR15 history and the completed PR16
+inert staging qualification. The running application release is
+`392f48deef11380f6dccfe88f2a47ba1fd94575c` on `staging.allfatherbi.com`; this evidence-only filing
+does not substitute its own commit for that qualified runtime object.
 
-Accordingly all five operational states are false, all four authority locks are false, and
-`no_external_charge_executed` is true.
+The registry supports `conformance_complete`, `staging_deployed` and
+`loopia_capability_validated`. It does not support live-read activation or ROAD_TEST_001 execution.
+The historical `CROSS_SITE_ISOLATION` FAIL is retained: E.1 is FAIL_READABLE and E.3 is UNVERIFIED.
+The supported staging result is explicitly limited by the owner-directed staging deviation and
+cannot qualify production hosting isolation.
+
+The lock is unchanged: all five stored operational states and all four permanent authority locks
+remain false, and `no_external_charge_executed` remains true. This follows the one-way rule:
+evidence may support a claim without automatically asserting it in the lock.
+
+See [the Gate R filing](STAGING_GATE_R_EVIDENCE_2026-09-26.md) for the exact release, source hashes,
+measured results, failed attempts, rollback/restore and remaining limits.

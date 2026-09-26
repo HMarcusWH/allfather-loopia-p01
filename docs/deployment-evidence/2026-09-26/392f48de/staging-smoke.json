@@ -1,0 +1,117 @@
+{
+  "schema_version": "1.0",
+  "kind": "STAGING_SMOKE",
+  "result": "PASS",
+  "release_ref": "392f48deef11380f6dccfe88f2a47ba1fd94575c",
+  "environment": "staging",
+  "target": "staging.allfatherbi.com",
+  "scope": "ANONYMOUS_AUTHENTICATED_SECURITY_MANUAL_BROWSER_AND_REQUEST_ID",
+  "event_started_at": "2026-09-26T14:39:59.482Z",
+  "event_completed_at": "2026-09-26T14:43:46.000Z",
+  "event_time_basis": "EXECUTION_CONTEXT_AND_OBSERVED_BROWSER_REVIEW",
+  "bindings": {
+    "CANONICAL_PIN": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+    "SOURCE_FINGERPRINT": "d0fd0877a2b7039a129bf8d4f11d632f6066f9afd534eba79bff1a10e8ef8266"
+  },
+  "checks": {
+    "ANONYMOUS_GATE_N": "PASS",
+    "AUTHENTICATED_GATE_N": "PASS",
+    "GATE_O_TESTED_CONTRACTS": "PASS",
+    "SECURITY_IDENTITIES_RETIRED_ZERO_LIVE_SESSIONS": "PASS",
+    "MANUAL_BROWSER_JOURNEY": "PASS",
+    "LOGO_PUBLIC_PATH": "PASS",
+    "WORKSPACE_CHOOSER_DEDUPLICATED": "PASS",
+    "GATE_P_REQUEST_ID_EXACT_PRIVATE_MATCH": "PASS",
+    "PRIVATE_REQUEST_LOG_HTTP_REFUSAL": "PASS"
+  },
+  "counts": {
+    "ANONYMOUS_STEPS": 23,
+    "ANONYMOUS_FAILURES": 0,
+    "RESPONSES_WITHOUT_REQUIRED_REQUEST_REFERENCE": 0,
+    "GATE_NO_STEPS": 118,
+    "GATE_NO_FAILURES": 0,
+    "WORKSPACE_ROWS": 1,
+    "UNIQUE_WORKSPACES": 1,
+    "REQUEST_ID_MATCHING_LOG_LINES": 1,
+    "PRIVATE_LOG_HTTP_STATUS": 403
+  },
+  "gate_no_step_count_reconciliation": {
+    "historical_steps": 121,
+    "current_steps": 118,
+    "identical_shared_steps": 117,
+    "explanation": "Four fixture-provisioning and post-provision checks became one existing-fixture reuse check. No N/O security contract was omitted."
+  },
+  "initial_http_wrapper": {
+    "result": "FAIL",
+    "underlying_smoke_status": "SMOKE_PASS",
+    "reason": "WRAPPER_REQUIRED_REQUEST_IDS_ON_EXEMPT_REFUSAL_SURFACES",
+    "correction": "USES_SOURCE_REQUIRED_REFERENCE_COUNTER",
+    "fresh_corrected_run": "PASS"
+  },
+  "manual_browser": {
+    "workspace_rows": 1,
+    "unique_workspaces": 1,
+    "logo_src": "/assets/operator-console/assets/logo-lockup.5UBKNNOS.svg",
+    "logo_natural_dimensions": [
+      392,
+      96
+    ],
+    "account": "ACTIVE",
+    "support_release_matches": true,
+    "P01": "EMPTY",
+    "P02": "EMPTY",
+    "P03": "EMPTY",
+    "P04": "EXPECTED_DENIAL_DISTRIBUTION_TARGET_NOT_CONFIGURED",
+    "P05": "EMPTY",
+    "M10": "TEST_NO_STREAM"
+  },
+  "source_files": [
+    {
+      "name": "host-qualification/pr16/pr16-20260926-http02/http-execution-context.json",
+      "sha256": "982e7f4b37e4395ec63b8614fc9a18ab5cd9db32926a73b132b90d945baa0451"
+    },
+    {
+      "name": "host-qualification/pr16/pr16-20260926-http02/anonymous-smoke.json",
+      "sha256": "a697fe93a267bae3c133ca3591c3ed48dfe5a0bdeefa101ba468e45fa5243651"
+    },
+    {
+      "name": "gate-no/20260926-pr16n01/execution-context.json",
+      "sha256": "071663ed8c961905eb993db7bce0cd20c9588996c689622a95036eb502929bb4"
+    },
+    {
+      "name": "gate-no/20260926-pr16n01/gate-no-status.json",
+      "sha256": "d9b7784112fb6989f88d122928bf83dc81cfd39df28670d78e7241d3ce2d0747"
+    },
+    {
+      "name": "gate-no/pr15-pr16-step-count-reconciliation.json",
+      "sha256": "232310dd3b7525e09e5bd81c0ce07bbd0aa8deae5cc137d423e139d44a4ef858"
+    },
+    {
+      "name": "host-qualification/pr16/pr16-20260926-http02/request-id-proof.json",
+      "sha256": "6a2a48baf012707dda71819f916179ff3adcb7ca668ad55da77686b6837581cf"
+    },
+    {
+      "name": "host-qualification/pr16/pr16-20260926-http02/request-id-execution-context.json",
+      "sha256": "ff5b2a2f190bd85c7409d052f50a789d1c7a66ffa4674d6586054ce772c1f62c"
+    },
+    {
+      "name": "host-qualification/pr16/manual-browser-result.json",
+      "sha256": "cebc959043d7d2efd6f4f8d8dcd20265a227985c2a9c511499cb065fb8c8113a"
+    },
+    {
+      "name": "host-qualification/pr16/pr16-20260926-host01/http-execution-context.json",
+      "sha256": "ab5de5a09c86d56c080e9178c59bcfdedebefab724764c55fbfbabfd9c4d4326"
+    },
+    {
+      "name": "host-qualification/pr16/pr16-20260926-host01/http-harness-reconciliation.json",
+      "sha256": "d822a78760690cb8e421886e4588a47c74d3394b674d333b5fbd817b53f031df"
+    }
+  ],
+  "limitations": [
+    "EMPTY_PRODUCT_DATA_DOES_NOT_PROVE_LIVE_INTAKE",
+    "TEST_NO_STREAM_DOES_NOT_PROVE_POPULATED_LEDGER_BEHAVIOR",
+    "ADDITIONAL_PANELS_REMAIN_GOVERNED_READ_NOT_WIRED",
+    "NOT_FULL_FEATURE_OR_PRODUCTION_READINESS",
+    "E1_FAIL_READABLE_E3_UNVERIFIED_OWNER_DIRECTED_STAGING_DEVIATION"
+  ]
+}

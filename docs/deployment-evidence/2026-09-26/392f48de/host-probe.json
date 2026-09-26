@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0",
+  "kind": "LOOPIA_PROBE_001",
+  "result": "PASS",
+  "release_ref": "392f48deef11380f6dccfe88f2a47ba1fd94575c",
+  "environment": "staging",
+  "target": "staging.allfatherbi.com",
+  "scope": "ACTUAL_HOST_BASELINE_AND_NETWORK_CAPABILITY",
+  "event_started_at": "2026-09-26T14:37:49.766Z",
+  "event_completed_at": "2026-09-26T14:37:53.413Z",
+  "event_time_basis": "EXECUTION_RECEIPTS",
+  "bindings": {
+    "CANONICAL_PIN": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+    "SOURCE_FINGERPRINT": "d0fd0877a2b7039a129bf8d4f11d632f6066f9afd534eba79bff1a10e8ef8266"
+  },
+  "checks": {
+    "ACTUAL_HOST_BASELINE": "PASS",
+    "STAGING_HOST_READY": "PASS",
+    "OUTBOUND_HTTPS_WITH_TLS": "PASS",
+    "EXACT_RELEASE_BOUND": "PASS",
+    "SCHEDULER_TRANSPORT": "UNVERIFIED",
+    "LIVE_READ_ACTIVATION": "NOT_RUN"
+  },
+  "versions": {
+    "PHP": "8.5.9",
+    "MARIADB": "10.11.19-MariaDB-log"
+  },
+  "counts": {
+    "STAGING_MISSING_CAPABILITIES": 0,
+    "STAGING_UNDEMONSTRATED_CAPABILITIES": 0
+  },
+  "source_files": [
+    {
+      "name": "host-qualification/pr16/pr16-20260926-host01/probe-baseline.json",
+      "sha256": "3c1eaf1a10fa3d31e7e73fe3ce4c7321a5d740590f7b45e3046d9e447e64b554"
+    },
+    {
+      "name": "host-qualification/pr16/pr16-20260926-host01/probe-network.json",
+      "sha256": "386650da4b9ec8da3561779795d46c0b63fbab2468c2b414b64b0267a77419d4"
+    },
+    {
+      "name": "host-qualification/pr16/pr16-20260926-host01/host-execution-context.json",
+      "sha256": "a16370bc6b70d0c63e154c913912dca830165c900e7a7d108a0dcdf393ffe15a"
+    },
+    {
+      "name": "host-qualification/pr16/pr16-20260926-host01/host-preflight-before.json",
+      "sha256": "6fc22c494138e0fd66190708c55f0e98304f91f790a9968de716422143ccbad8"
+    },
+    {
+      "name": "host-qualification/pr16/pr16-20260926-host01/host-preflight-after.json",
+      "sha256": "6fc22c494138e0fd66190708c55f0e98304f91f790a9968de716422143ccbad8"
+    }
+  ],
+  "limitations": [
+    "CAPABILITY_READINESS_IS_NOT_ACTIVATION",
+    "SCHEDULER_TRANSPORT_UNVERIFIED",
+    "NO_PRODUCTION_AUTHORITY"
+  ]
+}

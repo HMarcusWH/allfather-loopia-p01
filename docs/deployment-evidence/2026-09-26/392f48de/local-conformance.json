@@ -1,0 +1,285 @@
+{
+  "schema_version": "1.0",
+  "kind": "CONFORMANCE",
+  "result": "PASS",
+  "release_ref": "392f48deef11380f6dccfe88f2a47ba1fd94575c",
+  "environment": "ci",
+  "scope": "EXACT_MERGED_RELEASE_LOCAL_WORKFLOW_REPRODUCTION",
+  "event_started_at": null,
+  "event_completed_at": null,
+  "event_time_basis": "COMPLETE_EXECUTION_INTERVAL_NOT_RECORDED",
+  "artifact_audit_checked_at": "2026-09-25T22:38:37.937382+00:00",
+  "checks": {
+    "EXACT_RELEASE_BOUND": "PASS",
+    "ALL_34_LOCAL_SHELL_STEPS": "PASS",
+    "COMPLETE_UNFILTERED_STRICT_SUITES": "PASS",
+    "ZERO_FAILURES_AND_SKIPS": "PASS",
+    "BOTH_MARIADB_LANES": "PASS",
+    "BOTH_HOST_SHAPED_LANES": "PASS",
+    "FINAL_AGGREGATORS": "PASS",
+    "TRACKED_BYTE_AUDIT": "PASS",
+    "PUBLISHED_ASSETS_IDENTICAL": "PASS",
+    "DISPOSABLE_RUNTIME_CLEANUP": "PASS",
+    "HOSTED_WORKFLOW_EXECUTION": "NOT_RUN_BILLING_OR_SPENDING_LIMIT"
+  },
+  "counts": {
+    "LOCAL_SHELL_STEPS": 34,
+    "QUALIFIED_REPORTS": 4,
+    "TRACKED_FILES_PER_ARTIFACT": 499,
+    "HOSTED_JOBS_WITH_ZERO_STEPS": 5
+  },
+  "strict_lanes": {
+    "git_export_10_6": {
+      "php_version": "8.2.34",
+      "database_server_version": "10.6.28-MariaDB-ubu2204",
+      "total": {
+        "pass": 5552,
+        "fail": 0,
+        "skip": 0
+      },
+      "complete": true,
+      "strict": true,
+      "layer_counts": {
+        "foundation": {
+          "pass": 1009,
+          "fail": 0,
+          "skip": 0
+        },
+        "unit": {
+          "pass": 153,
+          "fail": 0,
+          "skip": 0
+        },
+        "integration": {
+          "pass": 1798,
+          "fail": 0,
+          "skip": 0
+        },
+        "conformance": {
+          "pass": 395,
+          "fail": 0,
+          "skip": 0
+        },
+        "acceptance": {
+          "pass": 668,
+          "fail": 0,
+          "skip": 0
+        },
+        "security": {
+          "pass": 1437,
+          "fail": 0,
+          "skip": 0
+        },
+        "rollback": {
+          "pass": 92,
+          "fail": 0,
+          "skip": 0
+        }
+      }
+    },
+    "git_export_10_11": {
+      "php_version": "8.2.34",
+      "database_server_version": "10.11.19-MariaDB-ubu2204",
+      "total": {
+        "pass": 5552,
+        "fail": 0,
+        "skip": 0
+      },
+      "complete": true,
+      "strict": true,
+      "layer_counts": {
+        "foundation": {
+          "pass": 1009,
+          "fail": 0,
+          "skip": 0
+        },
+        "unit": {
+          "pass": 153,
+          "fail": 0,
+          "skip": 0
+        },
+        "integration": {
+          "pass": 1798,
+          "fail": 0,
+          "skip": 0
+        },
+        "conformance": {
+          "pass": 395,
+          "fail": 0,
+          "skip": 0
+        },
+        "acceptance": {
+          "pass": 668,
+          "fail": 0,
+          "skip": 0
+        },
+        "security": {
+          "pass": 1437,
+          "fail": 0,
+          "skip": 0
+        },
+        "rollback": {
+          "pass": 92,
+          "fail": 0,
+          "skip": 0
+        }
+      }
+    },
+    "host_shaped_10_6": {
+      "php_version": "8.2.34",
+      "database_server_version": "10.6.28-MariaDB-ubu2204",
+      "total": {
+        "pass": 5552,
+        "fail": 0,
+        "skip": 0
+      },
+      "complete": true,
+      "strict": true,
+      "layer_counts": {
+        "foundation": {
+          "pass": 1009,
+          "fail": 0,
+          "skip": 0
+        },
+        "unit": {
+          "pass": 153,
+          "fail": 0,
+          "skip": 0
+        },
+        "integration": {
+          "pass": 1798,
+          "fail": 0,
+          "skip": 0
+        },
+        "conformance": {
+          "pass": 395,
+          "fail": 0,
+          "skip": 0
+        },
+        "acceptance": {
+          "pass": 668,
+          "fail": 0,
+          "skip": 0
+        },
+        "security": {
+          "pass": 1437,
+          "fail": 0,
+          "skip": 0
+        },
+        "rollback": {
+          "pass": 92,
+          "fail": 0,
+          "skip": 0
+        }
+      }
+    },
+    "host_shaped_10_11": {
+      "php_version": "8.2.34",
+      "database_server_version": "10.11.19-MariaDB-ubu2204",
+      "total": {
+        "pass": 5552,
+        "fail": 0,
+        "skip": 0
+      },
+      "complete": true,
+      "strict": true,
+      "layer_counts": {
+        "foundation": {
+          "pass": 1009,
+          "fail": 0,
+          "skip": 0
+        },
+        "unit": {
+          "pass": 153,
+          "fail": 0,
+          "skip": 0
+        },
+        "integration": {
+          "pass": 1798,
+          "fail": 0,
+          "skip": 0
+        },
+        "conformance": {
+          "pass": 395,
+          "fail": 0,
+          "skip": 0
+        },
+        "acceptance": {
+          "pass": 668,
+          "fail": 0,
+          "skip": 0
+        },
+        "security": {
+          "pass": 1437,
+          "fail": 0,
+          "skip": 0
+        },
+        "rollback": {
+          "pass": 92,
+          "fail": 0,
+          "skip": 0
+        }
+      }
+    }
+  },
+  "bindings": {
+    "CANONICAL_PIN": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+    "WORKFLOW_GIT_BLOB": "a9b3bba3f3c4acba5527d6a1c38640292c99a9e2",
+    "WORKFLOW_SHA256": "2d9c43f73a2a1a5f762b2cc712b85f59cdfc072b3749f98b44b28910baad3411"
+  },
+  "hosted_ci": {
+    "run_id": 36197550928,
+    "conclusion": "failure",
+    "steps_executed": 0,
+    "reason": "ACCOUNT_BILLING_OR_SPENDING_LIMIT"
+  },
+  "source_files": [
+    {
+      "name": "full-local-ci-results.json",
+      "sha256": "49209df6be2e164ef4e52c9fd929f27e5ec6c60a9df539a2dd98a298c8a1b364"
+    },
+    {
+      "name": "final-artifact-byte-audit.json",
+      "sha256": "dc9f33c768693795d13c72340842ff90eb862e2a3026d9511b1a3f7babbf9f12"
+    },
+    {
+      "name": "github-exact-pr16.json",
+      "sha256": "5a9895d8115e06b54d97d4a94ea894cb0fe4f3dc44d643d535a79ceeb282817f"
+    },
+    {
+      "name": "qualification-10.6.json",
+      "sha256": "485a0d533391dac53ede161c62b7355f2e7bd9a3ccd25187e76da31940ad48c9"
+    },
+    {
+      "name": "qualification-10.11.json",
+      "sha256": "4c9c7a8fed29a2a6999deb539c54ba612075dccabdac51247087056e97a1498a"
+    },
+    {
+      "name": "host-shaped/qualification-10.6.json",
+      "sha256": "e8dac9a775194636075ffe04b4d1cd0f3fa16d905bdfc575b873bf5551f60335"
+    },
+    {
+      "name": "host-shaped/qualification-10.11.json",
+      "sha256": "c4a95d260059d8905df6f9dd0db11114036bb224d781fbf915ec9df6f08535cd"
+    },
+    {
+      "name": "official-image-digests.json",
+      "sha256": "65ff2cab7da4570761981c40a5210ebbe4ee5ce52319a724493d02996246da80"
+    },
+    {
+      "name": "php82-runtime.json",
+      "sha256": "85511c04dfc6b7100ba96c15e40dfae0294198b61881946cda3a45f950c5989b"
+    },
+    {
+      "name": "persistent-release-preflight.json",
+      "sha256": "6fc22c494138e0fd66190708c55f0e98304f91f790a9968de716422143ccbad8"
+    }
+  ],
+  "limitations": [
+    "LOCAL_RUNTIME_AND_ARTIFACT_TRANSPORT_ADAPTATIONS",
+    "TMPFS_NO_CRASH_DURABILITY_CLAIM",
+    "NOT_LOOPIA_HOST_PROOF",
+    "HOSTED_WORKFLOW_NOT_EXECUTED",
+    "EXECUTION_INTERVAL_NOT_RECORDED"
+  ]
+}

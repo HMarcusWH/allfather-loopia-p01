@@ -1,0 +1,75 @@
+{
+  "schema_version": "1.0",
+  "kind": "CONFORMANCE",
+  "result": "PASS",
+  "release_ref": "b30d0ff0820a33bbfafd5e59a3be9a0872a8a14e",
+  "environment": "staging",
+  "scope": "REAL_HOST_DISPOSABLE_DB_STRICT_SUITE",
+  "event_started_at": "2026-09-25T22:18:50.952Z",
+  "event_completed_at": "2026-09-25T22:20:05.625Z",
+  "event_time_basis": "EXECUTION_CONTEXT",
+  "checks": {
+    "COMPLETE_UNFILTERED_STRICT_SUITE": "PASS",
+    "ZERO_FAILURES_AND_SKIPS": "PASS",
+    "EXACT_RELEASE_BOUND": "PASS",
+    "REPORT_HASH_MATCHES_EXECUTION_CONTEXT": "PASS",
+    "SEPARATE_QUALIFICATION_DATABASE": "PASS"
+  },
+  "counts": {
+    "TOTAL_PASS": 5551,
+    "TOTAL_FAIL": 0,
+    "TOTAL_SKIP": 0,
+    "FOUNDATION_PASS": 1009,
+    "FOUNDATION_FAIL": 0,
+    "FOUNDATION_SKIP": 0,
+    "UNIT_PASS": 153,
+    "UNIT_FAIL": 0,
+    "UNIT_SKIP": 0,
+    "INTEGRATION_PASS": 1797,
+    "INTEGRATION_FAIL": 0,
+    "INTEGRATION_SKIP": 0,
+    "CONFORMANCE_PASS": 395,
+    "CONFORMANCE_FAIL": 0,
+    "CONFORMANCE_SKIP": 0,
+    "ACCEPTANCE_PASS": 668,
+    "ACCEPTANCE_FAIL": 0,
+    "ACCEPTANCE_SKIP": 0,
+    "SECURITY_PASS": 1437,
+    "SECURITY_FAIL": 0,
+    "SECURITY_SKIP": 0,
+    "ROLLBACK_PASS": 92,
+    "ROLLBACK_FAIL": 0,
+    "ROLLBACK_SKIP": 0
+  },
+  "versions": {
+    "PHP": "8.5.9",
+    "MARIADB": "10.11.19-MariaDB-log"
+  },
+  "bindings": {
+    "CANONICAL_PIN": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+    "SOURCE_FINGERPRINT": "4b18462db8a03c1c7e4ece75c02f5d0d66fc045b77ba0fd70ea2d3199518ca76"
+  },
+  "source_files": [
+    {
+      "name": "qualification.json",
+      "sha256": "17aaf1e249e3a046a3dabda602a36bc534c7255d6db333ce3584f331b9488f08"
+    },
+    {
+      "name": "execution-context.json",
+      "sha256": "d441684d0a53d646696cb17559607f1b05751d01a9656ee0abb15176af12d897"
+    },
+    {
+      "name": "preflight.json",
+      "sha256": "4b79ff5f677c27c7b547e92d7e52f74ae2aa09d45ab1ef4a44652555721e1e09"
+    },
+    {
+      "name": "runtime-invariants.json",
+      "sha256": "a6e01cb63babbca9a6b4b48f042cc28a7d50d5aa7c99a8f9cf21e61dc4ef1744"
+    }
+  ],
+  "limitations": [
+    "NOT_RUNTIME_DATA_RESET",
+    "NO_LIVE_READ_ACTIVATION"
+  ],
+  "target": "staging.allfatherbi.com"
+}

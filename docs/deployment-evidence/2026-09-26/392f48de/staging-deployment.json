@@ -1,0 +1,120 @@
+{
+  "schema_version": "1.0",
+  "kind": "STAGING_DEPLOYMENT",
+  "result": "PASS",
+  "release_ref": "392f48deef11380f6dccfe88f2a47ba1fd94575c",
+  "environment": "staging",
+  "target": "staging.allfatherbi.com",
+  "scope": "EXACT_INERT_COPY_FINAL_PREFLIGHT_AND_HTTPS_RESPONSE",
+  "event_started_at": "2026-09-26T14:33:59Z",
+  "event_completed_at": "2026-09-26T14:40:03.804Z",
+  "event_time_basis": "EXECUTION_RECEIPTS",
+  "bindings": {
+    "CANONICAL_PIN": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+    "SOURCE_FINGERPRINT": "d0fd0877a2b7039a129bf8d4f11d632f6066f9afd534eba79bff1a10e8ef8266"
+  },
+  "copy_completed_at": "2026-09-26T14:37:02Z",
+  "checks": {
+    "DESTINATION_CONFINED_TO_STAGING": "PASS",
+    "EXACT_RELEASE_AND_FINGERPRINT": "PASS",
+    "MANIFEST_LAST_PUBLICATION": "PASS",
+    "REMOTE_PREFLIGHT_FINAL": "PASS",
+    "HTTP_PRIVATE_PATH_REFUSAL": "PASS",
+    "HTTPS_RESPONDS": "PASS",
+    "RELEASE_CONFIG_OTHER_BYTES_UNCHANGED": "PASS",
+    "INERT_POSTURE": "PASS"
+  },
+  "initial_preflight": {
+    "result": "FAIL",
+    "status": "NOT_READY",
+    "reason": "TWO_RETIRED_PR15_MANIFEST_ASSETS_PRESENT",
+    "resolution": "ONLY_THE_TWO_OBSOLETE_MANIFEST_ASSETS_PRUNED_AFTER_CONFINEMENT_AND_HASH_CHECKS"
+  },
+  "counts": {
+    "RETIRED_ASSETS_REMOVED": 2,
+    "PRIVATE_PATH_CHECKS": 16,
+    "PRIVATE_PATH_403_RESPONSES": 15,
+    "PROVIDER_DOTFILE_BLOCK_REDIRECTS": 1
+  },
+  "operator_console": {
+    "script": "console.APU2X2NH.js",
+    "style": "console.TAAHOXDD.css",
+    "asset_count": 1,
+    "manifest_sha256": "56a8108772a6f13c036b7c4aaeae1a7369290db71d0530ccfd0fcaa164a4db79"
+  },
+  "source_files": [
+    {
+      "name": "deploy/pr16/started-at.txt",
+      "sha256": "b9a9d922b02ff6a2d5aef0246df8b4da856b4d8eac58f6c6f2d5161243b54038"
+    },
+    {
+      "name": "deploy/pr16/completed-at.txt",
+      "sha256": "bf9a867bc359a48b2181933494845cc7959eee4bc94d3b8fc46606d90a758d2c"
+    },
+    {
+      "name": "deploy/pr16/target-confinement.txt",
+      "sha256": "57755e69aa31ab993f5dd55cfd023e56d7f35edff37685ba3f6fc2e8bdb5da87"
+    },
+    {
+      "name": "deploy/pr16/root-dry-run.txt",
+      "sha256": "4a37036f6213337af5ff98fa31866d8f8f2b1cba90ae61213b3f7c3e9b73b2e0"
+    },
+    {
+      "name": "deploy/pr16/root-sync.txt",
+      "sha256": "66f3534a45b4edc4199b245dc835604dcdbe4ac58fa8e5b8d9a7170e13cb32de"
+    },
+    {
+      "name": "deploy/pr16/storage-policy-sync.txt",
+      "sha256": "11c636127751541687d8b4d7bd9b67f855d0b1ff029b09ff3967d7d8e22ac54c"
+    },
+    {
+      "name": "deploy/pr16/console-assets-sync.txt",
+      "sha256": "7926ed51bf713734340203d1ae9dc9843e6f7cb3380f661a8ddd9dad6a129de6"
+    },
+    {
+      "name": "deploy/pr16/console-manifest-sync.txt",
+      "sha256": "83668ece59c5de35e1eed0860bac7baf243ac5d47bcf498cb2a0fb8147e4c603"
+    },
+    {
+      "name": "deploy/pr16/env-example-checksum-check.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "deploy/pr16/manifest-next-checksum-check.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "deploy/pr16/release-ref-update.txt",
+      "sha256": "4294a2caf072c969a2b2cb174ce914fa98848a3d8fe21ceb0155ab88c8a04634"
+    },
+    {
+      "name": "deploy/pr16/remote-preflight-before-asset-prune.json",
+      "sha256": "924316cb62b1fcda14718b03be07c35a7991ab20c97fb7e740a5c15dafc6a0c6"
+    },
+    {
+      "name": "deploy/pr16/retired-console-assets.json",
+      "sha256": "f34a9db22d06b381dc703078b101ec912db119c4928ca392598c161d9e2128e0"
+    },
+    {
+      "name": "deploy/pr16/remote-preflight.json",
+      "sha256": "6fc22c494138e0fd66190708c55f0e98304f91f790a9968de716422143ccbad8"
+    },
+    {
+      "name": "host-qualification/pr16/pr16-20260926-http02/http-execution-context.json",
+      "sha256": "982e7f4b37e4395ec63b8614fc9a18ab5cd9db32926a73b132b90d945baa0451"
+    },
+    {
+      "name": "host-qualification/pr16/pr16-20260926-http02/anonymous-smoke.json",
+      "sha256": "a697fe93a267bae3c133ca3591c3ed48dfe5a0bdeefa101ba468e45fa5243651"
+    },
+    {
+      "name": "host-qualification/pr16/pr16-20260926-http02/e2-http.txt",
+      "sha256": "bcd94b66967940bfd34a8a98d8dfbb3218067829eb09002e87f64a741437892d"
+    }
+  ],
+  "limitations": [
+    "OWNER_DIRECTED_STAGING_DEVIATION",
+    "E1_FAIL_READABLE_AND_E3_UNVERIFIED_REMAIN",
+    "NO_LIVE_READ_SCHEDULER_OR_PRODUCTION_AUTHORITY"
+  ]
+}
