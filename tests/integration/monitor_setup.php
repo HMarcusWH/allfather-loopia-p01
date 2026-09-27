@@ -17,6 +17,7 @@ use Allfather\Loopia\PromptOps\{PromptApprovalStore,PromptSelectionResolver};
 use Allfather\Loopia\Product\P04\Distribution;
 use Allfather\Loopia\Provider\{CredentialStore,SecretBox};
 use Allfather\Loopia\Storage\EvidenceStore;
+use Allfather\Loopia\Substrate\M05\EvidenceSpine;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
 use Allfather\Loopia\Tests\{Assert,ExecutionFixture as X,Harness,LiveFlaggedFixtureTransport,MonitorModelFixture,Seed};
 use Allfather\Loopia\Workflow\{ExecutionAdmission,ExecutionGrantStore,MissionConfiguration,MonitorSetup,OwnerDecisionRegistry};
@@ -228,6 +229,21 @@ Assert::same('REFUSE', $steps(X::value($setup->plan($scope, $reqC, $successor['s
 // ---------------------------------------------------------------- a live routing policy is never replaced as a side effect
 (new Distribution($db, $clock, new DecisionLedger($db, $clock)))->configureRoleRedactionPolicy(['tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'], 'target_org_role' => 'SALES', 'redaction_rules' => [['field' => 'price', 'action' => 'REDACT']]]);
 Assert::same('CONFLICT', $steps(X::value($setup->plan($scope, $reqC, $successor['setup_receipt_id'])))['DISTRIBUTION_TARGET'], 'a different target policy is a conflict');
+
+// ---------------------------------------------------------------- duplicate authority rows fail closed instead of selecting one convenient row
+$db->insert('monitored_sources', [
+    'monitored_source_id'=>Ids::new(),'schema_version'=>'1','tenant_id'=>$scope['tenant_id'],'workspace_id'=>$scope['workspace_id'],
+    'competitor_id'=>$successor['objects']['competitor_id'],'source_ref_id'=>$successor['objects']['source_ref_id'],
+    'source_license_card_id'=>$successor['objects']['source_license_card_id'],'source_kind'=>'WEBSITE','status'=>'ACTIVE','created_at'=>$clock->now(),
+]);
+$ambiguousMonitored=X::value($setup->plan($scope,$reqC,$successor['setup_receipt_id']));
+$ambiguousMonitoredSteps=array_column($ambiguousMonitored['steps'],null,'step');
+Assert::same(['CONFLICT','MONITORED_SOURCE_AMBIGUOUS'],[$ambiguousMonitoredSteps['MONITORED_SOURCE']['action'],$ambiguousMonitoredSteps['MONITORED_SOURCE']['reason_code']],'duplicate monitored-source authority is ambiguous rather than latest-row-wins');
+
+(new EvidenceSpine($db,$clock))->registerSource($scope['tenant_id'],$scope['workspace_id'],'UPLOADED_ARTIFACT',MonitorSetup::PROFILE_LOCATION,'INTERNAL_ANALYSIS','INTERNAL_DEMO','ACTIVE_FOR_CAPTURE');
+$ambiguousProfile=X::value($setup->plan($scope,$reqC,$successor['setup_receipt_id']));
+$ambiguousProfileSteps=array_column($ambiguousProfile['steps'],null,'step');
+Assert::same(['REFUSE','MONITOR_PROFILE_SOURCE_AMBIGUOUS'],[$ambiguousProfileSteps['COMPANY_PROFILE']['action'],$ambiguousProfileSteps['COMPANY_PROFILE']['reason_code']],'duplicate profile-source authority is refused rather than chosen by identifier order');
 
 // ---------------------------------------------------------------- receipts are append-only
 foreach (['UPDATE monitor_setup_receipts SET revision=9', 'DELETE FROM monitor_setup_receipts'] as $sql) {

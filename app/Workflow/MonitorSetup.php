@@ -64,8 +64,11 @@ final class MonitorSetup
 
         return $this->db->transaction(function (Database $tx) use ($scope, $bytes, $digest): Outcome {
             $tx->one('SELECT workspace_id FROM workspaces WHERE workspace_id=? AND tenant_id=? FOR UPDATE', [$scope['workspace_id'], $scope['tenant_id']]);
-            $source = $this->profileSource($scope);
+            $source = $this->profileSource($scope, $tx);
             $spine = new EvidenceSpine($tx, $this->clock);
+            if (($source['ambiguous'] ?? false) === true) {
+                return Outcome::refuse('MONITOR_PROFILE_SOURCE_AMBIGUOUS');
+            }
             if ($source === null) {
                 $sourceId = $spine->registerSource($scope['tenant_id'], $scope['workspace_id'], 'UPLOADED_ARTIFACT', self::PROFILE_LOCATION, 'INTERNAL_ANALYSIS', 'INTERNAL_DEMO', 'ACTIVE_FOR_CAPTURE');
             } elseif ($source['status'] !== 'ACTIVE_FOR_CAPTURE') {
@@ -159,13 +162,19 @@ final class MonitorSetup
 
         $profileSource = $this->profileSource($scope);
         $profiles = 'REUSE';
+        $profileReason = null;
+        if (($profileSource['ambiguous'] ?? false) === true) {
+            $profiles = 'REFUSE';
+            $profileReason = 'MONITOR_PROFILE_SOURCE_AMBIGUOUS';
+        }
         foreach ($r['profile_evidence_ids'] as $id) {
             $row = CompanyContext::read($this->db, $id, $scope['tenant_id'], $scope['workspace_id']);
-            if ($row === null || $profileSource === null || $row['source_ref_id'] !== $profileSource['source_ref_id']) {
+            if ($row === null || $profileSource === null || ($profileSource['ambiguous'] ?? false) === true || $row['source_ref_id'] !== ($profileSource['source_ref_id'] ?? null)) {
                 $profiles = 'REFUSE';
+                $profileReason ??= 'MONITOR_PROFILE_NOT_AVAILABLE';
             }
         }
-        $add('COMPANY_PROFILE', $profiles, $profileSource['source_ref_id'] ?? null, $profiles === 'REFUSE' ? 'MONITOR_PROFILE_NOT_AVAILABLE' : null);
+        $add('COMPANY_PROFILE', $profiles, is_string($profileSource['source_ref_id'] ?? null) ? $profileSource['source_ref_id'] : null, $profiles === 'REFUSE' ? $profileReason : null);
 
         $p01 = $this->db->scalar("SELECT arbiter_policy_set_id FROM arbiter_policy_sets WHERE policy_key='P01_COMPETITION_RELEVANCE' AND tenant_id=? AND workspace_id=? AND status='ACTIVE'", [$scope['tenant_id'], $scope['workspace_id']]);
         $add('P01_POLICY', $p01 === null ? 'CREATE' : 'REUSE', $p01 === null ? null : (string) $p01);
@@ -335,7 +344,11 @@ final class MonitorSetup
                     if (!$configured->isOk()) { return $configured; }
                 }
 
-                $profileSource = $this->profileSource($scope, $tx)['source_ref_id'];
+                $profileSourceRow = $this->profileSource($scope, $tx);
+                if ($profileSourceRow === null || ($profileSourceRow['ambiguous'] ?? false) === true || $profileSourceRow['status'] !== 'ACTIVE_FOR_CAPTURE') {
+                    return Outcome::refuse('MONITOR_PROFILE_SOURCE_NOT_CURRENT');
+                }
+                $profileSource = $profileSourceRow['source_ref_id'];
                 $sources = [$profileSource, $card['source_ref_id']];
                 $predecessor = $successorOf === null ? null : $tx->one('SELECT setup_receipt_id,mission_id FROM monitor_setup_receipts WHERE setup_receipt_id=? AND tenant_id=? AND workspace_id=?', [$successorOf, $scope['tenant_id'], $scope['workspace_id']]);
                 $missionId = $m04->createMission(
@@ -473,7 +486,18 @@ final class MonitorSetup
 
     private function profileSource(array $scope, ?Database $db = null): ?array
     {
-        return ($db ?? $this->db)->one("SELECT source_ref_id,status FROM source_references WHERE tenant_id=? AND workspace_id=? AND source_type='UPLOADED_ARTIFACT' AND source_location_safe=? ORDER BY source_ref_id LIMIT 1", [$scope['tenant_id'], $scope['workspace_id'], self::PROFILE_LOCATION]);
+        $rows = ($db ?? $this->db)->all(
+            "SELECT source_ref_id,status FROM source_references WHERE tenant_id=? AND workspace_id=? AND source_type='UPLOADED_ARTIFACT' AND source_location_safe=? ORDER BY source_ref_id",
+            [$scope['tenant_id'], $scope['workspace_id'], self::PROFILE_LOCATION]
+        );
+        if ($rows === []) {
+            return null;
+        }
+        if (count($rows) !== 1) {
+            return ['source_ref_id' => null, 'status' => null, 'ambiguous' => true];
+        }
+
+        return $rows[0] + ['ambiguous' => false];
     }
 
     /** Mirrors P01 Registration's own reuse checks, so a revoked or narrowed registration refuses. */
@@ -602,10 +626,14 @@ final class MonitorSetup
         if ($competitorId === null || $sourceRefId === null) {
             return ['action' => 'CREATE'];
         }
-        $row = ($db ?? $this->db)->one('SELECT monitored_source_id,status FROM monitored_sources WHERE tenant_id=? AND workspace_id=? AND competitor_id=? AND source_ref_id=? ORDER BY created_at DESC LIMIT 1', [$scope['tenant_id'], $scope['workspace_id'], $competitorId, $sourceRefId]);
-        if ($row === null) {
+        $rows = ($db ?? $this->db)->all('SELECT monitored_source_id,status FROM monitored_sources WHERE tenant_id=? AND workspace_id=? AND competitor_id=? AND source_ref_id=? ORDER BY created_at,monitored_source_id', [$scope['tenant_id'], $scope['workspace_id'], $competitorId, $sourceRefId]);
+        if ($rows === []) {
             return ['action' => 'CREATE'];
         }
+        if (count($rows) !== 1) {
+            return ['action' => 'CONFLICT', 'reason' => 'MONITORED_SOURCE_AMBIGUOUS'];
+        }
+        $row = $rows[0];
 
         return $row['status'] === 'ACTIVE' ? ['action' => 'REUSE', 'id' => $row['monitored_source_id']] : ['action' => 'REFUSE', 'reason' => 'MONITORED_SOURCE_NOT_ACTIVE'];
     }
