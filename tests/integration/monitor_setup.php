@@ -125,6 +125,9 @@ $wrongPolicy=$definition;$wrongPolicy['p01_policy_id']=$definition['p04_policy_i
 Assert::same('MONITOR_POLICY_NOT_CURRENT',(new MissionConfiguration($db,$clock))->validate($scope,$wrongPolicy,'NATIVE')->reasonCode(),'a P04 policy cannot masquerade as the P01 policy binding');
 $wrongUrl=$definition;$wrongUrl['capture_url']='https://sources.example/not-authorized';
 Assert::same('MONITOR_CAPTURE_URL_OUTSIDE_SOURCE_SCOPE',(new MissionConfiguration($db,$clock))->validate($scope,$wrongUrl,'NATIVE')->reasonCode(),'the frozen capture URL must stay inside the reviewed source-card scope');
+$orgConflict=$request([$a['evidence_id']],$credential['provider_credential_id'],['competitor'=>['organization_number'=>'556000-0000']]);
+$orgPlan=X::value($setup->plan($scope,$orgConflict));
+Assert::same('COMPETITOR_ORGANIZATION_NUMBER_DIFFERS',array_column($orgPlan['steps'],null,'step')['COMPETITOR']['reason_code'],'a same-name competitor with a different organization number is not silently reused');
 
 // ---------------------------------------------------------------- the set-up mission runs, once a grant is admitted
 // Everything below the setup is the P01/P03 path: an owner decision, approvals, an admitted grant.

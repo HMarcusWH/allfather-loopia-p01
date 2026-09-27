@@ -531,7 +531,7 @@ final class MonitorSetup
 
     private function competitorState(array $scope, array $c, ?Database $db = null): array
     {
-        $rows = ($db ?? $this->db)->all('SELECT competitor_id,status,competitor_class FROM competitors WHERE tenant_id=? AND workspace_id=? AND display_name=?', [$scope['tenant_id'], $scope['workspace_id'], $c['display_name']]);
+        $rows = ($db ?? $this->db)->all('SELECT competitor_id,status,competitor_class,organization_number FROM competitors WHERE tenant_id=? AND workspace_id=? AND display_name=?', [$scope['tenant_id'], $scope['workspace_id'], $c['display_name']]);
         if ($rows === []) {
             return ['action' => 'CREATE'];
         }
@@ -541,8 +541,14 @@ final class MonitorSetup
         if ($rows[0]['status'] !== 'ACTIVE') {
             return ['action' => 'REFUSE', 'reason' => 'COMPETITOR_NOT_ACTIVE'];
         }
+        if ($rows[0]['competitor_class'] !== $c['competitor_class']) {
+            return ['action' => 'CONFLICT', 'reason' => 'COMPETITOR_CLASS_DIFFERS'];
+        }
+        if (($rows[0]['organization_number'] ?? null) !== $c['organization_number']) {
+            return ['action' => 'CONFLICT', 'reason' => 'COMPETITOR_ORGANIZATION_NUMBER_DIFFERS'];
+        }
 
-        return $rows[0]['competitor_class'] === $c['competitor_class'] ? ['action' => 'REUSE', 'id' => $rows[0]['competitor_id']] : ['action' => 'CONFLICT', 'reason' => 'COMPETITOR_CLASS_DIFFERS'];
+        return ['action' => 'REUSE', 'id' => $rows[0]['competitor_id']];
     }
 
     private static function card(array $scope, array $s): array
@@ -560,6 +566,12 @@ final class MonitorSetup
         $rows = ($db ?? $this->db)->all('SELECT c.*,r.status AS reference_status FROM source_license_cards c JOIN source_references r ON r.source_ref_id=c.source_ref_id WHERE c.tenant_id=? AND c.source_url_safe=? ORDER BY c.created_at,c.source_license_card_id', [$scope['tenant_id'], $s['url']]);
         if ($rows === []) {
             return ['action' => 'CREATE'];
+        }
+        // Source cards have no canonical "latest active row" selector. More than one card for the
+        // same tenant+URL is therefore ambiguous authority; setup must not pick an older convenient
+        // match and ignore a different review that also exists.
+        if (count($rows) !== 1) {
+            return ['action' => 'CONFLICT', 'reason' => 'SOURCE_CARD_AMBIGUOUS'];
         }
         foreach ($rows as $row) {
             $same = $row['source_name'] === $want['source_name'] && $row['source_type'] === 'website' && $row['license_class'] === $want['license_class'] && $row['allowed_use_class'] === $want['allowed_use_class']
