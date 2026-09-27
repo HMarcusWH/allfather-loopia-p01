@@ -9,7 +9,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../support/ExecutionFixture.php';
 
-use Allfather\Loopia\Core\Ids;
+use Allfather\Loopia\Core\{Ids,Outcome};
+use Allfather\Loopia\PromptOps\PromptApprovalStore;
 use Allfather\Loopia\Provider\ModelPolicy;
 use Allfather\Loopia\Tests\{Assert,ExecutionFixture as X,Harness,Seed};
 
@@ -39,6 +40,10 @@ Assert::same('PROMPT_APPROVAL_WITHDRAWN', $fx['approvals']->approve($scope, 'P01
 
 // ---------------------------------------------------------------- grant definitions are narrow and exact
 $approvals = X::approveAll($fx, 'MANUAL_MONITOR');
+// Product-use approval currentness includes the accepted evaluation whenever a deployed resolver is
+// present; an evaluation that later ceases to qualify withdraws the prompt on the next selection.
+$staleEvaluation = new PromptApprovalStore($db, $clock, $fx['decisions'], static fn (array $facts,string $reference): Outcome => Outcome::refuse('PROMPT_APPROVAL_EVALUATION_NOT_ACCEPTED'));
+Assert::same('PROMPT_APPROVAL_EVALUATION_NOT_ACCEPTED',$staleEvaluation->current($scope['tenant_id'],$scope['workspace_id'],$approvals[0])->reasonCode(),'manual prompt currentness rechecks its evaluation evidence');
 $definition = X::manualDefinition($db, $clock, $fx, $approvals);
 $plan = X::value($fx['grants']->plan($scope, $definition));
 Assert::same(false, $plan['grants_execution'], 'planning grants nothing');

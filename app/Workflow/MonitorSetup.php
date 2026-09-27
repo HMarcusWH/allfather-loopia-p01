@@ -219,8 +219,21 @@ final class MonitorSetup
         $r = self::validateRequest($request)->value();
 
         try {
-            return $this->db->transaction(function (Database $tx) use ($scope, $r, $plan, $steps, $successorOf): Outcome {
+            return $this->db->transaction(function (Database $tx) use ($scope, $r, $request, $planDigest, $successorOf): Outcome {
                 $tx->one('SELECT workspace_id FROM workspaces WHERE workspace_id=? AND tenant_id=? FOR UPDATE', [$scope['workspace_id'], $scope['tenant_id']]);
+                // Re-plan after the workspace serialization point. The first plan is the operator's
+                // reviewed intent; this second one proves no concurrent setup changed any resolved
+                // identity between review and the first write.
+                $lockedPlan = $this->plan($scope, $request, $successorOf);
+                if (!$lockedPlan->isOk()) { return $lockedPlan; }
+                $plan = $lockedPlan->value();
+                if (!hash_equals($plan['plan_digest'], $planDigest)) {
+                    return Outcome::refuse('MONITOR_SETUP_PLAN_CHANGED', ['plan_digest' => $plan['plan_digest']]);
+                }
+                if ($plan['blocked_by'] !== []) {
+                    return Outcome::refuse('MONITOR_SETUP_BLOCKED', ['blocked_by' => $plan['blocked_by']]);
+                }
+                $steps = array_column($plan['steps'], null, 'step');
                 $ledger = new DecisionLedger($tx, $this->clock);
                 $m03 = new M03Registry($tx, $this->clock);
                 $eligibility = new Eligibility($tx, $this->clock);
