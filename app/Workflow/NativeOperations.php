@@ -5,7 +5,9 @@ namespace Allfather\Loopia\Workflow;
 use Allfather\Loopia\Core\{Clock,Outcome};
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\PromptOps\PromptApprovalStore;
+use Allfather\Loopia\Product\P01\Entitlements;
 use Allfather\Loopia\Provider\ModelPolicy;
+use Allfather\Loopia\Substrate\M02\AccessGuard;
 
 /**
  * Two operator questions about native execution, answered from the database and the deployed tree.
@@ -82,9 +84,25 @@ final class NativeOperations
             if ($d['model_policy_digest'] !== ModelPolicy::digest()) {
                 $reasons[] = 'MODEL_POLICY_CHANGED';
             }
-            $config = $this->db->one('SELECT definition_digest,execution_mode FROM monitor_mission_configs WHERE mission_id=? AND tenant_id=? AND workspace_id=?', [$g['mission_id'], $tenantId, $workspaceId]);
+            $config = $this->db->one('SELECT definition_json,definition_digest,execution_mode FROM monitor_mission_configs WHERE mission_id=? AND tenant_id=? AND workspace_id=?', [$g['mission_id'], $tenantId, $workspaceId]);
             if ($config === null || $config['execution_mode'] !== 'NATIVE' || $config['definition_digest'] !== $g['definition_digest']) {
                 $reasons[] = 'MISSION_CONFIGURATION_CHANGED';
+            } else {
+                $principalScope = ['tenant_id' => $tenantId, 'workspace_id' => $workspaceId, 'operator_id' => $g['principal_operator_id']];
+                $definition = json_decode((string) $config['definition_json'], true, 64, JSON_THROW_ON_ERROR);
+                $current = (new MissionConfiguration($this->db, $this->clock))->validate($principalScope, $definition, 'NATIVE');
+                if (!$current->isOk()) {
+                    $reasons[] = 'MISSION_CONFIGURATION_NOT_CURRENT:' . $current->reasonCode();
+                }
+                $access = new AccessGuard($this->db, $this->clock);
+                foreach (['mission.read','mission.transition','evidence.read','tool.invoke','company_signal.review','distribution.route'] as $permission) {
+                    if ($access->evaluate('OPERATOR', $g['principal_operator_id'], $tenantId, $workspaceId, $permission, 'MONITOR_PREFLIGHT', null, null, true)['decision'] !== 'ALLOW') {
+                        $reasons[] = 'PRINCIPAL_PERMISSION_NOT_CURRENT:' . $permission;
+                    }
+                }
+                if (!(new Entitlements($this->db, $this->clock))->tenantTierGrants($tenantId, 'competition_monitoring.read')) {
+                    $reasons[] = 'TENANT_ENTITLEMENT_NOT_CURRENT';
+                }
             }
             $credential = $this->db->one("SELECT credential_digest FROM provider_credentials WHERE provider_credential_id=? AND tenant_id=? AND provider='OPENAI' AND status='ACTIVE'", [$d['credential_id'], $tenantId]);
             if ($credential === null || $credential['credential_digest'] !== $d['credential_digest']) {

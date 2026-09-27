@@ -50,6 +50,20 @@ Assert::same(['source' => CurlHttpsTransport::class, 'resolver' => DnsHostResolv
 $ready = $native->readiness($scope['tenant_id'], $scope['workspace_id']);
 Assert::same(NativeOperations::READY, $ready['posture'], 'the posture is MANUAL_PILOT_READY: ' . implode(',', $ready['reasons']));
 Assert::same(false, $ready['posture_is_permission'], 'and says a posture is not permission');
+
+// Readiness means the same principal could actually traverse the current manual path now, not only
+// that a grant row exists.
+$subscriptionStatus=(string)$db->scalar('SELECT status FROM tenant_subscriptions WHERE tenant_id=? ORDER BY started_at DESC LIMIT 1',[$scope['tenant_id']]);
+$db->run("UPDATE tenant_subscriptions SET status='SUSPENDED' WHERE tenant_id=?",[$scope['tenant_id']]);
+$noTier=$native->readiness($scope['tenant_id'],$scope['workspace_id']);
+Assert::true(in_array('TENANT_ENTITLEMENT_NOT_CURRENT',$noTier['reasons'],true),'a lapsed monitoring entitlement blocks MANUAL_PILOT_READY');
+$db->run('UPDATE tenant_subscriptions SET status=? WHERE tenant_id=?',[$subscriptionStatus,$scope['tenant_id']]);
+
+$db->run("UPDATE workspace_memberships SET status='SUSPENDED' WHERE tenant_id=? AND workspace_id=? AND principal_type='OPERATOR' AND principal_id=? AND status='ACTIVE'",[$scope['tenant_id'],$scope['workspace_id'],$scope['operator_id']]);
+$noRole=$native->readiness($scope['tenant_id'],$scope['workspace_id']);
+Assert::true((bool)array_filter($noRole['reasons'],static fn(string $reason):bool=>str_starts_with($reason,'PRINCIPAL_PERMISSION_NOT_CURRENT:')),'a principal whose current M02 role is gone is not pilot-ready');
+$db->run("UPDATE workspace_memberships SET status='ACTIVE' WHERE tenant_id=? AND workspace_id=? AND principal_type='OPERATOR' AND principal_id=? AND status='SUSPENDED'",[$scope['tenant_id'],$scope['workspace_id'],$scope['operator_id']]);
+
 $elsewhere = new NativeOperations($db, $clock, $fx['grants'], $fx['approvals'], $fx['decisions'], str_repeat('9', 64), $fx['decision_dir']);
 Assert::true(in_array('GRANT_BOUND_TO_ANOTHER_RELEASE', $elsewhere->readiness($scope['tenant_id'], $scope['workspace_id'])['reasons'], true), 'a grant for another release blocks the pilot on this one');
 $other = X::create($db, $clock);
