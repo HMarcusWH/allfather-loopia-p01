@@ -98,7 +98,14 @@ final class ModelExecutor
         return $this->db->transaction(function(Database $tx) use($p,$request,$toolRequestId,$facts):Outcome {
             $mission=$tx->one('SELECT status FROM missions WHERE mission_id=? AND tenant_id=? AND workspace_id=? FOR UPDATE',[$p['mission_id'],$p['tenant_id'],$p['workspace_id']]);
             if($mission===null||$mission['status']!=='ACTIVE')return Outcome::refuse('MODEL_MISSION_NOT_ACTIVE');
-            $count=(int)$tx->scalar('SELECT COUNT(*) FROM provider_model_attempts WHERE tenant_id=? AND workspace_id=? AND mission_id=?',[$p['tenant_id'],$p['workspace_id'],$p['mission_id']]);
+            // Evaluation attempts are explicitly synthetic and have their own grant budget. They
+            // must not consume a product mission's lifetime model-call allowance merely because M06
+            // uses an existing mission/assignment as the governance carrier. Historical attempts
+            // without a purpose row remain product-budget attempts, preserving v1 semantics.
+            $evaluation=($facts['purpose']??null)==='MODEL_EVALUATION';
+            $count=$evaluation
+                ?(int)$tx->scalar("SELECT COUNT(*) FROM provider_model_attempts a JOIN provider_attempt_purposes pp ON pp.model_attempt_id=a.model_attempt_id WHERE a.tenant_id=? AND a.workspace_id=? AND a.mission_id=? AND pp.execution_purpose='MODEL_EVALUATION'",[$p['tenant_id'],$p['workspace_id'],$p['mission_id']])
+                :(int)$tx->scalar("SELECT COUNT(*) FROM provider_model_attempts a LEFT JOIN provider_attempt_purposes pp ON pp.model_attempt_id=a.model_attempt_id WHERE a.tenant_id=? AND a.workspace_id=? AND a.mission_id=? AND (pp.execution_purpose IS NULL OR pp.execution_purpose<>'MODEL_EVALUATION')",[$p['tenant_id'],$p['workspace_id'],$p['mission_id']]);
             if($count >= $p['context']['envelope']['limits']['max_model_calls'])return Outcome::refuse('MODEL_MISSION_BUDGET_EXHAUSTED');
             $id=Ids::new();
             // The grant budget is spent in the same transaction as the mission budget, under the

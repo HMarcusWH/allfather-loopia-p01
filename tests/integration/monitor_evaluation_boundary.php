@@ -55,6 +55,7 @@ Assert::same(0, X::value($runner->execute($scope, $runId, $fx['governance'], $fx
 Assert::same(18, $fx['eval_transport']->calls, 'and calls nothing again');
 Assert::same(18, $fx['grants']->consumed($grantId, 'MODEL_ATTEMPT'), 'every call spent grant budget');
 Assert::same(18, (int) $db->scalar("SELECT COUNT(*) FROM provider_attempt_purposes WHERE execution_purpose='MODEL_EVALUATION' AND material_provenance='SYNTHETIC_EVALUATION_CASE' AND evaluation_run_id=?", [$runId]), 'each attempt is recorded as LIVE + EVALUATION, not a product mission');
+Assert::same(0, (int) $db->scalar("SELECT COUNT(*) FROM provider_model_attempts a LEFT JOIN provider_attempt_purposes pp ON pp.model_attempt_id=a.model_attempt_id WHERE a.mission_id=? AND (pp.execution_purpose IS NULL OR pp.execution_purpose<>'MODEL_EVALUATION')", [$fx['mission_id']]), 'synthetic evaluation attempts do not consume the product mission model-call budget');
 Assert::same(0, (int) $db->scalar('SELECT COUNT(*) FROM source_snapshots'), 'no source was captured');
 Assert::same(0, (int) $db->scalar('SELECT COUNT(*) FROM released_briefings'), 'nothing was released');
 Assert::same(0, (int) $db->scalar('SELECT COUNT(*) FROM monitor_runs'), 'no product run exists');
