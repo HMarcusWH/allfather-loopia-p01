@@ -34,7 +34,7 @@ use Allfather\Loopia\Substrate\M16\ReleaseOutput;
 final class MonitorSetup
 {
     /** What the operator must already hold. Setup checks these; it never makes them true. */
-    public const PERMISSIONS = ['mission.create', 'mission.activate', 'distribution.configure_targets', 'tenant.administer', 'runtime_host_binding.administer'];
+    public const PERMISSIONS = ['mission.create', 'mission.activate', 'distribution.configure_targets', 'tenant.administer', 'runtime_host_binding.administer', 'valkyrie.register', 'valkyrie.administer_contract', 'evidence.submit'];
     public const PROFILE_LOCATION = 'internal://monitor/company-profile';
     public const MAX_PROFILE_BYTES = 16384;
     public const CRITIC_NAME = 'Monitor Review Critic';
@@ -53,7 +53,7 @@ final class MonitorSetup
     public function importProfile(array $scope, string $bytes): Outcome
     {
         $scope = OperatorScope::normalize($scope);
-        if ($scope === null || !$this->holds($scope, ['tenant.administer', 'mission.create'])) {
+        if ($scope === null || !$this->holds($scope, ['tenant.administer', 'evidence.submit'])) {
             return Outcome::refuse('MONITOR_PROFILE_IMPORT_DENIED');
         }
         if ($bytes === '' || strlen($bytes) > self::MAX_PROFILE_BYTES || !mb_check_encoding($bytes, 'UTF-8') || str_contains($bytes, "\0")) {
@@ -141,6 +141,8 @@ final class MonitorSetup
 
         $competitor = $this->competitorState($scope, $r['competitor']);
         $add('COMPETITOR', $competitor['action'], $competitor['id'] ?? null, $competitor['reason'] ?? null);
+        $reviewAuthorized = $r['source']['review']['approved_by_operator_id'] === $scope['operator_id'];
+        $add('SOURCE_REVIEW_ATTESTATION', $reviewAuthorized ? 'REUSE' : 'REFUSE', $r['source']['review']['approved_by_operator_id'], $reviewAuthorized ? null : 'SOURCE_REVIEW_OPERATOR_MISMATCH');
         $card = $this->cardState($scope, $r['source']);
         $add('SOURCE_CARD', $card['action'], $card['id'] ?? null, $card['reason'] ?? null);
         $monitored = $this->monitoredState($scope, $competitor['id'] ?? null, $card['source_ref_id'] ?? null);
@@ -288,6 +290,15 @@ final class MonitorSetup
                         return Outcome::refuse('MONITOR_SOURCE_CARD_NOT_INGESTABLE', ['reason_code' => $projected['reason_code'] ?? null]);
                     }
                     $card = ['id' => $projected['source_license_card_id'], 'source_ref_id' => $projected['source_ref_id']];
+                    $review = $r['source']['review'];
+                    $tx->insert('source_terms_reviews', [
+                        'source_terms_review_id' => Ids::new(), 'schema_version' => '1',
+                        'source_license_card_id' => $card['id'], 'robots_url' => null, 'terms_url' => null,
+                        'robots_policy_checked' => 1, 'terms_policy_checked' => 1,
+                        'terms_snapshot_hash' => $review['evidence_sha256'],
+                        'reviewed_by' => $scope['operator_id'], 'reviewed_at' => $review['approved_at'],
+                        'expires_at' => null,
+                    ]);
                 }
                 $monitored = $this->monitoredState($scope, $competitor, $card['source_ref_id'], $tx)['id'] ?? null;
                 if ($monitored === null) {
@@ -346,6 +357,8 @@ final class MonitorSetup
                     'p01_policy_id' => $definition['p01_policy_id'], 'p04_policy_id' => $definition['p04_policy_id'],
                     'target_org_role' => $r['target']['target_org_role'], 'audience' => $r['target']['audience'], 'credential_id' => $r['credential_id'],
                     'source_review_evidence_reference' => $r['source']['review']['evidence_reference'],
+                    'source_review_evidence_sha256' => $r['source']['review']['evidence_sha256'],
+                    'source_reviewed_by_operator_id' => $r['source']['review']['approved_by_operator_id'],
                 ], 'supersedes_mission_id' => $predecessor['mission_id'] ?? null];
                 $receiptId = Ids::new();
                 $tx->insert('monitor_setup_receipts', ['setup_receipt_id' => $receiptId, 'tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'], 'setup_key' => $r['setup_key'], 'revision' => $plan['revision'], 'predecessor_receipt_id' => $predecessor['setup_receipt_id'] ?? null, 'request_digest' => $plan['request_digest'], 'plan_digest' => $plan['plan_digest'], 'mission_id' => $missionId, 'definition_digest' => $configured->value()['definition_digest'], 'outcome_json' => json_encode($outcome, JSON_THROW_ON_ERROR), 'applied_by_operator_id' => $scope['operator_id'], 'created_at' => $this->clock->now()]);
@@ -397,9 +410,12 @@ final class MonitorSetup
         // The terms/robots review is SUPPLIED evidence from a named reviewer. Setup never infers it
         // from a reachable URL and never fetches anything.
         $rv = $src['review'];
-        $reviewKeys = ['approved_by', 'approved_at', 'evidence_reference', 'robots_policy_checked', 'terms_policy_checked'];
-        if (!is_array($rv) || array_diff(array_keys($rv), $reviewKeys) !== [] || array_diff($reviewKeys, array_keys($rv)) !== [] || !$text($rv['approved_by'], 160) || !$text($rv['evidence_reference'], 300)
-            || !is_string($rv['approved_at']) || preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/D', $rv['approved_at']) !== 1 || $rv['robots_policy_checked'] !== true || $rv['terms_policy_checked'] !== true) { return $bad('source.review'); }
+        $reviewKeys = ['approved_by_operator_id', 'approved_at', 'evidence_reference', 'evidence_sha256', 'robots_policy_checked', 'terms_policy_checked'];
+        if (!is_array($rv) || array_diff(array_keys($rv), $reviewKeys) !== [] || array_diff($reviewKeys, array_keys($rv)) !== []
+            || !$uuid($rv['approved_by_operator_id'] ?? null) || !$text($rv['evidence_reference'], 300)
+            || !is_string($rv['evidence_sha256'] ?? null) || preg_match('/^[a-f0-9]{64}$/D',$rv['evidence_sha256'])!==1
+            || !is_string($rv['approved_at']) || preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/D', $rv['approved_at']) !== 1
+            || $rv['robots_policy_checked'] !== true || $rv['terms_policy_checked'] !== true) { return $bad('source.review'); }
         $p = $q['profile_evidence_ids'];
         if (!is_array($p) || !array_is_list($p) || $p === [] || count($p) > 4 || count(array_unique($p)) !== count($p)) { return $bad('profile_evidence_ids'); }
         foreach ($p as $id) { if (!$uuid($id)) { return $bad('profile_evidence_ids'); } }
@@ -512,7 +528,7 @@ final class MonitorSetup
 
     private static function card(array $scope, array $s): array
     {
-        return ['tenant_id' => $scope['tenant_id'], 'source_name' => $s['source_name'], 'source_url_safe' => $s['url'], 'source_type' => 'website', 'allowed_use_class' => $s['allowed_use_class'], 'license_class' => $s['license_class'], 'customer_output_allowed' => $s['customer_output_allowed'], 'derived_summary_allowed' => $s['derived_summary_allowed'], 'robots_policy_checked' => true, 'terms_policy_checked' => true, 'review_status' => 'approved', 'approved_by' => $s['review']['approved_by'], 'approved_at' => $s['review']['approved_at'], 'contract_reference_id' => null, 'caching_policy' => $s['caching_policy'], 'retention_class' => $s['retention_class'], 'blocked_reason' => null];
+        return ['tenant_id' => $scope['tenant_id'], 'source_name' => $s['source_name'], 'source_url_safe' => $s['url'], 'source_type' => 'website', 'allowed_use_class' => $s['allowed_use_class'], 'license_class' => $s['license_class'], 'customer_output_allowed' => $s['customer_output_allowed'], 'derived_summary_allowed' => $s['derived_summary_allowed'], 'robots_policy_checked' => true, 'terms_policy_checked' => true, 'review_status' => 'approved', 'approved_by' => $s['review']['approved_by_operator_id'], 'approved_at' => $s['review']['approved_at'], 'contract_reference_id' => null, 'caching_policy' => $s['caching_policy'], 'retention_class' => $s['retention_class'], 'blocked_reason' => null];
     }
 
     private function cardState(array $scope, array $s, ?Database $db = null): array
@@ -531,6 +547,14 @@ final class MonitorSetup
                 && (int) $row['customer_output_allowed'] === (int) $want['customer_output_allowed'] && (int) $row['derived_summary_allowed'] === (int) $want['derived_summary_allowed']
                 && (int) $row['robots_policy_checked'] === 1 && (int) $row['terms_policy_checked'] === 1 && $row['review_status'] === 'approved' && $row['caching_policy'] === $want['caching_policy'] && $row['retention_class'] === $want['retention_class'];
             if ($same) {
+                $review=($db ?? $this->db)->one('SELECT robots_policy_checked,terms_policy_checked,terms_snapshot_hash,reviewed_by,reviewed_at FROM source_terms_reviews WHERE source_license_card_id=? ORDER BY reviewed_at DESC,source_terms_review_id DESC LIMIT 1',[$row['source_license_card_id']]);
+                $expectedReview=$s['review'];
+                if ($review===null || (int)$review['robots_policy_checked']!==1 || (int)$review['terms_policy_checked']!==1
+                    || $review['terms_snapshot_hash']!==$expectedReview['evidence_sha256']
+                    || $review['reviewed_by']!==$expectedReview['approved_by_operator_id']
+                    || $review['reviewed_at']!==$expectedReview['approved_at']) {
+                    return ['action' => 'CONFLICT', 'reason' => 'SOURCE_REVIEW_DIFFERS'];
+                }
                 return $row['reference_status'] === 'ACTIVE_FOR_CAPTURE'
                     ? ['action' => 'REUSE', 'id' => $row['source_license_card_id'], 'source_ref_id' => $row['source_ref_id']]
                     : ['action' => 'REFUSE', 'reason' => 'SOURCE_NOT_ACTIVE_FOR_CAPTURE'];
