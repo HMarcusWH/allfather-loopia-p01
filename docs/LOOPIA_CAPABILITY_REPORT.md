@@ -127,7 +127,8 @@ separately measured Loopia result. Earlier runtime-version statements described 
 The following remain uncompleted or unauthorized:
 
 - **ROAD_TEST_001 and live read remain off.** No road test has run. The reviewed transport and DNS
-  resolver are structurally unconstructed in the production composition roots; scheduler handler
+  resolver are constructed only on MonitorFactory's admitted branch, and no grant is admitted (no owner
+  decision ships); scheduler handler
   registries remain empty. Their implementation and host capability do not activate them.
 - **Production is not deployed or authorized.** The staging owner direction is not a road-test or
   production launch GO. `OWNER_GO_GRANTED`, customer-visible output, external action and production

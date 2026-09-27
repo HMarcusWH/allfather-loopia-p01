@@ -8,10 +8,22 @@ use Allfather\Loopia\Http\Response;
 use Allfather\Loopia\Http\View;
 use Allfather\Loopia\Workflow\MonitorOperations;
 
-/** Thin server-rendered UI. Kernel owns authentication/lifecycle/CSRF; service rechecks authority. */
+/**
+ * Thin server-rendered UI. Kernel owns authentication/lifecycle/CSRF; service rechecks authority.
+ *
+ * The deployed composition is built per workspace — the session's, never a request parameter — so
+ * whether live read and the provider wire exist at all is decided by that workspace's admission.
+ * Tests and fixtures may still pass a ready service.
+ */
 final class MonitorController
 {
-    public function __construct(private readonly MonitorOperations $monitor, private readonly View $view) {}
+    /** @param MonitorOperations|\Closure(array):MonitorOperations $monitor */
+    public function __construct(private readonly MonitorOperations|\Closure $monitor, private readonly View $view) {}
+
+    private function service(array $scope): MonitorOperations
+    {
+        return $this->monitor instanceof \Closure ? ($this->monitor)($scope) : $this->monitor;
+    }
 
     public function show(Request $request, ?array $session): Response
     {
@@ -31,13 +43,13 @@ final class MonitorController
         if ($action === 'start') {
             $missionId = $request->body('mission_id'); $key = $request->body('idempotency_key');
             $out = $missionId !== '' && $key !== ''
-                ? $this->monitor->startConfigured($scope, $missionId, $key)
+                ? $this->service($scope)->startConfigured($scope, $missionId, $key)
                 : Outcome::refuse('MONITOR_START_FIELDS_REQUIRED');
         } elseif ($runId === '' && in_array($action, ['advance', 'review', 'stop'], true)) {
             $out = Outcome::refuse('MONITOR_RUN_REQUIRED');
         } elseif ($action === 'advance') {
             $digest = $request->body('request_digest');
-            $out = $this->monitor->advance($scope, $runId, $digest === '' ? null : $digest);
+            $out = $this->service($scope)->advance($scope, $runId, $digest === '' ? null : $digest);
         } elseif ($action === 'review') {
             $decision = $request->body('decision'); $assessment = trim($request->body('assessment'));
             $digest = $request->body('candidate_digest');
@@ -46,12 +58,12 @@ final class MonitorController
             } elseif (strlen($assessment) > 4000) {
                 $out = Outcome::refuse('MONITOR_REVIEW_ASSESSMENT_TOO_LONG');
             } else {
-                $out = $this->monitor->review($scope, $runId, [
+                $out = $this->service($scope)->review($scope, $runId, [
                     'decision' => $decision, 'assessment' => $assessment, 'candidate_digest' => $digest,
                 ]);
             }
         } elseif ($action === 'stop') {
-            $out = $this->monitor->stop($scope, $runId);
+            $out = $this->service($scope)->stop($scope, $runId);
         } else { $out = Outcome::refuse('MONITOR_ACTION_INVALID'); }
 
         if (!$out->isOk()) {
@@ -74,12 +86,13 @@ final class MonitorController
         $scope = $this->scope($session); $listing = ['missions' => [], 'runs' => []]; $detail = null;
         if ($scope === null) { $error ??= Outcome::refuse('NO_ACTIVE_WORKSPACE'); $status = 409; }
         else {
-            $list = $this->monitor->list($scope);
+            $service = $this->service($scope);
+            $list = $service->list($scope);
             if (!$list->isOk()) { $error ??= $list; $status = $list->isFailure() ? 500 : 403; }
             else {
                 $listing = $list->value();
                 if ($runId !== '') {
-                    $found = $this->monitor->detail($scope, $runId);
+                    $found = $service->detail($scope, $runId);
                     if ($found->isOk()) { $detail = $found->value(); }
                     else { $error ??= $found; $status = $found->isFailure() ? 500 : 403; }
                 }

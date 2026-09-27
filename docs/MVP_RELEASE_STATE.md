@@ -105,8 +105,8 @@ is held by a named test:
 
 | Capability | State | Held by |
 | --- | --- | --- |
-| Live source read | `CurlHttpsTransport` and `DnsHostResolver` exist, are tested, and nothing constructs either | `tests/foundation/no_external_action_surface.php` |
-| Native model execution | the only model-transport constructor is `new OpenAIResponsesTransport(false)` in `MonitorFactory`; HTTP composes `MonitorFactory::inactive()`; a `NATIVE` run is refused with `MONITOR_NATIVE_EXECUTION_INACTIVE` | the same test; the Monitor workflow and refusal suites |
+| Live source read | `CurlHttpsTransport` and `DnsHostResolver` are constructed only on `MonitorFactory::forWorkspace`'s admitted branch — an ADMITTED `MANUAL_MONITOR` grant, which needs a reviewed owner decision. None exists | `tests/foundation/no_external_action_surface.php`, `tests/integration/monitor_native_composition.php` |
+| Native model execution | one provider-transport constructor, `MonitorFactory::modelTransport($admitted)`; HTTP composes `MonitorFactory::forWorkspace()`, which without an ADMITTED grant is the inactive composition and refuses `NATIVE` steps with `MONITOR_NATIVE_EXECUTION_INACTIVE`; with one, every stage is re-admitted | the same tests; `tests/security/monitor_grant_revocation.php` |
 | Product prompts | pack `2026-09-27.monitor.v1`: `activation_status: INACTIVE`, approval `DRAFT`, evaluation `OFFLINE_CONTRACT_TESTED`, `model_evaluated: false` | `app/PromptOps/ProductPromptPack.php` refuses any other state |
 | Scheduler | handler registry is `[]` in `worker/tick.php` and `public_html/scheduler.php` | `ops/deploy/preflight.php`, `ops/rollback/verify-stand-down.php` |
 | External action, publish, send, charge | no transport exists | `tests/foundation/no_external_action_surface.php` |

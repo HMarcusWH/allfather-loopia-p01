@@ -44,8 +44,22 @@ final class ExecutionAdmission
         private readonly ExecutionGrantStore $grants,
         private readonly PromptApprovalStore $approvals,
         private readonly OwnerDecisionRegistry $decisions,
-        private readonly string $applicationFingerprint,
+        private readonly string|\Closure $applicationFingerprint,
     ) {}
+
+    /** The running release's source fingerprint — computed only when a check needs it, then kept. */
+    private function fingerprint(): string
+    {
+        if ($this->applicationFingerprint instanceof \Closure) {
+            $this->resolvedFingerprint ??= (string) ($this->applicationFingerprint)();
+
+            return $this->resolvedFingerprint;
+        }
+
+        return $this->applicationFingerprint;
+    }
+
+    private ?string $resolvedFingerprint = null;
 
     public function grants(): ExecutionGrantStore
     {
@@ -140,7 +154,7 @@ final class ExecutionAdmission
         if ($this->db->one("SELECT 1 FROM operators WHERE operator_id=? AND tenant_id=? AND status='ACTIVE'", [$facts['operator_id'], $facts['tenant_id']]) === null) {
             return 'EXECUTION_GRANT_PRINCIPAL_NOT_ACTIVE';
         }
-        if (!hash_equals($d['application_fingerprint'], $this->applicationFingerprint)) {
+        if (!hash_equals($d['application_fingerprint'], $this->fingerprint())) {
             return 'EXECUTION_GRANT_RELEASE_MISMATCH';
         }
         if ($d['model_policy_id'] !== ModelPolicy::ID || $d['model_policy_digest'] !== ModelPolicy::digest()) {

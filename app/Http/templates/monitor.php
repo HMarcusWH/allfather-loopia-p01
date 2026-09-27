@@ -18,7 +18,7 @@ $requestDigest = is_array($preview) ? (string) ($preview['request_digest'] ?? $p
   <p><a href="/console/app?view=p01">Return to Competition Monitor</a></p>
 </header>
 <div class="notice notice--empty">
-  <strong>Internal staging workflow.</strong> Native model execution is inactive. Fixture runs use synthetic observations and model responses in TEST workspaces. A draft, critic recommendation or run status is not a release or permission to act externally.
+  <strong>Internal workflow.</strong> A native run fetches a source or calls a model only under an admitted execution grant for its mission; without one, native steps are refused and nothing is fetched or sent. Fixture runs use synthetic observations and model responses in TEST workspaces. A draft, critic recommendation or run status is not a release or permission to act externally.
 </div>
 <?php if ($errorCodes !== []): ?>
 <div class="notice notice--denied" role="alert"><strong>The requested step did not complete.</strong>
@@ -62,6 +62,12 @@ $requestDigest = is_array($preview) ? (string) ($preview['request_digest'] ?? $p
 <section aria-labelledby="monitor-current"><h2 id="monitor-current">Selected run</h2>
   <p><strong><?= View::e($stage) ?></strong> · <?= View::e($run['execution_mode'] ?? '') ?> · Integrity: <?= View::e($detail['integrity'] ?? 'UNVERIFIED') ?></p>
   <?php if (($run['execution_mode'] ?? '') === 'FIXTURE'): ?><p class="notice">Synthetic fixture: these results do not demonstrate a live model or a real competitor observation.</p><?php endif; ?>
+  <?php $admission = $detail['execution_admission'] ?? ['required' => false]; ?>
+  <?php if (($admission['required'] ?? false) === true && ($admission['admitted'] ?? false) === true): ?>
+  <p class="notice">Native execution is admitted for this mission under grant <span class="mono"><?= View::e($admission['execution_grant_id']) ?></span> until <?= View::e($admission['valid_until']) ?>. Model attempts used: <?= View::e((string) $admission['model_attempts']['used']) ?> of <?= View::e((string) $admission['model_attempts']['limit']) ?>. Source captures used: <?= View::e((string) $admission['source_captures']['used']) ?> of <?= View::e((string) $admission['source_captures']['limit']) ?>. Every step is re-checked; spent budget is not refunded.</p>
+  <?php elseif (($admission['required'] ?? false) === true): ?>
+  <p class="notice notice--denied">Native steps for this run are refused: <span class="mono"><?= View::e((string) ($admission['reason_code'] ?? 'EXECUTION_GRANT_NOT_ADMITTED')) ?></span>. You can still inspect it; nothing will be fetched or sent.</p>
+  <?php endif; ?>
   <details><summary>Run configuration and progress</summary><pre class="monitor-json"><?= View::e($json($run)) ?></pre></details>
 
   <?php if ($previewReason !== ''): ?><p class="notice notice--denied" role="alert">The next request could not be prepared: <?= View::e($previewReason) ?>. This step cannot be submitted.</p><?php endif; ?>

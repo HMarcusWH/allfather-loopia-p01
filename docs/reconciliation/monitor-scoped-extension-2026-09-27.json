@@ -140,6 +140,24 @@
         "a product prompt approval",
         "model quality"
       ]
+    },
+    {
+      "package": "P03",
+      "capability": "Admitted native manual Monitor composition and stand-down",
+      "paths": [
+        "app/Workflow/MonitorFactory.php",
+        "app/Workflow/NativeOperations.php",
+        "ops/monitor/preflight.php",
+        "ops/monitor/stand-down.php",
+        "public_html/index.php",
+        "app/Http/Controllers/MonitorController.php"
+      ],
+      "status": "WIRED_BEHIND_ADMISSION_NOTHING_ADMITTED",
+      "not_claimed": [
+        "live read activation",
+        "native execution in any deployment",
+        "ROAD_TEST_001"
+      ]
     }
   ]
 }

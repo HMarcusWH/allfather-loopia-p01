@@ -136,6 +136,18 @@ if (($args['email'] ?? '') !== '' && ($args['email'] ?? '') !== '1') {
     }
 }
 
+// Execution grants still ADMITTED anywhere in this runtime database. Read-only.
+$decisions = \Allfather\Loopia\Workflow\OwnerDecisionRegistry::forRoot($root);
+$grantStore = new \Allfather\Loopia\Workflow\ExecutionGrantStore($db, $clock, new \Allfather\Loopia\PromptOps\PromptApprovalStore($db, $clock, $decisions), $decisions);
+$observed['admitted_execution_grants'] = 0;
+try {
+    foreach ($db->all('SELECT execution_grant_id FROM monitor_execution_grants') as $row) {
+        $observed['admitted_execution_grants'] += $grantStore->status((string) $row['execution_grant_id']) === 'ADMITTED' ? 1 : 0;
+    }
+} catch (\PDOException) {
+    // A release older than migration 210 has no grants table, and therefore no grant.
+}
+
 $ledger = new DecisionLedger($db, $clock);
 $streams = $db->all(
     'SELECT decision_ledger_stream_id, environment_class, status, head_sequence_number
@@ -189,6 +201,7 @@ BetaCli::emit([
     'evidence_supported_claims' => $supported,
     'account' => $accountState,
     'm10_integrity' => $integrity,
+    'admitted_execution_grants' => $observed['admitted_execution_grants'],
     'findings' => $findings,
     'writes_performed' => 0,
     'records_evidence' => false,

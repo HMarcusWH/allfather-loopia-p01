@@ -114,46 +114,39 @@ if($factoryExists){
 
 // ============================================================ the live-read activation boundary
 
-// `LIVE_READ_ACTIVATED` is false, and the claim rests on something stronger than a flag: the
-// production transport EXISTS, is reviewed and is tested, and NOTHING CONSTRUCTS IT. That is the
-// deliberate shape — a transport that had been deleted would leave the activation gate untestable
-// and the ingestion path exercised only against a fixture, so the leaf is kept and left unwired.
-//
-// Which makes "unwired" the load-bearing fact, and an absence nobody asserts is an absence
-// somebody closes by accident. Adding `new CurlHttpsTransport()` anywhere in the application,
-// the entry points or the worker is what activating live read would LOOK like, and it must be an
-// owner act with its own review rather than a line in a refactor.
-$wiring = [];
-foreach ([...$sources, ...$phpFiles($root . '/worker'), ...$phpFiles($root . '/ops')] as $file) {
-    $relative = str_replace($root . '/', '', $file);
-    // The transport's own file is where the class is DEFINED, not where it is wired.
-    if (str_contains($relative, 'Ingestion/CurlHttpsTransport.php')) {
-        continue;
-    }
-    if (preg_match('/new\s+(\\\\?[A-Za-z\\\\]*\\\\)?CurlHttpsTransport\s*\(/', (string) file_get_contents($file)) === 1) {
-        $wiring[] = $relative;
-    }
-}
-Assert::same(
-    [],
-    $wiring,
-    'nothing in the application constructs the live transport — live read is unwired, not merely flagged off',
-);
-
-// The same for the real DNS resolver, which is the transport's other half. A pinned-address fetch
-// needs a resolver that actually resolves; the fixture resolver is what the tests use, and wiring
-// the real one is the second half of the same owner act.
+// `LIVE_READ_ACTIVATED` stays false, and the claim rests on something stronger than a flag. The
+// production transport and the real DNS resolver EXIST, are reviewed and are tested — and there is
+// exactly ONE place that constructs them: `MonitorFactory::liveSource($admitted)`, where `$admitted`
+// is computed from an ADMITTED MANUAL_MONITOR execution grant in the workspace. An admitted grant
+// needs a reviewed owner decision under docs/decisions/, and this repository ships none. So the
+// leaf is wired behind admission, never by a line in a refactor: any other constructor, or an
+// activation that is not the admission check, fails here.
+$liveWiring = [];
 $resolverWiring = [];
 foreach ([...$sources, ...$phpFiles($root . '/worker'), ...$phpFiles($root . '/ops')] as $file) {
     $relative = str_replace($root . '/', '', $file);
-    if (str_contains($relative, 'Ingestion/DnsHostResolver.php')) {
+    if (str_contains($relative, 'Ingestion/CurlHttpsTransport.php') || str_contains($relative, 'Ingestion/DnsHostResolver.php') || $relative === 'app/Workflow/MonitorFactory.php') {
         continue;
+    }
+    if (preg_match('/new\s+(\\\\?[A-Za-z\\\\]*\\\\)?CurlHttpsTransport\s*\(/', (string) file_get_contents($file)) === 1) {
+        $liveWiring[] = $relative;
     }
     if (preg_match('/new\s+(\\\\?[A-Za-z\\\\]*\\\\)?DnsHostResolver\s*\(/', (string) file_get_contents($file)) === 1) {
         $resolverWiring[] = $relative;
     }
 }
-Assert::same([], $resolverWiring, 'and nothing constructs the real host resolver either');
+Assert::same([], $liveWiring, 'nothing outside the admitted Monitor composition constructs the live transport');
+Assert::same([], $resolverWiring, 'and nothing outside it constructs the real host resolver either');
+if ($factoryExists) {
+    $factoryCode = $code($root . '/app/Workflow/MonitorFactory.php');
+    Assert::same(1, preg_match_all('/new\s+CurlHttpsTransport\s*\(/', $factoryCode), 'the factory constructs the live transport in one place');
+    Assert::same(1, preg_match_all('/new\s+DnsHostResolver\s*\(/', $factoryCode), 'and the real resolver in one place');
+    Assert::same(1, preg_match('/return\s+\$admitted\s*\?\s*\[\s*new\s+CurlHttpsTransport\(\)\s*,\s*new\s+DnsHostResolver\(\)\s*\]\s*:\s*\[\s*new\s+NoNetworkTransport\(\)\s*,\s*new\s+FixedHostResolver\(\[\]\)\s*\]\s*;/', $factoryCode), 'both exist only on the admitted branch; otherwise there is no network leaf');
+    preg_match_all('/self::liveSource\(\s*([^)]*?)\s*\)/', $factoryCode, $liveArgs);
+    Assert::same(['$admitted'], array_values(array_unique($liveArgs[1])), 'live read is requested only as the result of the admission check');
+    Assert::same(1, preg_match('/\$admitted\s*=\s*\$grants->admittedIn\(\$tenantId\s*,\s*\$workspaceId\s*,\s*\'MANUAL_MONITOR\'\)\s*!==\s*\[\]\s*;/', $factoryCode), 'the admission check is an ADMITTED MANUAL_MONITOR grant in this workspace');
+    Assert::false(str_contains($factoryCode, 'liveSource(true)'), 'nothing asks for live read by fiat');
+}
 
 // The claim-boundary flags live in a file no code writes. They are changed by a human editing
 // `upstream.lock.json`, which is what "operator-assisted" means here: this build cannot record

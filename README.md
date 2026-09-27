@@ -112,10 +112,12 @@ each is true only while `deployment-evidence.json` carries a record supporting i
 Filing a record is still a human edit somebody reviews; nothing in the application can write either
 file. See [`docs/DEPLOYMENT_EVIDENCE_MODEL.md`](./docs/DEPLOYMENT_EVIDENCE_MODEL.md).
 
-**Live read is off structurally, not by a flag.** `CurlHttpsTransport` and `DnsHostResolver` exist,
-are reviewed and are tested, and *nothing constructs either* — asserted on every commit. Native model
-execution is off the same way: the only model-transport constructor is the inactive one in
-`MonitorFactory`, and the product prompts are `INACTIVE` drafts. The scheduler's handler registry is
+**Live read and model calls are off structurally, not by a flag.** `CurlHttpsTransport`,
+`DnsHostResolver` and the provider transport are constructed in exactly one place —
+`MonitorFactory`'s admitted branch — and only for a workspace holding an ADMITTED execution grant,
+which needs a reviewed owner decision under `docs/decisions/`. None ships, so nothing is admitted;
+the product prompts remain `INACTIVE` drafts. Every capture, model call and release re-checks the
+run's own grant ([`docs/MONITOR_EXECUTION_AUTHORIZATION.md`](./docs/MONITOR_EXECUTION_AUTHORIZATION.md)). The scheduler's handler registry is
 empty in both composition roots, so a tick that arrived would correctly do nothing.
 
 Merging code here establishes no deployment, no activation, and no customer-visible output. The

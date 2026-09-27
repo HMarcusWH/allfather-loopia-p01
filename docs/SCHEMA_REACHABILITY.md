@@ -387,7 +387,7 @@ application/lookup translation or are unreachable from the selected graph.
 | `ux_audit_profiles_active_key`, `ux_replay_profiles_active_key` | application | an audit grants nothing — `does_not_grant_authority` is CHECK-pinned to 1 |
 | `ux_company_signals_admission_idempotency`, `ux_entity_twin_state_change_admission_idempotency`, `ux_entity_rel_state_change_admission_idempotency`, `ux_console_command_intents_idempotency` | application | a race duplicates work; it does not widen authority |
 | `ux_customer_product_catalogues_active`, `ux_icp_profiles_one_active` | application | internal read models, gated downstream by M02 **and** the tenant tier |
-| `ux_ingestion_fetch_plans_one_active`, `ux_ingestion_entity_aliases_active` | application | live read is inert; nothing constructs the transport (pinned by the foundation suite) |
+| `ux_ingestion_fetch_plans_one_active`, `ux_ingestion_entity_aliases_active` | application | live read is inert; the transport is constructed only behind an admitted execution grant, and none is admitted (pinned by the foundation suite) |
 | `ux_exec_refs_terminal_dispatch`, `ux_decision_input_references_action_ack` | not reachable | no M01 host adapter and no general M09 execution plane in the selected graph |
 | `ux_trait_*`, `ux_entity_*_anchor_candidates_active_key`, `ux_adaptive_config_proposals_active_payload` | not reachable | outside the selected graph entirely |
 

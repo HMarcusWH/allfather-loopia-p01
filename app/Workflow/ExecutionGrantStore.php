@@ -196,6 +196,14 @@ final class ExecutionGrantStore
         return Outcome::ok($this->find($tenantId, $workspaceId, $admitted[0]));
     }
 
+    /** @return list<string> grants of this purpose that are ADMITTED right now in this workspace */
+    public function admittedIn(string $tenantId, string $workspaceId, string $purpose): array
+    {
+        $ids = array_column($this->db->all('SELECT execution_grant_id FROM monitor_execution_grants WHERE tenant_id=? AND workspace_id=? AND purpose=? ORDER BY created_at, execution_grant_id', [$tenantId, $workspaceId, $purpose]), 'execution_grant_id');
+
+        return array_values(array_filter($ids, fn (string $id): bool => $this->status($id) === 'ADMITTED'));
+    }
+
     public function consumed(string $grantId, string $kind): int
     {
         return (int) $this->db->scalar('SELECT COUNT(*) FROM monitor_grant_consumptions WHERE execution_grant_id=? AND consumption_kind=?', [$grantId, $kind]);
