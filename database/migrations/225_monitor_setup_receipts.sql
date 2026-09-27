@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS monitor_setup_receipts (
   UNIQUE KEY uq_setup_revision (tenant_id, workspace_id, setup_key, revision),
   UNIQUE KEY uq_setup_mission (mission_id),
   UNIQUE KEY uq_setup_predecessor (predecessor_receipt_id),
+  CHECK (JSON_VALID(outcome_json)),
   CHECK (revision >= 1),
   CHECK ((revision = 1 AND predecessor_receipt_id IS NULL) OR (revision > 1 AND predecessor_receipt_id IS NOT NULL)),
   CONSTRAINT fk_setup_receipt_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),

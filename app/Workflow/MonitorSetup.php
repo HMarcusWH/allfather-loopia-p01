@@ -147,8 +147,12 @@ final class MonitorSetup
         $reviewReason = $review['approved_by_operator_id'] !== $scope['operator_id']
             ? 'SOURCE_REVIEW_OPERATOR_MISMATCH'
             : ($review['approved_at'] > $this->clock->now() ? 'SOURCE_REVIEW_TIME_INVALID' : null);
-        $add('SOURCE_REVIEW_ATTESTATION', $reviewReason === null ? 'REUSE' : 'REFUSE', $review['approved_by_operator_id'], $reviewReason);
         $card = $this->cardState($scope, $r['source']);
+        $reviewAction = $reviewReason !== null
+            ? 'REFUSE'
+            : ($card['action'] === 'CREATE' ? 'CREATE' : ($card['action'] === 'REUSE' ? 'REUSE' : 'REFUSE'));
+        $reviewStepReason = $reviewReason ?? (in_array($card['action'], ['CREATE','REUSE'], true) ? null : ($card['reason'] ?? 'SOURCE_REVIEW_UNRESOLVED'));
+        $add('SOURCE_REVIEW_ATTESTATION', $reviewAction, $review['approved_by_operator_id'], $reviewStepReason);
         $add('SOURCE_CARD', $card['action'], $card['id'] ?? null, $card['reason'] ?? null);
         $monitored = $this->monitoredState($scope, $competitor['id'] ?? null, $card['source_ref_id'] ?? null);
         $add('MONITORED_SOURCE', $monitored['action'], $monitored['id'] ?? null, $monitored['reason'] ?? null);

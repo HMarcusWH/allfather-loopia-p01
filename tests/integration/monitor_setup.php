@@ -79,9 +79,9 @@ Assert::same([], $credential['rotated_credential_ids'], 'the first key rotates n
 $before = $snapshot();
 $plan = X::value($setup->plan($scope, $request([$a['evidence_id']], $credential['provider_credential_id'])));
 Assert::same('REFUSE', $steps($plan)['TENANT_ENTITLEMENT'], 'a tenant without the monitoring entitlement is refused');
-Assert::same($before, $snapshot(), 'a plan writes nothing');
+Assert::same($before, $snapshot(), 'a plan writes no setup/product state');
 Assert::same('MONITOR_SETUP_BLOCKED', $setup->apply($scope, $request([$a['evidence_id']], $credential['provider_credential_id']), $plan['plan_digest'])->reasonCode(), 'a blocked plan cannot be applied');
-Assert::same($before, $snapshot(), 'and applying it wrote nothing');
+Assert::same($before, $snapshot(), 'and applying a blocked plan writes no setup/product state');
 
 // The commercial act, performed outside setup (as a test stand-in for the owner's subscription).
 $entitlements = new Entitlements($db, $clock);
@@ -92,7 +92,7 @@ X::value($entitlements->subscribe($scope['tenant_id'], $tier['subscription_tier_
 $req = $request([$a['evidence_id']], $credential['provider_credential_id']);
 $plan = X::value($setup->plan($scope, $req));
 Assert::same([], $plan['blocked_by'], 'a fresh workspace plans without conflicts');
-Assert::same(['TENANT_ENTITLEMENT' => 'REUSE', 'MODEL_DESCRIPTOR' => 'CREATE', 'SOURCE_READ_BINDING' => 'CREATE', 'P01_REGISTRATION' => 'CREATE', 'AUTHOR_MODEL_RIGHT' => 'CREATE', 'CRITIC' => 'CREATE', 'CRITIC_MODEL_RIGHT' => 'CREATE', 'COMPETITOR' => 'CREATE', 'SOURCE_REVIEW_ATTESTATION' => 'REUSE', 'SOURCE_CARD' => 'CREATE', 'MONITORED_SOURCE' => 'CREATE', 'COMPANY_PROFILE' => 'REUSE', 'P01_POLICY' => 'CREATE', 'P04_POLICY' => 'CREATE', 'DISTRIBUTION_TARGET' => 'CREATE', 'PROVIDER_CREDENTIAL' => 'REUSE', 'MISSION_CONFIGURATION' => 'CREATE'], $steps($plan), 'the plan names every object and what setup would do with it');
+Assert::same(['TENANT_ENTITLEMENT' => 'REUSE', 'MODEL_DESCRIPTOR' => 'CREATE', 'SOURCE_READ_BINDING' => 'CREATE', 'P01_REGISTRATION' => 'CREATE', 'AUTHOR_MODEL_RIGHT' => 'CREATE', 'CRITIC' => 'CREATE', 'CRITIC_MODEL_RIGHT' => 'CREATE', 'COMPETITOR' => 'CREATE', 'SOURCE_REVIEW_ATTESTATION' => 'CREATE', 'SOURCE_CARD' => 'CREATE', 'MONITORED_SOURCE' => 'CREATE', 'COMPANY_PROFILE' => 'REUSE', 'P01_POLICY' => 'CREATE', 'P04_POLICY' => 'CREATE', 'DISTRIBUTION_TARGET' => 'CREATE', 'PROVIDER_CREDENTIAL' => 'REUSE', 'MISSION_CONFIGURATION' => 'CREATE'], $steps($plan), 'the plan names every object and what setup would do with it');
 Assert::same(false, $plan['grants_native_execution'], 'a plan grants no execution');
 Assert::same(0, $plan['setup_writes_performed'], 'the dry run performs no setup/provisioning write');
 Assert::same(0, (int) $db->scalar('SELECT COUNT(*) FROM valkyrie_authority_evaluations'), 'the dry-run plan appends no M03 authority evaluation');
