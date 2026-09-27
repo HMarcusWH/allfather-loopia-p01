@@ -180,6 +180,18 @@ final class ExecutionAdmission
             }
         }
 
+        // A human release is a fresh reliance on every product prompt/evaluation the grant
+        // named. A prompt withdrawn after generation, or an evaluation that no longer qualifies,
+        // cannot be bypassed by releasing a candidate produced earlier.
+        if ($grant['purpose'] === 'MANUAL_MONITOR' && in_array($checkpoint, ['RELEASE_P01', 'RELEASE_ROUTING'], true)) {
+            foreach ($d['prompt_approval_ids'] as $approvalId) {
+                $current = $this->approvals->current($grant['tenant_id'], $grant['workspace_id'], $approvalId);
+                if (!$current->isOk()) {
+                    return $current->reasonCode();
+                }
+            }
+        }
+
         if (in_array($checkpoint, self::MODEL_CHECKPOINTS, true)) {
             $credential = is_string($facts['credential_id'] ?? null) && $facts['credential_id'] === $d['credential_id']
                 ? $this->db->one("SELECT credential_digest FROM provider_credentials WHERE provider_credential_id=? AND tenant_id=? AND provider='OPENAI' AND status='ACTIVE'", [$d['credential_id'], $grant['tenant_id']])

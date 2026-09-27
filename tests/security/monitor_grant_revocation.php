@@ -129,6 +129,21 @@ Assert::same('EXECUTION_GRANT_PROMPT_NOT_ADMITTED', $fresh['admission']->check('
 $other = new \Allfather\Loopia\Workflow\ExecutionAdmission($db, $clock, $fresh['grants'], $fresh['approvals'], $fresh['decisions'], str_repeat('e', 64));
 Assert::same('EXECUTION_GRANT_RELEASE_MISMATCH', $other->check('SOURCE_CAPTURE', $facts)->reasonCode(), 'a different application release is not the admitted one');
 
+// A prompt can be withdrawn after its candidate was generated. Release must consult current prompt
+// and evaluation authority again rather than treating the historical candidate as permission.
+$releaseFresh = X::create($db, $clock);
+$releaseApprovals = X::approveAll($releaseFresh, 'MANUAL_MONITOR');
+$releaseGrant = X::admitted($releaseFresh, X::manualDefinition($db, $clock, $releaseFresh, $releaseApprovals));
+$releaseFacts = [
+    'tenant_id' => $releaseFresh['scope']['tenant_id'], 'workspace_id' => $releaseFresh['scope']['workspace_id'],
+    'operator_id' => $releaseFresh['scope']['operator_id'], 'execution_grant_id' => $releaseGrant['execution_grant_id'],
+    'purpose' => 'MANUAL_MONITOR', 'mission_id' => $releaseFresh['mission_id'],
+    'definition_digest' => $releaseFresh['definition_digest'], 'target_org_role' => 'SALES',
+];
+Assert::true($releaseFresh['admission']->check('RELEASE_P01', $releaseFacts)->isOk(), 'current prompt authority admits a release');
+X::value($releaseFresh['approvals']->withdraw($releaseFresh['scope'], $releaseApprovals[0], 'TEST_RELEASE_PROMPT_WITHDRAWN'));
+Assert::same('PROMPT_APPROVAL_WITHDRAWN', $releaseFresh['admission']->check('RELEASE_P01', $releaseFacts)->reasonCode(), 'withdrawing a granted prompt before release blocks downstream reliance');
+
 // Replacing the provider key is explicit: the operator first acknowledges the exact active set.
 $credentialScope=$fresh['scope'] + ['actor_type' => 'OPERATOR', 'actor_id' => $fresh['scope']['operator_id']];
 $rotation=X::value($fresh['credential_store']->describe($credentialScope))['save_would_rotate'];

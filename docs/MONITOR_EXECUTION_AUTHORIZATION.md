@@ -57,6 +57,8 @@ relies on a result, and records its answer:
 | `MODEL_AFTER_RETURN` | after the provider returns, before the candidate is accepted | — |
 | `RELEASE_P01`, `RELEASE_ROUTING` | before each human-approved release | — |
 
+At both release checkpoints, admission also re-resolves every prompt approval named by the manual grant. A prompt withdrawal or an evaluation that no longer qualifies therefore blocks release of an older candidate; historical bytes remain historical evidence, not current permission.
+
 A refusal before anything was spent leaves the run waiting, not failed. Revocation during a call
 cannot recall bytes already sent: the attempt stays spent, the result row records the revocation,
 and the response never becomes a candidate. Stand-down never refunds budget, deletes artifacts,
