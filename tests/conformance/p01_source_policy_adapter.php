@@ -422,6 +422,16 @@ Assert::same(
     $runCapture($scoped, 'https://sources.example/internal-admin')->reasonCode(),
     'a capture URL outside the compiled scope is refused before any dispatch',
 );
+Assert::same(
+    'CAPTURE_URL_OUTSIDE_SOURCE_SCOPE',
+    $runCapture($scoped, $scoped['url'] . '-admin')->reasonCode(),
+    'a sibling path that merely shares the card path prefix is not inside the source scope',
+);
+$child = $freshSource();
+Assert::true(
+    $runCapture($child, $child['url'] . '/details')->isOk(),
+    'a true child path remains inside the reviewed source scope',
+);
 
 // ================================================ THE ADAPTER ITSELF: total, and closed
 
