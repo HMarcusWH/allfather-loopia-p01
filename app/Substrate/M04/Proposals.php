@@ -55,7 +55,7 @@ final class Proposals
     ) {
     }
 
-    /** Create an ACTIVE mission. Missions bound what a proposal may request. */
+    /** Create a mission. Supported setup creates DRAFT and activates explicitly; legacy callers may request ACTIVE. */
     public function createMission(
         string $tenantId,
         string $workspaceId,
@@ -165,7 +165,7 @@ final class Proposals
                 return Outcome::refuse('MISSION_BROADENS_CONTRACT',['reason_codes'=>$decision['reason_codes']??[]],'CONTRACT','S4');
             }
         }
-        return $this->assignToMission($missionId,$valkyrieId,$capabilityContractId,$assignmentRole,$assignedToolIds,$assignedActionClasses,$assignedByOperatorId,$status,$assignedOutputClasses);
+        return $this->assignToMission($missionId,$valkyrieId,$capabilityContractId,$assignmentRole,$assignedToolIds,$assignedActionClasses,$assignedByOperatorId,$status,$assignedOutputClasses,false);
     }
 
     /**
@@ -192,6 +192,7 @@ final class Proposals
         string $assignedByOperatorId,
         string $status = 'ACTIVE',
         array $assignedOutputClasses = ['INTERNAL_INFORMATIONAL'],
+        bool $widenMissionTools = true,
     ): Outcome {
         $mission = $this->db->one(
             'SELECT tenant_id, workspace_id, status, requested_action_classes FROM missions WHERE mission_id = ?',
@@ -248,16 +249,19 @@ final class Proposals
             'assigned_at' => $now,
         ]);
 
-        // The mission's own allowed-tool list must name the tool too, or the M04 gate and the
-        // mission record would disagree about what the mission may reach.
-        $allowed = json_decode(
-            (string) $this->db->scalar('SELECT allowed_tool_ids FROM missions WHERE mission_id = ?', [$missionId]),
-            true, 512, JSON_THROW_ON_ERROR
-        );
-        $merged = array_values(array_unique([...$allowed, ...$assignedToolIds]));
-        $this->db->run('UPDATE missions SET allowed_tool_ids = ? WHERE mission_id = ?', [
-            json_encode($merged, JSON_THROW_ON_ERROR), $missionId,
-        ]);
+        // Legacy projection callers historically widened the mission tool list here. Supported
+        // P04 setup passes false: its mission was already DRAFT-frozen with exact tools, so an
+        // assignment may only narrow and must not write mission authority after activation.
+        if ($widenMissionTools) {
+            $allowed = json_decode(
+                (string) $this->db->scalar('SELECT allowed_tool_ids FROM missions WHERE mission_id = ?', [$missionId]),
+                true, 512, JSON_THROW_ON_ERROR
+            );
+            $merged = array_values(array_unique([...$allowed, ...$assignedToolIds]));
+            $this->db->run('UPDATE missions SET allowed_tool_ids = ? WHERE mission_id = ?', [
+                json_encode($merged, JSON_THROW_ON_ERROR), $missionId,
+            ]);
+        }
 
         return Outcome::ok(['assignment_id' => $assignmentId]);
     }

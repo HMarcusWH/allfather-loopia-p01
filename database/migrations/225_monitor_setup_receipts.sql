@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS monitor_setup_receipts (
   CHECK ((revision = 1 AND predecessor_receipt_id IS NULL) OR (revision > 1 AND predecessor_receipt_id IS NOT NULL)),
   CONSTRAINT fk_setup_receipt_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
   CONSTRAINT fk_setup_receipt_workspace FOREIGN KEY (workspace_id) REFERENCES workspaces(workspace_id),
+  CONSTRAINT fk_setup_receipt_mission FOREIGN KEY (mission_id) REFERENCES missions(mission_id),
   CONSTRAINT fk_setup_receipt_predecessor FOREIGN KEY (predecessor_receipt_id) REFERENCES monitor_setup_receipts(setup_receipt_id),
   CONSTRAINT fk_setup_receipt_operator FOREIGN KEY (applied_by_operator_id) REFERENCES operators(operator_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

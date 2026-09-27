@@ -77,24 +77,27 @@ final class SourceReadRegistration
      */
     public function bindTool(string $bindingId, string $governedToolId): Outcome
     {
-        // Global tool mapping: serialize on the governed-tool row so two workspaces cannot both
-        // observe "no ref" and append rival mappings.
-        $tool = $this->db->one("SELECT tool_key,runtime_mapping_ref_id,status FROM governed_tools WHERE governed_tool_id=? FOR UPDATE", [$governedToolId]);
-        if ($tool === null || $tool['tool_key'] !== 'p01.source.read' || $tool['runtime_mapping_ref_id'] !== $bindingId || $tool['status'] !== 'ACTIVE') {
-            return Outcome::refuse('SOURCE_READ_TOOL_NOT_ON_BINDING');
-        }
-        $refs = $this->db->all('SELECT * FROM runtime_host_tool_refs WHERE governed_tool_id=?', [$governedToolId]);
-        if ($refs !== []) {
-            $r = $refs[0];
+        return $this->db->transaction(function (Database $tx) use ($bindingId, $governedToolId): Outcome {
+            // Global tool mapping: serialize on the governed-tool row so two workspaces cannot both
+            // observe "no ref" and append rival mappings. Nested callers keep this lock until their
+            // outer transaction commits.
+            $tool = $tx->one("SELECT tool_key,runtime_mapping_ref_id,status FROM governed_tools WHERE governed_tool_id=? FOR UPDATE", [$governedToolId]);
+            if ($tool === null || $tool['tool_key'] !== 'p01.source.read' || $tool['runtime_mapping_ref_id'] !== $bindingId || $tool['status'] !== 'ACTIVE') {
+                return Outcome::refuse('SOURCE_READ_TOOL_NOT_ON_BINDING');
+            }
+            $refs = $tx->all('SELECT * FROM runtime_host_tool_refs WHERE governed_tool_id=?', [$governedToolId]);
+            if ($refs !== []) {
+                $r = $refs[0];
 
-            return count($refs) === 1 && $r['binding_id'] === $bindingId && $r['runtime_host_tool_ref'] === self::TOOL_REF && $r['tool_surface_type'] === 'READ' && $r['declared_operation_class'] === 'OBSERVE' && $r['mapping_status'] === 'ACTIVE'
-                ? Outcome::ok(['tool_ref_id' => $r['tool_ref_id'], 'created' => false])
-                : Outcome::refuse('SOURCE_READ_TOOL_REF_CONFLICT');
-        }
-        $id = Ids::new();
-        $this->db->insert('runtime_host_tool_refs', ['tool_ref_id' => $id, 'schema_version' => '1', 'binding_id' => $bindingId, 'governed_tool_id' => $governedToolId, 'runtime_host_tool_ref' => self::TOOL_REF, 'tool_surface_type' => 'READ', 'declared_operation_class' => 'OBSERVE', 'mapping_status' => 'ACTIVE', 'version' => '1.0.0', 'created_at' => $this->clock->now()]);
+                return count($refs) === 1 && $r['binding_id'] === $bindingId && $r['runtime_host_tool_ref'] === self::TOOL_REF && $r['tool_surface_type'] === 'READ' && $r['declared_operation_class'] === 'OBSERVE' && $r['mapping_status'] === 'ACTIVE'
+                    ? Outcome::ok(['tool_ref_id' => $r['tool_ref_id'], 'created' => false])
+                    : Outcome::refuse('SOURCE_READ_TOOL_REF_CONFLICT');
+            }
+            $id = Ids::new();
+            $tx->insert('runtime_host_tool_refs', ['tool_ref_id' => $id, 'schema_version' => '1', 'binding_id' => $bindingId, 'governed_tool_id' => $governedToolId, 'runtime_host_tool_ref' => self::TOOL_REF, 'tool_surface_type' => 'READ', 'declared_operation_class' => 'OBSERVE', 'mapping_status' => 'ACTIVE', 'version' => '1.0.0', 'created_at' => $this->clock->now()]);
 
-        return Outcome::ok(['tool_ref_id' => $id, 'created' => true]);
+            return Outcome::ok(['tool_ref_id' => $id, 'created' => true]);
+        });
     }
 
     private static function payloads(): array

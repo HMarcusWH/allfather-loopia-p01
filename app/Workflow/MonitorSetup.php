@@ -94,7 +94,7 @@ final class MonitorSetup
     }
 
     /**
-     * Read-only dry run. The returned `plan_digest` is what `apply()` must be given.
+     * Dry run with no setup/provisioning writes. M02 still records denied access checks by design.\n     * The returned `plan_digest` is what `apply()` must be given.
      *
      * @return Outcome<array<string, mixed>>
      */
@@ -187,7 +187,7 @@ final class MonitorSetup
             'setup_key' => $r['setup_key'], 'request_digest' => $requestDigest, 'successor_of' => $successorOf,
             'revision' => $mission['revision'], 'steps' => $steps, 'blocked_by' => $blocked,
             'plan_digest' => Digest::canonicalDigest(['request_digest' => $requestDigest, 'successor_of' => $successorOf, 'steps' => $steps]),
-            'grants_roles' => false, 'grants_native_execution' => false, 'writes_performed' => 0,
+            'grants_roles' => false, 'grants_native_execution' => false, 'setup_writes_performed' => 0,
         ]);
     }
 
@@ -212,18 +212,15 @@ final class MonitorSetup
         if ($plan['blocked_by'] !== []) {
             return Outcome::refuse('MONITOR_SETUP_BLOCKED', ['blocked_by' => $plan['blocked_by']]);
         }
-        $steps = array_column($plan['steps'], null, 'step');
-        if ($steps['MISSION_CONFIGURATION']['action'] === 'REUSE') {
-            $receipt = $this->db->one('SELECT * FROM monitor_setup_receipts WHERE mission_id=?', [$steps['MISSION_CONFIGURATION']['id']]);
-
-            return Outcome::ok($this->summary($receipt, true));
-        }
         $r = self::validateRequest($request)->value();
 
         try {
             return $this->db->transaction(function (Database $tx) use ($scope, $r, $request, $planDigest, $successorOf): Outcome {
                 $tx->one('SELECT workspace_id FROM workspaces WHERE workspace_id=? AND tenant_id=? FOR UPDATE', [$scope['workspace_id'], $scope['tenant_id']]);
-                // Re-plan after the workspace serialization point. The first plan is the operator's
+                // Source cards are tenant-wide. Serialize their resolve/create decision across this
+                // tenant as well, so two workspaces cannot both create a rival card for one review.
+                $tx->one('SELECT tenant_id FROM tenants WHERE tenant_id=? FOR UPDATE', [$scope['tenant_id']]);
+                // Re-plan after the serialization point. The first plan is the operator's
                 // reviewed intent; this second one proves no concurrent setup changed any resolved
                 // identity between review and the first write.
                 $lockedPlan = $this->plan($scope, $request, $successorOf);
@@ -236,6 +233,14 @@ final class MonitorSetup
                     return Outcome::refuse('MONITOR_SETUP_BLOCKED', ['blocked_by' => $plan['blocked_by']]);
                 }
                 $steps = array_column($plan['steps'], null, 'step');
+                if ($steps['MISSION_CONFIGURATION']['action'] === 'REUSE') {
+                    $receipt = $tx->one('SELECT * FROM monitor_setup_receipts WHERE mission_id=? AND tenant_id=? AND workspace_id=?', [
+                        $steps['MISSION_CONFIGURATION']['id'], $scope['tenant_id'], $scope['workspace_id'],
+                    ]);
+                    return $receipt === null
+                        ? Outcome::refuse('MONITOR_SETUP_STATE_CHANGED')
+                        : Outcome::ok($this->summary($receipt, true));
+                }
                 $ledger = new DecisionLedger($tx, $this->clock);
                 $m03 = new M03Registry($tx, $this->clock);
                 $eligibility = new Eligibility($tx, $this->clock);
