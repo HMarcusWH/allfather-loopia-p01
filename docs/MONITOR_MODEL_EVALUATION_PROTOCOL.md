@@ -19,7 +19,9 @@ serves a product mission, and cannot reach any release checkpoint.
 `PromptSelectionResolver` and `ExecutionAdmission` around `EvaluationCaseContext`. It constructs no
 source transport, host resolver, capture stage or release service. Each case is one bounded
 attempt through exactly the request construction, dispatch, parser and candidate checks the product
-uses. The only provider transport a deployment can obtain is `MonitorFactory::admittedModelTransport()`,
+uses. The run also freezes the exact M03/M04/M06 governance carrier by canonical digest; preview and
+funded execution refuse if a different assignment/contract/tool binding is supplied later, even on
+the same mission. The only provider transport a deployment can obtain is `MonitorFactory::admittedModelTransport()`,
 activated only for an **admitted** grant of the right purpose in the right scope.
 
 Every attempt made under a grant is recorded beside the attempt in `provider_attempt_purposes`: a

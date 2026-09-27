@@ -203,7 +203,8 @@ final class EvaluationReport
         $report = [
             'schema_version' => '1.0', 'kind' => 'MONITOR_MODEL_EVALUATION_REPORT',
             'evaluation_run_id' => $runId, 'tenant_id' => $tenantId, 'workspace_id' => $workspaceId,
-            'execution_grant_id' => $run['execution_grant_id'], 'manifest_sha256' => $run['manifest_sha256'], 'manifest_version' => $run['manifest_version'],
+            'execution_grant_id' => $run['execution_grant_id'], 'governance_digest' => $run['governance_digest'],
+            'manifest_sha256' => $run['manifest_sha256'], 'manifest_version' => $run['manifest_version'],
             'selection' => $run['selection'], 'execution_mode' => $run['execution_mode'], 'material_provenance' => $run['material_provenance'],
             'model_policy_digest' => $run['model_policy_digest'], 'prompts' => $prompts, 'scorecard' => $score,
             'totals' => $t, 'by_category' => $byCategory, 'cases' => $cases, 'verdict' => $verdict, 'verdict_reasons' => $reasons,

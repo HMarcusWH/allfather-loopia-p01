@@ -76,7 +76,12 @@ final class MonitorEvaluationRunner
         }
         $row = [
             'evaluation_run_id' => Ids::new(), 'tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'],
-            'execution_grant_id' => $grantId, 'mission_id' => $mission->value(), 'manifest_sha256' => $manifest->sha256,
+            'execution_grant_id' => $grantId, 'mission_id' => $mission->value(),
+            // The exact M03/M04/M06 carrier inspected for this run is part of the run identity.
+            // Preview and execute must use the same governance, not merely another valid assignment
+            // on the same mission.
+            'governance_digest' => Digest::canonicalDigest($governance),
+            'manifest_sha256' => $manifest->sha256,
             'manifest_version' => $manifest->data['manifest_version'], 'selection' => $selection,
             'selected_case_ids_json' => json_encode($ids, JSON_THROW_ON_ERROR), 'model_policy_digest' => ModelPolicy::digest(),
             'execution_mode' => $this->liveTransport ? 'LIVE' : 'FIXTURE', 'material_provenance' => 'SYNTHETIC_EVALUATION_CASE',
@@ -102,7 +107,8 @@ final class MonitorEvaluationRunner
             return Outcome::refuse('EVALUATION_RUN_NOT_FOUND');
         }
         $mission = $this->governanceMission($scope, $governance);
-        if (!$mission->isOk() || $mission->value() !== $run['mission_id']) {
+        if (!$mission->isOk() || $mission->value() !== $run['mission_id']
+            || !hash_equals((string) $run['governance_digest'], Digest::canonicalDigest($governance))) {
             return Outcome::refuse('EVALUATION_GOVERNANCE_MISMATCH');
         }
         $out = [];
@@ -128,7 +134,8 @@ final class MonitorEvaluationRunner
             return Outcome::refuse('EVALUATION_RUN_NOT_FOUND');
         }
         $mission = $this->governanceMission($scope, $governance);
-        if (!$mission->isOk() || $mission->value() !== $run['mission_id']) {
+        if (!$mission->isOk() || $mission->value() !== $run['mission_id']
+            || !hash_equals((string) $run['governance_digest'], Digest::canonicalDigest($governance))) {
             return Outcome::refuse('EVALUATION_GOVERNANCE_MISMATCH');
         }
         $done = array_column($this->db->all('SELECT case_id FROM monitor_evaluation_results WHERE evaluation_run_id=?', [$runId]), 'case_id');

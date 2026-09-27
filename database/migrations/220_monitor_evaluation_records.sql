@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS monitor_evaluation_runs (
   workspace_id CHAR(36) NOT NULL,
   execution_grant_id CHAR(36) NOT NULL,
   mission_id CHAR(36) NOT NULL,
+  governance_digest CHAR(64) NOT NULL,
   manifest_sha256 CHAR(64) NOT NULL,
   manifest_version VARCHAR(64) NOT NULL,
   selection VARCHAR(16) NOT NULL,
