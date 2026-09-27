@@ -1,5 +1,5 @@
 {
-  "status": "PROPOSED_NOT_IMPLEMENTED",
+  "status": "P00_P04_IMPLEMENTED_IN_PR23_CANDIDATE_REMAINDER_PROPOSED",
   "baseline": {
     "loopia_main": "8dbea16b262df7b6d40fe945f34e301eedf2aba6",
     "canonical_main": "1c40306c22e15b2ad3049e8d32abff47450c8921"
@@ -497,5 +497,13 @@
       "exit_criteria": "An explicitly approved production offering with qualified hosting, identities, visibility, secrets, backups and operating procedures.",
       "authority_gate": "Canonical identity/audience decision, source/privacy/commercial review, hosting closure and explicit production/customer GO. Exact migration semantics remain conditional until approved."
     }
-  ]
+  ],
+  "implementation_cutoff": {
+    "through": "P04",
+    "pull_request": 23,
+    "merge_state": "OPEN_DRAFT_NOT_MERGED",
+    "qualification_state": "NOT_REGISTRY_QUALIFIED",
+    "deployment_state": "NOT_DEPLOYED",
+    "activation_state": "NOT_ACTIVATED"
+  }
 }

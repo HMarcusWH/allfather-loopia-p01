@@ -43,11 +43,13 @@ candidate_migrations               = 26
 - **Last reviewed application merge:** `8dbea16b262df7b6d40fe945f34e301eedf2aba6` (PR22), completing
   PR18–PR22: Monitor foundation, inactive PromptOps contracts, bounded provider/context composition,
   canonical P01 parity repairs, and the governed workbench at `/console/monitor`.
-- **Since then:** the P00 change adds qualification tooling and documentation. Its one new `app/`
-  class, `Ops\ReleaseQualification`, is used only by the `ops/ci/` commands; no web entry point,
-  worker or product service reaches it, and no runtime behavior changes.
-- **Candidate schema:** 23 migration files, including `190_bounded_model_provenance` and
-  `200_monitor_runs`. The deployed PR16 release has 19.
+- **Since then:** open draft PR23 is the current candidate and implements completion packages
+  **P00–P04**: reproducible qualification, execution admission/prompt approval, the bounded real-model
+  evaluation lane, admitted manual-native composition/stand-down, and repeatable operator-supported
+  mission setup. It is a candidate only: it is not merged to `main`, registry-qualified, deployed or
+  activated.
+- **Candidate schema:** 26 migration files, including `210_monitor_execution_controls`,
+  `220_monitor_evaluation_records` and `225_monitor_setup_receipts`. The deployed PR16 release has 19.
 
 ## 2. Tested
 
@@ -92,8 +94,8 @@ SHA.
   PHP 8.5.9, MariaDB 10.11.19, 19 migrations, strict host suite 5,552/0/0, rollback drill
   PR16→PR15→PR16 passed. E.1 remains `FAIL_READABLE` and E.3 `UNVERIFIED`; neither is an isolation
   pass.
-- **The Monitor work (PR18–PR22) is not deployed.** `/console/monitor`, migrations 190/200 and the
-  bounded model composition exist only in the candidate.
+- **The Monitor candidate work through open PR23 is not deployed.** The deployed PR16 tree predates
+  `/console/monitor`, the bounded model/admission path and the P04 setup tooling.
 - **Production** is neither deployed nor authorized.
 - **Evidence registry:** 12 reviewed records, preserving the PR13 host failure and the PR15 isolation
   failure alongside current PR16 evidence.
@@ -130,11 +132,10 @@ road_test_001_executed             = false
 
 ## 5. What comes next
 
-The [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) sequences the rest as three releases: a
-qualified manual native Monitor, an operational internal beta, and a separately approved production
-release. The next implementation package is **P01 — execution admission and approved prompt
-selection**. Its merge activates nothing either: importing an admitted grant is a separately recorded
-owner act.
+The [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) sequences the rest as three releases. The
+current PR23 candidate reaches **P04**. The next dependency on the manual-native release path is
+**P05 — recoverable model results and explicit interruption handling**; P10 backup/restore can proceed
+in parallel. Neither code merge creates execution authority, deployment evidence or owner GO.
 
 ## 6. Superseded narrative
 

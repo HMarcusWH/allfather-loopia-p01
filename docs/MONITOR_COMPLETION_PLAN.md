@@ -1,13 +1,15 @@
 # Monitor completion plan — three releases
 
-**Adopted as the engineering plan of record:** 27 September 2026. **Status:** P00 is implemented by
-the change that added this file; P01–P12 are **proposed, not implemented**. Nothing here is a merge,
-deployment, model evaluation, activation or authority grant. The current state of the application is
+**Adopted as the engineering plan of record:** 27 September 2026. **Status:** open draft PR23 now
+candidate-implements **P00–P04**; P05–P12 remain proposed/conditional as stated below. Candidate
+implementation is not a merge, qualification, deployment, funded model evaluation, activation or
+authority grant. The current state of the application is
 [`MVP_RELEASE_STATE.md`](MVP_RELEASE_STATE.md), not this plan.
 
 The machine-readable form of the same work packages is
 [`MONITOR_COMPLETION_WORK_PACKAGES.json`](MONITOR_COMPLETION_WORK_PACKAGES.json). Package IDs are not
-reserved pull-request numbers, and `ADD` paths are proposed names rather than claims that files exist.
+reserved pull-request numbers. For P00–P04, the table above records the current PR23 candidate state;
+for unimplemented packages, `ADD` paths remain proposed names rather than claims that files exist.
 
 ## The three releases
 
@@ -25,11 +27,11 @@ provider transport, the four prompts and the existing M01–M12/M15/M16 and prod
 
 | Package | Title | Depends on | State |
 | --- | --- | --- | --- |
-| P00 | One current-state record and one qualification procedure | — | **Implemented in this change** — see below |
-| P01 | Execution admission and approved prompt selection | P00 | proposed; the next implementation PR |
-| P02 | Real-model evaluation lane that cannot release product intelligence | P01 | proposed |
-| P03 | Native manual Monitor wiring and stand-down | P01, P02 | proposed |
-| P04 | Repeatable operator-supported mission setup | P01 | proposed |
+| P00 | One current-state record and one qualification procedure | — | **candidate-implemented in PR23** |
+| P01 | Execution admission and approved prompt selection | P00 | **candidate-implemented in PR23** |
+| P02 | Real-model evaluation lane that cannot release product intelligence | P01 | **candidate-implemented in PR23; no funded evaluation run** |
+| P03 | Native manual Monitor wiring and stand-down | P01, P02 | **candidate-implemented in PR23; not deployed/admitted** |
+| P04 | Repeatable operator-supported mission setup | P01 | **candidate-implemented in PR23; setup grants no execution** |
 | P05 | Recoverable model results and explicit interruption handling | P01, P03 | proposed |
 | P06 | Deploy, requalify and run the first approved manual road test | P00, P02, P03, P04, P05, P10 | proposed; its operator acts each need their own authorization |
 | P07 | Recurring observation with bounded per-occurrence authority | P06 | proposed |
