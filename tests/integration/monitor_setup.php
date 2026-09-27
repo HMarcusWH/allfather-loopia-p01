@@ -160,6 +160,10 @@ X::value($service->advance($scope, $id, $detail['preview_request']['request_dige
 $detail = X::value($service->detail($scope, $id));
 Assert::same('COMPLETE', X::value($service->review($scope, $id, ['decision' => 'APPROVE', 'assessment' => 'Synthetic setup routing review: suitable for the configured SALES role.', 'candidate_digest' => $detail['review_digest']]))['stage'], 'and routes to the set-up internal target');
 Assert::same([2, 4], [$pages->calls, $model->calls], 'two captures and four bounded model calls, under the admitted grant');
+$historicalCursor=json_decode((string)$db->scalar('SELECT cursor_json FROM monitor_runs WHERE monitor_run_id=?',[$id]),true,64,JSON_THROW_ON_ERROR);
+$historicalRequestDigest=$historicalCursor['classifier_request_artifact']??null;
+Assert::true(is_string($historicalRequestDigest)&&$historicalRequestDigest!=='','the historical inspected classifier request is retained by digest');
+$historicalRequestBytes=X::value($store->get($historicalRequestDigest));
 
 // ---------------------------------------------------------------- a repeated compatible setup is idempotent
 $before = $snapshot();
@@ -191,6 +195,7 @@ foreach (['monitor_valkyrie_id', 'critic_valkyrie_id', 'competitor_id', 'source_
     Assert::same($applied['objects'][$reused], $successor['objects'][$reused], "the successor reuses {$reused}");
 }
 Assert::same($config, $db->one('SELECT * FROM monitor_mission_configs WHERE mission_id=?', [$applied['mission_id']]), 'the old configuration is exactly as it was');
+Assert::same($historicalRequestBytes,X::value($store->get($historicalRequestDigest)),'the exact historical prepared request bytes survive profile replacement and successor setup unchanged');
 Assert::same('MONITOR_SETUP_SUCCESSOR_NOT_LATEST', X::value($setup->plan($scope, $request([$a['evidence_id']], $credential['provider_credential_id'], ['mission' => ['title' => 'Another']]), $applied['setup_receipt_id']))['blocked_by'][0]['reason_code'], 'only the latest revision can be succeeded');
 
 // ---------------------------------------------------------------- a new key does not retarget frozen missions

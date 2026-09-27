@@ -26,8 +26,9 @@ use Allfather\Loopia\Substrate\M16\ReleaseOutput;
  * digest of a plan the operator reviewed, recomputes it, and performs exactly those CREATE steps in
  * one transaction through M03/M04/M06/P01/P04/M08 — never by writing their tables here.
  *
- * What setup never does: grant an M02 role (it requires them), subscribe a tenant, approve a source
- * (the review is supplied evidence), import or edit a profile's bytes (see importProfile), rotate a
+ * What setup never does: grant an M02 role (it requires them), subscribe a tenant, invent source
+ * approval (the review is supplied, operator-bound evidence), import or edit a profile's bytes (see
+ * importProfile), rotate a
  * credential, rewrite a frozen configuration, or admit native execution. A changed request appends a
  * successor mission and configuration; the old one, its grants and its runs keep their bindings.
  */

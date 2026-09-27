@@ -224,6 +224,7 @@ final class SourceCards
             }
         }
         if (!Clock::isCanonical($review['reviewed_at'])
+            || $review['reviewed_at'] > $this->clock->now()
             || !is_bool($review['robots_policy_checked'])
             || !is_bool($review['terms_policy_checked'])
             || ($review['terms_snapshot_hash'] !== null
