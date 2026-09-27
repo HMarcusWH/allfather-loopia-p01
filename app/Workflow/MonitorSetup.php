@@ -294,23 +294,25 @@ final class MonitorSetup
                 }
                 $card = $this->cardState($scope, $r['source'], $tx);
                 if ($card['action'] === 'CREATE') {
-                    $projected = (new SourceCards($tx, $this->clock))->project(self::card($scope, $r['source']));
+                    $cards = new SourceCards($tx, $this->clock);
+                    $projected = $cards->project(self::card($scope, $r['source']));
                     if ($projected['outcome'] !== 'PROJECTED') {
                         return Outcome::refuse('MONITOR_SOURCE_CARD_NOT_INGESTABLE', ['reason_code' => $projected['reason_code'] ?? null]);
                     }
                     $card = ['id' => $projected['source_license_card_id'], 'source_ref_id' => $projected['source_ref_id']];
                     $review = $r['source']['review'];
-                    $tx->insert('source_terms_reviews', [
-                        'source_terms_review_id' => Ids::new(), 'schema_version' => '1',
-                        'source_license_card_id' => $card['id'], 'robots_url' => null, 'terms_url' => null,
-                        'robots_policy_checked' => 1, 'terms_policy_checked' => 1,
-                        // The private review-note digest belongs to the append-only setup
-                        // receipt. This column is specifically a hash of source TERMS bytes, which
-                        // setup does not possess and must not fabricate from a review note.
+                    $reviewed = $cards->recordTermsReview([
+                        'tenant_id' => $scope['tenant_id'],
+                        'source_license_card_id' => $card['id'],
+                        'reviewed_by' => $scope['operator_id'],
+                        'reviewed_at' => $review['approved_at'],
+                        'robots_policy_checked' => true,
+                        'terms_policy_checked' => true,
+                        // The private review-note digest belongs to the setup receipt. It is not
+                        // a hash of source terms bytes, which setup does not possess.
                         'terms_snapshot_hash' => null,
-                        'reviewed_by' => $scope['operator_id'], 'reviewed_at' => $review['approved_at'],
-                        'expires_at' => null,
                     ]);
+                    if (!$reviewed->isOk()) { return $reviewed; }
                 }
                 $monitored = $this->monitoredState($scope, $competitor, $card['source_ref_id'], $tx)['id'] ?? null;
                 if ($monitored === null) {

@@ -110,6 +110,8 @@ Assert::same(1, (int) $db->scalar('SELECT COUNT(*) FROM source_terms_reviews WHE
 $reviewRow=$db->one('SELECT terms_snapshot_hash,reviewed_by,reviewed_at FROM source_terms_reviews WHERE source_license_card_id=?',[$applied['objects']['source_license_card_id']]);
 Assert::same([null,$scope['operator_id'],'2026-01-01T00:00:00.000Z'],[$reviewRow['terms_snapshot_hash'],$reviewRow['reviewed_by'],$reviewRow['reviewed_at']],'a review-note digest is not mislabeled as a hash of source terms bytes');
 Assert::same(hash('sha256','synthetic source review'),$applied['objects']['source_review_evidence_sha256'],'the private review evidence digest stays bound in the append-only setup receipt');
+$setupSource=(string)file_get_contents(dirname(__DIR__,2).'/app/Workflow/MonitorSetup.php');
+Assert::false(str_contains($setupSource,"->insert('source_terms_reviews'"),'MonitorSetup composes the P01 source-card owner instead of writing its review table directly');
 Assert::same(SourceReadRegistration::TOOL_REF, $db->scalar('SELECT runtime_host_tool_ref FROM runtime_host_tool_refs WHERE governed_tool_id=?', [$definition['capture_governance']['governed_tool_id']]), 'the read tool is mapped onto the shared read-only binding');
 Assert::same('SAFE_READ_ONLY', $db->scalar('SELECT safety_classification FROM runtime_host_bindings WHERE binding_id=?', [$applied['objects']['source_read_binding_id']]), 'which can only observe');
 Assert::true($definition['model_governance']['author']['valkyrie_id'] !== $definition['model_governance']['critic']['valkyrie_id'], 'author and critic are separate agents');
