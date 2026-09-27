@@ -94,9 +94,16 @@ final class MonitorEvaluationRunner
      */
     public function preview(array $scope, string $runId, array $governance): Outcome
     {
+        if (!$this->may($scope, ['tool.invoke', 'evidence.read'])) {
+            return Outcome::refuse('EVALUATION_ACCESS_DENIED');
+        }
         $run = $this->run($scope, $runId);
         if ($run === null) {
             return Outcome::refuse('EVALUATION_RUN_NOT_FOUND');
+        }
+        $mission = $this->governanceMission($scope, $governance);
+        if (!$mission->isOk() || $mission->value() !== $run['mission_id']) {
+            return Outcome::refuse('EVALUATION_GOVERNANCE_MISMATCH');
         }
         $out = [];
         foreach (json_decode($run['selected_case_ids_json'], true, 8, JSON_THROW_ON_ERROR) as $caseId) {
@@ -138,6 +145,18 @@ final class MonitorEvaluationRunner
         }
 
         return Outcome::ok(['evaluation_run_id' => $runId, 'recorded' => $recorded, 'approves_prompts' => false, 'activates' => false]);
+    }
+
+    /** Read the computed report under the same private evidence-read boundary as preview. */
+    public function report(array $scope, string $runId): Outcome
+    {
+        if (!$this->may($scope, ['evidence.read'])) {
+            return Outcome::refuse('EVALUATION_ACCESS_DENIED');
+        }
+
+        return EvaluationReport::build(
+            $this->db, $scope['tenant_id'], $scope['workspace_id'], $runId, $this->cases->manifest()
+        );
     }
 
     /**

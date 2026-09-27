@@ -102,7 +102,8 @@ CREATE TABLE IF NOT EXISTS monitor_grant_consumptions (
   recorded_at CHAR(24) NOT NULL,
   UNIQUE KEY uq_grant_consumption_reference (execution_grant_id, consumption_kind, reference_id),
   CHECK (consumption_kind IN ('MODEL_ATTEMPT', 'SOURCE_CAPTURE')),
-  CONSTRAINT fk_grant_consumption_grant FOREIGN KEY (execution_grant_id) REFERENCES monitor_execution_grants(execution_grant_id)
+  CONSTRAINT fk_grant_consumption_grant FOREIGN KEY (execution_grant_id) REFERENCES monitor_execution_grants(execution_grant_id),
+  CONSTRAINT fk_grant_consumption_run FOREIGN KEY (monitor_run_id) REFERENCES monitor_runs(monitor_run_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- The decision at every admission checkpoint, allow or refuse. An audit trail, not a permission.
@@ -119,7 +120,9 @@ CREATE TABLE IF NOT EXISTS monitor_admission_decisions (
   recorded_at CHAR(24) NOT NULL,
   CHECK (outcome IN ('ALLOW', 'REFUSE')),
   CONSTRAINT fk_admission_decision_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
-  CONSTRAINT fk_admission_decision_grant FOREIGN KEY (execution_grant_id) REFERENCES monitor_execution_grants(execution_grant_id)
+  CONSTRAINT fk_admission_decision_workspace FOREIGN KEY (workspace_id) REFERENCES workspaces(workspace_id),
+  CONSTRAINT fk_admission_decision_grant FOREIGN KEY (execution_grant_id) REFERENCES monitor_execution_grants(execution_grant_id),
+  CONSTRAINT fk_admission_decision_run FOREIGN KEY (monitor_run_id) REFERENCES monitor_runs(monitor_run_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE INDEX ix_admission_decision_grant ON monitor_admission_decisions(execution_grant_id, recorded_at);
 

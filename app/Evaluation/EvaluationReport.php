@@ -32,6 +32,19 @@ final class EvaluationReport
         }
         $score = $manifest->data['scorecard'];
         $selected = json_decode($run['selected_case_ids_json'], true, 8, JSON_THROW_ON_ERROR);
+
+        // Resolve the exact evaluation prompt identities up front. A candidate only counts when its
+        // provider attempt used the prompt/schema the evaluation grant actually named for that role.
+        $prompts = [];
+        $grant = $db->one('SELECT definition_json FROM monitor_execution_grants WHERE execution_grant_id=?', [$run['execution_grant_id']]);
+        foreach ($grant === null ? [] : json_decode($grant['definition_json'], true, 32, JSON_THROW_ON_ERROR)['prompt_approval_ids'] as $approvalId) {
+            $p = $db->one('SELECT role,prompt_approval_id,prompt_sha256,schema_sha256 FROM monitor_prompt_approvals WHERE prompt_approval_id=? AND tenant_id=? AND workspace_id=?', [$approvalId, $tenantId, $workspaceId]);
+            if ($p !== null) {
+                $prompts[$p['role']] = ['prompt_approval_id' => $p['prompt_approval_id'], 'prompt_sha256' => $p['prompt_sha256'], 'schema_sha256' => $p['schema_sha256']];
+            }
+        }
+        ksort($prompts);
+
         $results = [];
         foreach ($db->all('SELECT * FROM monitor_evaluation_results WHERE evaluation_run_id=? ORDER BY case_id', [$runId]) as $row) {
             $results[$row['case_id']] = $row;
@@ -49,6 +62,7 @@ final class EvaluationReport
         $cases = [];
         $t = ['selected' => count($selected), 'results' => 0, 'candidates' => 0, 'refused' => 0, 'held_or_abstained' => 0, 'declared_refusals' => 0,
               'incomplete_responses' => 0, 'mechanical_failures' => 0, 'held_out_mechanical_failures' => 0, 'held_out_results' => 0, 'critical_failures' => 0,
+              'provider_provenance_failures' => 0,
               'grounding' => ['PASS' => 0, 'FAIL' => 0, 'NOT_APPLICABLE' => 0], 'usefulness' => ['PASS' => 0, 'FAIL' => 0, 'NOT_APPLICABLE' => 0],
               'input_tokens' => 0, 'output_tokens' => 0, 'latencies_ms' => []];
         $byCategory = [];
@@ -77,6 +91,38 @@ final class EvaluationReport
             // A critical case that failed its mechanical check (for example, an injection it did
             // not hold on) is a critical failure whatever any assessment says.
             $critical = $critical || ((int) $r['critical'] === 1 && (int) $r['mechanical_pass'] === 0);
+            $providerProvenanceValid = true;
+            if ($r['outcome'] === 'CANDIDATE') {
+                $prompt = $prompts[$case['role']] ?? null;
+                $proof = $prompt === null || $r['model_attempt_id'] === null || $r['provider_call_id'] === null || $r['request_digest'] === null || $r['candidate_digest'] === null
+                    ? null
+                    : $db->one(
+                        "SELECT 1 AS ok
+                         FROM provider_model_attempts a
+                         JOIN provider_model_results mr ON mr.model_attempt_id=a.model_attempt_id
+                         JOIN provider_attempt_purposes pp ON pp.model_attempt_id=a.model_attempt_id
+                         JOIN provider_call_records c ON c.provider_call_id=mr.provider_call_id
+                         WHERE a.model_attempt_id=? AND a.tenant_id=? AND a.workspace_id=? AND a.mission_id=?
+                           AND a.execution_mode=? AND a.request_digest=? AND a.prompt_sha256=? AND a.schema_sha256=?
+                           AND mr.provider_call_id=? AND mr.outcome='CANDIDATE' AND mr.candidate_digest=?
+                           AND pp.execution_purpose='MODEL_EVALUATION' AND pp.execution_grant_id=?
+                           AND pp.evaluation_run_id=? AND pp.monitor_run_id IS NULL
+                           AND pp.material_provenance='SYNTHETIC_EVALUATION_CASE'
+                           AND c.provider_call_id=? AND c.tenant_id=? AND c.workspace_id=?
+                           AND c.outcome='SUCCEEDED' AND c.correlation_id=?",
+                        [
+                            $r['model_attempt_id'], $tenantId, $workspaceId, $run['mission_id'],
+                            $run['execution_mode'], $r['request_digest'], $prompt['prompt_sha256'], $prompt['schema_sha256'],
+                            $r['provider_call_id'], $r['candidate_digest'], $run['execution_grant_id'],
+                            $runId, $r['provider_call_id'], $tenantId, $workspaceId, $runId,
+                        ],
+                    );
+                $providerProvenanceValid = $proof !== null;
+                if (!$providerProvenanceValid) {
+                    ++$t['provider_provenance_failures'];
+                    $critical = true;
+                }
+            }
             $t['critical_failures'] += $critical ? 1 : 0;
             if ($r['outcome'] === 'CANDIDATE') {
                 $t['candidates']++;
@@ -117,7 +163,8 @@ final class EvaluationReport
                 'case_id' => $caseId, 'split' => $case['split'], 'category' => $case['category'], 'role' => $case['role'], 'critical' => (bool) (int) $r['critical'],
                 'executed' => true, 'evaluation_result_id' => $r['evaluation_result_id'], 'outcome' => $r['outcome'], 'reason_code' => $r['reason_code'],
                 'mechanical' => $mechanical, 'grounding' => $a['GROUNDING']['verdict'] ?? null, 'usefulness' => $a['USEFULNESS']['verdict'] ?? null,
-                'critical_failure' => $critical, 'candidate_digest' => $r['candidate_digest'],
+                'critical_failure' => $critical, 'provider_provenance_valid' => $providerProvenanceValid,
+                'candidate_digest' => $r['candidate_digest'],
             ];
         }
         sort($t['latencies_ms']);
@@ -148,15 +195,6 @@ final class EvaluationReport
             $verdict = $reasons === [] ? self::ACCEPTED : self::REJECTED;
         }
 
-        $prompts = [];
-        $grant = $db->one('SELECT definition_json FROM monitor_execution_grants WHERE execution_grant_id=?', [$run['execution_grant_id']]);
-        foreach ($grant === null ? [] : json_decode($grant['definition_json'], true, 32, JSON_THROW_ON_ERROR)['prompt_approval_ids'] as $approvalId) {
-            $p = $db->one('SELECT role,prompt_approval_id,prompt_sha256,schema_sha256 FROM monitor_prompt_approvals WHERE prompt_approval_id=? AND tenant_id=? AND workspace_id=?', [$approvalId, $tenantId, $workspaceId]);
-            if ($p !== null) {
-                $prompts[$p['role']] = ['prompt_approval_id' => $p['prompt_approval_id'], 'prompt_sha256' => $p['prompt_sha256'], 'schema_sha256' => $p['schema_sha256']];
-            }
-        }
-        ksort($prompts);
         $report = [
             'schema_version' => '1.0', 'kind' => 'MONITOR_MODEL_EVALUATION_REPORT',
             'evaluation_run_id' => $runId, 'tenant_id' => $tenantId, 'workspace_id' => $workspaceId,

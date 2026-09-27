@@ -96,7 +96,7 @@ $result = match ($command) {
         : $p,
     'execute' => $runner->execute($scope, $need('run-id'), $json('governance'), $need('credential-id')),
     'assess' => $runner->assess($scope, $need('result-id'), $need('dimension'), $need('verdict'), ($args['critical'] ?? '') !== '', ($args['critical'] ?? '') !== '' ? $args['critical'] : null, (string) file_get_contents($need('notes-file'))),
-    'report' => EvaluationReport::build($db, $scope['tenant_id'], $scope['workspace_id'], $need('run-id'), $manifest->value()),
+    'report' => $runner->report($scope, $need('run-id')),
     default => $fail('usage: monitor.php <start|preview|execute|assess|report> --env=... --tenant-id=... --workspace-id=... --operator-id=... [...]'),
 };
 

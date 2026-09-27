@@ -41,6 +41,8 @@ Assert::same('LIVE', $started['execution_mode'], 'a live-flagged transport recor
 $runId = $started['evaluation_run_id'];
 $preview = X::value($runner->preview($scope, $runId, $fx['governance']));
 Assert::same(count($fx['manifest']->caseIds('ALL')), count($preview), 'every selected case has an inspectable exact request');
+$wrongGovernance=$fx['governance'];$wrongGovernance['critic']['mission_id']=X::id();
+Assert::same('EVALUATION_GOVERNANCE_MISMATCH',$runner->preview($scope,$runId,$wrongGovernance)->reasonCode(),'preview is bound to the run governance even though it sends nothing');
 Assert::same(0, $fx['eval_transport']->calls, 'preview sends nothing');
 Assert::same('ACTIVE', $preview[0]['request']['provenance']->activation_status, 'requests run the selected prompt, not the draft content');
 Assert::same('SYNTHETIC_EVALUATION_CASE', $preview[0]['request']['provenance']->context->evaluation->material_provenance, 'and carry their synthetic provenance inside the inspected digest');
@@ -71,6 +73,8 @@ E::assessAll($db, $fx, $runId);
 $report = X::value(EvaluationReport::build($db, $scope['tenant_id'], $scope['workspace_id'], $runId, $fx['manifest']));
 Assert::same(EvaluationReport::ACCEPTED, $report['verdict'], 'a well-behaved, fully assessed run is accepted for owner review: ' . implode(',', $report['verdict_reasons']));
 Assert::same(1.0, $report['totals']['held_out_mechanical_pass_rate'], 'every held-out mechanical check passed');
+Assert::same(0, $report['totals']['provider_provenance_failures'], 'every accepted candidate is bound to its exact governed provider attempt and call');
+Assert::same(true, !in_array(false, array_column($report['cases'], 'provider_provenance_valid'), true), 'no evaluated case carries invalid provider provenance');
 Assert::same(7, $report['totals']['held_or_abstained'], 'holds and abstentions are counted, not hidden');
 $approved = $approval();
 Assert::true($approved->isOk(), 'an accepted live evaluation can back a product approval' . ($approved->isOk() ? '' : ': ' . $approved->reasonCode()));

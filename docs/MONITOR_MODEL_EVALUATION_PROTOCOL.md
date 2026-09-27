@@ -24,7 +24,10 @@ activated only for an **admitted** grant of the right purpose in the right scope
 
 Every attempt made under a grant is recorded beside the attempt in `provider_attempt_purposes`: a
 live call with synthetic evaluation material is `LIVE` + `MODEL_EVALUATION` +
-`SYNTHETIC_EVALUATION_CASE`, never a product mission. Historical rows are not rewritten.
+`SYNTHETIC_EVALUATION_CASE`, never a product mission. Historical rows are not rewritten. An
+accepted report re-derives that linkage for every candidate — exact run, grant, mission,
+request/prompt/schema, provider result and successful provider-call receipt — so a detached
+evaluation-result row is a critical provenance failure, not evidence.
 
 ## The manifest
 

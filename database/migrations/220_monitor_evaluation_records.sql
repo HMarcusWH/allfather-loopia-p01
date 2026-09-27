@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS monitor_evaluation_results (
   CHECK (JSON_VALID(mechanical_json)),
   CHECK (split IN ('DEVELOPMENT', 'HELD_OUT')),
   CHECK (outcome IN ('CANDIDATE', 'REFUSED')),
-  CHECK (outcome <> 'CANDIDATE' OR (candidate_digest IS NOT NULL AND candidate_artifact_digest IS NOT NULL AND model_attempt_id IS NOT NULL)),
+  CHECK (outcome <> 'CANDIDATE' OR (candidate_digest IS NOT NULL AND candidate_artifact_digest IS NOT NULL AND model_attempt_id IS NOT NULL AND provider_call_id IS NOT NULL)),
   CHECK (critical IN (0, 1)), CHECK (mechanical_pass IN (0, 1)),
   CONSTRAINT fk_evaluation_result_run FOREIGN KEY (evaluation_run_id) REFERENCES monitor_evaluation_runs(evaluation_run_id),
   CONSTRAINT fk_evaluation_result_attempt FOREIGN KEY (model_attempt_id) REFERENCES provider_model_attempts(model_attempt_id),
@@ -94,9 +94,12 @@ CREATE TABLE IF NOT EXISTS provider_attempt_purposes (
   CHECK (execution_purpose IN ('MODEL_EVALUATION', 'MANUAL_MONITOR')),
   CHECK (material_provenance IN ('SYNTHETIC_EVALUATION_CASE', 'PRODUCT_MISSION')),
   CHECK ((execution_purpose = 'MODEL_EVALUATION') = (material_provenance = 'SYNTHETIC_EVALUATION_CASE')),
-  CHECK (execution_purpose <> 'MODEL_EVALUATION' OR monitor_run_id IS NULL),
+  CHECK ((execution_purpose = 'MODEL_EVALUATION') = (evaluation_run_id IS NOT NULL)),
+  CHECK ((execution_purpose = 'MANUAL_MONITOR') = (monitor_run_id IS NOT NULL)),
   CONSTRAINT fk_attempt_purpose_attempt FOREIGN KEY (model_attempt_id) REFERENCES provider_model_attempts(model_attempt_id),
-  CONSTRAINT fk_attempt_purpose_grant FOREIGN KEY (execution_grant_id) REFERENCES monitor_execution_grants(execution_grant_id)
+  CONSTRAINT fk_attempt_purpose_grant FOREIGN KEY (execution_grant_id) REFERENCES monitor_execution_grants(execution_grant_id),
+  CONSTRAINT fk_attempt_purpose_evaluation_run FOREIGN KEY (evaluation_run_id) REFERENCES monitor_evaluation_runs(evaluation_run_id),
+  CONSTRAINT fk_attempt_purpose_monitor_run FOREIGN KEY (monitor_run_id) REFERENCES monitor_runs(monitor_run_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 DELIMITER $$
