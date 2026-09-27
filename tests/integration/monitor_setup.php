@@ -105,6 +105,11 @@ Assert::same(SourceReadRegistration::TOOL_REF, $db->scalar('SELECT runtime_host_
 Assert::same('SAFE_READ_ONLY', $db->scalar('SELECT safety_classification FROM runtime_host_bindings WHERE binding_id=?', [$applied['objects']['source_read_binding_id']]), 'which can only observe');
 Assert::true($definition['model_governance']['author']['valkyrie_id'] !== $definition['model_governance']['critic']['valkyrie_id'], 'author and critic are separate agents');
 Assert::equalsList([$applied['objects']['profile_source_ref_id'], $applied['objects']['source_ref_id']], json_decode((string) $db->scalar('SELECT allowed_source_scope_ids FROM missions WHERE mission_id=?', [$applied['mission_id']]), true), 'the mission may read exactly the profile and the reviewed source');
+$missionRow=$db->one('SELECT mission_version,status,allowed_tool_ids,supersedes_mission_id FROM missions WHERE mission_id=?',[$applied['mission_id']]);
+Assert::same([1,'ACTIVE',null],[(int)$missionRow['mission_version'],$missionRow['status'],$missionRow['supersedes_mission_id']],'the first mission followed DRAFT -> ACTIVE and has no predecessor');
+Assert::equalsList([$definition['capture_governance']['governed_tool_id'],$definition['model_governance']['author']['governed_tool_id']],json_decode($missionRow['allowed_tool_ids'],true),'both tools were declared on the mission before narrowed assignments');
+$wrongEntitlement=$definition;$wrongEntitlement['model_governance']['author']['required_entitlement_permission']='distribution.read';
+Assert::same('MONITOR_ENTITLEMENT_BINDING_INVALID',(new MissionConfiguration($db,$clock))->validate($scope,$wrongEntitlement,'NATIVE')->reasonCode(),'a model command cannot substitute a different commercial entitlement');
 
 // ---------------------------------------------------------------- the set-up mission runs, once a grant is admitted
 // Everything below the setup is the P01/P03 path: an owner decision, approvals, an admitted grant.
@@ -165,6 +170,8 @@ Assert::same([], $successorPlan['blocked_by'], 'an explicit successor plans clea
 $successor = X::value($setup->apply($scope, $reqB, $successorPlan['plan_digest'], $applied['setup_receipt_id']));
 Assert::same([2, $applied['setup_receipt_id'], $applied['mission_id']], [$successor['revision'], $successor['predecessor_receipt_id'], $successor['supersedes_mission_id']], 'the successor names what it supersedes');
 Assert::true($successor['mission_id'] !== $applied['mission_id'], 'on a new mission');
+$successorMission=$db->one('SELECT mission_version,supersedes_mission_id FROM missions WHERE mission_id=?',[$successor['mission_id']]);
+Assert::same([2,$applied['mission_id']],[(int)$successorMission['mission_version'],$successorMission['supersedes_mission_id']],'the M04 mission row itself carries successor lineage, not only the receipt');
 foreach (['monitor_valkyrie_id', 'critic_valkyrie_id', 'competitor_id', 'source_license_card_id', 'monitored_source_id', 'source_read_binding_id'] as $reused) {
     Assert::same($applied['objects'][$reused], $successor['objects'][$reused], "the successor reuses {$reused}");
 }
@@ -173,6 +180,7 @@ Assert::same('MONITOR_SETUP_SUCCESSOR_NOT_LATEST', X::value($setup->plan($scope,
 
 // ---------------------------------------------------------------- a new key does not retarget frozen missions
 Assert::same('PROVIDER_CREDENTIAL_ROTATION_NOT_ACKNOWLEDGED', $credentials->save($scope, 'sk-synthetic-setup-key-0002', 'Monitor OpenAI', [])->reasonCode(), 'a save that would rotate an unacknowledged key refuses');
+Assert::same('PROVIDER_CREDENTIAL_ROTATION_NOT_ACKNOWLEDGED',$credentials->save($scope,'sk-synthetic-setup-key-0002','Monitor OpenAI')->reasonCode(),'omitting the acknowledgement also refuses at the service boundary');
 $described = X::value($credentials->describe($scope));
 Assert::same([$credential['provider_credential_id']], $described['save_would_rotate'], 'describe says what a save would rotate');
 Assert::equalsList([$applied['mission_id'], $successor['mission_id']], $described['credentials'][0]['bound_mission_ids'], 'and which frozen missions still name each key');
