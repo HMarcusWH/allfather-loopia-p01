@@ -55,7 +55,7 @@ $steps = static fn (array $plan): array => array_column($plan['steps'], null, 's
 
 // ---------------------------------------------------------------- B's objects exist; A's setup must not see them
 $bPlan = X::value($setup->plan($scopeOf($b), $request($b['profile'], $b['credential'], $b['operator_id'])));
-X::value($setup->apply($scopeOf($b), $request($b['profile'], $b['credential']), $bPlan['plan_digest']));
+X::value($setup->apply($scopeOf($b), $request($b['profile'], $b['credential'], $b['operator_id']), $bPlan['plan_digest']));
 (new Distribution($db, $clock, new DecisionLedger($db, $clock)))->configureRoleRedactionPolicy(['tenant_id' => $b['tenant_id'], 'workspace_id' => $b['workspace_id'], 'target_org_role' => 'SALES', 'redaction_rules' => [['field' => 'x', 'action' => 'REDACT']]]);
 
 $foreignProfile = $steps(X::value($setup->plan($scopeOf($a), $request($b['profile'], $a['credential'], $a['operator_id']))));
@@ -68,7 +68,7 @@ $own = $steps(X::value($setup->plan($scopeOf($a), $request($a['profile'], $a['cr
 foreach (['COMPETITOR', 'SOURCE_CARD', 'MONITORED_SOURCE', 'DISTRIBUTION_TARGET', 'CRITIC', 'P01_REGISTRATION', 'MISSION_CONFIGURATION'] as $step) {
     Assert::same('CREATE', $own[$step]['action'], "{$step}: another tenant's object with the same name, URL or key is never reused");
 }
-Assert::same('REFUSE', $steps(X::value($setup->plan($scopeOf($a), $request($a['profile'], $a['credential']), (string) $db->scalar('SELECT setup_receipt_id FROM monitor_setup_receipts WHERE tenant_id=?', [$b['tenant_id']]))))['MISSION_CONFIGURATION']['action'], "a successor cannot name another workspace's receipt");
+Assert::same('REFUSE', $steps(X::value($setup->plan($scopeOf($a), $request($a['profile'], $a['credential'], $a['operator_id']), (string) $db->scalar('SELECT setup_receipt_id FROM monitor_setup_receipts WHERE tenant_id=?', [$b['tenant_id']]))))['MISSION_CONFIGURATION']['action'], "a successor cannot name another workspace's receipt");
 
 // Same tenant, another workspace: the profile, target and receipts are workspace-scoped too.
 $workspace2 = Ids::new();
@@ -76,11 +76,11 @@ $db->insert('workspaces', ['workspace_id' => $workspace2, 'tenant_id' => $a['ten
 $role2 = Seed::role($db, $clock, 'setup-scope-a2-' . substr(Ids::new(), 0, 8), MonitorSetup::PERMISSIONS);
 Seed::membership($db, $clock, $a['tenant_id'], $workspace2, $a['operator_id'], $role2['role_id']);
 $a2 = ['tenant_id' => $a['tenant_id'], 'workspace_id' => $workspace2, 'operator_id' => $a['operator_id']];
-Assert::same('REFUSE', $steps(X::value($setup->plan($a2, $request($a['profile'], $a['credential']))))['COMPANY_PROFILE']['action'], "another workspace's profile is refused even in the same tenant");
+Assert::same('REFUSE', $steps(X::value($setup->plan($a2, $request($a['profile'], $a['credential'], $a['operator_id']))))['COMPANY_PROFILE']['action'], "another workspace's profile is refused even in the same tenant");
 
 // ---------------------------------------------------------------- authority stays where it was granted
-Assert::same('MONITOR_SETUP_DENIED', $setup->plan(['tenant_id' => $a['tenant_id'], 'workspace_id' => $a['workspace_id'], 'operator_id' => $b['operator_id']], $request($a['profile'], $a['credential']))->reasonCode(), "B's operator holds no role in A");
-Assert::same('MONITOR_SETUP_SCOPE_INVALID', $setup->plan($scopeOf($a) + ['actor_type' => 'OPERATOR', 'actor_id' => $b['operator_id']], $request($a['profile'], $a['credential']))->reasonCode(), 'an operator_id and actor_id that disagree refuse');
+Assert::same('MONITOR_SETUP_DENIED', $setup->plan(['tenant_id' => $a['tenant_id'], 'workspace_id' => $a['workspace_id'], 'operator_id' => $b['operator_id']], $request($a['profile'], $a['credential'], $a['operator_id']))->reasonCode(), "B's operator holds no role in A");
+Assert::same('MONITOR_SETUP_SCOPE_INVALID', $setup->plan($scopeOf($a) + ['actor_type' => 'OPERATOR', 'actor_id' => $b['operator_id']], $request($a['profile'], $a['credential'], $a['operator_id']))->reasonCode(), 'an operator_id and actor_id that disagree refuse');
 Assert::same(null, OperatorScope::normalize($scopeOf($a) + ['actor_type' => 'SERVICE']), 'a non-operator actor is not an operator scope');
 Assert::same('MONITOR_CONFIGURATION_SCOPE_INVALID', (new MissionConfiguration($db, $clock))->configure($scopeOf($a) + ['actor_id' => $b['operator_id']], [], 'NATIVE')->reasonCode(), 'configuration normalizes scope at its boundary');
 Assert::same('PROVIDER_CREDENTIAL_MANAGEMENT_DENIED', $credentials->save($scopeOf($a) + ['actor_id' => $b['operator_id']], 'sk-never', 'x', [])->reasonCode(), 'and so does the credential store');
