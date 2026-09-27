@@ -86,7 +86,7 @@ final class NativeOperations
             if ($config === null || $config['execution_mode'] !== 'NATIVE' || $config['definition_digest'] !== $g['definition_digest']) {
                 $reasons[] = 'MISSION_CONFIGURATION_CHANGED';
             }
-            $credential = $this->db->one("SELECT credential_digest FROM provider_credentials WHERE provider_credential_id=? AND tenant_id=? AND status='ACTIVE'", [$d['credential_id'], $tenantId]);
+            $credential = $this->db->one("SELECT credential_digest FROM provider_credentials WHERE provider_credential_id=? AND tenant_id=? AND provider='OPENAI' AND status='ACTIVE'", [$d['credential_id'], $tenantId]);
             if ($credential === null || $credential['credential_digest'] !== $d['credential_digest']) {
                 $reasons[] = 'CREDENTIAL_NOT_CURRENT';
             }

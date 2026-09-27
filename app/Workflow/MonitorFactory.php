@@ -4,6 +4,7 @@ namespace Allfather\Loopia\Workflow;
 
 use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Db\Database;
+use Allfather\Loopia\Evaluation\EvaluationReport;
 use Allfather\Loopia\Ingestion\{CurlHttpsTransport,DnsHostResolver,FetchTransport,HostResolver,NoNetworkTransport,FixedHostResolver};
 use Allfather\Loopia\PromptOps\{PromptApprovalStore,PromptSelectionResolver};
 use Allfather\Loopia\Provider\{CredentialStore,ModelExecutor,ModelTransport,OpenAIResponsesTransport,SecretBox};
@@ -34,7 +35,7 @@ final class MonitorFactory
      */
     public static function forWorkspace(Database $db,Clock $clock,EvidenceStore $store,SecretBox $box,OwnerDecisionRegistry $decisions,string|\Closure $applicationFingerprint,string $tenantId,string $workspaceId): MonitorService
     {
-        $approvals=new PromptApprovalStore($db,$clock,$decisions);
+        $approvals=new PromptApprovalStore($db,$clock,$decisions,EvaluationReport::approvalEvidence($db,dirname(__DIR__,2)));
         $grants=new ExecutionGrantStore($db,$clock,$approvals,$decisions);
         $admission=new ExecutionAdmission($db,$clock,$grants,$approvals,$decisions,$applicationFingerprint);
         $admitted=$grants->admittedIn($tenantId,$workspaceId,'MANUAL_MONITOR')!==[];

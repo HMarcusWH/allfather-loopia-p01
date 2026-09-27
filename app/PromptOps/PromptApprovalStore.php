@@ -166,6 +166,19 @@ final class PromptApprovalStore
         if (!OwnerDecisionRegistry::authorizesPrompt($decision->value(), $tenantId, $workspaceId, $identity)) {
             return Outcome::refuse('OWNER_DECISION_DOES_NOT_AUTHORIZE_PROMPT');
         }
+        // A MANUAL_MONITOR approval's evaluation remains current authority, not creation-time
+        // metadata. Deployed execution supplies this resolver and therefore re-checks the cited
+        // LIVE accepted evaluation every time the approval is selected.
+        if ($row['purpose'] === 'MANUAL_MONITOR' && $this->evaluationEvidence !== null) {
+            $evidence = ($this->evaluationEvidence)([
+                'tenant_id' => $tenantId, 'workspace_id' => $workspaceId, 'role' => $row['role'],
+                'prompt_sha256' => $row['prompt_sha256'], 'schema_sha256' => $row['schema_sha256'],
+                'model_policy_digest' => $row['model_policy_digest'],
+            ], (string) $row['evaluation_reference']);
+            if (!$evidence->isOk()) {
+                return $evidence;
+            }
+        }
 
         return Outcome::ok($this->public($row));
     }

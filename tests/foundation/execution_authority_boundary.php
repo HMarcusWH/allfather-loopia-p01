@@ -100,3 +100,10 @@ Assert::true(
     strpos($transport, "'MODEL_PROMPT_INACTIVE'") < strpos($transport, 'curl_init('),
     'an inactive prompt is refused by the transport itself, whatever its caller did',
 );
+
+$factory = $code($root . '/app/Workflow/MonitorFactory.php');
+Assert::contains(
+    'EvaluationReport::approvalEvidence',
+    $factory,
+    'the deployed Monitor revalidates the accepted evaluation behind every manual prompt approval',
+);
