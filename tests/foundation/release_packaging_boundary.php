@@ -7,7 +7,9 @@ use Allfather\Loopia\Tests\Assert;
 $root = dirname(__DIR__, 2);
 $prepare = (string) file_get_contents($root . '/ops/deploy/prepare-release.sh');
 $excludes = (string) file_get_contents($root . '/ops/deploy/staging-rsync-excludes.txt');
-$workflow = (string) file_get_contents($root . '/.github/workflows/ci.yml');
+// The executed root-sync rehearsal moved out of the workflow YAML into the shared runner that both
+// hosted CI and a local reproduction call, so the command is asserted where it now actually runs.
+$runner = (string) file_get_contents($root . '/ops/ci/qualify-release.sh');
 $betaRunbook = (string) file_get_contents($root . '/docs/BETA_RUNBOOK.md');
 $deploymentRunbook = (string) file_get_contents($root . '/docs/DEPLOYMENT_RUNBOOK.md');
 
@@ -39,9 +41,9 @@ Assert::contains(
 // actual command fragments, not just the first occurrence of each option somewhere in a document:
 // prose mentioning the include before a broken command must not make this boundary look green.
 foreach ([
-    '.github/workflows/ci.yml' => [
-        $workflow,
-        "rsync -a --delete \\\n            --include='/.env.example' \\\n            --exclude-from=",
+    'ops/ci/qualify-release.sh' => [
+        $runner,
+        "rsync -a --delete \\\n    --include='/.env.example' \\\n    --exclude-from=",
     ],
     'docs/BETA_RUNBOOK.md' => [
         $betaRunbook,

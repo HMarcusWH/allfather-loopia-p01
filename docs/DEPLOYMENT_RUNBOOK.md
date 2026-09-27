@@ -36,6 +36,12 @@ The repository layout is the deployment layout:
 
 ## 3. Prepare one exact release tree
 
+Deploy only a commit that is **qualified**: a green hosted run, or — while hosted runners are
+unavailable — a PASS receipt from `bash ops/ci/qualify-release.sh local` for that exact SHA, checked
+with `php ops/ci/verify-qualification.php verify-receipt`. The receipt's
+`preflight.source_fingerprint` is the fingerprint the deployed tree must report. Current source,
+tested, deployed and activated state is recorded in [`MVP_RELEASE_STATE.md`](MVP_RELEASE_STATE.md).
+
 Do not deploy the developer working tree. Git HEAD does not constrain tracked local edits or ignored
 runtime/build files. Prepare from the exact Git object:
 

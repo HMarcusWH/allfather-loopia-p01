@@ -64,8 +64,15 @@ collected in §3.7.
 | [`docs/DEPLOYMENT_EVIDENCE_MODEL.md`](./docs/DEPLOYMENT_EVIDENCE_MODEL.md) | how an operational claim becomes true, and what it takes |
 | [`deployment-evidence.json`](./deployment-evidence.json) | reviewed, hash-bound operational evidence |
 | [`docs/LOOPIA_HOST_MODEL.md`](./docs/LOOPIA_HOST_MODEL.md) | what the target host actually is, sourced from Loopia's own documentation, and what it does NOT document |
+| [`docs/MVP_RELEASE_STATE.md`](./docs/MVP_RELEASE_STATE.md) | **the current state** — source, tested, deployed and activated, answered separately |
+| [`docs/MONITOR_COMPLETION_PLAN.md`](./docs/MONITOR_COMPLETION_PLAN.md) | the three-release plan to a qualified native Monitor, an internal beta and production |
 
 ## Current status
+
+**Read [`docs/MVP_RELEASE_STATE.md`](./docs/MVP_RELEASE_STATE.md) first.** It is the one place that
+states what is on `main`, what was qualified, what is deployed and what is active — four different
+answers. In short: `main` carries the inactive Monitor work (PR18–PR22), which is **not deployed**;
+staging still runs PR16. The rest of this section is the PR16 deployment record.
 
 **PR16 is deployed and qualified as inert Loopia staging under the recorded owner-directed
 shared-host staging deviation.** The running application release is
@@ -106,9 +113,10 @@ Filing a record is still a human edit somebody reviews; nothing in the applicati
 file. See [`docs/DEPLOYMENT_EVIDENCE_MODEL.md`](./docs/DEPLOYMENT_EVIDENCE_MODEL.md).
 
 **Live read is off structurally, not by a flag.** `CurlHttpsTransport` and `DnsHostResolver` exist,
-are reviewed and are tested, and *nothing constructs either* — asserted on every commit. The
-scheduler's handler registry is empty in both composition roots, so a tick that arrived would
-correctly do nothing.
+are reviewed and are tested, and *nothing constructs either* — asserted on every commit. Native model
+execution is off the same way: the only model-transport constructor is the inactive one in
+`MonitorFactory`, and the product prompts are `INACTIVE` drafts. The scheduler's handler registry is
+empty in both composition roots, so a tick that arrived would correctly do nothing.
 
 Merging code here establishes no deployment, no activation, and no customer-visible output. The
 launch sequence is: implementation complete → conformance complete → staging deployment → Loopia
@@ -136,6 +144,19 @@ qualification report — counts, the PHP version and the MariaDB version read ba
 the suite actually used, and no credential, DSN, fixture or assertion message. The human output is
 unchanged either way. CI writes one per MariaDB lane and a `release qualification` job re-reads them
 rather than trusting the job status.
+
+**Qualifying a commit.** Every step that decides qualification lives in `ops/ci/qualify-release.sh`;
+the workflow calls it step by step, and the same runner reproduces the whole workflow locally from a
+`git archive` export of one exact commit, then writes a self-reported receipt:
+
+```bash
+bash ops/ci/qualify-release.sh local --out=../qualification-<sha> \
+  --env-10.6=<disposable 10.6 env> --env-10.11=<disposable 10.11 env>
+```
+
+A local receipt says it is local, and is never GitHub green or a host result. Run it with PHP 8.2 and
+the pinned Node/npm, against two **disposable** databases — the suite truncates them. See
+[`docs/MVP_RELEASE_STATE.md`](./docs/MVP_RELEASE_STATE.md) §2.
 
 > **On a deployed host, never point the suite at the runtime database.** The harness truncates every
 > application table except `schema_migrations` between suites. Use a dedicated qualification database

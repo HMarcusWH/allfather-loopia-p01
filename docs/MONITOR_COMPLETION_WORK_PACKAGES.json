@@ -1,0 +1,501 @@
+{
+  "status": "PROPOSED_NOT_IMPLEMENTED",
+  "baseline": {
+    "loopia_main": "8dbea16b262df7b6d40fe945f34e301eedf2aba6",
+    "canonical_main": "1c40306c22e15b2ad3049e8d32abff47450c8921"
+  },
+  "work_packages": [
+    {
+      "id": "P00",
+      "title": "Freeze the implementation baseline, repair currentness and make qualification reproducible",
+      "depends_on": [],
+      "add": [
+        "docs/MVP_RELEASE_STATE.md",
+        "docs/MONITOR_COMPLETION_PLAN.md",
+        "ops/ci/qualify-release.sh",
+        "ops/ci/verify-qualification.php"
+      ],
+      "change": [
+        "README.md",
+        "docs/PORT_SCOPE_MATRIX.md",
+        "docs/LOOPIA_CAPABILITY_REPORT.md",
+        "docs/LOOPIA_HOST_MODEL.md",
+        "docs/BETA_RUNBOOK.md",
+        "docs/DEPLOYMENT_RUNBOOK.md",
+        ".github/workflows/ci.yml"
+      ],
+      "implementation": "Record source head, tested tree, currently evidenced deployed application, exact source manifests and explicit inactive controls independently. Do not promote the old canonical pin just to match a recent commit date. Preserve dated findings but label superseded narrative clearly: basic P02/P03 React indexes already exist; model execution is built but inactive; full TOM/adaptive PromptOps remains excluded.\n\nFactor reusable qualification commands into one local runner that the workflow can also call. It invokes the existing test runner, actual supported MariaDB lanes, exact Git-object release preparation, frontend build, byte comparison and copied-tree checks. Reports bind source SHA/tree, commands, PHP/DB/tool versions, exit codes and external/local execution identity. Do not manufacture hosted PASS statuses or treat a trusted-looking JSON receipt as independent verification.\n\nRepository branch-protection and billing changes are operator/GitHub settings, not effects of editing ci.yml. Configure required reviews/checks only with an actually available validation route; never impose an unavailable hosted check and then normalize bypassing it.",
+      "tests": [
+        "Re-run all existing qualification paths and compare runner output with current workflow semantics.",
+        "Ensure an intentionally failed/skipped lane prevents aggregate success.",
+        "Prove build-owned files come from the selected Git object, not a dirty checkout."
+      ],
+      "exit_criteria": "One current-state entrypoint and one reproducible qualification procedure; no new runtime behavior or false deployment claim.",
+      "authority_gate": "Implementation and offline testing only; activation is separate."
+    },
+    {
+      "id": "P01",
+      "title": "Add one execution-admission contract and separate immutable prompt content from permission to use it",
+      "depends_on": [
+        "P00"
+      ],
+      "add": [
+        "app/Workflow/ExecutionAdmission.php",
+        "app/Workflow/ExecutionGrantStore.php",
+        "app/PromptOps/PromptSelectionResolver.php",
+        "app/PromptOps/PromptApprovalStore.php",
+        "app/Provider/ModelPolicy.php",
+        "ops/monitor/authorization.php",
+        "database/migrations/210_monitor_execution_controls.sql",
+        "docs/MONITOR_EXECUTION_AUTHORIZATION.md",
+        "tests/unit/monitor_execution_admission.php",
+        "tests/unit/monitor_prompt_selection.php",
+        "tests/integration/monitor_execution_grants.php",
+        "tests/security/monitor_grant_revocation.php"
+      ],
+      "change": [
+        "app/PromptOps/ProductPromptPack.php",
+        "app/Provider/ModelRequestBuilder.php",
+        "app/Provider/PreparedModelRequest.php",
+        "app/Provider/ModelExecutor.php",
+        "app/Workflow/MonitorService.php",
+        "app/Substrate/M06/Gateway.php",
+        "app/Substrate/M01/Invocation.php",
+        "docs/reconciliation/monitor-scoped-extension-2026-09-27.json",
+        "tests/fixtures/schema_table_inventory.json",
+        "tests/integration/schema_invariants.php"
+      ],
+      "implementation": "Introduce deployment-specific, immutable authorization records and append-only lifecycle events. Their authority comes from an explicitly reviewed owner decision under adopted canonical contracts; a database row, CLI command, source document or model cannot mint authority merely by asserting approval. The importer validates the reviewed authority reference/hash and the importing operator's current permissions. Missing canonical authority means a required upstream decision, not a local invented permission. Neither this store nor its resolver writes M10 product releases.\n\nA grant binds purpose (MODEL_EVALUATION or MANUAL_MONITOR initially), tenant/workspace, mission/config digest or approved evaluation-case manifest, authorized principal, source scope, permitted source/model transports, exact prompt/content/schema/binding hashes, fixed model policy, credential identity, target/redaction basis, input/output/attempt limits, validity window, owner decision and disclosure/retention scope. Bind the deployed application release/fingerprint separately from evidence-only documentation commits. Lifecycle: proposed -> admitted -> suspended/revoked/expired, using immutable definition plus append-only status events; no browser enable checkbox.\n\nKeep the existing prompt JSON as immutable content. Resolve an exact approved selection for the operation; never select the latest role match or trust a caller-recomputed digest. Approval/revocation is not encoded by editing historical prompt bytes. A new prompt revision gets new identity and evaluation. Historical replay uses historical identities while fresh execution consults current revocation.\n\nReplace direct static ProductPromptPack lookups in MonitorService, PreparedModelRequest and ModelExecutor with the same injected, trusted resolver. Carry the selected approval/grant identity in local provenance and M06/M01 bindings. PreparedModelRequest still freezes exact serialized body and provenance. ModelPolicy centralizes the existing closed model/endpoint/token choices; initially do not add extra models or raise limits.\n\nExecutionAdmission is a validator of existing/current authority, not a replacement for M02/M03/M04/M06/M01. Check it before reserving an attempt, immediately before dispatch, after return before accepting a candidate, and before each human release. Revocation during an in-flight call cannot recall bytes already sent; preserve the truthful attempt receipt and block downstream acceptance/release.",
+      "tests": [
+        "No grant; wrong principal/tenant/workspace/mission; expired/revoked grant; changed prompt/schema/model/credential/source/target/definition.",
+        "A user-constructed ACTIVE prompt array or recomputed digest must not acquire authority.",
+        "Concurrent attempt reservation never exceeds mission AND grant caps.",
+        "Request inspection digest changes whenever the effective approved request/provenance changes.",
+        "Revocation after preview and during the call prevents downstream progression.",
+        "All current fixture and inactive behavior remains available without live transport."
+      ],
+      "exit_criteria": "One typed, testable path for validating native/evaluation permission; default remains inert.",
+      "authority_gate": "Approve the narrow execution contract and its canonical ownership. Importing an actual admitted grant requires a separately recorded owner act; this plan grants none."
+    },
+    {
+      "id": "P02",
+      "title": "Build a real-model evaluation lane without activating the product",
+      "depends_on": [
+        "P01"
+      ],
+      "add": [
+        "app/Evaluation/MonitorEvaluationRunner.php",
+        "app/Evaluation/EvaluationReport.php",
+        "app/Evaluation/EvaluationFactory.php",
+        "ops/evaluation/monitor.php",
+        "docs/MONITOR_MODEL_EVALUATION_PROTOCOL.md",
+        "tests/fixtures/monitor_model_eval_cases.json",
+        "database/migrations/220_monitor_evaluation_records.sql",
+        "tests/integration/monitor_evaluation_boundary.php",
+        "tests/unit/monitor_evaluation_report.php"
+      ],
+      "change": [
+        "app/Provider/ModelExecutor.php",
+        "app/Provider/PreparedModelRequest.php",
+        "app/Provider/OpenAIResponsesTransport.php",
+        "docs/PROMPTOPS_PORT.md",
+        "docs/BOUNDED_MODEL_BOUNDARY.md",
+        "tests/fixtures/schema_table_inventory.json",
+        "tests/integration/schema_invariants.php"
+      ],
+      "implementation": "Resolve the approval/evaluation dependency explicitly: a short-lived MODEL_EVALUATION grant permits named DRAFT prompts against a frozen synthetic/non-sensitive case set. It does not make those prompts approved for product use. EvaluationFactory supplies no live source transport and no P01/P04 release service. It invokes the same request construction, provider parser, candidate checks and governed M06/M01 path as the product, not a direct curl bypass.\n\nStore actual provider network provenance separately from material provenance: a live API call using synthetic inputs is LIVE + EVALUATION, not a real-world product mission. Add an explicit execution-purpose linkage without rewriting historical LIVE/FIXTURE receipts. Evaluation records reference existing attempts and private content-addressed artifacts, not a parallel evidence truth store.\n\nFreeze development and held-out cases before tuning. Cover Swedish qualifiers/negation, English material, before/after changes, no business change, unavailable content, unverified owner assertions, conflicting evidence, bad/foreign citations, unsupported title/summary claims, role mismatch and source/profile/prior-candidate injection. Grounding and useful reasoning get independent human assessments. Do not use an author or critic model's self-score as the acceptance decision. Record abstention/rejection rates as well as useful outputs, latency, token usage and incomplete responses.\n\nDefine the scorecard before native evaluation: zero observed critical scope/unauthorized-action/privacy failures in the declared suite; explicit per-category quality thresholds and required human adjudication. Finite passing examples are not universal guarantees. The current gpt-4.1-nano setting is a test candidate, not an already-qualified quality choice. A model or budget change requires a new approved policy and rerun.\n\nUse the official Responses contract to test supported strict schemas, refusals and incomplete output. Verify native-only transport behavior on the actual PHP versions; a fixture does not execute cURL. Review provider-side data controls separately from store=false.",
+      "tests": [
+        "Offline tests do not call the network.",
+        "Evaluation grant cannot fetch arbitrary sources or reach product review/release methods.",
+        "Same parser/schema failures and quota/timeout behavior as product execution.",
+        "Missing/failed held-out cases cannot produce an APPROVED report.",
+        "A generated evaluation report never activates prompts or the Monitor."
+      ],
+      "exit_criteria": "Frozen evaluation harness first; actual funded run and human-reviewed evidence second; exact prompt/model policy then eligible for manual-pilot approval.",
+      "authority_gate": "Live evaluations require a separate bounded API-spend and outbound-data authorization; use synthetic/non-sensitive cases first."
+    },
+    {
+      "id": "P03",
+      "title": "Wire the native manual Monitor and the stand-down path",
+      "depends_on": [
+        "P01",
+        "P02"
+      ],
+      "add": [
+        "ops/monitor/preflight.php",
+        "ops/monitor/stand-down.php",
+        "tests/integration/monitor_native_composition.php",
+        "tests/security/monitor_native_boundary.php"
+      ],
+      "change": [
+        "app/Workflow/MonitorFactory.php",
+        "app/Workflow/MonitorService.php",
+        "app/Workflow/SourceCaptureStage.php",
+        "app/Workflow/MissionConfiguration.php",
+        "app/Provider/OpenAIResponsesTransport.php",
+        "app/Http/Controllers/MonitorController.php",
+        "app/Http/templates/monitor.php",
+        "public_html/index.php",
+        "app/Ops/StandDownPosture.php",
+        "ops/deploy/preflight.php",
+        "ops/rollback/verify-stand-down.php",
+        "tests/foundation/no_external_action_surface.php",
+        "tests/foundation/deployment_boundary.php"
+      ],
+      "implementation": "Retain MonitorFactory::inactive() and forFixture(). Add a native construction path using CurlHttpsTransport, DnsHostResolver and the existing model adapter, admitted only for an exact approved operation. Do not merely change either constructor boolean to true. Physical transport and semantic authorization must agree.\n\nHTTP/CLI composition can construct an inert inspector without permission to execute; every mutation resolves current admission for its run. Existing Kernel/session/CSRF behavior stays authoritative. Protect action, run ID, request digest and human assessment as body-only inputs. No provider/model/credential/tenant selector is accepted from arbitrary browser parameters.\n\nRecheck native permission at NEW/capture, each model stage, P01 release and P04 routing release. Keep all four exact request inspections and both human decisions. A failed admission returns its reason without spending an attempt or fabricating success. If owner source rights revoke mid-flight, preserve a failed/quarantined receipt and prevent downstream use.\n\nPreflight distinguishes INERT_STAGING from MANUAL_PILOT and later approved recurring profiles. Existing inert preflight must continue to require no live execution. A mode name alone is never permission; check its external reviewed authority and actual composition. Narrow the existing static tripwires to the single admitted constructor boundary, add dynamic negative tests and keep unrelated external actions forbidden.\n\nStand-down revokes execution permission and stops new reservations/captures. It does not delete artifacts, alter an original review, refund consumed attempts or automatically invalidate all historical releases. Retraction of an already released briefing remains an explicit existing M10 correction/withdrawal operation.",
+      "tests": [
+        "Default deployment invokes zero source/model network calls.",
+        "Native request without approved prompts/grant is refused at service and dispatch boundaries.",
+        "Browser cannot activate, select a foreign credential or forge scope.",
+        "Two overlapping advances cannot double-call or double-release.",
+        "Stand-down between stages prevents the next external call, without rewriting history."
+      ],
+      "exit_criteria": "An authorized manual native path exists, but deployment/GO remain separate.",
+      "authority_gate": "Implementation and offline testing only; activation is separate."
+    },
+    {
+      "id": "P04",
+      "title": "Make real mission setup repeatable and operator-supported",
+      "depends_on": [
+        "P01"
+      ],
+      "add": [
+        "app/Workflow/MonitorSetup.php",
+        "ops/monitor/setup.php",
+        "ops/monitor/import-profile.php",
+        "ops/provider/credential.php",
+        "tests/integration/monitor_setup.php",
+        "tests/security/monitor_setup_scope.php"
+      ],
+      "change": [
+        "ops/monitor/configure.php",
+        "app/Workflow/MissionConfiguration.php",
+        "app/Provider/ModelRegistration.php",
+        "app/Provider/CredentialStore.php",
+        "docs/MONITOR_WORKFLOW.md"
+      ],
+      "implementation": "Compose existing M02/M03/M04/P01/P04 setup owners rather than writing their tables directly. Resolve/create the explicitly requested scope, admitted company-profile upload, monitored source/card, active mission/assignments, capture/model descriptors and configured internal target. Return a dry-run plan before changes. Roles are only granted by an explicit authorized membership act, never by making an idempotent setup command succeed.\n\nImport profiles through EvidenceStore/M05 and the existing P01 CompanyContext semantics. Preserve original byte digest and TENANT_PROVIDED status. New profile versions append new evidence and require a new frozen mission configuration/approval; do not overwrite the context of an existing run or create a second TOM/company database.\n\nThe setup receipt distinguishes compatible reuse, newly provisioned objects and conflicts. A revoked/narrowed old registration refuses instead of regranting itself. Existing configuration is immutable per mission; changes create an explicit successor, never rewrite old definition_json. Normalize operator scope versus actor scope at the service boundary rather than passing mismatched array keys between services.\n\nProvider credential CLI accepts secrets via private stdin, not argv/query/JSON report. Reuse CredentialStore save/revoke authorization. Saving a replacement key currently rotates the tenant's other active OpenAI key; report the affected credential identities and require explicit acknowledgement. A new credential does not silently retarget frozen missions/grants. Source review/terms approval is supplied evidence and an authorized decision, not something setup infers from a reachable URL.",
+      "tests": [
+        "Repeated compatible setup is idempotent; conflicts and revoked rights remain refusals.",
+        "Foreign profile/source/target/credential and stale mission bindings are refused.",
+        "No secret appears in dry-run, error, command line, report or support log.",
+        "A profile replacement cannot change a historical prepared request."
+      ],
+      "exit_criteria": "One ordinary SME can be configured without hand-edited SQL or copied fixture identities; setup still grants no native execution.",
+      "authority_gate": "Implementation and offline testing only; activation is separate."
+    },
+    {
+      "id": "P05",
+      "title": "Persist recoverable model results and make interruption handling explicit",
+      "depends_on": [
+        "P01",
+        "P03"
+      ],
+      "add": [
+        "app/Provider/ModelArtifactStore.php",
+        "app/Workflow/RunReconciliation.php",
+        "ops/monitor/reconcile.php",
+        "database/migrations/230_monitor_attempt_recovery.sql",
+        "tests/integration/monitor_crash_recovery.php",
+        "tests/security/monitor_reconciliation_scope.php"
+      ],
+      "change": [
+        "app/Provider/ModelExecutor.php",
+        "app/Workflow/RunArtifacts.php",
+        "app/Workflow/RunJournal.php",
+        "app/Workflow/MonitorService.php",
+        "app/Workflow/SourceCaptureStage.php",
+        "tests/fixtures/schema_table_inventory.json",
+        "tests/integration/schema_invariants.php"
+      ],
+      "implementation": "Close the receive-result/persist-candidate gap deliberately. Persist validated candidate bytes privately with content-addressed identity, bind those bytes to the durable provider result/attempt, then advance the run journal. Do not label a response successful if final provenance could not be recorded. Retain existing M06/M01/tool-result receipts as the authoritative dispatch history.\n\nReconciliation starts read-only: show exact attempt, request, grant, candidate-artifact, tool outcome and run revision. Adopt a completed result only when all stored bytes and digests match the original request and the operator explicitly authorizes the continuation under current scope. Do not regenerate missing candidate text from a digest, call the provider to reconstruct it, or claim success from a generic telemetry row.\n\nIf bytes/outcome are unavailable, record UNRESOLVED/stop and require a separately authorized continuation or new mission. Consumed budget remains consumed. Do not reopen a terminal history row: append a reconciliation record and, where supported, a versioned continuation linked to the original event chain and attempt. Keep v1 replay semantics unchanged for old rows.\n\nExercise both same-run and same-source concurrency. RunJournal already uses a session advisory lock rather than an open SQL transaction across network calls. Preserve that property. If source-baseline selection needs additional serialization, use the same bounded source-scoped lock discipline rather than holding a SQL write transaction through HTTP. Add host proof for advisory-lock availability/ownership/release.",
+      "tests": [
+        "Crash before dispatch; after reservation; after response; after artifact persistence; after final receipt; after journal transition.",
+        "Each known result is consumed at most once and an unknown attempt is never automatically retried.",
+        "Recovery cannot exceed original budget or cross tenant/workspace/request identities.",
+        "Two runs against one source cannot race into an incorrectly represented before/after pair.",
+        "Old journal events still replay under their original digest format."
+      ],
+      "exit_criteria": "Known durable results are recoverable; unknown outcomes stay honestly unresolved without repeat spending.",
+      "authority_gate": "Implementation and offline testing only; activation is separate."
+    },
+    {
+      "id": "P06",
+      "title": "Deploy, requalify, evaluate on-host and execute the first approved manual road test",
+      "depends_on": [
+        "P00",
+        "P02",
+        "P03",
+        "P04",
+        "P05",
+        "P10"
+      ],
+      "add": [
+        "ops/staging-monitor-smoke.php",
+        "ops/road-test/export-monitor-evidence.php",
+        "docs/ROAD_TEST_001_MONITOR.md",
+        "tests/security/monitor_deployed_surface.php"
+      ],
+      "change": [
+        "ops/staging-smoke.php",
+        "ops/loopia-probe/probe.php",
+        "ops/deploy/preflight.php",
+        "ops/rollback/verify-stand-down.php",
+        "app/Ops/DeploymentEvidence.php",
+        "docs/DEPLOYMENT_EVIDENCE_MODEL.md",
+        "docs/BETA_RUNBOOK.md",
+        "docs/DEPLOYMENT_RUNBOOK.md",
+        "docs/MVP_RELEASE_STATE.md",
+        "deployment-evidence.json"
+      ],
+      "implementation": "Existing PR22 inert deployment may proceed as a separate operation now, without waiting for all this new code. After new controls merge, freeze and deploy that newer exact candidate; never continue citing 8dbea16 as the tested application if its code changed.\n\nPreserve private env/storage, prepare from Git, publish generated assets manifest-last, apply only additive migrations, prove second application is a no-op, and run the strict host suite against the disposable qualification DB only. Add advisory-lock host checks and native-only transport/version checks in a separately authorized diagnostic lane. Production/main static-site files remain untouched.\n\nExtend real HTTPS tests to Monitor request inspection, body-only mutations, current grant refusal, stale digests, unauthorized profiles/requests, cross-workspace access, escaped source/model text, request-ID lookup and both review forms. Use disposable identities and synthetic data for destructive tests; these are not live product claims.\n\nOnce actual prompt/model evaluation passes and the owner admits the exact manual-pilot grant, run baseline and changed captures, four inspected inference requests, two human decisions, P01/P04 releases and read-only replay. Validate the baseline is retained under the approved policy; do not mistake fixture pages or a provider authentication diagnostic for the full road test.\n\nThe exporter reads the run, grants, evidence, provider receipts, human decisions, M10 references, M16 P01 artifact and P04 projection; emits a sanitized manifest with explicit actual/synthetic provenance and private-artifact digests. It never auto-files a PASS or changes the upstream lock/evidence registry. Human-reviewed evidence-only commits file observations, including failures and stand-down. Extend the registry vocabulary only through a versioned reviewed schema if evaluation/restore/key-rotation record kinds are added; observed events still grant no authority.",
+      "tests": [
+        "Real-host strict suite and Monitor HTTPS negatives at the final exact candidate.",
+        "Real browser inspection on desktop/mobile for both review boundaries.",
+        "Backup/restore and code rollback preserve populated Monitor/M10 state.",
+        "The evidence exporter cannot leak profiles, prompts containing tenant data, credentials or arbitrary file paths into a public-safe report.",
+        "A failed road test can establish executed=true without pass=true."
+      ],
+      "exit_criteria": "Qualified manual native Monitor mission with actual receipts, two human reviews, internal output, replay and demonstrated stand-down.",
+      "authority_gate": "Host operations, secrets, funded evaluations and ROAD_TEST_001 each require their applicable explicit operator/owner authorization. None executes as a side effect of merging code."
+    },
+    {
+      "id": "P07",
+      "title": "Add recurring observation with bounded per-occurrence authority and honest human pauses",
+      "depends_on": [
+        "P06"
+      ],
+      "add": [
+        "app/Workflow/MonitorPrincipal.php",
+        "app/Workflow/ScheduleService.php",
+        "app/Workflow/ScheduleDispatcher.php",
+        "app/Jobs/MonitorStepHandler.php",
+        "ops/monitor/schedule.php",
+        "ops/scheduler/invoke-remote.sh",
+        "database/migrations/240_monitor_schedule_control.sql",
+        "docs/MONITOR_SCHEDULING.md",
+        "tests/integration/monitor_schedule.php",
+        "tests/security/monitor_schedule_concurrency.php",
+        "tests/integration/monitor_schedule_budget.php"
+      ],
+      "change": [
+        "app/Jobs/JobMachine.php",
+        "app/Jobs/SchedulerRunner.php",
+        "worker/tick.php",
+        "public_html/scheduler.php",
+        "app/Workflow/MonitorService.php",
+        "app/Workflow/MonitorOperations.php",
+        "app/Workflow/RunJournal.php",
+        "app/Workflow/MissionConfiguration.php",
+        "app/Workflow/SourceCaptureStage.php",
+        "app/Workflow/ContextEnvelope.php",
+        "app/Http/templates/monitor.php",
+        "tests/fixtures/schema_table_inventory.json",
+        "tests/integration/schema_invariants.php"
+      ],
+      "implementation": "Do not just populate the empty handler array. JobMachine and RunJournal have different state models and attempt semantics. Add a MONITOR_STEP job type with its own small execution graph, rather than replaying the old monitoring-job graph as a second business pipeline. Journal stages remain owned solely by MonitorService/RunJournal. A job names run ID, expected revision/stage and schedule occurrence; it cannot carry a callback, raw SQL, arbitrary URL or executable workflow definition. Define successful waiting-for-operator separately from job failure or product release.\n\nReserve each occurrence using a unique (schedule ID, schedule version, scheduled time) identity. Bounded catch-up, non-overlap, source-policy cadence floors, expiry, stand-down and a parent grant cap apply. The occurrence may create its own mission only under explicitly admitted delegation and a total schedule budget; new identities are not an automatic refill of the current four-call lifetime mission budget.\n\nDo not impersonate the initiating human from cron. Add a typed OPERATOR/SERVICE execution principal using current M02/M03 scope and assignments; record the delegating operator separately. Change forced-OPERATOR execution scope only through reviewed owner-compatible integration. Human review accepts OPERATOR only. Journal actor format changes require v2 events and compatible v1 verification, not rewriting historical hashes. If service delegation needs a canonical authority extension, land it upstream first.\n\nDefault recurring mode is observation/capture/diff and queueing the exact next request for an operator. It stops at model-request inspection and at both human review stages. Automatically supplying a newly generated digest is not human inspection. Fully unattended model inference would require a distinct owner-approved request-inspection/disclosure policy and must be represented honestly as policy-approved, not human-inspected; it is not enabled by this scheduling work.\n\nPrefer the already documented external SSH scheduler route if selected and qualified. invoke-remote.sh calls the private tick with a dedicated authorized identity; keep the authenticated HTTP alternative intact. The invocation identity must not be represented as site-isolated where SSH is account-wide. The scheduler returns a minimal receipt; operational alerts initially go to an internal console health/inbox surface, not a new unapproved email/SMS channel.",
+      "tests": [
+        "Duplicate ticks create one occurrence and no double capture.",
+        "Successful stages do not exhaust a generic three-attempt retry counter before workflow completion.",
+        "Waiting for inspection/review releases the lease without repeated calls.",
+        "Expired/revoked parent permission and exhausted grant budget stop new occurrences.",
+        "A scheduler service cannot record a human review or bypass an inspected-request requirement.",
+        "Two schedules targeting one source are serialized or refused before conflicting acquisition.",
+        "Outage catch-up is bounded; no replay storm."
+      ],
+      "exit_criteria": "Recurrent bounded observation works, with visible human queues and no silent conversion into autonomous AI/release authority.",
+      "authority_gate": "Scheduling and service delegation require a separate admitted policy. Unattended model execution is an additional decision, not assumed."
+    },
+    {
+      "id": "P08",
+      "title": "Complete P03 assurance and validate broader product scope before expanding use",
+      "depends_on": [
+        "P00"
+      ],
+      "add": [
+        "app/Product/P03/Assurance.php",
+        "ops/assurance/p03.php",
+        "tests/conformance/p03_assurance.php",
+        "tests/integration/p03_assurance.php",
+        "tests/fixtures/p03_assurance_vectors.json",
+        "tests/fixtures/p03-assurance-golden-generator.mts",
+        "docs/P03_ASSURANCE_PORT.md"
+      ],
+      "change": [
+        "app/Product/P03/Registration.php",
+        "app/Substrate/M11/Assurance.php",
+        "docs/PORT_SCOPE_MATRIX.md",
+        "docs/CONFORMANCE_MATRIX.md",
+        "docs/CLAIM_CEILING.md"
+      ],
+      "implementation": "Port the existing canonical p03/assurance.ts profiles: CATALOGUE_FRESHNESS, SIGNAL_PAIRING_FRESHNESS and BUYER_INTENT_INVARIANT. Reuse the existing M11 audit profiles/runs/checks/findings/incidents. These are post-outcome scans, not release authority or substitutes for M08. Add registration/operator sweep and, once scheduling is admitted, bounded audit jobs. Do not introduce a new assurance store.\n\nGenerate parity vectors by running the frozen canonical implementation on identical fixtures. Include stale/withdrawn signal, expired/non-approved catalogue/card, unsupported buying-trigger classification, inactive/wrong-category profile, foreign scope and no mutation of audited rows. If PHP/category schema additions are required, add a fresh migration; do not edit an applied one.\n\nFor P02/P03/P05 expansion, run the previously named scope/currentness/citation/title/Swedish refusal scenarios against current code and distinguish actual defects from presentation or missing semantic-evaluation support. Repair verified shared defects upstream first, then port. No blanket assertion that every old audit concern is fixed follows from the Monitor delivery. In particular a syntactically present citation does not prove entailment. Do not expose wider P05 authoring without the relevant reviews and truthful claim controls.",
+      "tests": [
+        "Canonical/PHP golden parity and all three negative audit families.",
+        "Audits append findings/incidents but never change source/proposal/release rows.",
+        "P02/P03/P05 scope/citation/currentness regression suite before feature expansion."
+      ],
+      "exit_criteria": "P03 post-outcome assurance is available before launching that product to customers; P01-only manual pilot need not wait for optional expansion.",
+      "authority_gate": "Implementation and offline testing only; activation is separate."
+    },
+    {
+      "id": "P09",
+      "title": "Complete operator administration and richer views without duplicating the workbench",
+      "depends_on": [
+        "P04",
+        "P05"
+      ],
+      "add": [
+        "app/Http/Controllers/MonitorSetupController.php",
+        "app/Http/Controllers/MonitorScheduleController.php",
+        "app/Http/ReadAdapters/MonitorReadAdapter.php",
+        "app/Http/ReadAdapters/P02SnapshotDetailAdapter.php",
+        "app/Http/ReadAdapters/P03ProspectDetailAdapter.php",
+        "app/Http/templates/monitor-setup.php",
+        "app/Http/templates/monitor-schedule.php",
+        "frontend/console/src/views/p01/monitor-runs.jsx",
+        "frontend/console/tests/monitor-reads.test.js",
+        "tests/security/monitor_administration.php",
+        "tests/security/product_detail_reads.php"
+      ],
+      "change": [
+        "app/Http/Controllers/MonitorController.php",
+        "app/Http/Controllers/ConsoleReadController.php",
+        "app/Http/templates/monitor.php",
+        "app/Http/templates/layout.php",
+        "public_html/index.php",
+        "frontend/console/src/data/http-console-data-source.js",
+        "frontend/console/src/data/live-read-adapters.js",
+        "frontend/console/src/data/surface-reads.js",
+        "frontend/console/src/data/navigation.js",
+        "frontend/console/src/views/p02/entity-context.jsx",
+        "frontend/console/src/views/p03/prospect-queue.jsx",
+        "frontend/console/src/views/p03/prospect-battlecard.jsx",
+        "public_html/assets/console.css",
+        "docs/LOOPIA_CAPABILITY_REPORT.md"
+      ],
+      "implementation": "Basic P02/P03 React index views and API routes already exist. Extend them with actual owner-safe detail, lineage, freshness, confidence/uncertainty and current reliance; do not add a second set of list endpoints or expose a placeholder relationship picture as real entity data. If a detail owner method is absent, add a scoped getter to the owning release service rather than selecting raw rows from a controller. Exact getter changes are determined by that narrow owner-read review.\n\nKeep exact request inspection and both human mutation forms in the current scriptless SSR workbench for the first beta. Add structured sections: company/source basis, before/after evidence, model findings, critic concerns, request disclosure, current permission/refusal, review history and historical-versus-current release state. Keep full exact JSON available behind an expander rather than making it the only readable screen.\n\nAdd SSR setup/scheduling forms over MonitorSetup/ScheduleService; do not implement alternative business logic in JavaScript. Register only explicit same-origin routes. Proposed reads: /console/api/v1/monitor/runs, /console/api/v1/monitor/run, /console/api/v1/p02/entity-detail and /console/api/v1/p03/prospect-detail. Proposed mutations: /console/monitor/setup and /console/monitor/schedule. Query identifiers are selectors only; all scope comes from the session and the owner checks each object.\n\nPrompt administration is initially inspection plus explicit reviewed approval/withdrawal workflow, not a free-text live prompt editor. Credential operations stay private CLI until a separately reviewed write-only credential form is explicitly in scope. User membership administration, account self-service and invitation delivery require their own permission/channel decisions; no general public signup is introduced here.\n\nGenerate assets through the existing frontend build; never hand-edit content-hashed bundles. Maintain CSP, no automatic retry/prefetch on audited views, empty-versus-denied distinction, mobile usability, keyboard access and escaped source/model text.",
+      "tests": [
+        "Object-level authorization for every detail read, including cross-workspace references.",
+        "No fetch/model/release on GET/refresh and no automatic mutation retries.",
+        "Exact request/review digests remain mandatory through new layouts.",
+        "Model-supplied HTML/scripts render as text.",
+        "Existing P02/P03 indexes remain functional with no duplicate routes.",
+        "Synthetic visual checks plus actual deployed-browser journeys."
+      ],
+      "exit_criteria": "An operator can configure and operate the selected product without SQL, inspect its evidence and distinguish held/withdrawn/history states. Wider self-service SaaS is not implied.",
+      "authority_gate": "Implementation and offline testing only; activation is separate."
+    },
+    {
+      "id": "P10",
+      "title": "Build and prove independent backup/full-restore tooling",
+      "depends_on": [
+        "P00"
+      ],
+      "add": [
+        "app/Ops/BackupManifest.php",
+        "app/Ops/MaintenanceGate.php",
+        "ops/backup/export.sh",
+        "ops/backup/restore-rehearsal.sh",
+        "ops/backup/verify-restore.php",
+        "docs/BACKUP_RESTORE_RUNBOOK.md",
+        "tests/rollback/full_restore.php",
+        "tests/security/backup_boundary.php"
+      ],
+      "change": [
+        "app/Http/Kernel.php",
+        "ops/rollback/verify-stand-down.php",
+        "docs/DEPLOYMENT_RUNBOOK.md",
+        "docs/DEPLOYMENT_EVIDENCE_MODEL.md"
+      ],
+      "implementation": "Add an explicit maintenance/quiescence mechanism for the MVP backup window rather than assuming no writers exist. Prevent new product/auth/database mutations and scheduler dispatch while preserving minimal safe health/request-reference behavior. Authorization to enter maintenance is operator-only and distinct from semantic release withdrawal. Alternatively a later version may prove coordinated DB snapshot plus immutable-object capture; do not assume that proof today.\n\nUse operator-side native MariaDB dump/import tooling, not a PHP web SQL-restore endpoint. Export a consistent database snapshot, referenced private content-addressed blobs, schema/migration digests, trigger definitions, release/asset identity and a request-log prefix manifest. Encrypt the backup and retain it independently from the host. Keep master-key recovery material in a separate protected store; do not include .env or SSH/provider secrets in the evidence report.\n\nRestore to an explicitly empty disposable target whose identity differs from runtime. Do not merge an old dump into the live append-only database. Verify table/schema inventory, triggers and constraints, every referenced artifact hash, populated M10 chain/current reliance, Monitor event chains and ability to render retained outputs with all native execution disabled. Record native dump/import privileges and trigger/definer handling under the actual host, not an assumed local-root profile.\n\nNever call a code rollback a full restore. No down-migration or history deletion is used to reverse a deployment. Old code against an expanded schema requires an explicit compatibility proof; otherwise stand down and roll forward to a repaired release.",
+      "tests": [
+        "Full clean-target restore with populated M10 and Monitor records, not zero-row checks.",
+        "Missing/corrupt artifact and invalid chain cause verification failure.",
+        "Restore target cannot equal runtime.",
+        "Native execution remains off after restore until separately re-admitted.",
+        "Backup/manifest excludes live secret contents."
+      ],
+      "exit_criteria": "Off-host backup and independently verified clean restore, with realistic credentials and populated history.",
+      "authority_gate": "Actual backup/export/import requires explicit operator authorization and a qualified disposable restore target; no restore runs during plan/code creation."
+    },
+    {
+      "id": "P11",
+      "title": "Make master-key rotation version-aware and exercise credential recovery",
+      "depends_on": [
+        "P00",
+        "P01",
+        "P10"
+      ],
+      "add": [
+        "app/Provider/KeyRing.php",
+        "app/Provider/CredentialRotation.php",
+        "ops/provider/rotate-master-key.php",
+        "database/migrations/250_provider_rotation_events.sql",
+        "docs/CREDENTIAL_ROTATION_RUNBOOK.md",
+        "tests/integration/provider_key_rotation.php",
+        "tests/security/provider_rotation_boundary.php"
+      ],
+      "change": [
+        "app/Provider/CredentialStore.php",
+        "app/Provider/SecretBox.php",
+        "app/Support/Bootstrap.php",
+        "app/Workflow/MonitorFactory.php",
+        ".env.example",
+        "tests/fixtures/schema_table_inventory.json",
+        "tests/integration/schema_invariants.php"
+      ],
+      "implementation": "CredentialStore already saves/replaces/revokes provider credentials. Do not rebuild those operations. Its current dispatch read does not select key_version and uses one injected SecretBox; add version-aware selection around the existing encryption implementation. Keep a legacy one-key configuration supported for existing rows. Unknown key version refuses, never tries all keys until something decrypts.\n\nKeyRing holds only operator-provided private key material; rows store key-version IDs. CredentialRotation first verifies old-key availability, seals using the new version, compares decrypted plaintext privately and commits a bounded batch plus append-only rotation evidence. Preserve tenant/provider additional-authenticated-data binding. Resume is idempotent and a partial failure is visible. Do not change algorithms or derive entropy from passwords.\n\nProvider-key replacement creates a new credential identity; frozen mission/grant bindings refuse until explicitly superseded. Master-key rewrapping may also change the keyed fingerprint: preserve old/new identity relationships in the rotation receipt, and re-admit any grant whose bound material actually changed. Do not silently rewrite historical request provenance.\n\nKeep old recovery keys securely available for retained old backups under the chosen retention policy, then retire them only after a tested recovery plan. New production secrets are distinct from staging. Resolving the historical credential-like shell token still requires operator confirmation/revocation; code cannot prove that a past exposure was harmless.",
+      "tests": [
+        "Old/new version decrypt, wrong version refusal, cross-tenant/provider ciphertext refusal and tamper checks.",
+        "Crash midway through rewrap and repeated invocation.",
+        "Provider replacement invalidates affected execution bindings without losing historical replay.",
+        "No plaintext/key material in logs, exceptions, command arguments or receipts.",
+        "A restored older encrypted backup can be recovered using the retained appropriate key."
+      ],
+      "exit_criteria": "Credential lifecycle is tested, including recovery; presence of a key is no longer the only proven property.",
+      "authority_gate": "Implementation and offline testing only; activation is separate."
+    },
+    {
+      "id": "P12",
+      "title": "Promote production identity and customer visibility through the canonical owners",
+      "depends_on": [
+        "P06",
+        "P10",
+        "P11"
+      ],
+      "add": [
+        "docs/PRODUCTION_PROMOTION_PLAN.md",
+        "docs/PRODUCTION_OPERATIONS_RUNBOOK.md",
+        "ops/deploy/production-preflight.php",
+        "tests/acceptance/production_identity_visibility.php"
+      ],
+      "change": [
+        "PROJECT_BOUNDARY.md",
+        "UPSTREAM_AUTHORITY.md",
+        "upstream.lock.json",
+        "app/Ops/BetaCli.php",
+        "app/Auth/AccountService.php",
+        "app/Substrate/M02/Scope.php",
+        "app/Substrate/M02/Permissions.php",
+        "app/Substrate/M10/Vocabulary.php",
+        "app/Substrate/M10/DecisionLedger.php",
+        "app/Substrate/M16/ReleaseOutput.php",
+        "ops/deploy/preflight.php",
+        "tests/foundation/lock_invariants.php",
+        "docs/CLAIM_CEILING.md",
+        "docs/SECURITY_BOUNDARY.md",
+        "deployment-evidence.json"
+      ],
+      "implementation": "This is the intentionally conditional work package. The current source does not support treating production/customer identity, visibility and hosting policy as settled. First obtain canonical decisions about identity classes, internal/customer audience semantics, which product modules are sold, source/output rights and the hosting boundary. Full P03 release requires P08; recurring operation requires P07; richer customer UX requires the selected P09 scope. Billing/CRM/email/SMS remain out of scope unless separately authorized.\n\nPrepare canonical changes at the owning M02 identity, M10 environment/reliance and M16 audience contracts and their schema/migration/tests. Exact upstream successor migration names and Loopia production migration numbers must be allocated after those decisions; do not edit existing migration files or predeclare an unapproved enum. Then project only the adopted owner changes with shared conformance vectors and source hashes.\n\nAPP_ENV=production is already a strict bootstrap posture; it is not a grant to invent CUSTOMER database identities or wider visibility. Keep that separation. Avoid in-place conversion of historical TEST identities or reinterpreting old M10 streams as production. Prefer distinct production identities, credentials and ledger streams, with any selected data intake explicitly recorded.\n\nClose hosting isolation with actual acceptable evidence or a new qualified boundary. The owner-directed staging exception, account-wide SSH access and prior failed/unverified isolation remain honestly reported. Keep the static public website separate. Produce the source-use/disclosure, support, retention, incident/recovery and product-claim documents required by the selected customer offering, with owner/professional review where needed.\n\nproduction-preflight.php validates the exact application/schema, adopted authority, host evidence, backup/restore/rotation readiness and allowed audience; it cannot grant GO. Freeze and qualify a distinct production release. Only a separate recorded owner decision can authorize customer visibility or production launch. Application code must never edit the governed lock or deployment-evidence file itself.",
+      "tests": [
+        "TEST/DEMO/historical ledger identities cannot masquerade as production.",
+        "A missing/expired production authority or wrong host/release refuses.",
+        "Internal-only/licence-limited sources cannot leak through a newly enabled audience.",
+        "Customer-facing reads retain all owner, source-use, current reliance and scope gates.",
+        "Separate release, hosting and rollback tests with production execution initially inert."
+      ],
+      "exit_criteria": "An explicitly approved production offering with qualified hosting, identities, visibility, secrets, backups and operating procedures.",
+      "authority_gate": "Canonical identity/audience decision, source/privacy/commercial review, hosting closure and explicit production/customer GO. Exact migration semantics remain conditional until approved."
+    }
+  ]
+}
