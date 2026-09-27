@@ -227,9 +227,18 @@ final class ExecutionAdmission
         if (!is_string($facts['tenant_id'] ?? null) || !is_string($facts['workspace_id'] ?? null)) {
             return false;
         }
-        $known = $grantId !== null && $this->db->one('SELECT 1 FROM monitor_execution_grants WHERE execution_grant_id=?', [$grantId]) !== null;
+        $scopeExists = $this->db->one('SELECT 1 FROM workspaces WHERE workspace_id=? AND tenant_id=?', [$facts['workspace_id'], $facts['tenant_id']]) !== null;
+        if (!$scopeExists) {
+            return false;
+        }
+        $known = $grantId !== null && $this->db->one(
+            'SELECT 1 FROM monitor_execution_grants WHERE execution_grant_id=? AND tenant_id=? AND workspace_id=?',
+            [$grantId, $facts['tenant_id'], $facts['workspace_id']]
+        ) !== null;
         $digest = is_string($facts['request_digest'] ?? null) && preg_match('/^[a-f0-9]{64}$/D', $facts['request_digest']) === 1 ? $facts['request_digest'] : null;
-        $run = is_string($facts['monitor_run_id'] ?? null) && preg_match('/^[a-f0-9-]{36}$/D', $facts['monitor_run_id']) === 1 ? $facts['monitor_run_id'] : null;
+        $run = is_string($facts['monitor_run_id'] ?? null) && preg_match('/^[a-f0-9-]{36}$/D', $facts['monitor_run_id']) === 1
+            && $this->db->one('SELECT 1 FROM monitor_runs WHERE monitor_run_id=? AND tenant_id=? AND workspace_id=?', [$facts['monitor_run_id'], $facts['tenant_id'], $facts['workspace_id']]) !== null
+            ? $facts['monitor_run_id'] : null;
         try {
             $this->db->insert('monitor_admission_decisions', [
                 'admission_decision_id' => Ids::new(), 'tenant_id' => $facts['tenant_id'], 'workspace_id' => $facts['workspace_id'],
