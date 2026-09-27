@@ -129,8 +129,10 @@ Assert::same('EXECUTION_GRANT_PROMPT_NOT_ADMITTED', $fresh['admission']->check('
 $other = new \Allfather\Loopia\Workflow\ExecutionAdmission($db, $clock, $fresh['grants'], $fresh['approvals'], $fresh['decisions'], str_repeat('e', 64));
 Assert::same('EXECUTION_GRANT_RELEASE_MISMATCH', $other->check('SOURCE_CAPTURE', $facts)->reasonCode(), 'a different application release is not the admitted one');
 
-// Replacing the provider key (which rotates the old one) invalidates the binding until superseded.
-$fresh['credential_store']->save($fresh['scope'] + ['actor_type' => 'OPERATOR', 'actor_id' => $fresh['scope']['operator_id']], 'replacement-synthetic-key');
+// Replacing the provider key is explicit: the operator first acknowledges the exact active set.
+$credentialScope=$fresh['scope'] + ['actor_type' => 'OPERATOR', 'actor_id' => $fresh['scope']['operator_id']];
+$rotation=X::value($fresh['credential_store']->describe($credentialScope))['save_would_rotate'];
+X::value($fresh['credential_store']->save($credentialScope, 'replacement-synthetic-key', 'Monitor OpenAI', $rotation));
 Assert::same('EXECUTION_GRANT_CREDENTIAL_CHANGED', $fresh['admission']->check('MODEL_BEFORE_RESERVE', $modelFacts)->reasonCode(), 'a replaced credential refuses the frozen binding');
 
 // Editing the reviewed decision withdraws what it authorized, on the next check.

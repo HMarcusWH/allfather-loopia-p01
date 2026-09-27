@@ -58,6 +58,16 @@ Assert::same(
     $declared['candidate_migrations'] ?? null,
     'the stated candidate migration count is the number of migration files',
 );
+
+Assert::true(
+    preg_match('/\*\*Candidate schema:\*\* ([0-9]+) migration files/', $state, $candidateCount) === 1,
+    'the prose candidate-schema count is explicit',
+);
+Assert::same(
+    $declared['candidate_migrations'] ?? null,
+    $candidateCount[1] ?? null,
+    'the prose candidate-schema count matches the load-bearing currentness block',
+);
 Assert::true(
     preg_match('/^[0-9a-f]{40}$/', $declared['last_reviewed_application_merge'] ?? '') === 1,
     'the last reviewed application merge is named by its full commit id',

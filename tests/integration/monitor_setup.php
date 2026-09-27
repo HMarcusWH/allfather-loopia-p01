@@ -110,6 +110,10 @@ Assert::same([1,'ACTIVE',null],[(int)$missionRow['mission_version'],$missionRow[
 Assert::equalsList([$definition['capture_governance']['governed_tool_id'],$definition['model_governance']['author']['governed_tool_id']],json_decode($missionRow['allowed_tool_ids'],true),'both tools were declared on the mission before narrowed assignments');
 $wrongEntitlement=$definition;$wrongEntitlement['model_governance']['author']['required_entitlement_permission']='distribution.read';
 Assert::same('MONITOR_ENTITLEMENT_BINDING_INVALID',(new MissionConfiguration($db,$clock))->validate($scope,$wrongEntitlement,'NATIVE')->reasonCode(),'a model command cannot substitute a different commercial entitlement');
+$wrongPolicy=$definition;$wrongPolicy['p01_policy_id']=$definition['p04_policy_id'];
+Assert::same('MONITOR_POLICY_NOT_CURRENT',(new MissionConfiguration($db,$clock))->validate($scope,$wrongPolicy,'NATIVE')->reasonCode(),'a P04 policy cannot masquerade as the P01 policy binding');
+$wrongUrl=$definition;$wrongUrl['capture_url']='https://sources.example/not-authorized';
+Assert::same('MONITOR_CAPTURE_URL_OUTSIDE_SOURCE_SCOPE',(new MissionConfiguration($db,$clock))->validate($scope,$wrongUrl,'NATIVE')->reasonCode(),'the frozen capture URL must stay inside the reviewed source-card scope');
 
 // ---------------------------------------------------------------- the set-up mission runs, once a grant is admitted
 // Everything below the setup is the P01/P03 path: an owner decision, approvals, an admitted grant.
