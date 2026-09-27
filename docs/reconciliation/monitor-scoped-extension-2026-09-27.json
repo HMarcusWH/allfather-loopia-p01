@@ -95,5 +95,29 @@
       "path": "canonical-parity-baseline-2026-09-27.json",
       "sha256": "3a2f89897ec32ecb465b57df3a5fa72e8b0369ecc1bdcf0a2089d286393a49b9"
     }
+  ],
+  "completion_plan_additions": [
+    {
+      "package": "P01",
+      "capability": "Execution admission and approved prompt selection",
+      "paths": [
+        "app/Workflow/ExecutionAdmission.php",
+        "app/Workflow/ExecutionGrantStore.php",
+        "app/Workflow/OwnerDecisionRegistry.php",
+        "app/PromptOps/PromptSelectionResolver.php",
+        "app/PromptOps/PromptApprovalStore.php",
+        "app/Provider/ModelPolicy.php",
+        "ops/monitor/authorization.php",
+        "database/migrations/210_monitor_execution_controls.sql"
+      ],
+      "status": "LOCAL_DEPLOYMENT_CONTROL_INERT_WITHOUT_OWNER_DECISION",
+      "not_claimed": [
+        "canonical authority",
+        "an admitted grant",
+        "an approved prompt",
+        "native execution",
+        "live read"
+      ]
+    }
   ]
 }

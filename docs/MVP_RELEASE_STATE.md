@@ -20,7 +20,7 @@ canonical_pin                      = c6d9cf9a7a1001b001ca6118999e9cb75c831c4d
 last_reviewed_application_merge    = 8dbea16b262df7b6d40fe945f34e301eedf2aba6
 deployed_staging_release           = 392f48deef11380f6dccfe88f2a47ba1fd94575c
 evidence_records                   = 12
-candidate_migrations               = 23
+candidate_migrations               = 24
 ```
 
 ## What the words mean here

@@ -538,7 +538,13 @@ repin the whole projection or infer canonical authority from tables found in a r
 | Original Loopia host adapters | 8 | Explicit list in section 2.1 and baseline fixture |
 | Bounded model host adapters | 2 | `provider_model_attempts`, `provider_model_results`; migration `190_bounded_model_provenance.sql` |
 | Monitor host adapters | 4 | `monitor_mission_configs`, `monitor_runs`, `monitor_run_events`, `monitor_capture_payloads`; migration `200_monitor_runs.sql` |
-| **Current application total** | **203** | **189 canonical + 14 Loopia adapters** |
+| Monitor execution controls (completion plan P01) | 6 | `monitor_prompt_approvals`, `monitor_prompt_approval_events`, `monitor_execution_grants`, `monitor_execution_grant_events`, `monitor_grant_consumptions`, `monitor_admission_decisions`; migration `210_monitor_execution_controls.sql` |
+| **Current application total** | **209** | **189 canonical + 20 Loopia adapters** |
+
+The completion-plan tables are Loopia-local deployment controls, not canonical law: immutable grant
+and approval definitions, append-only lifecycle events, budget consumption and an admission trail.
+They reference reviewed owner decisions under `docs/decisions/` and grant nothing by existing. They
+are declared per migration in `completion_plan_tables` of the inventory fixture.
 
 The single additional canonical table comes from the reviewed repeatable P01 registration repair
 [canonical PR 368](https://github.com/HMarcusWH/Allfatherbusinessintelligence/pull/368), reviewed

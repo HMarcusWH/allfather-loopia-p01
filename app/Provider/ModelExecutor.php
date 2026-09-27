@@ -4,41 +4,73 @@ namespace Allfather\Loopia\Provider;
 use Allfather\Loopia\Core\{Clock,Digest,Ids,Outcome};
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Substrate\M06\Gateway;
-use Allfather\Loopia\Workflow\ContextEnvelope;
-use Allfather\Loopia\PromptOps\{ProductPromptPack,CandidateChecks};
+use Allfather\Loopia\Workflow\{ContextEnvelope,ExecutionAdmission};
+use Allfather\Loopia\PromptOps\{CandidateChecks,PromptSelectionResolver};
 
 /** One governed attempt; no automatic retry, release, evidence promotion or direct provider path. */
 final class ModelExecutor
 {
-    public function __construct(private readonly Database $db,private readonly Clock $clock,private readonly Gateway $gateway,private readonly CredentialStore $credentials,private readonly ModelTransport $transport,private readonly ContextEnvelope $context) {}
+    private readonly PromptSelectionResolver $prompts;
 
-    public function execute(array $command,PreparedModelRequest $request,string $credentialId): array
+    /**
+     * A live transport runs only with an ExecutionAdmission and a request whose prompt was selected
+     * under an admitted grant. Without both it refuses before M06 is asked — nothing is reserved.
+     */
+    public function __construct(private readonly Database $db,private readonly Clock $clock,private readonly Gateway $gateway,private readonly CredentialStore $credentials,private readonly ModelTransport $transport,private readonly ContextEnvelope $context,?PromptSelectionResolver $prompts=null,private readonly ?ExecutionAdmission $admission=null)
+    {
+        $this->prompts=$prompts??PromptSelectionResolver::inert();
+    }
+
+    /** @param array<string,mixed> $admissionFacts the caller's bound facts: run, configuration, source, evaluation manifest. */
+    public function execute(array $command,PreparedModelRequest $request,string $credentialId,array $admissionFacts=[]): array
     {
         $p=$request->provenance();$digest=$request->digest();
         $refuse=static fn(string $code):array=>['kind'=>'MODEL_REFUSED','reason_code'=>$code,'request_digest'=>$digest];
-        $prompt=ProductPromptPack::resolve($p['role']);
-        if(!$prompt->isOk()||Digest::canonicalDigest($prompt->value())!==Digest::canonicalDigest($request->resolvedPrompt()))return $refuse('MODEL_PROMPT_NOT_CURRENT_APPROVED_BUNDLE');
+        $resolved=$request->resolvedPrompt();
+        if(($resolved['role']??null)!==$p['role']||!$this->prompts->verify($resolved))return $refuse('MODEL_PROMPT_NOT_CURRENT_APPROVED_BUNDLE');
         if($this->transport->isLive()&&$p['activation_status']!=='ACTIVE')return $refuse('MODEL_PROMPT_INACTIVE');
         foreach(['tenant_id','workspace_id','mission_id'] as $key)if(($command[$key]??null)!==$p[$key])return $refuse('MODEL_REQUEST_SCOPE_MISMATCH');
         if(($command['calling_actor_type']??null)!==($p['context']['scope']['actor_type']??null)||($command['calling_actor_id']??null)!==($p['context']['scope']['actor_id']??null))return $refuse('MODEL_CONTEXT_ACTOR_MISMATCH');
+        $grantId=$p['execution_grant_id']??null;
+        $facts=null;
+        if($this->transport->isLive()||$grantId!==null){
+            if($this->admission===null||!is_string($grantId))return $refuse('MODEL_EXECUTION_NOT_ADMITTED');
+            $facts=array_merge($admissionFacts,['tenant_id'=>$p['tenant_id'],'workspace_id'=>$p['workspace_id'],'operator_id'=>$command['calling_actor_id'],'execution_grant_id'=>$grantId,'purpose'=>$p['execution_purpose'],'credential_id'=>$credentialId,'prompt_approval_id'=>$p['prompt_approval_id'],'prompt_sha256'=>$p['prompt_sha256'],'schema_sha256'=>$p['schema_sha256'],'request_digest'=>$digest]);
+            if(($p['execution_purpose']??null)!=='MODEL_EVALUATION')$facts['mission_id']=$p['mission_id'];
+            $admitted=$this->admission->check('MODEL_BEFORE_RESERVE',$facts);
+            if(!$admitted->isOk())return $refuse($admitted->reasonCode());
+        }
         $attemptId=null;$callId=null;$result=null;$response=null;
-        $dispatch=$this->gateway->requestModelDispatch($command,$request,function(string $toolRequestId) use($p,$request,$credentialId,$command,&$attemptId,&$callId,&$result,&$response):array {
+        $dispatch=$this->gateway->requestModelDispatch($command,$request,function(string $toolRequestId) use($p,$request,$credentialId,$command,$facts,$grantId,&$attemptId,&$callId,&$result,&$response):array {
             $current=$this->context->revalidate($p['context']);
             if(!$current->isOk())return ['kind'=>'FAILED','reason_code'=>$current->reasonCode()];
             if($p['role']==='MONITOR_ROUTING_CRITIC'){$routing=$this->context->validateRoutingPackage($p['context'],$p['stage_inputs']['routing_package'],$p['stage_inputs']['prior_candidate']['candidate']);if(!$routing->isOk())return ['kind'=>'FAILED','reason_code'=>$routing->reasonCode()];}
-            $reserved=$this->reserve($p,$request,$toolRequestId);
+            $reserved=$this->reserve($p,$request,$toolRequestId,$facts===null?null:$grantId,$facts['monitor_run_id']??null);
             if(!$reserved->isOk())return ['kind'=>'FAILED','reason_code'=>$reserved->reasonCode()];
             $attemptId=$reserved->value();
             try {
-                $used=$this->credentials->withCredential($p['tenant_id'],$credentialId,fn(string $key):ModelResponse=>$this->transport->send($request,$key));
-                if(!$used->isOk()) { $result=['kind'=>'FAILED','reason_code'=>'MODEL_CREDENTIAL_NOT_AVAILABLE','telemetry_outcome'=>'REFUSED_NO_CREDENTIAL']; }
-                else {
-                    $response=$used->value();
-                    $result=self::interpret($response,$request);
-                    if(($result['kind']??'')==='GENERATED') {
-                        $candidateCheck=CandidateChecks::validate($result['candidate'],$request->resolvedPrompt(),$p['context']);
-                        if(!$candidateCheck->isOk())$result=['kind'=>'FAILED','reason_code'=>'MODEL_CANDIDATE_REFERENCE_INVALID','telemetry_outcome'=>'FAILED'];
+                // Immediately before bytes leave: the grant must still be admitted. The attempt is
+                // already reserved and stays spent — an honest receipt of a call that was not made.
+                $fresh=$facts===null?null:$this->admission->check('MODEL_BEFORE_DISPATCH',$facts);
+                if($fresh!==null&&!$fresh->isOk()){
+                    $result=['kind'=>'FAILED','reason_code'=>$fresh->reasonCode(),'telemetry_outcome'=>'FAILED'];
+                } else {
+                    $used=$this->credentials->withCredential($p['tenant_id'],$credentialId,fn(string $key):ModelResponse=>$this->transport->send($request,$key));
+                    if(!$used->isOk()) { $result=['kind'=>'FAILED','reason_code'=>'MODEL_CREDENTIAL_NOT_AVAILABLE','telemetry_outcome'=>'REFUSED_NO_CREDENTIAL']; }
+                    else {
+                        $response=$used->value();
+                        $result=self::interpret($response,$request);
+                        if(($result['kind']??'')==='GENERATED') {
+                            // Checked against the prompt's immutable CONTENT: the selection was verified above,
+                            // and a candidate's references do not depend on which grant permitted the call.
+                            $content=$this->prompts->content($p['role']);
+                            $candidateCheck=$content->isOk()?CandidateChecks::validate($result['candidate'],$content->value(),$p['context']):$content;
+                            if(!$candidateCheck->isOk())$result=['kind'=>'FAILED','reason_code'=>'MODEL_CANDIDATE_REFERENCE_INVALID','telemetry_outcome'=>'FAILED'];
+                        }
                     }
+                    // After return, before acceptance: revocation during the call cannot unsend the
+                    // request, but it does stop the response from becoming an accepted candidate.
+                    if($facts!==null&&($result['kind']??'')==='GENERATED'){$after=$this->admission->check('MODEL_AFTER_RETURN',$facts);if(!$after->isOk())$result=['kind'=>'FAILED','reason_code'=>$after->reasonCode(),'telemetry_outcome'=>$result['telemetry_outcome'],'input_tokens'=>$result['input_tokens']??null,'output_tokens'=>$result['output_tokens']??null];}
                 }
             } catch(\Throwable) { $result=['kind'=>'FAILED','reason_code'=>'MODEL_ADAPTER_EXCEPTION','telemetry_outcome'=>'FAILED']; }
             $callId=Ids::new();
@@ -61,14 +93,18 @@ final class ModelExecutor
         return ['kind'=>'MODEL_CANDIDATE','candidate'=>$result['candidate'],'candidate_digest'=>$result['result_digest'],'request_digest'=>$digest,'provider_call_id'=>$callId,'execution_mode'=>$this->transport->isLive()?'LIVE':'FIXTURE','human_review_required'=>true,'dispatch'=>$dispatch];
     }
 
-    private function reserve(array $p,PreparedModelRequest $request,string $toolRequestId): Outcome
+    private function reserve(array $p,PreparedModelRequest $request,string $toolRequestId,?string $grantId=null,?string $runId=null): Outcome
     {
-        return $this->db->transaction(function(Database $tx) use($p,$request,$toolRequestId):Outcome {
+        return $this->db->transaction(function(Database $tx) use($p,$request,$toolRequestId,$grantId,$runId):Outcome {
             $mission=$tx->one('SELECT status FROM missions WHERE mission_id=? AND tenant_id=? AND workspace_id=? FOR UPDATE',[$p['mission_id'],$p['tenant_id'],$p['workspace_id']]);
             if($mission===null||$mission['status']!=='ACTIVE')return Outcome::refuse('MODEL_MISSION_NOT_ACTIVE');
             $count=(int)$tx->scalar('SELECT COUNT(*) FROM provider_model_attempts WHERE tenant_id=? AND workspace_id=? AND mission_id=?',[$p['tenant_id'],$p['workspace_id'],$p['mission_id']]);
             if($count >= $p['context']['envelope']['limits']['max_model_calls'])return Outcome::refuse('MODEL_MISSION_BUDGET_EXHAUSTED');
-            $id=Ids::new();$tx->insert('provider_model_attempts',['model_attempt_id'=>$id,'tenant_id'=>$p['tenant_id'],'workspace_id'=>$p['workspace_id'],'mission_id'=>$p['mission_id'],'tool_request_id'=>$toolRequestId,'request_digest'=>$request->digest(),'context_digest'=>$p['context_digest'],'prompt_version_id'=>$p['prompt_version_id'],'binding_id'=>$p['binding_id'],'output_schema_id'=>$p['output_schema_id'],'prompt_sha256'=>$p['prompt_sha256'],'schema_sha256'=>$p['schema_sha256'],'execution_mode'=>$this->transport->isLive()?'LIVE':'FIXTURE','reserved_at'=>$this->clock->now()]);
+            $id=Ids::new();
+            // The grant budget is spent in the same transaction as the mission budget, under the
+            // grant row's lock: concurrent work can exhaust neither.
+            if($grantId!==null){$spent=$this->admission->reserve($tx,$grantId,'MODEL_ATTEMPT',$id,$runId);if(!$spent->isOk())return $spent;}
+            $tx->insert('provider_model_attempts',['model_attempt_id'=>$id,'tenant_id'=>$p['tenant_id'],'workspace_id'=>$p['workspace_id'],'mission_id'=>$p['mission_id'],'tool_request_id'=>$toolRequestId,'request_digest'=>$request->digest(),'context_digest'=>$p['context_digest'],'prompt_version_id'=>$p['prompt_version_id'],'binding_id'=>$p['binding_id'],'output_schema_id'=>$p['output_schema_id'],'prompt_sha256'=>$p['prompt_sha256'],'schema_sha256'=>$p['schema_sha256'],'execution_mode'=>$this->transport->isLive()?'LIVE':'FIXTURE','reserved_at'=>$this->clock->now()]);
             return Outcome::ok($id);
         });
     }
