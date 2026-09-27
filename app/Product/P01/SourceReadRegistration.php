@@ -46,19 +46,29 @@ final class SourceReadRegistration
             return $existing->isOk() ? Outcome::ok($existing->value() + ['created' => false]) : $existing;
         }
 
-        return $this->db->transaction(function (Database $tx): Outcome {
-            $host = Ids::new();
-            $adapter = Ids::new();
-            $binding = Ids::new();
-            $now = $this->clock->now();
-            $tx->insert('runtime_host_instances', ['runtime_host_instance_id' => $host, 'schema_version' => '1', 'host_family' => 'LOOPIA_BOUNDED_SOURCE_READ', 'host_name' => self::HOST_KEY, 'host_instance_key' => self::HOST_KEY, 'host_version' => '1.0.0', 'repository_reference_safe' => 'internal://monitor/source-read', 'licence_status_ref' => 'internal', 'integration_map_document_ref' => 'docs/MONITOR_WORKFLOW.md', 'environment_class' => 'TEST', 'declared_security_assumptions' => json_encode(['NO_EXTERNAL_EFFECT', 'SOURCE_TRANSPORT_INACTIVE_BY_DEFAULT']), 'status' => 'REGISTERED', 'created_at' => $now]);
-            $identity = ['runtime_host_instance_id' => $host, 'adapter_family' => 'LOOPIA_BOUNDED_SOURCE_READ', 'adapter_name' => self::HOST_KEY, 'adapter_version' => '1.0.0', ...self::payloads()];
-            $tx->insert('runtime_adapter_instances', ['runtime_adapter_instance_id' => $adapter, 'schema_version' => '1', ...$identity, 'identity_digest' => AdapterConformance::identityDigest($identity), 'status' => 'READY', 'created_at' => $now]);
-            $tx->insert('runtime_host_bindings', ['binding_id' => $binding, 'schema_version' => '1', 'runtime_host_instance_id' => $host, 'runtime_adapter_instance_id' => $adapter, 'binding_type' => 'TOOL_SURFACE', 'runtime_host_reference' => self::HOST_KEY . ':tool', 'runtime_host_version' => '1.0.0', 'mapping_purpose' => 'Read one approved public competitor page; no external effect.', 'permitted_operation_classes' => '["OBSERVE"]', 'safety_classification' => 'SAFE_READ_ONLY', 'status' => 'ACTIVE', 'tenant_id' => null, 'workspace_id' => null, 'activation_evidence_refs' => '[]', 'activated_at' => $now, 'created_at' => $now]);
-            $validated = $this->validate($this->row() ?? []);
+        try {
+            return $this->db->transaction(function (Database $tx): Outcome {
+                $host = Ids::new();
+                $adapter = Ids::new();
+                $binding = Ids::new();
+                $now = $this->clock->now();
+                $tx->insert('runtime_host_instances', ['runtime_host_instance_id' => $host, 'schema_version' => '1', 'host_family' => 'LOOPIA_BOUNDED_SOURCE_READ', 'host_name' => self::HOST_KEY, 'host_instance_key' => self::HOST_KEY, 'host_version' => '1.0.0', 'repository_reference_safe' => 'internal://monitor/source-read', 'licence_status_ref' => 'internal', 'integration_map_document_ref' => 'docs/MONITOR_WORKFLOW.md', 'environment_class' => 'TEST', 'declared_security_assumptions' => json_encode(['NO_EXTERNAL_EFFECT', 'SOURCE_TRANSPORT_INACTIVE_BY_DEFAULT']), 'status' => 'REGISTERED', 'created_at' => $now]);
+                $identity = ['runtime_host_instance_id' => $host, 'adapter_family' => 'LOOPIA_BOUNDED_SOURCE_READ', 'adapter_name' => self::HOST_KEY, 'adapter_version' => '1.0.0', ...self::payloads()];
+                $tx->insert('runtime_adapter_instances', ['runtime_adapter_instance_id' => $adapter, 'schema_version' => '1', ...$identity, 'identity_digest' => AdapterConformance::identityDigest($identity), 'status' => 'READY', 'created_at' => $now]);
+                $tx->insert('runtime_host_bindings', ['binding_id' => $binding, 'schema_version' => '1', 'runtime_host_instance_id' => $host, 'runtime_adapter_instance_id' => $adapter, 'binding_type' => 'TOOL_SURFACE', 'runtime_host_reference' => self::HOST_KEY . ':tool', 'runtime_host_version' => '1.0.0', 'mapping_purpose' => 'Read one approved public competitor page; no external effect.', 'permitted_operation_classes' => '["OBSERVE"]', 'safety_classification' => 'SAFE_READ_ONLY', 'status' => 'ACTIVE', 'tenant_id' => null, 'workspace_id' => null, 'activation_evidence_refs' => '[]', 'activated_at' => $now, 'created_at' => $now]);
+                $validated = $this->validate($this->row() ?? []);
 
-            return $validated->isOk() ? Outcome::ok($validated->value() + ['created' => true]) : $validated;
-        });
+                return $validated->isOk() ? Outcome::ok($validated->value() + ['created' => true]) : $validated;
+            });
+        } catch (\PDOException) {
+            // Another workspace may have won the global descriptor race. Converge only when the
+            // winner is the exact descriptor we would have created; otherwise surface a conflict.
+            $raced = $this->existing();
+
+            return $raced !== null && $raced->isOk()
+                ? Outcome::ok($raced->value() + ['created' => false])
+                : Outcome::refuse('SOURCE_READ_DESCRIPTOR_CONFLICT');
+        }
     }
 
     /**
@@ -67,7 +77,9 @@ final class SourceReadRegistration
      */
     public function bindTool(string $bindingId, string $governedToolId): Outcome
     {
-        $tool = $this->db->one("SELECT tool_key,runtime_mapping_ref_id,status FROM governed_tools WHERE governed_tool_id=?", [$governedToolId]);
+        // Global tool mapping: serialize on the governed-tool row so two workspaces cannot both
+        // observe "no ref" and append rival mappings.
+        $tool = $this->db->one("SELECT tool_key,runtime_mapping_ref_id,status FROM governed_tools WHERE governed_tool_id=? FOR UPDATE", [$governedToolId]);
         if ($tool === null || $tool['tool_key'] !== 'p01.source.read' || $tool['runtime_mapping_ref_id'] !== $bindingId || $tool['status'] !== 'ACTIVE') {
             return Outcome::refuse('SOURCE_READ_TOOL_NOT_ON_BINDING');
         }
