@@ -429,7 +429,7 @@ Assert::same(
 );
 $child = $freshSource();
 Assert::true(
-    $runCapture($child, $child['url'] . '/details')->isOk(),
+    $runCapture($child, $child['url'] . '/details', new FetchResponse(200, 'text/html', null, $body))->isOk(),
     'a true child path remains inside the reviewed source scope',
 );
 
