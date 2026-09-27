@@ -52,7 +52,8 @@ $config = BetaCli::configuration($root, $args, $fail);
 $db = BetaCli::connect($config['env'], $fail);
 $clock = new Clock();
 $decisions = OwnerDecisionRegistry::forRoot($root);
-$approvals = new PromptApprovalStore($db, $clock, $decisions);
+// A product approval must cite an accepted, live, complete evaluation of exactly this prompt.
+$approvals = new PromptApprovalStore($db, $clock, $decisions, \Allfather\Loopia\Evaluation\EvaluationReport::approvalEvidence($db, $root));
 $grants = new ExecutionGrantStore($db, $clock, $approvals, $decisions);
 $scope = ['tenant_id' => $need('tenant-id'), 'workspace_id' => $need('workspace-id'), 'operator_id' => $need('operator-id')];
 

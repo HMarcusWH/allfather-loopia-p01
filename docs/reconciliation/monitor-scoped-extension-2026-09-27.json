@@ -118,6 +118,28 @@
         "native execution",
         "live read"
       ]
+    },
+    {
+      "package": "P02",
+      "capability": "Real-model evaluation lane that cannot release product intelligence",
+      "paths": [
+        "app/Evaluation/EvaluationFactory.php",
+        "app/Evaluation/MonitorEvaluationRunner.php",
+        "app/Evaluation/EvaluationReport.php",
+        "app/Evaluation/EvaluationManifest.php",
+        "app/Evaluation/EvaluationCaseContext.php",
+        "app/Workflow/ModelContextAuthority.php",
+        "ops/evaluation/monitor.php",
+        "tests/fixtures/monitor_model_eval_cases.json",
+        "database/migrations/220_monitor_evaluation_records.sql"
+      ],
+      "status": "HARNESS_IMPLEMENTED_NO_FUNDED_RUN",
+      "not_claimed": [
+        "a real model evaluation",
+        "an accepted report",
+        "a product prompt approval",
+        "model quality"
+      ]
     }
   ]
 }

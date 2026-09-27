@@ -4,7 +4,7 @@ namespace Allfather\Loopia\Provider;
 use Allfather\Loopia\Core\{Clock,Digest,Ids,Outcome};
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Substrate\M06\Gateway;
-use Allfather\Loopia\Workflow\{ContextEnvelope,ExecutionAdmission};
+use Allfather\Loopia\Workflow\{ExecutionAdmission,ModelContextAuthority};
 use Allfather\Loopia\PromptOps\{CandidateChecks,PromptSelectionResolver};
 
 /** One governed attempt; no automatic retry, release, evidence promotion or direct provider path. */
@@ -16,7 +16,7 @@ final class ModelExecutor
      * A live transport runs only with an ExecutionAdmission and a request whose prompt was selected
      * under an admitted grant. Without both it refuses before M06 is asked — nothing is reserved.
      */
-    public function __construct(private readonly Database $db,private readonly Clock $clock,private readonly Gateway $gateway,private readonly CredentialStore $credentials,private readonly ModelTransport $transport,private readonly ContextEnvelope $context,?PromptSelectionResolver $prompts=null,private readonly ?ExecutionAdmission $admission=null)
+    public function __construct(private readonly Database $db,private readonly Clock $clock,private readonly Gateway $gateway,private readonly CredentialStore $credentials,private readonly ModelTransport $transport,private readonly ModelContextAuthority $context,?PromptSelectionResolver $prompts=null,private readonly ?ExecutionAdmission $admission=null)
     {
         $this->prompts=$prompts??PromptSelectionResolver::inert();
     }
@@ -45,7 +45,7 @@ final class ModelExecutor
             $current=$this->context->revalidate($p['context']);
             if(!$current->isOk())return ['kind'=>'FAILED','reason_code'=>$current->reasonCode()];
             if($p['role']==='MONITOR_ROUTING_CRITIC'){$routing=$this->context->validateRoutingPackage($p['context'],$p['stage_inputs']['routing_package'],$p['stage_inputs']['prior_candidate']['candidate']);if(!$routing->isOk())return ['kind'=>'FAILED','reason_code'=>$routing->reasonCode()];}
-            $reserved=$this->reserve($p,$request,$toolRequestId,$facts===null?null:$grantId,$facts['monitor_run_id']??null);
+            $reserved=$this->reserve($p,$request,$toolRequestId,$facts);
             if(!$reserved->isOk())return ['kind'=>'FAILED','reason_code'=>$reserved->reasonCode()];
             $attemptId=$reserved->value();
             try {
@@ -93,9 +93,9 @@ final class ModelExecutor
         return ['kind'=>'MODEL_CANDIDATE','candidate'=>$result['candidate'],'candidate_digest'=>$result['result_digest'],'request_digest'=>$digest,'provider_call_id'=>$callId,'execution_mode'=>$this->transport->isLive()?'LIVE':'FIXTURE','human_review_required'=>true,'dispatch'=>$dispatch];
     }
 
-    private function reserve(array $p,PreparedModelRequest $request,string $toolRequestId,?string $grantId=null,?string $runId=null): Outcome
+    private function reserve(array $p,PreparedModelRequest $request,string $toolRequestId,?array $facts=null): Outcome
     {
-        return $this->db->transaction(function(Database $tx) use($p,$request,$toolRequestId,$grantId,$runId):Outcome {
+        return $this->db->transaction(function(Database $tx) use($p,$request,$toolRequestId,$facts):Outcome {
             $mission=$tx->one('SELECT status FROM missions WHERE mission_id=? AND tenant_id=? AND workspace_id=? FOR UPDATE',[$p['mission_id'],$p['tenant_id'],$p['workspace_id']]);
             if($mission===null||$mission['status']!=='ACTIVE')return Outcome::refuse('MODEL_MISSION_NOT_ACTIVE');
             $count=(int)$tx->scalar('SELECT COUNT(*) FROM provider_model_attempts WHERE tenant_id=? AND workspace_id=? AND mission_id=?',[$p['tenant_id'],$p['workspace_id'],$p['mission_id']]);
@@ -103,8 +103,14 @@ final class ModelExecutor
             $id=Ids::new();
             // The grant budget is spent in the same transaction as the mission budget, under the
             // grant row's lock: concurrent work can exhaust neither.
-            if($grantId!==null){$spent=$this->admission->reserve($tx,$grantId,'MODEL_ATTEMPT',$id,$runId);if(!$spent->isOk())return $spent;}
+            if($facts!==null){$spent=$this->admission->reserve($tx,$facts['execution_grant_id'],'MODEL_ATTEMPT',$id,$facts['monitor_run_id']??null);if(!$spent->isOk())return $spent;}
             $tx->insert('provider_model_attempts',['model_attempt_id'=>$id,'tenant_id'=>$p['tenant_id'],'workspace_id'=>$p['workspace_id'],'mission_id'=>$p['mission_id'],'tool_request_id'=>$toolRequestId,'request_digest'=>$request->digest(),'context_digest'=>$p['context_digest'],'prompt_version_id'=>$p['prompt_version_id'],'binding_id'=>$p['binding_id'],'output_schema_id'=>$p['output_schema_id'],'prompt_sha256'=>$p['prompt_sha256'],'schema_sha256'=>$p['schema_sha256'],'execution_mode'=>$this->transport->isLive()?'LIVE':'FIXTURE','reserved_at'=>$this->clock->now()]);
+            // Why this attempt happened, beside it rather than inside it: a live call against a
+            // synthetic evaluation case is not a product mission, and historical rows stay untouched.
+            if($facts!==null){
+                $evaluation=$facts['purpose']==='MODEL_EVALUATION';
+                $tx->insert('provider_attempt_purposes',['model_attempt_id'=>$id,'execution_purpose'=>$facts['purpose'],'execution_grant_id'=>$facts['execution_grant_id'],'evaluation_run_id'=>$evaluation?($facts['evaluation_run_id']??null):null,'monitor_run_id'=>$evaluation?null:($facts['monitor_run_id']??null),'material_provenance'=>$evaluation?'SYNTHETIC_EVALUATION_CASE':'PRODUCT_MISSION','recorded_at'=>$this->clock->now()]);
+            }
             return Outcome::ok($id);
         });
     }

@@ -10,7 +10,7 @@ use Allfather\Loopia\Substrate\M05\SourceAdmission;
 use Allfather\Loopia\Ingestion\SourcePolicy;
 
 /** Read-only, current-authority context projection. Never promotes a company twin or invents text. */
-final class ContextEnvelope
+final class ContextEnvelope implements ModelContextAuthority
 {
     public function __construct(private readonly Database $db, private readonly Clock $clock, private readonly EvidenceStore $store) {}
 

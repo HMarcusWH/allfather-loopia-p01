@@ -37,3 +37,16 @@ Migration 190 records append-only attempt identities (request/context/prompt/sch
 ## Focused verification
 
 `tests/unit/bounded_model.php` covers immutable exact preparation, closed options/models/schemas, baseline/pair refusal, native inactivity, error sanitization/classification and predecessor binding. `tests/integration/bounded_model.php` uses real MariaDB plus fixture transports through P01/M05/M06/M01 to exercise policy revocation, stale evidence, sealing, scoped authority, replay, append-only provenance, quota, post-callback authority change and budget exhaustion. `tests/integration/bounded_model_stages.php` composes classifier/draft/critic with a separately assigned critic, then tests the separate routing critic against an independently produced real service-fixture release. That fixture is explicitly not a claim that the model draft received human approval. `tests/support/MonitorModelFixture.php` exposes setup and manually authored response fixtures; it grants no release and makes no network call.
+
+## Admission, model policy and evaluation (completion plan P01/P02)
+
+The fixed model, endpoint, byte and token ceilings and timeouts are one closed policy,
+`app/Provider/ModelPolicy.php`, with one digest that approvals and grants bind. A live transport
+now runs only with `ExecutionAdmission` and a request whose prompt was selected under an admitted
+grant; admission is re-checked before reservation, before dispatch and after return, and grant
+budget is spent in the attempt's transaction. The single provider-transport constructor is
+`MonitorFactory::modelTransport()`, activated only by `admittedModelTransport()` for an ADMITTED
+grant. The evaluation lane reuses this executor with `EvaluationCaseContext` as its context
+authority. `store=false` is requested; provider-side retention is an account setting reviewed
+separately and is not established by this field.
+

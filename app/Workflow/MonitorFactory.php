@@ -19,7 +19,26 @@ final class MonitorFactory
 {
     public static function inactive(Database $db,Clock $clock,EvidenceStore $store,SecretBox $box): MonitorService
     {
-        return self::build($db,$clock,$store,new CredentialStore($db,$clock,$box),new NoNetworkTransport(),new FixedHostResolver([]),new OpenAIResponsesTransport(false),false);
+        return self::build($db,$clock,$store,new CredentialStore($db,$clock,$box),new NoNetworkTransport(),new FixedHostResolver([]),self::modelTransport(false),false);
+    }
+
+    /**
+     * The provider transport for one admitted grant — activated only when that grant exists in this
+     * scope, serves this purpose and is ADMITTED now. Otherwise it is the inactive transport, which
+     * refuses before any cURL handle exists. Activation of the wire and admission of the operation
+     * therefore cannot disagree at construction; every call is still re-admitted by the executor.
+     */
+    public static function admittedModelTransport(ExecutionGrantStore $grants,string $tenantId,string $workspaceId,string $grantId,string $purpose): OpenAIResponsesTransport
+    {
+        $grant=$grants->find($tenantId,$workspaceId,$grantId);
+        $admitted=$grant!==null && $grant['purpose']===$purpose && $grants->status($grantId)==='ADMITTED';
+        return self::modelTransport($admitted);
+    }
+
+    /** THE one place the provider transport is constructed. `tests/foundation/no_external_action_surface.php` pins it. */
+    private static function modelTransport(bool $admitted): OpenAIResponsesTransport
+    {
+        return new OpenAIResponsesTransport($admitted);
     }
     public static function forFixture(Database $db,Clock $clock,EvidenceStore $store,CredentialStore $credentials,FetchTransport $source,HostResolver $resolver,ModelTransport $model): MonitorService
     {

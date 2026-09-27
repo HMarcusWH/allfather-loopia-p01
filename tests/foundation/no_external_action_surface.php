@@ -94,13 +94,22 @@ foreach ([...$sources,...$phpFiles($root.'/ops')] as $file) {
     if (preg_match('/new\s+(\\\\?[A-Za-z\\\\]*\\\\)?OpenAIResponsesTransport\s*\(/', $code($file))===1) $modelWiring[]=str_replace($root.'/', '', $file);
 }
 $factoryExists=is_file($root.'/app/Workflow/MonitorFactory.php');
-Assert::same($factoryExists?['app/Workflow/MonitorFactory.php']:[], $modelWiring, 'only the reviewed inactive factory may construct the native model transport');
+Assert::same($factoryExists?['app/Workflow/MonitorFactory.php']:[], $modelWiring, 'only the reviewed factory may construct the native model transport');
 if($factoryExists){
     $factoryCode=$code($root.'/app/Workflow/MonitorFactory.php');
-    Assert::same(1,preg_match_all('/new\s+OpenAIResponsesTransport\s*\(\s*false\s*\)/',$factoryCode),
-        'the sole model constructor is explicitly inactive');
+    // ONE constructor site, and its activation is never a literal: it is `$admitted`, computed from
+    // an ADMITTED execution grant in `admittedModelTransport()`, or `false` for the inactive composition.
     Assert::same(1,preg_match_all('/new\s+OpenAIResponsesTransport\s*\(/',$factoryCode),
-        'the factory contains no second native transport constructor');
+        'the factory contains exactly one native transport constructor');
+    Assert::same(1,preg_match_all('/return\s+new\s+OpenAIResponsesTransport\s*\(\s*\$admitted\s*\)\s*;/',$factoryCode),
+        'the sole constructor takes its activation from the admission check, never a literal');
+    preg_match_all('/self::modelTransport\(\s*([^)]*?)\s*\)/',$factoryCode,$activations);
+    $activationArgs=array_values(array_unique($activations[1]));
+    sort($activationArgs);
+    Assert::same(['$admitted','false'],$activationArgs,'the transport is requested only as inactive or as the result of an admission check');
+    Assert::true(preg_match('/\$admitted\s*=\s*\$grant\s*!==\s*null\s*&&\s*\$grant\[\'purpose\'\]\s*===\s*\$purpose\s*&&\s*\$grants->status\(\$grantId\)\s*===\s*\'ADMITTED\'\s*;/',$factoryCode)===1,
+        'activation requires an existing grant, of the right purpose, ADMITTED now');
+    Assert::false(str_contains($factoryCode,'modelTransport(true)'),'nothing asks for an activated transport by fiat');
 }
 
 // ============================================================ the live-read activation boundary

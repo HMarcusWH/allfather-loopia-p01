@@ -18,7 +18,8 @@
     ],
     "excluded_migration_ledger": "schema_migrations",
     "completion_plan_migrations": [
-      "database/migrations/210_monitor_execution_controls.sql"
+      "database/migrations/210_monitor_execution_controls.sql",
+      "database/migrations/220_monitor_evaluation_records.sql"
     ]
   },
   "baseline_canonical_tables": [
@@ -240,6 +241,12 @@
       "monitor_grant_consumptions",
       "monitor_prompt_approval_events",
       "monitor_prompt_approvals"
+    ],
+    "220_monitor_evaluation_records.sql": [
+      "monitor_evaluation_assessments",
+      "monitor_evaluation_results",
+      "monitor_evaluation_runs",
+      "provider_attempt_purposes"
     ]
   }
 }
