@@ -114,10 +114,10 @@ final class MissionConfiguration
                     || !in_array($action,$assignedActions,true) || !in_array($action,$missionActions,true) || !in_array($action,$contractActions,true)) {
                     return Outcome::refuse('MONITOR_ASSIGNMENT_MISMATCH');
                 }
-                $right=$this->db->one("SELECT allowed_operations,maximum_action_class FROM tool_rights WHERE capability_contract_id=? AND governed_tool_id=? AND status='ACTIVE' ORDER BY tool_right_id LIMIT 1",[$command['capability_contract_id'],$command['governed_tool_id']]);
+                $rights=$this->db->all("SELECT allowed_operations,maximum_action_class FROM tool_rights WHERE capability_contract_id=? AND governed_tool_id=? AND status='ACTIVE' ORDER BY tool_right_id",[$command['capability_contract_id'],$command['governed_tool_id']]);
                 $operation=$this->db->scalar('SELECT operation_key FROM governed_tool_operations WHERE governed_tool_operation_id=? AND governed_tool_id=?',[$command['governed_tool_operation_id']??'',$command['governed_tool_id']??'']);
-                if ($right===null || !is_string($operation) || !in_array($operation,json_decode((string)$right['allowed_operations'],true,32,JSON_THROW_ON_ERROR),true)
-                    || !ActionClass::withinCeiling($action,(string)$right['maximum_action_class'])) {
+                if (count($rights)!==1 || !is_string($operation) || !in_array($operation,json_decode((string)$rights[0]['allowed_operations'],true,32,JSON_THROW_ON_ERROR),true)
+                    || !ActionClass::withinCeiling($action,(string)$rights[0]['maximum_action_class'])) {
                     return Outcome::refuse('MISSION_BROADENS_CONTRACT');
                 }
                 if ($index===0) {
