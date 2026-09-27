@@ -19,7 +19,8 @@
     "excluded_migration_ledger": "schema_migrations",
     "completion_plan_migrations": [
       "database/migrations/210_monitor_execution_controls.sql",
-      "database/migrations/220_monitor_evaluation_records.sql"
+      "database/migrations/220_monitor_evaluation_records.sql",
+      "database/migrations/225_monitor_setup_receipts.sql"
     ]
   },
   "baseline_canonical_tables": [

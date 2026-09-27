@@ -63,6 +63,12 @@ Assert::same(
     array_map('count', $completion),
     'completion-plan tables are declared per reviewed migration',
 );
+$declaredCompletionMigrations = array_map('basename', $inventory['provenance']['completion_plan_migrations']);
+Assert::same(
+    array_keys($completion),
+    $declaredCompletionMigrations,
+    'completion-plan migration provenance names exactly the migrations whose tables are classified',
+);
 $completionTables = array_merge(...array_values($completion));
 $expected = array_merge($baselineCanonical, $canonicalRepairs, $baselineLoopia, $loopiaExtensions, $completionTables);
 Assert::same(203 + count($completionTables), count(array_unique($expected)), 'all table classifications are disjoint and duplicate-free');
