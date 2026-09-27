@@ -107,3 +107,14 @@ Assert::contains(
     $factory,
     'the deployed Monitor revalidates the accepted evaluation behind every manual prompt approval',
 );
+
+$authorizationDoc = (string) file_get_contents($root . '/docs/MONITOR_EXECUTION_AUTHORIZATION.md');
+Assert::contains(
+    'MonitorFactory::forWorkspace()',
+    $authorizationDoc,
+    'execution-authorization currentness names the deployed conditional composition',
+);
+Assert::false(
+    str_contains($authorizationDoc, 'deployed factory is still `MonitorFactory::inactive()`'),
+    'execution-authorization currentness does not repeat the pre-P03 deployment description',
+);

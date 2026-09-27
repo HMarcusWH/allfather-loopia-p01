@@ -94,7 +94,8 @@ final class MonitorSetup
     }
 
     /**
-     * Dry run with no setup/provisioning writes. M02 still records denied access checks by design.\n     * The returned `plan_digest` is what `apply()` must be given.
+     * Dry run with no setup/provisioning writes. M02 still records denied access checks by design.
+     * The returned `plan_digest` is what `apply()` must be given.
      *
      * @return Outcome<array<string, mixed>>
      */

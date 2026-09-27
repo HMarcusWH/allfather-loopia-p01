@@ -83,7 +83,10 @@ provider-side retention posture — that is an account setting reviewed separate
 
 ## What this does not do
 
-It does not activate anything. Merging it leaves every deployment inert: no decision exists, the
-deployed factory is still `MonitorFactory::inactive()`, and a live transport refuses every request
-that is not an admitted selection. It is not canonical law either: where canonical authority does
-not yet cover an operation, the decision belongs upstream first.
+It does not activate anything. The deployed web composition uses
+`MonitorFactory::forWorkspace()`. With no ADMITTED `MANUAL_MONITOR` grant it constructs the inert
+source/model leaves; with an admitted grant it may construct the live leaves, but every capture,
+model and release checkpoint still revalidates that exact grant, the current prompt approval and
+its accepted evaluation evidence. No owner execution decision ships in this candidate, so merging
+code alone admits nothing. It is not canonical law either: where canonical authority does not yet
+cover an operation, the decision belongs upstream first.
