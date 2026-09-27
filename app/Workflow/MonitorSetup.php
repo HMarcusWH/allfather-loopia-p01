@@ -670,7 +670,12 @@ final class MonitorSetup
     private function summary(array $receipt, bool $reused): array
     {
         $outcome = json_decode($receipt['outcome_json'], true, 64, JSON_THROW_ON_ERROR);
+        $objects = $outcome['objects'];
+        // The private review reference is retained in the append-only receipt for audit, but it may
+        // be a private filesystem/ticket location and is not an operator-report field. The digest is
+        // enough to identify the reviewed evidence without echoing its location into terminal logs.
+        unset($objects['source_review_evidence_reference']);
 
-        return ['setup_receipt_id' => $receipt['setup_receipt_id'], 'setup_key' => $receipt['setup_key'], 'revision' => (int) $receipt['revision'], 'predecessor_receipt_id' => $receipt['predecessor_receipt_id'], 'supersedes_mission_id' => $outcome['supersedes_mission_id'], 'mission_id' => $receipt['mission_id'], 'definition_digest' => $receipt['definition_digest'], 'request_digest' => $receipt['request_digest'], 'plan_digest' => $receipt['plan_digest'], 'steps' => $outcome['steps'], 'objects' => $outcome['objects'], 'reused_existing_receipt' => $reused, 'grants_roles' => false, 'grants_native_execution' => false, 'activation_granted' => false];
+        return ['setup_receipt_id' => $receipt['setup_receipt_id'], 'setup_key' => $receipt['setup_key'], 'revision' => (int) $receipt['revision'], 'predecessor_receipt_id' => $receipt['predecessor_receipt_id'], 'supersedes_mission_id' => $outcome['supersedes_mission_id'], 'mission_id' => $receipt['mission_id'], 'definition_digest' => $receipt['definition_digest'], 'request_digest' => $receipt['request_digest'], 'plan_digest' => $receipt['plan_digest'], 'steps' => $outcome['steps'], 'objects' => $objects, 'reused_existing_receipt' => $reused, 'grants_roles' => false, 'grants_native_execution' => false, 'activation_granted' => false];
     }
 }
