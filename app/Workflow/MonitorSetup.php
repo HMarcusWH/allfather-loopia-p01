@@ -39,7 +39,7 @@ final class MonitorSetup
     public const MAX_PROFILE_BYTES = 16384;
     public const CRITIC_NAME = 'Monitor Review Critic';
     private const CRITIC_CONTRACT_KEY = 'monitor.review_critic';
-    private const MISSION_ACTION_CLASSES = ['OBSERVE', 'ANALYZE'];
+    private const MISSION_ACTION_CLASSES = ['OBSERVE', 'ANALYZE', 'RELEASE_INTELLIGENCE'];
     private const ENTITLEMENT = 'competition_monitoring.read';
 
     public function __construct(private readonly Database $db, private readonly Clock $clock, private readonly EvidenceStore $store) {}
@@ -294,10 +294,18 @@ final class MonitorSetup
 
                 $profileSource = $this->profileSource($scope, $tx)['source_ref_id'];
                 $sources = [$profileSource, $card['source_ref_id']];
-                $missionId = $m04->createMission($scope['tenant_id'], $scope['workspace_id'], 'COMPETITION_MONITORING', $r['mission']['title'], $r['mission']['objective'], self::MISSION_ACTION_CLASSES, 'OPERATOR', $scope['operator_id'], 'ACTIVE', ['INTERNAL_INFORMATIONAL'], $sources);
-                $capture = $m04->assignToMission($missionId, $registration['valkyrie_id'], $registration['capability_contract_id'], 'SOURCE_READER', [$registration['governed_tool_id']], ['OBSERVE'], $scope['operator_id']);
-                $authorAssignment = $m04->assignToMission($missionId, $registration['valkyrie_id'], $registration['capability_contract_id'], 'MODEL_AUTHOR', [$modelTool], ['ANALYZE'], $scope['operator_id']);
-                $criticAssignment = $m04->assignToMission($missionId, $critic['valkyrie_id'], $critic['contract_id'], 'MODEL_CRITIC', [$modelTool], ['ANALYZE'], $scope['operator_id']);
+                $predecessor = $successorOf === null ? null : $tx->one('SELECT setup_receipt_id,mission_id FROM monitor_setup_receipts WHERE setup_receipt_id=? AND tenant_id=? AND workspace_id=?', [$successorOf, $scope['tenant_id'], $scope['workspace_id']]);
+                $missionId = $m04->createMission(
+                    $scope['tenant_id'], $scope['workspace_id'], 'COMPETITION_MONITORING',
+                    $r['mission']['title'], $r['mission']['objective'], self::MISSION_ACTION_CLASSES,
+                    'OPERATOR', $scope['operator_id'], 'DRAFT', ['INTERNAL_INFORMATIONAL'], $sources,
+                    [$registration['governed_tool_id'], $modelTool], $predecessor['mission_id'] ?? null,
+                );
+                $activated = $m04->activateMission($missionId, $scope['operator_id']);
+                if (!$activated->isOk()) { return $activated; }
+                $capture = $m04->assignToMissionNarrowed($missionId, $registration['valkyrie_id'], $registration['capability_contract_id'], 'SOURCE_READER', [$registration['governed_tool_id']], ['OBSERVE'], $scope['operator_id']);
+                $authorAssignment = $m04->assignToMissionNarrowed($missionId, $registration['valkyrie_id'], $registration['capability_contract_id'], 'MODEL_AUTHOR', [$modelTool], ['ANALYZE'], $scope['operator_id']);
+                $criticAssignment = $m04->assignToMissionNarrowed($missionId, $critic['valkyrie_id'], $critic['contract_id'], 'MODEL_CRITIC', [$modelTool], ['ANALYZE'], $scope['operator_id']);
                 foreach ([$capture, $authorAssignment, $criticAssignment] as $assigned) {
                     if (!$assigned->isOk()) { return $assigned; }
                 }
@@ -309,14 +317,13 @@ final class MonitorSetup
                     'capture_governance' => ['mission_id' => $missionId, 'assignment_id' => $capture->value()['assignment_id'], 'valkyrie_id' => $registration['valkyrie_id'], 'capability_contract_id' => $registration['capability_contract_id'], 'governed_tool_id' => $registration['governed_tool_id'], 'governed_tool_operation_id' => $registration['governed_tool_operation_id'], 'calling_actor_type' => 'OPERATOR', 'calling_actor_id' => $scope['operator_id']],
                     'model_governance' => ['author' => $authorGovernance, 'critic' => $common + ['assignment_id' => $criticAssignment->value()['assignment_id'], 'valkyrie_id' => $critic['valkyrie_id'], 'capability_contract_id' => $critic['contract_id']]],
                     'release_governance' => ['mission_id' => $missionId, 'producing_valkyrie_id' => $registration['valkyrie_id'], 'capability_contract_id' => $registration['capability_contract_id']],
-                    'context_selection' => ['mission_id' => $missionId, 'purpose' => $r['mission']['objective'], 'audience' => $r['target']['target_org_role'], 'selected_target_org_role' => $r['target']['target_org_role'], 'limits' => $r['context_limits'], 'profile_evidence_ids' => $r['profile_evidence_ids'], 'source_ids' => $sources],
+                    'context_selection' => ['mission_id' => $missionId, 'purpose' => $r['mission']['objective'], 'audience' => $r['target']['audience'], 'selected_target_org_role' => $r['target']['target_org_role'], 'limits' => $r['context_limits'], 'profile_evidence_ids' => $r['profile_evidence_ids'], 'source_ids' => $sources],
                     'credential_id' => $r['credential_id'], 'target_org_role' => $r['target']['target_org_role'],
                     'p01_policy_id' => $p01->value()['arbiter_policy_set_id'], 'p04_policy_id' => $p04->value()['arbiter_policy_set_id'],
                 ];
                 $configured = (new MissionConfiguration($tx, $this->clock))->configure($scope, $definition, 'NATIVE');
                 if (!$configured->isOk()) { return $configured; }
 
-                $predecessor = $successorOf === null ? null : $tx->one('SELECT setup_receipt_id,mission_id FROM monitor_setup_receipts WHERE setup_receipt_id=?', [$successorOf]);
                 $outcome = ['steps' => $plan['steps'], 'objects' => [
                     'model_governed_tool_id' => $modelTool, 'source_read_binding_id' => $ids['binding_id'],
                     'monitor_valkyrie_id' => $registration['valkyrie_id'], 'monitor_contract_id' => $registration['capability_contract_id'],
@@ -324,7 +331,8 @@ final class MonitorSetup
                     'competitor_id' => $competitor, 'source_license_card_id' => $card['id'], 'source_ref_id' => $card['source_ref_id'],
                     'monitored_source_id' => $monitored, 'profile_source_ref_id' => $profileSource, 'profile_evidence_ids' => $r['profile_evidence_ids'],
                     'p01_policy_id' => $definition['p01_policy_id'], 'p04_policy_id' => $definition['p04_policy_id'],
-                    'target_org_role' => $r['target']['target_org_role'], 'credential_id' => $r['credential_id'],
+                    'target_org_role' => $r['target']['target_org_role'], 'audience' => $r['target']['audience'], 'credential_id' => $r['credential_id'],
+                    'source_review_evidence_reference' => $r['source']['review']['evidence_reference'],
                 ], 'supersedes_mission_id' => $predecessor['mission_id'] ?? null];
                 $receiptId = Ids::new();
                 $tx->insert('monitor_setup_receipts', ['setup_receipt_id' => $receiptId, 'tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'], 'setup_key' => $r['setup_key'], 'revision' => $plan['revision'], 'predecessor_receipt_id' => $predecessor['setup_receipt_id'] ?? null, 'request_digest' => $plan['request_digest'], 'plan_digest' => $plan['plan_digest'], 'mission_id' => $missionId, 'definition_digest' => $configured->value()['definition_digest'], 'outcome_json' => json_encode($outcome, JSON_THROW_ON_ERROR), 'applied_by_operator_id' => $scope['operator_id'], 'created_at' => $this->clock->now()]);
@@ -383,7 +391,14 @@ final class MonitorSetup
         if (!is_array($p) || !array_is_list($p) || $p === [] || count($p) > 4 || count(array_unique($p)) !== count($p)) { return $bad('profile_evidence_ids'); }
         foreach ($p as $id) { if (!$uuid($id)) { return $bad('profile_evidence_ids'); } }
         $t = $q['target'];
-        if (!is_array($t) || array_keys($t) !== ['target_org_role', 'redaction_rules'] || !in_array($t['target_org_role'], Distribution::TARGET_ORG_ROLES, true) || !is_array($t['redaction_rules']) || !array_is_list($t['redaction_rules']) || count($t['redaction_rules']) > 32) { return $bad('target'); }
+        $targetKeys=['target_org_role','redaction_rules','audience'];
+        if (!is_array($t) || array_diff(array_keys($t),$targetKeys)!==[] || array_diff(['target_org_role','redaction_rules'],array_keys($t))!==[]
+            || !in_array($t['target_org_role']??null,Distribution::TARGET_ORG_ROLES,true) || !is_array($t['redaction_rules']??null)
+            || !array_is_list($t['redaction_rules']) || count($t['redaction_rules'])>32) { return $bad('target'); }
+        foreach($t['redaction_rules'] as $rule)if(!is_string($rule)||mb_strlen($rule)>500)return $bad('target.redaction_rules');
+        $audience=$t['audience']??(($t['target_org_role']??null)==='SALES'?'SALES':null);
+        if(!is_string($audience)||!in_array($audience,ContextEnvelope::AUDIENCES,true))return $bad('target.audience');
+        $t=['target_org_role'=>$t['target_org_role'],'redaction_rules'=>$t['redaction_rules'],'audience'=>$audience];
         if (!$uuid($q['credential_id'])) { return $bad('credential_id'); }
         $l = $q['context_limits'];
         $limits = ['max_input_bytes' => 65536, 'max_output_tokens' => 2048, 'max_model_calls' => 4, 'max_observation_age_seconds' => 31536000];

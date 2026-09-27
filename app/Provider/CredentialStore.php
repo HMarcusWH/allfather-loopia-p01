@@ -30,6 +30,9 @@ final class CredentialStore
                 // Serialize tenant credential changes; exactly one active provider key survives.
                 $tx->one('SELECT tenant_id FROM tenants WHERE tenant_id=? FOR UPDATE',[$scope['tenant_id']]);
                 $rotated=$this->activeIds($tx,$scope['tenant_id']);
+                if ($rotated!==[] && $expectedRotation===null) {
+                    return Outcome::refuse('PROVIDER_CREDENTIAL_ROTATION_NOT_ACKNOWLEDGED',['would_rotate'=>$rotated]);
+                }
                 if ($expectedRotation!==null) {
                     $expected=array_values(array_unique($expectedRotation));sort($expected,SORT_STRING);
                     if ($expected!==$rotated) return Outcome::refuse('PROVIDER_CREDENTIAL_ROTATION_NOT_ACKNOWLEDGED',['would_rotate'=>$rotated]);

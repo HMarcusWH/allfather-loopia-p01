@@ -12,6 +12,8 @@ use Allfather\Loopia\Ingestion\SourcePolicy;
 /** Read-only, current-authority context projection. Never promotes a company twin or invents text. */
 final class ContextEnvelope implements ModelContextAuthority
 {
+    public const AUDIENCES = ['TENANT_ADMIN_LEADERSHIP','SALES','MARKETING','PRODUCT','PROCUREMENT_FINANCE_OPS','BROAD_INTERNAL_BI','RESTRICTED_NEED_TO_KNOW'];
+
     public function __construct(private readonly Database $db, private readonly Clock $clock, private readonly EvidenceStore $store) {}
 
     public function prepare(array $scope, array $input): Outcome
@@ -26,7 +28,7 @@ final class ContextEnvelope implements ModelContextAuthority
             $purpose=(string)$mission['objective'];
             if ($purpose==='' || strlen($purpose)>4000 || (isset($input['purpose']) && $input['purpose']!==$purpose)) return Outcome::refuse('CONTEXT_PURPOSE_NOT_BOUND_TO_MISSION');
             $audience=$input['audience']??'';
-            if (!in_array($audience,['TENANT_ADMIN_LEADERSHIP','SALES','MARKETING','PRODUCT','PROCUREMENT_FINANCE_OPS','BROAD_INTERNAL_BI','RESTRICTED_NEED_TO_KNOW'],true)) return Outcome::refuse('CONTEXT_AUDIENCE_UNSUPPORTED');
+            if (!in_array($audience,self::AUDIENCES,true)) return Outcome::refuse('CONTEXT_AUDIENCE_UNSUPPORTED');
             $target=$input['selected_target_org_role']??null;
             if(!is_string($target)||!in_array($target,\Allfather\Loopia\Product\P04\Distribution::TARGET_ORG_ROLES,true))return Outcome::refuse('CONTEXT_ROUTING_TARGET_REQUIRED');
             $targetPolicy=$this->db->one('SELECT redaction_rules_json FROM console_redaction_policy_projections WHERE tenant_id=? AND workspace_id=? AND target_org_role=?',[$scope['tenant_id'],$scope['workspace_id'],$target]);
