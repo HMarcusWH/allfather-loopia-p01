@@ -43,26 +43,28 @@ $tenant = static function (string $name) use ($db, $clock, $setup, $credentials,
 $a = $tenant('setup-scope-a');
 $b = $tenant('setup-scope-b');
 $scopeOf = static fn (array $t): array => ['tenant_id' => $t['tenant_id'], 'workspace_id' => $t['workspace_id'], 'operator_id' => $t['operator_id']];
-$request = static fn (string $profile, string $credential, string $url = 'https://sources.example/shared-page'): array => [
+$request = static fn (string $profile, string $credential, string $reviewer, string $url = 'https://sources.example/shared-page'): array => [
     'setup_key' => 'scope-test', 'mission' => ['title' => 'Scope test', 'objective' => 'Observe one page.'],
     'competitor' => ['display_name' => 'Shared Rival AB', 'competitor_class' => 'DIRECT', 'organization_number' => null],
     'source' => ['url' => $url, 'source_name' => 'Shared page', 'license_class' => 'PUBLIC_WEB_ALLOWED', 'allowed_use_class' => 'derived_summary_allowed', 'customer_output_allowed' => true, 'derived_summary_allowed' => true, 'caching_policy' => 'standard_cache', 'retention_class' => 'standard',
-        'review' => ['approved_by' => 'Synthetic reviewer', 'approved_at' => '2026-01-01T00:00:00.000Z', 'evidence_reference' => 'offline note', 'robots_policy_checked' => true, 'terms_policy_checked' => true]],
+        'review' => ['approved_by_operator_id' => $reviewer, 'approved_at' => '2026-01-01T00:00:00.000Z', 'evidence_reference' => 'offline note', 'evidence_sha256' => hash('sha256', 'scope source review'), 'robots_policy_checked' => true, 'terms_policy_checked' => true]],
     'profile_evidence_ids' => [$profile], 'target' => ['target_org_role' => 'SALES', 'redaction_rules' => []], 'credential_id' => $credential,
     'context_limits' => ['max_input_bytes' => 65536, 'max_output_tokens' => 2048, 'max_model_calls' => 4, 'max_observation_age_seconds' => 172800],
 ];
 $steps = static fn (array $plan): array => array_column($plan['steps'], null, 'step');
 
 // ---------------------------------------------------------------- B's objects exist; A's setup must not see them
-$bPlan = X::value($setup->plan($scopeOf($b), $request($b['profile'], $b['credential'])));
+$bPlan = X::value($setup->plan($scopeOf($b), $request($b['profile'], $b['credential'], $b['operator_id'])));
 X::value($setup->apply($scopeOf($b), $request($b['profile'], $b['credential']), $bPlan['plan_digest']));
 (new Distribution($db, $clock, new DecisionLedger($db, $clock)))->configureRoleRedactionPolicy(['tenant_id' => $b['tenant_id'], 'workspace_id' => $b['workspace_id'], 'target_org_role' => 'SALES', 'redaction_rules' => [['field' => 'x', 'action' => 'REDACT']]]);
 
-$foreignProfile = $steps(X::value($setup->plan($scopeOf($a), $request($b['profile'], $a['credential']))));
+$foreignProfile = $steps(X::value($setup->plan($scopeOf($a), $request($b['profile'], $a['credential'], $a['operator_id']))));
 Assert::same(['REFUSE', 'MONITOR_PROFILE_NOT_AVAILABLE'], [$foreignProfile['COMPANY_PROFILE']['action'], $foreignProfile['COMPANY_PROFILE']['reason_code']], "another tenant's profile evidence is refused");
-$foreignKey = $steps(X::value($setup->plan($scopeOf($a), $request($a['profile'], $b['credential']))));
+$foreignKey = $steps(X::value($setup->plan($scopeOf($a), $request($a['profile'], $b['credential'], $a['operator_id']))));
 Assert::same(['REFUSE', 'MONITOR_CREDENTIAL_NOT_AVAILABLE'], [$foreignKey['PROVIDER_CREDENTIAL']['action'], $foreignKey['PROVIDER_CREDENTIAL']['reason_code']], "another tenant's provider key is refused");
-$own = $steps(X::value($setup->plan($scopeOf($a), $request($a['profile'], $a['credential']))));
+$foreignReviewer = $steps(X::value($setup->plan($scopeOf($a), $request($a['profile'], $a['credential'], $b['operator_id']))));
+Assert::same(['REFUSE', 'SOURCE_REVIEW_OPERATOR_MISMATCH'], [$foreignReviewer['SOURCE_REVIEW_ATTESTATION']['action'], $foreignReviewer['SOURCE_REVIEW_ATTESTATION']['reason_code']], 'a source review cannot be attributed to another operator');
+$own = $steps(X::value($setup->plan($scopeOf($a), $request($a['profile'], $a['credential'], $a['operator_id']))));
 foreach (['COMPETITOR', 'SOURCE_CARD', 'MONITORED_SOURCE', 'DISTRIBUTION_TARGET', 'CRITIC', 'P01_REGISTRATION', 'MISSION_CONFIGURATION'] as $step) {
     Assert::same('CREATE', $own[$step]['action'], "{$step}: another tenant's object with the same name, URL or key is never reused");
 }
@@ -121,7 +123,7 @@ Assert::false(str_contains(json_encode($db->one('SELECT * FROM provider_credenti
 $described = $cli(['describe', ...$ids]);
 Assert::same(0, $described['exit'], 'describe works');
 Assert::false(str_contains($described['out'], $secret) || str_contains($described['out'], 'ciphertext') || str_contains($described['out'], 'credential_digest'), 'describe reports identities and states only');
-$plan = $setup->plan($scopeOf($a), $request($a['profile'], $newId));
+$plan = $setup->plan($scopeOf($a), $request($a['profile'], $newId, $a['operator_id']));
 Assert::false(str_contains(json_encode($plan), $secret), 'a dry run never carries a secret');
 Assert::false(str_contains(json_encode($setup->plan($scopeOf($a), ['credential_id' => $secret])), $secret), 'nor does a refused one echo request values');
 foreach (['ops/monitor/setup.php', 'ops/monitor/import-profile.php', 'ops/provider/credential.php'] as $file) {
