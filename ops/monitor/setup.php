@@ -9,9 +9,9 @@ declare(strict_types=1);
  *   apply    --request=<setup.json> --plan-digest=<hex> [--successor-of=<setup_receipt_id>]
  *   receipt  --setup-key=<key>
  *
- * `plan` writes nothing and prints, for every object the mission needs, REUSE / CREATE / CONFLICT /
+ * `plan` makes no setup/provisioning write and prints, for every object the mission needs, REUSE / CREATE / CONFLICT /
  * REFUSE and a plan digest. `apply` performs exactly that reviewed plan through the existing owners
- * and refuses if anything changed since. Setup needs the operator's existing M02 roles; it never grants a
+ * and refuses if anything changed since. M02 may still append a denied access-evaluation audit record. Setup needs the operator's existing M02 roles; it never grants a
  * role, subscribes a tenant, approves a source, rotates a credential or admits native execution.
  * A changed request needs --successor-of: the old mission and its configuration are never rewritten.
  */

@@ -141,8 +141,11 @@ final class MonitorSetup
 
         $competitor = $this->competitorState($scope, $r['competitor']);
         $add('COMPETITOR', $competitor['action'], $competitor['id'] ?? null, $competitor['reason'] ?? null);
-        $reviewAuthorized = $r['source']['review']['approved_by_operator_id'] === $scope['operator_id'];
-        $add('SOURCE_REVIEW_ATTESTATION', $reviewAuthorized ? 'REUSE' : 'REFUSE', $r['source']['review']['approved_by_operator_id'], $reviewAuthorized ? null : 'SOURCE_REVIEW_OPERATOR_MISMATCH');
+        $review = $r['source']['review'];
+        $reviewReason = $review['approved_by_operator_id'] !== $scope['operator_id']
+            ? 'SOURCE_REVIEW_OPERATOR_MISMATCH'
+            : ($review['approved_at'] > $this->clock->now() ? 'SOURCE_REVIEW_TIME_INVALID' : null);
+        $add('SOURCE_REVIEW_ATTESTATION', $reviewReason === null ? 'REUSE' : 'REFUSE', $review['approved_by_operator_id'], $reviewReason);
         $card = $this->cardState($scope, $r['source']);
         $add('SOURCE_CARD', $card['action'], $card['id'] ?? null, $card['reason'] ?? null);
         $monitored = $this->monitoredState($scope, $competitor['id'] ?? null, $card['source_ref_id'] ?? null);
@@ -300,7 +303,10 @@ final class MonitorSetup
                         'source_terms_review_id' => Ids::new(), 'schema_version' => '1',
                         'source_license_card_id' => $card['id'], 'robots_url' => null, 'terms_url' => null,
                         'robots_policy_checked' => 1, 'terms_policy_checked' => 1,
-                        'terms_snapshot_hash' => $review['evidence_sha256'],
+                        // The private review-note digest belongs to the append-only setup
+                        // receipt. This column is specifically a hash of source TERMS bytes, which
+                        // setup does not possess and must not fabricate from a review note.
+                        'terms_snapshot_hash' => null,
                         'reviewed_by' => $scope['operator_id'], 'reviewed_at' => $review['approved_at'],
                         'expires_at' => null,
                     ]);
@@ -419,7 +425,7 @@ final class MonitorSetup
         if (!is_array($rv) || array_diff(array_keys($rv), $reviewKeys) !== [] || array_diff($reviewKeys, array_keys($rv)) !== []
             || !$uuid($rv['approved_by_operator_id'] ?? null) || !$text($rv['evidence_reference'], 300)
             || !is_string($rv['evidence_sha256'] ?? null) || preg_match('/^[a-f0-9]{64}$/D',$rv['evidence_sha256'])!==1
-            || !is_string($rv['approved_at']) || preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/D', $rv['approved_at']) !== 1
+            || !is_string($rv['approved_at']) || !Clock::isCanonical($rv['approved_at'])
             || $rv['robots_policy_checked'] !== true || $rv['terms_policy_checked'] !== true) { return $bad('source.review'); }
         $p = $q['profile_evidence_ids'];
         if (!is_array($p) || !array_is_list($p) || $p === [] || count($p) > 4 || count(array_unique($p)) !== count($p)) { return $bad('profile_evidence_ids'); }
@@ -550,12 +556,13 @@ final class MonitorSetup
         foreach ($rows as $row) {
             $same = $row['source_name'] === $want['source_name'] && $row['source_type'] === 'website' && $row['license_class'] === $want['license_class'] && $row['allowed_use_class'] === $want['allowed_use_class']
                 && (int) $row['customer_output_allowed'] === (int) $want['customer_output_allowed'] && (int) $row['derived_summary_allowed'] === (int) $want['derived_summary_allowed']
-                && (int) $row['robots_policy_checked'] === 1 && (int) $row['terms_policy_checked'] === 1 && $row['review_status'] === 'approved' && $row['caching_policy'] === $want['caching_policy'] && $row['retention_class'] === $want['retention_class'];
+                && (int) $row['robots_policy_checked'] === 1 && (int) $row['terms_policy_checked'] === 1 && $row['review_status'] === 'approved'
+                && $row['approved_by'] === $want['approved_by'] && $row['approved_at'] === $want['approved_at']
+                && $row['caching_policy'] === $want['caching_policy'] && $row['retention_class'] === $want['retention_class'];
             if ($same) {
                 $review=($db ?? $this->db)->one('SELECT robots_policy_checked,terms_policy_checked,terms_snapshot_hash,reviewed_by,reviewed_at FROM source_terms_reviews WHERE source_license_card_id=? ORDER BY reviewed_at DESC,source_terms_review_id DESC LIMIT 1',[$row['source_license_card_id']]);
                 $expectedReview=$s['review'];
                 if ($review===null || (int)$review['robots_policy_checked']!==1 || (int)$review['terms_policy_checked']!==1
-                    || $review['terms_snapshot_hash']!==$expectedReview['evidence_sha256']
                     || $review['reviewed_by']!==$expectedReview['approved_by_operator_id']
                     || $review['reviewed_at']!==$expectedReview['approved_at']) {
                     return ['action' => 'CONFLICT', 'reason' => 'SOURCE_REVIEW_DIFFERS'];

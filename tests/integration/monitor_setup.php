@@ -53,6 +53,9 @@ Assert::same(0, $count('evidence_objects'), 'a denied import wrote nothing');
 // The explicit, authorized membership act — performed outside setup, never by it.
 $role = Seed::role($db, $clock, 'setup-operator-' . substr(Ids::new(), 0, 8), [...MonitorSetup::PERMISSIONS, 'tool.invoke', 'evidence.read', 'mission.read', 'mission.transition', 'company_signal.review', 'distribution.route', 'competition_monitoring.read']);
 Seed::membership($db, $clock, $scope['tenant_id'], $scope['workspace_id'], $scope['operator_id'], $role['role_id']);
+$futureReview=$request([Ids::new()],Ids::new(),['source'=>['review'=>['approved_at'=>'2026-01-02T00:00:00.000Z']]]);
+$futurePlan=X::value($setup->plan($scope,$futureReview));
+Assert::same('SOURCE_REVIEW_TIME_INVALID',array_column($futurePlan['steps'],null,'step')['SOURCE_REVIEW_ATTESTATION']['reason_code'],'a future-dated source review is not current authority');
 
 // ---------------------------------------------------------------- profile import
 $profileA = 'Owner-provided, unverified: we run event studios in Stockholm and sell day packages.';
@@ -103,7 +106,10 @@ Assert::same('NATIVE', $config['execution_mode'], 'the configuration is native, 
 $definition = json_decode($config['definition_json'], true, 64, JSON_THROW_ON_ERROR);
 Assert::true((new MissionConfiguration($db, $clock))->validate($scope, $definition, 'NATIVE')->isOk(), 'the frozen definition validates against live owners');
 Assert::same([$a['evidence_id']], $definition['context_selection']['profile_evidence_ids'], 'it selects the imported profile');
-Assert::same(1, (int) $db->scalar('SELECT COUNT(*) FROM source_terms_reviews WHERE source_license_card_id=?', [$applied['objects']['source_license_card_id']]), 'the supplied review attestation is stored on the canonical append-only source review ledger');
+Assert::same(1, (int) $db->scalar('SELECT COUNT(*) FROM source_terms_reviews WHERE source_license_card_id=?', [$applied['objects']['source_license_card_id']]), 'the supplied review event is stored on the canonical append-only source review ledger');
+$reviewRow=$db->one('SELECT terms_snapshot_hash,reviewed_by,reviewed_at FROM source_terms_reviews WHERE source_license_card_id=?',[$applied['objects']['source_license_card_id']]);
+Assert::same([null,$scope['operator_id'],'2026-01-01T00:00:00.000Z'],[$reviewRow['terms_snapshot_hash'],$reviewRow['reviewed_by'],$reviewRow['reviewed_at']],'a review-note digest is not mislabeled as a hash of source terms bytes');
+Assert::same(hash('sha256','synthetic source review'),$applied['objects']['source_review_evidence_sha256'],'the private review evidence digest stays bound in the append-only setup receipt');
 Assert::same(SourceReadRegistration::TOOL_REF, $db->scalar('SELECT runtime_host_tool_ref FROM runtime_host_tool_refs WHERE governed_tool_id=?', [$definition['capture_governance']['governed_tool_id']]), 'the read tool is mapped onto the shared read-only binding');
 Assert::same('SAFE_READ_ONLY', $db->scalar('SELECT safety_classification FROM runtime_host_bindings WHERE binding_id=?', [$applied['objects']['source_read_binding_id']]), 'which can only observe');
 Assert::true($definition['model_governance']['author']['valkyrie_id'] !== $definition['model_governance']['critic']['valkyrie_id'], 'author and critic are separate agents');

@@ -389,11 +389,23 @@ final class SourcePolicy
         }
         $host = strtolower($parts['host']);
         $port = $parts['port'] ?? null;
+        $path = $parts['path'] ?? '/';
+        // Dot-segments and encoded path separators/dots are authority-ambiguous: libcurl, proxies
+        // and origin servers can normalize them at different layers. Refuse them instead of
+        // authorizing one spelling and dispatching another effective path.
+        if (str_contains($path, '\\') || preg_match('/%(?:2e|2f|5c|25)/i', $path) === 1) {
+            return null;
+        }
+        foreach (explode('/', rawurldecode($path)) as $segment) {
+            if ($segment === '.' || $segment === '..') {
+                return null;
+            }
+        }
         // A card written as `https://example.com:443/x` normalizes to the same scope as
         // `https://example.com/x`: one card, one stored authority, however the owner spelled it.
         $authority = ($port === null || $port === 443) ? $host : "{$host}:{$port}";
 
-        return ['scope' => 'https://' . $authority . ($parts['path'] ?? '/'), 'host' => $host];
+        return ['scope' => 'https://' . $authority . $path, 'host' => $host];
     }
 
     /** Whether a concrete capture URL falls inside a compiled authority scope. */

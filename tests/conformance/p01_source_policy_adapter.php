@@ -427,6 +427,16 @@ Assert::same(
     $runCapture($scoped, $scoped['url'] . '-admin')->reasonCode(),
     'a sibling path that merely shares the card path prefix is not inside the source scope',
 );
+Assert::same(
+    'CAPTURE_URL_OUTSIDE_SOURCE_SCOPE',
+    $runCapture($scoped, $scoped['url'] . '/../admin')->reasonCode(),
+    'dot-segment traversal is not a spelling of an authorized child path',
+);
+Assert::same(
+    'CAPTURE_URL_OUTSIDE_SOURCE_SCOPE',
+    $runCapture($scoped, $scoped['url'] . '/%2e%2e/admin')->reasonCode(),
+    'percent-encoded dot-segment traversal is refused before dispatch',
+);
 $child = $freshSource();
 Assert::true(
     $runCapture($child, $child['url'] . '/details', new FetchResponse(200, 'text/html', null, $body))->isOk(),
