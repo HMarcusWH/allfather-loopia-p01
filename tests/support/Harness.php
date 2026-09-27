@@ -85,6 +85,33 @@ final class Harness
         );
     }
 
+    /**
+     * A private env file naming this suite's database, for a test that must run a CLI in a child
+     * process exactly as an operator would. Extra keys (a synthetic master key, say) are appended.
+     * The file is 0600 in the system temp directory and is the caller's to delete.
+     *
+     * @param array<string, string> $extra
+     */
+    public static function childEnvFile(array $extra = []): string
+    {
+        $env = self::env();
+        $lines = [];
+        foreach (['DB_HOST' => '127.0.0.1', 'DB_PORT' => '3306', 'DB_NAME' => 'allfather_test', 'DB_USER' => 'allfather', 'DB_PASSWORD' => 'allfather_dev', 'DB_SOCKET' => null] as $key => $default) {
+            $value = $env->get($key, $default);
+            if ($value !== null && $value !== '') {
+                $lines[] = $key . '=' . $value;
+            }
+        }
+        foreach ($extra as $key => $value) {
+            $lines[] = $key . '=' . $value;
+        }
+        $path = sys_get_temp_dir() . '/allfather-child-env-' . bin2hex(random_bytes(6));
+        file_put_contents($path, "APP_ENV=testing\n" . implode("\n", $lines) . "\n");
+        chmod($path, 0600);
+
+        return $path;
+    }
+
     public static function unavailableReason(): string
     {
         return self::$unavailableReason ?? 'MariaDB unreachable';

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace Allfather\Loopia\Workflow;
 
-use Allfather\Loopia\Core\{Clock,Digest,Outcome};
+use Allfather\Loopia\Core\{Clock,Digest,OperatorScope,Outcome};
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Provider\ModelRegistration;
 use Allfather\Loopia\Substrate\M02\AccessGuard;
@@ -13,8 +13,14 @@ final class MissionConfiguration
 {
     public function __construct(private readonly Database $db,private readonly Clock $clock) {}
 
+    /**
+     * Freeze one mission's definition. A mission has exactly one configuration for its lifetime; a
+     * changed definition is a successor mission (see MonitorSetup), never a rewrite of this row.
+     */
     public function configure(array $scope,array $definition,string $mode): Outcome
     {
+        $scope=OperatorScope::normalize($scope);
+        if ($scope===null) { return Outcome::refuse('MONITOR_CONFIGURATION_SCOPE_INVALID'); }
         foreach (['mission.create','mission.activate','distribution.configure_targets'] as $permission) {
             if ((new AccessGuard($this->db,$this->clock))->evaluate('OPERATOR',$scope['operator_id'],$scope['tenant_id'],$scope['workspace_id'],$permission,'MONITOR_CONFIGURATION')['decision']!=='ALLOW') {
                 return Outcome::refuse('MONITOR_CONFIGURATION_DENIED');
@@ -24,7 +30,7 @@ final class MissionConfiguration
         if (!$checked->isOk()) { return $checked; }
         $digest=Digest::canonicalDigest(['definition'=>$definition,'mode'=>$mode]);
         $prior=$this->db->one('SELECT definition_digest FROM monitor_mission_configs WHERE mission_id=? AND tenant_id=? AND workspace_id=?',[$definition['mission_id'],$scope['tenant_id'],$scope['workspace_id']]);
-        if ($prior!==null) { return hash_equals($prior['definition_digest'],$digest)?Outcome::ok(['mission_id'=>$definition['mission_id'],'activation_granted'=>false]):Outcome::refuse('MONITOR_CONFIGURATION_FROZEN'); }
+        if ($prior!==null) { return hash_equals($prior['definition_digest'],$digest)?Outcome::ok(['mission_id'=>$definition['mission_id'],'definition_digest'=>$digest,'activation_granted'=>false,'reused'=>true]):Outcome::refuse('MONITOR_CONFIGURATION_FROZEN',['successor_required'=>true]); }
         try {
             $this->db->insert('monitor_mission_configs',[
                 'mission_id'=>$definition['mission_id'],'tenant_id'=>$scope['tenant_id'],'workspace_id'=>$scope['workspace_id'],
@@ -66,6 +72,8 @@ final class MissionConfiguration
                 $ref=$this->db->one('SELECT * FROM source_references WHERE source_ref_id=?',[$profile['source_ref_id']]);
                 if ($ref===null || !SourceAdmission::evaluate($ref,$scope['tenant_id'],$scope['workspace_id'],$profile['permitted_use_scope'],$profile['sensitivity_class'])['admitted']) { return Outcome::refuse('MONITOR_PROFILE_NOT_ADMISSIBLE'); }
             }
+            // The key must belong to this tenant and be current; rotation never retargets a frozen definition.
+            if ($this->db->one("SELECT 1 FROM provider_credentials WHERE provider_credential_id=? AND tenant_id=? AND provider='OPENAI' AND status='ACTIVE'",[$d['credential_id'],$scope['tenant_id']])===null) { return Outcome::refuse('MONITOR_CREDENTIAL_NOT_AVAILABLE'); }
             if (!in_array($d['target_org_role'],\Allfather\Loopia\Product\P04\Distribution::TARGET_ORG_ROLES,true) || $this->db->one('SELECT 1 FROM console_redaction_policy_projections WHERE tenant_id=? AND workspace_id=? AND target_org_role=?',[$scope['tenant_id'],$scope['workspace_id'],$d['target_org_role']])===null) { return Outcome::refuse('DISTRIBUTION_TARGET_NOT_CONFIGURED'); }
             $commands=[$d['capture_governance'],$d['model_governance']['author']??[], $d['model_governance']['critic']??[]];
             foreach ($commands as $index=>$command) {

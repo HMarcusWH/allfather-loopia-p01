@@ -540,7 +540,8 @@ repin the whole projection or infer canonical authority from tables found in a r
 | Monitor host adapters | 4 | `monitor_mission_configs`, `monitor_runs`, `monitor_run_events`, `monitor_capture_payloads`; migration `200_monitor_runs.sql` |
 | Monitor execution controls (completion plan P01) | 6 | `monitor_prompt_approvals`, `monitor_prompt_approval_events`, `monitor_execution_grants`, `monitor_execution_grant_events`, `monitor_grant_consumptions`, `monitor_admission_decisions`; migration `210_monitor_execution_controls.sql` |
 | Monitor evaluation records (completion plan P02) | 4 | `monitor_evaluation_runs`, `monitor_evaluation_results`, `monitor_evaluation_assessments`, `provider_attempt_purposes`; migration `220_monitor_evaluation_records.sql` |
-| **Current application total** | **213** | **189 canonical + 24 Loopia adapters** |
+| Monitor setup receipts (completion plan P04) | 1 | `monitor_setup_receipts`; migration `225_monitor_setup_receipts.sql` |
+| **Current application total** | **214** | **189 canonical + 25 Loopia adapters** |
 
 The completion-plan tables are Loopia-local deployment controls, not canonical law: immutable grant
 and approval definitions, append-only lifecycle events, budget consumption and an admission trail.

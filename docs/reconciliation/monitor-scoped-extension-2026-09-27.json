@@ -158,6 +158,27 @@
         "native execution in any deployment",
         "ROAD_TEST_001"
       ]
+    },
+    {
+      "package": "P04",
+      "capability": "Repeatable operator-supported mission setup",
+      "paths": [
+        "app/Workflow/MonitorSetup.php",
+        "app/Product/P01/SourceReadRegistration.php",
+        "app/Core/OperatorScope.php",
+        "ops/monitor/setup.php",
+        "ops/monitor/import-profile.php",
+        "ops/provider/credential.php",
+        "database/migrations/225_monitor_setup_receipts.sql"
+      ],
+      "status": "SETUP_TOOLING_GRANTS_NO_ROLE_SUBSCRIPTION_OR_EXECUTION",
+      "not_claimed": [
+        "a configured real tenant",
+        "a tenant subscription",
+        "an M02 role grant",
+        "source review by the platform",
+        "native execution"
+      ]
     }
   ]
 }

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace Allfather\Loopia\Provider;
-use Allfather\Loopia\Core\{Clock,Digest,Ids,Outcome};
+use Allfather\Loopia\Core\{Clock,Digest,Ids,OperatorScope,Outcome};
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Substrate\M01\AdapterConformance;
 use Allfather\Loopia\Substrate\M02\AccessGuard;
@@ -21,9 +21,16 @@ final class ModelRegistration
         if($row===null||$row['governed_tool_id']!==$toolId||$row['governed_tool_operation_id']!==$operationId)return Outcome::refuse('MODEL_DESCRIPTOR_CONFLICT');
         return $this->validateExisting($row);
     }
+    /** Read-only: the registered descriptor, validated, or null when none exists yet. Grants nothing. */
+    public function current(): ?Outcome
+    {
+        $row=$this->existing();
+        return $row===null?null:$this->validateExisting($row);
+    }
     public function ensure(array $scope): Outcome
     {
-        foreach(['tenant_id','workspace_id','actor_type','actor_id'] as $k)if(empty($scope[$k]))return Outcome::refuse('MODEL_REGISTRATION_SCOPE_REQUIRED');
+        $scope=OperatorScope::normalize($scope);
+        if($scope===null)return Outcome::refuse('MODEL_REGISTRATION_SCOPE_REQUIRED');
         if((new AccessGuard($this->db,$this->clock))->evaluate($scope['actor_type'],$scope['actor_id'],$scope['tenant_id'],$scope['workspace_id'],'runtime_host_binding.administer','MODEL_DESCRIPTOR',null,null,true)['decision']!=='ALLOW')return Outcome::refuse('MODEL_REGISTRATION_DENIED');
         $existing=$this->existing();
         if($existing!==null)return $this->validateExisting($existing);

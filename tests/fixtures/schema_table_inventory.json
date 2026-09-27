@@ -247,6 +247,9 @@
       "monitor_evaluation_results",
       "monitor_evaluation_runs",
       "provider_attempt_purposes"
+    ],
+    "225_monitor_setup_receipts.sql": [
+      "monitor_setup_receipts"
     ]
   }
 }

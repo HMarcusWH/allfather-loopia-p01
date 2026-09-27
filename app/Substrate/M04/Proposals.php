@@ -68,6 +68,9 @@ final class Proposals
         // The output classes this mission may produce. Defaults to internal informational output —
         // the only kind most missions need — so naming anything else is a deliberate act.
         array $permittedOutputClasses = ['INTERNAL_INFORMATIONAL'],
+        // The sources this mission may ever read, fixed at creation. A mission that needs another
+        // source is a new mission, so a frozen configuration can never gain one behind its back.
+        array $allowedSourceScopeIds = [],
     ): string {
         $missionId = Ids::new();
         $now = $this->clock->now();
@@ -85,7 +88,7 @@ final class Proposals
             'requested_action_classes' => json_encode(array_values($requestedActionClasses), JSON_THROW_ON_ERROR),
             'permitted_output_classes' => json_encode(array_values($permittedOutputClasses), JSON_THROW_ON_ERROR),
             'allowed_tool_ids' => json_encode([], JSON_THROW_ON_ERROR),
-            'allowed_source_scope_ids' => json_encode([], JSON_THROW_ON_ERROR),
+            'allowed_source_scope_ids' => json_encode(array_values(array_unique($allowedSourceScopeIds)), JSON_THROW_ON_ERROR),
             'completion_criteria' => 'Governed release recorded, or a refusal recorded with its reason code.',
             'explicit_prohibitions' => json_encode(
                 ['NO_EXTERNAL_ACTION', 'NO_PUBLICATION', 'NO_CUSTOMER_VISIBLE_OUTPUT'],
