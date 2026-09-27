@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../support/EvaluationFixture.php';
 
+use Allfather\Loopia\Core\Ids;
 use Allfather\Loopia\Evaluation\{EvaluationCaseContext,EvaluationManifest,EvaluationReport};
 use Allfather\Loopia\Tests\{Assert,EvaluationFixture as E,ExecutionFixture as X,Harness};
 
@@ -41,7 +42,7 @@ Assert::same('LIVE', $started['execution_mode'], 'a live-flagged transport recor
 $runId = $started['evaluation_run_id'];
 $preview = X::value($runner->preview($scope, $runId, $fx['governance']));
 Assert::same(count($fx['manifest']->caseIds('ALL')), count($preview), 'every selected case has an inspectable exact request');
-$wrongGovernance=$fx['governance'];$wrongGovernance['critic']['mission_id']=X::id();
+$wrongGovernance=$fx['governance'];$wrongGovernance['critic']['mission_id']=Ids::new();
 Assert::same('EVALUATION_GOVERNANCE_MISMATCH',$runner->preview($scope,$runId,$wrongGovernance)->reasonCode(),'preview is bound to the run governance even though it sends nothing');
 Assert::same(0, $fx['eval_transport']->calls, 'preview sends nothing');
 Assert::same('ACTIVE', $preview[0]['request']['provenance']->activation_status, 'requests run the selected prompt, not the draft content');
