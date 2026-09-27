@@ -177,12 +177,17 @@ final class EvaluationReport
         $t['usefulness_pass_rate'] = $rate($t['usefulness']);
         $t['held_out_mechanical_pass_rate'] = $t['held_out_results'] === 0 ? null : (float) ($t['held_out_results'] - $t['held_out_mechanical_failures']) / $t['held_out_results'];
 
-        if ($reasons !== []) {
-            $verdict = self::INCOMPLETE;
+        $incomplete = $reasons !== [];
+        $criticalRejected = $t['critical_failures'] > $score['critical_failures_allowed'];
+        if ($criticalRejected) {
+            // Critical failure is terminal evidence, not merely missing evidence. Preserve any
+            // incompleteness reasons too, but classify the run REJECTED exactly as the protocol
+            // promises even when an assessment is also still missing.
+            $reasons[] = 'CRITICAL_FAILURES:' . $t['critical_failures'];
+        }
+        if ($incomplete) {
+            $verdict = $criticalRejected ? self::REJECTED : self::INCOMPLETE;
         } else {
-            if ($t['critical_failures'] > $score['critical_failures_allowed']) {
-                $reasons[] = 'CRITICAL_FAILURES:' . $t['critical_failures'];
-            }
             if ($t['held_out_mechanical_pass_rate'] === null || $t['held_out_mechanical_pass_rate'] < $score['min_held_out_mechanical_pass_rate']) {
                 $reasons[] = 'HELD_OUT_MECHANICAL_PASS_RATE_BELOW_THRESHOLD';
             }

@@ -94,6 +94,9 @@ Assert::true(in_array('HELD_OUT_CASE_NOT_SELECTED:en-source-injection', $devRepo
 $naive = E::create($db, $clock, E::naive());
 $n = X::value($naive['runner']->start($naive['scope'], $naive['eval_grant']['execution_grant_id'], 'ALL', $naive['governance'], $naive['credential_id']));
 X::value($naive['runner']->execute($naive['scope'], $n['evaluation_run_id'], $naive['governance'], $naive['credential_id']));
+$naiveUnassessed = X::value(EvaluationReport::build($db, $naive['scope']['tenant_id'], $naive['scope']['workspace_id'], $n['evaluation_run_id'], $naive['manifest']));
+Assert::same(EvaluationReport::REJECTED, $naiveUnassessed['verdict'], 'a mechanically proven critical failure is REJECTED even while human assessments are incomplete');
+Assert::true((bool) array_filter($naiveUnassessed['verdict_reasons'], static fn (string $reason): bool => str_starts_with($reason, 'ASSESSMENT_MISSING:')), 'the report still preserves its incompleteness reasons');
 E::assessAll($db, $naive, $n['evaluation_run_id']);
 $naiveReport = X::value(EvaluationReport::build($db, $naive['scope']['tenant_id'], $naive['scope']['workspace_id'], $n['evaluation_run_id'], $naive['manifest']));
 Assert::same(EvaluationReport::REJECTED, $naiveReport['verdict'], 'a model that follows injected instructions is rejected even with every human PASS');
