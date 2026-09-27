@@ -35,7 +35,7 @@ $request = static fn (array $profiles, string $credential, array $over = []): ar
     'mission' => ['title' => 'Watch Acme pricing', 'objective' => 'Notice material changes on the Acme public pricing page for the sales team.'],
     'competitor' => ['display_name' => 'Acme Events AB', 'competitor_class' => 'DIRECT', 'organization_number' => null],
     'source' => ['url' => 'https://sources.example/acme-pricing', 'source_name' => 'Acme public pricing', 'license_class' => 'PUBLIC_WEB_ALLOWED', 'allowed_use_class' => 'derived_summary_allowed', 'customer_output_allowed' => true, 'derived_summary_allowed' => true, 'caching_policy' => 'standard_cache', 'retention_class' => 'standard',
-        'review' => ['approved_by' => 'Synthetic reviewer', 'approved_at' => '2026-01-01T00:00:00.000Z', 'evidence_reference' => 'review note stored outside the repository', 'robots_policy_checked' => true, 'terms_policy_checked' => true]],
+        'review' => ['approved_by_operator_id' => $scope['operator_id'], 'approved_at' => '2026-01-01T00:00:00.000Z', 'evidence_reference' => 'review note stored outside the repository', 'evidence_sha256' => hash('sha256', 'synthetic source review'), 'robots_policy_checked' => true, 'terms_policy_checked' => true]],
     'profile_evidence_ids' => $profiles,
     'target' => ['target_org_role' => 'SALES', 'redaction_rules' => []],
     'credential_id' => $credential,
@@ -89,8 +89,9 @@ X::value($entitlements->subscribe($scope['tenant_id'], $tier['subscription_tier_
 $req = $request([$a['evidence_id']], $credential['provider_credential_id']);
 $plan = X::value($setup->plan($scope, $req));
 Assert::same([], $plan['blocked_by'], 'a fresh workspace plans without conflicts');
-Assert::same(['TENANT_ENTITLEMENT' => 'REUSE', 'MODEL_DESCRIPTOR' => 'CREATE', 'SOURCE_READ_BINDING' => 'CREATE', 'P01_REGISTRATION' => 'CREATE', 'AUTHOR_MODEL_RIGHT' => 'CREATE', 'CRITIC' => 'CREATE', 'CRITIC_MODEL_RIGHT' => 'CREATE', 'COMPETITOR' => 'CREATE', 'SOURCE_CARD' => 'CREATE', 'MONITORED_SOURCE' => 'CREATE', 'COMPANY_PROFILE' => 'REUSE', 'P01_POLICY' => 'CREATE', 'P04_POLICY' => 'CREATE', 'DISTRIBUTION_TARGET' => 'CREATE', 'PROVIDER_CREDENTIAL' => 'REUSE', 'MISSION_CONFIGURATION' => 'CREATE'], $steps($plan), 'the plan names every object and what setup would do with it');
+Assert::same(['TENANT_ENTITLEMENT' => 'REUSE', 'MODEL_DESCRIPTOR' => 'CREATE', 'SOURCE_READ_BINDING' => 'CREATE', 'P01_REGISTRATION' => 'CREATE', 'AUTHOR_MODEL_RIGHT' => 'CREATE', 'CRITIC' => 'CREATE', 'CRITIC_MODEL_RIGHT' => 'CREATE', 'COMPETITOR' => 'CREATE', 'SOURCE_REVIEW_ATTESTATION' => 'REUSE', 'SOURCE_CARD' => 'CREATE', 'MONITORED_SOURCE' => 'CREATE', 'COMPANY_PROFILE' => 'REUSE', 'P01_POLICY' => 'CREATE', 'P04_POLICY' => 'CREATE', 'DISTRIBUTION_TARGET' => 'CREATE', 'PROVIDER_CREDENTIAL' => 'REUSE', 'MISSION_CONFIGURATION' => 'CREATE'], $steps($plan), 'the plan names every object and what setup would do with it');
 Assert::same(false, $plan['grants_native_execution'], 'a plan grants no execution');
+Assert::same(0, (int) $db->scalar('SELECT COUNT(*) FROM valkyrie_authority_evaluations'), 'the dry-run plan appends no M03 authority evaluation');
 Assert::same('MONITOR_SETUP_PLAN_CHANGED', $setup->apply($scope, $req, str_repeat('0', 64))->reasonCode(), 'apply needs the digest of the reviewed plan');
 $applied = X::value($setup->apply($scope, $req, $plan['plan_digest']));
 Assert::same(1, $applied['revision'], 'the first setup is revision 1');
@@ -101,6 +102,7 @@ Assert::same('NATIVE', $config['execution_mode'], 'the configuration is native, 
 $definition = json_decode($config['definition_json'], true, 64, JSON_THROW_ON_ERROR);
 Assert::true((new MissionConfiguration($db, $clock))->validate($scope, $definition, 'NATIVE')->isOk(), 'the frozen definition validates against live owners');
 Assert::same([$a['evidence_id']], $definition['context_selection']['profile_evidence_ids'], 'it selects the imported profile');
+Assert::same(1, (int) $db->scalar('SELECT COUNT(*) FROM source_terms_reviews WHERE source_license_card_id=?', [$applied['objects']['source_license_card_id']]), 'the supplied review attestation is stored on the canonical append-only source review ledger');
 Assert::same(SourceReadRegistration::TOOL_REF, $db->scalar('SELECT runtime_host_tool_ref FROM runtime_host_tool_refs WHERE governed_tool_id=?', [$definition['capture_governance']['governed_tool_id']]), 'the read tool is mapped onto the shared read-only binding');
 Assert::same('SAFE_READ_ONLY', $db->scalar('SELECT safety_classification FROM runtime_host_bindings WHERE binding_id=?', [$applied['objects']['source_read_binding_id']]), 'which can only observe');
 Assert::true($definition['model_governance']['author']['valkyrie_id'] !== $definition['model_governance']['critic']['valkyrie_id'], 'author and critic are separate agents');
