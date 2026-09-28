@@ -645,7 +645,8 @@ final class PolicySets
      */
     public function current(array $definition, string $tenantId, string $workspaceId, ?string $expectedId = null): Outcome
     {
-        $rows = $this->db->all(
+        try {
+            $rows = $this->db->all(
             "SELECT * FROM arbiter_policy_sets WHERE policy_key=? AND tenant_id=? AND workspace_id=? AND status='ACTIVE' ORDER BY arbiter_policy_set_id",
             [$definition['policy_key'], $tenantId, $workspaceId]
         );
@@ -710,7 +711,10 @@ final class PolicySets
             }
         }
 
-        return Outcome::ok(['state' => 'ACTIVE', 'arbiter_policy_set_id' => (string) $row['arbiter_policy_set_id']]);
+            return Outcome::ok(['state' => 'ACTIVE', 'arbiter_policy_set_id' => (string) $row['arbiter_policy_set_id']]);
+        } catch (\Throwable) {
+            return Outcome::refuse('ARBITER_POLICY_DEFINITION_CHANGED');
+        }
     }
 
     /**
