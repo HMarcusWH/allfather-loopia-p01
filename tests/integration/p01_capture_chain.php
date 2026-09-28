@@ -16,6 +16,7 @@ declare(strict_types=1);
 
 use Allfather\Loopia\Core\Digest;
 use Allfather\Loopia\Core\Ids;
+use Allfather\Loopia\Core\Outcome;
 use Allfather\Loopia\Ingestion\FetchResponse;
 use Allfather\Loopia\Ingestion\FixedHostResolver;
 use Allfather\Loopia\Ingestion\FixtureTransport;
@@ -313,6 +314,25 @@ Assert::same(
     (int) $db->scalar('SELECT COUNT(*) FROM source_snapshots WHERE monitored_source_id = ?', [$monitoredSourceId]),
     'and no snapshot was written',
 );
+
+// Authority is re-read INSIDE the M01 callback, after M06 authorization but before DNS/HTTP. This
+// simulates a source review being withdrawn in that exact gap. NoNetworkTransport makes any
+// accidental network reach fail the test loudly.
+$revokedInGap = $capture->captureMonitoredSource([
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $scope['workspace_id'],
+    'monitored_source_id' => $monitoredSourceId,
+    'capture_url' => 'https://sources.example/pricing',
+    'idempotency_key' => 'cap-revoked-in-gap',
+    'correlation_id' => Ids::new(),
+    'governance' => $governance,
+], new NoNetworkTransport(), $resolver, static function () use ($db, $approved): Outcome {
+    $db->run("UPDATE source_license_cards SET review_status='blocked' WHERE source_license_card_id=?", [$approved['source_license_card_id']]);
+    return Outcome::ok();
+});
+Assert::same('SOURCE_CARD_NOT_APPROVED', $revokedInGap->reasonCode(), 'source authority revoked after M06 but before I/O refuses at the actual fetch boundary');
+Assert::same(1, (int) $db->scalar('SELECT COUNT(*) FROM source_snapshots WHERE monitored_source_id=?', [$monitoredSourceId]), 'the pre-dispatch refusal writes no snapshot');
+$db->run("UPDATE source_license_cards SET review_status='approved' WHERE source_license_card_id=?", [$approved['source_license_card_id']]);
 
 // ============================================================ the second capture and the diff
 

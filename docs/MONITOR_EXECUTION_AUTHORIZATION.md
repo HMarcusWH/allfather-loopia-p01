@@ -56,7 +56,7 @@ relies on a result, and records its answer:
 | Checkpoint | Where | Also spends |
 | --- | --- | --- |
 | `SOURCE_CAPTURE` | `MonitorService::advance` at `NEW`, before any fetch | one `SOURCE_CAPTURE` unit, reserved first |
-| `SOURCE_BEFORE_DISPATCH` | inside the governed P01/M01 fetch callback, before DNS or HTTP begins | — |
+| `SOURCE_BEFORE_DISPATCH` | inside the governed P01/M01 fetch callback, before DNS or HTTP begins; P01 also re-reads the current source/card/review policy there | — |
 | `MODEL_BEFORE_RESERVE` | `ModelExecutor::execute`, before M06 is asked | — |
 | (reservation) | inside the attempt's transaction, under the grant row lock | one `MODEL_ATTEMPT` unit |
 | `MODEL_BEFORE_DISPATCH` | immediately before the transport is called | — |
