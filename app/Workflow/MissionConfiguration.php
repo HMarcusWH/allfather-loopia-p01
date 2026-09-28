@@ -81,9 +81,10 @@ final class MissionConfiguration
             }
             // Frozen bindings must still name current in-scope authority at start/revalidation time.
             if ($this->db->one("SELECT 1 FROM provider_credentials WHERE provider_credential_id=? AND tenant_id=? AND provider='OPENAI' AND status='ACTIVE'",[$d['credential_id'],$scope['tenant_id']])===null) { return Outcome::refuse('MONITOR_CREDENTIAL_NOT_AVAILABLE'); }
-            $p01=$this->db->one("SELECT 1 FROM arbiter_policy_sets WHERE arbiter_policy_set_id=? AND tenant_id=? AND workspace_id=? AND policy_key=? AND status='ACTIVE'",[$d['p01_policy_id'],$scope['tenant_id'],$scope['workspace_id'],PolicySets::P01_COMPETITION_RELEVANCE['policy_key']]);
-            $p04=$this->db->one("SELECT 1 FROM arbiter_policy_sets WHERE arbiter_policy_set_id=? AND tenant_id=? AND workspace_id=? AND policy_key=? AND status='ACTIVE'",[$d['p04_policy_id'],$scope['tenant_id'],$scope['workspace_id'],PolicySets::P04_DISTRIBUTION_ADMISSION['policy_key']]);
-            if ($p01===null || $p04===null) { return Outcome::refuse('MONITOR_POLICY_NOT_CURRENT'); }
+            $policyOwner=new PolicySets($this->db,$this->clock);
+            $p01=$policyOwner->current(PolicySets::P01_COMPETITION_RELEVANCE,$scope['tenant_id'],$scope['workspace_id'],$d['p01_policy_id']);
+            $p04=$policyOwner->current(PolicySets::P04_DISTRIBUTION_ADMISSION,$scope['tenant_id'],$scope['workspace_id'],$d['p04_policy_id']);
+            if (!$p01->isOk() || !$p04->isOk()) { return Outcome::refuse('MONITOR_POLICY_NOT_CURRENT'); }
             if (!in_array($d['target_org_role'],\Allfather\Loopia\Product\P04\Distribution::TARGET_ORG_ROLES,true) || $this->db->one("SELECT 1 FROM console_redaction_policy_projections WHERE tenant_id=? AND workspace_id=? AND target_org_role=? AND stale_status='CURRENT'",[$scope['tenant_id'],$scope['workspace_id'],$d['target_org_role']])===null) { return Outcome::refuse('DISTRIBUTION_TARGET_NOT_CONFIGURED'); }
             $commands=[$d['capture_governance'],$d['model_governance']['author']??[],$d['model_governance']['critic']??[]];
             $missionTools=json_decode((string)$mission['allowed_tool_ids'],true,32,JSON_THROW_ON_ERROR);
