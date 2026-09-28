@@ -133,6 +133,24 @@ Assert::same('MONITOR_POLICY_NOT_CURRENT',(new MissionConfiguration($db,$clock))
 $db->run("UPDATE arbiter_policy_sets SET default_fail_closed_verdict='HOLD' WHERE arbiter_policy_set_id=?",[$definition['p01_policy_id']]);
 $wrongUrl=$definition;$wrongUrl['capture_url']='https://sources.example/not-authorized';
 Assert::same('MONITOR_CAPTURE_URL_OUTSIDE_SOURCE_SCOPE',(new MissionConfiguration($db,$clock))->validate($scope,$wrongUrl,'NATIVE')->reasonCode(),'the frozen capture URL must stay inside the reviewed source-card scope');
+
+$missionToolsOriginal=(string)$db->scalar('SELECT allowed_tool_ids FROM missions WHERE mission_id=?',[$applied['mission_id']]);
+$missionToolsBroadened=json_decode($missionToolsOriginal,true,32,JSON_THROW_ON_ERROR);$missionToolsBroadened[]=Ids::new();
+$db->run('UPDATE missions SET allowed_tool_ids=? WHERE mission_id=?',[json_encode($missionToolsBroadened,JSON_THROW_ON_ERROR),$applied['mission_id']]);
+Assert::same('MONITOR_MISSION_SCOPE_CHANGED',(new MissionConfiguration($db,$clock))->validate($scope,$definition,'NATIVE')->reasonCode(),'an extra mission tool invalidates the frozen Monitor authority');
+$db->run('UPDATE missions SET allowed_tool_ids=? WHERE mission_id=?',[$missionToolsOriginal,$applied['mission_id']]);
+
+$authorContract=$definition['model_governance']['author']['capability_contract_id'];
+$authorActionsOriginal=(string)$db->scalar('SELECT allowed_action_classes FROM capability_contracts WHERE capability_contract_id=?',[$authorContract]);
+$db->run('UPDATE capability_contracts SET allowed_action_classes=? WHERE capability_contract_id=?',[json_encode(['OBSERVE','ANALYZE','RELEASE_INTELLIGENCE','PREPARE_EXTERNAL_ACTION'],JSON_THROW_ON_ERROR),$authorContract]);
+Assert::same('MONITOR_ASSIGNMENT_SCOPE_CHANGED',(new MissionConfiguration($db,$clock))->validate($scope,$definition,'NATIVE')->reasonCode(),'a broadened author contract is not current Monitor authority');
+$db->run('UPDATE capability_contracts SET allowed_action_classes=? WHERE capability_contract_id=?',[$authorActionsOriginal,$authorContract]);
+
+$criticAssignment=$definition['model_governance']['critic']['assignment_id'];
+$criticOutputsOriginal=(string)$db->scalar('SELECT assigned_output_classes FROM mission_assignments WHERE assignment_id=?',[$criticAssignment]);
+$db->run('UPDATE mission_assignments SET assigned_output_classes=? WHERE assignment_id=?',[json_encode(['INTERNAL_INFORMATIONAL','CRM_OUTREACH_PROPOSAL'],JSON_THROW_ON_ERROR),$criticAssignment]);
+Assert::same('MONITOR_ASSIGNMENT_SCOPE_CHANGED',(new MissionConfiguration($db,$clock))->validate($scope,$definition,'NATIVE')->reasonCode(),'a broadened assignment output scope is not current Monitor authority');
+$db->run('UPDATE mission_assignments SET assigned_output_classes=? WHERE assignment_id=?',[$criticOutputsOriginal,$criticAssignment]);
 $db->run('UPDATE source_license_cards SET recheck_terms_after_ms=0 WHERE source_license_card_id=?',[$applied['objects']['source_license_card_id']]);
 Assert::same('TERMS_RECHECK_OVERDUE_AT_CAPTURE',(new MissionConfiguration($db,$clock))->validate($scope,$definition,'NATIVE')->reasonCode(),'frozen mission currentness uses the same latest source-policy compiler as capture');
 $db->run('UPDATE source_license_cards SET recheck_terms_after_ms=NULL WHERE source_license_card_id=?',[$applied['objects']['source_license_card_id']]);

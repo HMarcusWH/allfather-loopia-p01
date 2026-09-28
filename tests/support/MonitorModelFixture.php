@@ -22,13 +22,21 @@ final class MonitorModelFixture
         $role=Seed::role($db,$clock,'fixture-monitor-'.substr(Ids::new(),0,8),['tool.invoke','evidence.read','tenant.administer','runtime_host_binding.administer']);
         Seed::membership($db,$clock,$scope['tenant_id'],$scope['workspace_id'],$scope['operator_id'],$role['role_id']);
         $capture=Seed::governedToolChain($db,$clock,$scope);
+        // This fixture predates P04 setup, so normalize its generic Seed chain to the exact Monitor
+        // authority envelope before any MissionConfiguration is frozen.
+        $db->run('UPDATE missions SET requested_action_classes=? WHERE mission_id=?',[
+            json_encode(['OBSERVE','ANALYZE','RELEASE_INTELLIGENCE'],JSON_THROW_ON_ERROR),$capture['mission_id']
+        ]);
+        $db->run('UPDATE capability_contracts SET purpose_summary=?,allowed_action_classes=? WHERE capability_contract_id=?',[
+            'p01.competition_monitoring',json_encode(['OBSERVE','ANALYZE','RELEASE_INTELLIGENCE'],JSON_THROW_ON_ERROR),$capture['capability_contract_id']
+        ]);
         $model=self::value((new ModelRegistration($db,$clock))->ensure($scope));
         $m03=new Eligibility($db,$clock);$m04=new Proposals($db,$clock);
         $m03->grantToolRight($capture['capability_contract_id'],$model['governed_tool_id'],[ModelRegistration::OPERATION_KEY],'INTERNAL_TRANSFORM','ANALYZE');
         $authorAssignment=self::value($m04->assignToMission($capture['mission_id'],$capture['valkyrie_id'],$capture['capability_contract_id'],'MODEL_AUTHOR',[$model['governed_tool_id']],['ANALYZE'],$scope['operator_id']));
         $agents=new AgentRegistry($db,$clock);
-        $critic=$agents->registerValkyrie($scope['tenant_id'],$scope['workspace_id'],'Separate fixture critic','COMPETITION_MONITOR_VALKYRIE','Advisory review only',$scope['operator_id'],'ACTIVE');
-        $criticContract=self::value($agents->issueContract($critic,$scope['tenant_id'],$scope['workspace_id'],'monitor.critic','COMPETITION_MONITOR_VALKYRIE',['ANALYZE']))['capability_contract_id'];
+        $critic=$agents->registerValkyrie($scope['tenant_id'],$scope['workspace_id'],'Separate fixture critic','REVIEW_CRITIC_VALKYRIE','Advisory review only',$scope['operator_id'],'ACTIVE');
+        $criticContract=self::value($agents->issueContract($critic,$scope['tenant_id'],$scope['workspace_id'],'monitor.review_critic','REVIEW_CRITIC_VALKYRIE',['ANALYZE']))['capability_contract_id'];
         $m03->grantToolRight($criticContract,$model['governed_tool_id'],[ModelRegistration::OPERATION_KEY],'INTERNAL_TRANSFORM','ANALYZE');
         $criticAssignment=self::value($m04->assignToMission($capture['mission_id'],$critic,$criticContract,'MODEL_CRITIC',[$model['governed_tool_id']],['ANALYZE'],$scope['operator_id']));
         $url='https://sources.example/pricing';

@@ -57,6 +57,22 @@ final class MissionConfiguration
             $mission=$this->db->one('SELECT m.*,w.environment_class FROM missions m JOIN workspaces w ON w.workspace_id=m.workspace_id WHERE m.mission_id=? AND m.tenant_id=? AND m.workspace_id=? AND m.status=? AND w.status=?',[$d['mission_id'],$scope['tenant_id'],$scope['workspace_id'],'ACTIVE','ACTIVE']);
             if ($mission===null || $mission['mission_type']!=='COMPETITION_MONITORING') { return Outcome::refuse('MONITOR_MISSION_NOT_ACTIVE'); }
             if ($mode==='FIXTURE' && $mission['environment_class']!=='TEST') { return Outcome::refuse('MONITOR_FIXTURE_REQUIRES_TEST_SCOPE'); }
+            $missionActions=json_decode((string)$mission['requested_action_classes'],true,32,JSON_THROW_ON_ERROR);
+            $missionOutputs=json_decode((string)$mission['permitted_output_classes'],true,32,JSON_THROW_ON_ERROR);
+            $missionProhibitions=json_decode((string)$mission['explicit_prohibitions'],true,32,JSON_THROW_ON_ERROR);
+            foreach ([$missionActions,$missionOutputs,$missionProhibitions] as $closed) {
+                if (!is_array($closed) || !array_is_list($closed)) { return Outcome::refuse('MONITOR_MISSION_SCOPE_CHANGED'); }
+            }
+            sort($missionActions,SORT_STRING); sort($missionOutputs,SORT_STRING); sort($missionProhibitions,SORT_STRING);
+            $expectedActions=['ANALYZE','OBSERVE','RELEASE_INTELLIGENCE']; sort($expectedActions,SORT_STRING);
+            $expectedOutputs=['INTERNAL_INFORMATIONAL'];
+            $expectedProhibitions=['NO_CUSTOMER_VISIBLE_OUTPUT','NO_EXTERNAL_ACTION','NO_PUBLICATION']; sort($expectedProhibitions,SORT_STRING);
+            if ($mission['target_scope']!=='WORKSPACE_SCOPED' || $mission['activated_at']===null
+                || ($mission['valid_from']!==null && (string)$mission['valid_from']>$this->clock->now())
+                || ($mission['expires_at']!==null && (string)$mission['expires_at']<=$this->clock->now())
+                || $missionActions!==$expectedActions || $missionOutputs!==$expectedOutputs || $missionProhibitions!==$expectedProhibitions) {
+                return Outcome::refuse('MONITOR_MISSION_SCOPE_CHANGED');
+            }
             if (!is_string($d['capture_url'])) { return Outcome::refuse('MONITOR_SOURCE_NOT_AVAILABLE'); }
             $sourceCurrent=Capture::currentPolicy($this->db,$this->clock,[
                 'tenant_id'=>$scope['tenant_id'],'workspace_id'=>$scope['workspace_id'],
@@ -73,7 +89,13 @@ final class MissionConfiguration
             if ($context['limits']['max_output_tokens']<16 || array_diff(array_keys($context['limits']),['max_input_bytes','max_output_tokens','max_model_calls','max_observation_age_seconds'])!==[]) { return Outcome::refuse('CONTEXT_LIMIT_INVALID'); }
             if (($context['mission_id']??null)!==$d['mission_id'] || ($context['purpose']??null)!==$mission['objective'] || empty($context['profile_evidence_ids']) || count($context['profile_evidence_ids'])>4 || !in_array($sourceRefId,$context['source_ids']??[],true)) { return Outcome::refuse('MONITOR_CONTEXT_CONFIGURATION_INVALID'); }
             $allowed=json_decode($mission['allowed_source_scope_ids'],true,32,JSON_THROW_ON_ERROR);
-            if (array_diff($context['source_ids'],$allowed)!==[]) { return Outcome::refuse('CONTEXT_SOURCE_OUTSIDE_MISSION'); }
+            $selectedSources=$context['source_ids'];
+            if (!is_array($allowed) || !array_is_list($allowed) || !is_array($selectedSources) || !array_is_list($selectedSources)) {
+                return Outcome::refuse('MONITOR_MISSION_SCOPE_CHANGED');
+            }
+            $allowed=array_values(array_unique($allowed)); $selectedSources=array_values(array_unique($selectedSources));
+            sort($allowed,SORT_STRING); sort($selectedSources,SORT_STRING);
+            if ($allowed!==$selectedSources) { return Outcome::refuse('MONITOR_MISSION_SCOPE_CHANGED'); }
             foreach ($context['profile_evidence_ids'] as $id) {
                 $profile=CompanyContext::read($this->db,(string)$id,$scope['tenant_id'],$scope['workspace_id']);
                 if ($profile===null || !in_array($profile['source_ref_id'],$context['source_ids'],true)) { return Outcome::refuse('MONITOR_PROFILE_NOT_AVAILABLE'); }
@@ -87,7 +109,17 @@ final class MissionConfiguration
             if (!in_array($d['target_org_role'],\Allfather\Loopia\Product\P04\Distribution::TARGET_ORG_ROLES,true) || $this->db->one("SELECT 1 FROM console_redaction_policy_projections WHERE tenant_id=? AND workspace_id=? AND target_org_role=? AND stale_status='CURRENT'",[$scope['tenant_id'],$scope['workspace_id'],$d['target_org_role']])===null) { return Outcome::refuse('DISTRIBUTION_TARGET_NOT_CONFIGURED'); }
             $commands=[$d['capture_governance'],$d['model_governance']['author']??[],$d['model_governance']['critic']??[]];
             $missionTools=json_decode((string)$mission['allowed_tool_ids'],true,32,JSON_THROW_ON_ERROR);
-            $missionActions=json_decode((string)$mission['requested_action_classes'],true,32,JSON_THROW_ON_ERROR);
+            if (!is_array($missionTools) || !array_is_list($missionTools)) { return Outcome::refuse('MONITOR_MISSION_SCOPE_CHANGED'); }
+            $expectedMissionTools=[];
+            foreach ($commands as $command) {
+                if (!is_array($command) || !is_string($command['governed_tool_id']??null) || $command['governed_tool_id']==='') {
+                    return Outcome::refuse('MONITOR_CONFIGURATION_INVALID');
+                }
+                $expectedMissionTools[]=$command['governed_tool_id'];
+            }
+            $missionTools=array_values(array_unique($missionTools)); $expectedMissionTools=array_values(array_unique($expectedMissionTools));
+            sort($missionTools,SORT_STRING); sort($expectedMissionTools,SORT_STRING);
+            if ($missionTools!==$expectedMissionTools) { return Outcome::refuse('MONITOR_MISSION_SCOPE_CHANGED'); }
             foreach ($commands as $index=>$command) {
                 if (!is_array($command) || array_diff(array_keys($command),['tenant_id','workspace_id','mission_id','assignment_id','valkyrie_id','capability_contract_id','governed_tool_id','governed_tool_operation_id','calling_actor_type','calling_actor_id','required_entitlement_permission','requested_action_class'])!==[]) { return Outcome::refuse('MONITOR_CONFIGURATION_INVALID'); }
                 if (($command['mission_id']??null)!==$d['mission_id']) { return Outcome::refuse('MONITOR_ASSIGNMENT_MISMATCH'); }
@@ -95,22 +127,41 @@ final class MissionConfiguration
                     if (isset($command[$field]) && $command[$field]!==$expected) { return Outcome::refuse('MONITOR_ASSIGNMENT_MISMATCH'); }
                 }
                 if (isset($command['calling_actor_type']) && $command['calling_actor_type']!=='OPERATOR') { return Outcome::refuse('MONITOR_ASSIGNMENT_MISMATCH'); }
-                $assignment=$this->db->one("SELECT a.*,v.tenant_id,v.workspace_id,v.status AS agent_status,c.tenant_id AS contract_tenant,c.workspace_id AS contract_workspace,c.status AS contract_status,c.allowed_action_classes
+                $assignment=$this->db->one("SELECT a.*,v.tenant_id,v.workspace_id,v.status AS agent_status,
+                           c.tenant_id AS contract_tenant,c.workspace_id AS contract_workspace,c.valkyrie_id AS contract_valkyrie_id,
+                           c.status AS contract_status,c.allowed_action_classes,c.role_class,c.purpose_summary,
+                           c.human_approval_or_execution_authority,c.valid_from AS contract_valid_from,c.valid_until AS contract_valid_until
                     FROM mission_assignments a JOIN valkyries v ON v.valkyrie_id=a.valkyrie_id
                     JOIN capability_contracts c ON c.capability_contract_id=a.capability_contract_id
                     WHERE a.assignment_id=? AND a.mission_id=? AND a.valkyrie_id=? AND a.capability_contract_id=?",[$command['assignment_id']??'',$d['mission_id'],$command['valkyrie_id']??'',$command['capability_contract_id']??'']);
                 if ($assignment===null || $assignment['tenant_id']!==$scope['tenant_id'] || $assignment['workspace_id']!==$scope['workspace_id'] || $assignment['status']!=='ACTIVE'
                     || $assignment['agent_status']!=='ACTIVE' || $assignment['contract_status']!=='ACTIVE'
-                    || $assignment['contract_tenant']!==$scope['tenant_id'] || ($assignment['contract_workspace']!==null && $assignment['contract_workspace']!==$scope['workspace_id'])) {
+                    || $assignment['contract_tenant']!==$scope['tenant_id'] || ($assignment['contract_workspace']!==null && $assignment['contract_workspace']!==$scope['workspace_id'])
+                    || $assignment['contract_valkyrie_id']!==($command['valkyrie_id']??null)
+                    || ($assignment['valid_until']!==null && (string)$assignment['valid_until']<=$this->clock->now())
+                    || (string)$assignment['contract_valid_from']>$this->clock->now()
+                    || ($assignment['contract_valid_until']!==null && (string)$assignment['contract_valid_until']<=$this->clock->now())
+                    || (int)$assignment['human_approval_or_execution_authority']!==0) {
                     return Outcome::refuse('MONITOR_ASSIGNMENT_MISMATCH');
                 }
                 $assignedTools=json_decode((string)$assignment['assigned_tool_ids'],true,32,JSON_THROW_ON_ERROR);
                 $assignedActions=json_decode((string)$assignment['assigned_action_classes'],true,32,JSON_THROW_ON_ERROR);
+                $assignedOutputs=json_decode((string)$assignment['assigned_output_classes'],true,32,JSON_THROW_ON_ERROR);
                 $contractActions=json_decode((string)$assignment['allowed_action_classes'],true,32,JSON_THROW_ON_ERROR);
+                foreach ([$assignedTools,$assignedActions,$assignedOutputs,$contractActions] as $closed) {
+                    if (!is_array($closed) || !array_is_list($closed)) { return Outcome::refuse('MONITOR_ASSIGNMENT_MISMATCH'); }
+                }
                 $action=$index===0?'OBSERVE':'ANALYZE';
-                if (!in_array($command['governed_tool_id']??null,$assignedTools,true) || !in_array($command['governed_tool_id']??null,$missionTools,true)
-                    || !in_array($action,$assignedActions,true) || !in_array($action,$missionActions,true) || !in_array($action,$contractActions,true)) {
-                    return Outcome::refuse('MONITOR_ASSIGNMENT_MISMATCH');
+                $expectedRole=['SOURCE_READER','MODEL_AUTHOR','MODEL_CRITIC'][$index];
+                $expectedContractRole=$index===2?'REVIEW_CRITIC_VALKYRIE':'COMPETITION_MONITOR_VALKYRIE';
+                $expectedContractPurpose=$index===2?'monitor.review_critic':'p01.competition_monitoring';
+                $expectedContractActions=$index===2?['ANALYZE']:['OBSERVE','ANALYZE','RELEASE_INTELLIGENCE'];
+                sort($expectedContractActions,SORT_STRING); sort($contractActions,SORT_STRING);
+                if ($assignedTools!==[$command['governed_tool_id']] || $assignedActions!==[$action]
+                    || $assignedOutputs!==['INTERNAL_INFORMATIONAL'] || $assignment['assignment_role']!==$expectedRole
+                    || $assignment['role_class']!==$expectedContractRole || $assignment['purpose_summary']!==$expectedContractPurpose
+                    || $contractActions!==$expectedContractActions) {
+                    return Outcome::refuse('MONITOR_ASSIGNMENT_SCOPE_CHANGED');
                 }
                 $rights=$this->db->all("SELECT allowed_operations,tool_class,maximum_action_class,approval_required,frozen_artifact_required,evidence_capture_required
                     FROM tool_rights WHERE capability_contract_id=? AND governed_tool_id=? AND status='ACTIVE' ORDER BY tool_right_id",[$command['capability_contract_id'],$command['governed_tool_id']]);
