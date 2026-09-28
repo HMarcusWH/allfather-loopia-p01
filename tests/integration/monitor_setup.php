@@ -226,6 +226,8 @@ $sourceRight=(string)$db->scalar('SELECT tool_right_id FROM tool_rights WHERE ca
 $db->run("UPDATE tool_rights SET maximum_action_class='ANALYZE' WHERE tool_right_id=?",[$sourceRight]);
 $widenedRegistration=X::value($setup->plan($scope,$reqB));
 Assert::same(['REFUSE','P01_REGISTRATION_STATE_CHANGED'],[$steps($widenedRegistration)['P01_REGISTRATION'],$widenedRegistration['blocked_by'][0]['reason_code']],'a widened P01 source-read right is not silently reused');
+$successorDefinition=json_decode((string)$db->scalar('SELECT definition_json FROM monitor_mission_configs WHERE mission_id=?',[$successor['mission_id']]),true,64,JSON_THROW_ON_ERROR);
+Assert::same('MISSION_BROADENS_CONTRACT',(new MissionConfiguration($db,$clock))->validate($scope,$successorDefinition,'NATIVE')->reasonCode(),'an already-frozen mission also fails currentness when its M03 right is widened');
 $db->run("UPDATE tool_rights SET maximum_action_class='OBSERVE' WHERE tool_right_id=?",[$sourceRight]);
 
 $modelRight=(string)$db->scalar('SELECT tool_right_id FROM tool_rights WHERE capability_contract_id=? AND governed_tool_id=?',[$successor['objects']['critic_contract_id'],$successor['objects']['model_governed_tool_id']]);

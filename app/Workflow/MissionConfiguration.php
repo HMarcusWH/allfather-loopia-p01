@@ -114,15 +114,26 @@ final class MissionConfiguration
                     || !in_array($action,$assignedActions,true) || !in_array($action,$missionActions,true) || !in_array($action,$contractActions,true)) {
                     return Outcome::refuse('MONITOR_ASSIGNMENT_MISMATCH');
                 }
-                $rights=$this->db->all("SELECT allowed_operations,maximum_action_class FROM tool_rights WHERE capability_contract_id=? AND governed_tool_id=? AND status='ACTIVE' ORDER BY tool_right_id",[$command['capability_contract_id'],$command['governed_tool_id']]);
+                $rights=$this->db->all("SELECT allowed_operations,tool_class,maximum_action_class,approval_required,frozen_artifact_required,evidence_capture_required
+                    FROM tool_rights WHERE capability_contract_id=? AND governed_tool_id=? AND status='ACTIVE' ORDER BY tool_right_id",[$command['capability_contract_id'],$command['governed_tool_id']]);
                 $operation=$this->db->scalar('SELECT operation_key FROM governed_tool_operations WHERE governed_tool_operation_id=? AND governed_tool_id=?',[$command['governed_tool_operation_id']??'',$command['governed_tool_id']??'']);
-                if (count($rights)!==1 || !is_string($operation) || !in_array($operation,json_decode((string)$rights[0]['allowed_operations'],true,32,JSON_THROW_ON_ERROR),true)
-                    || !ActionClass::withinCeiling($action,(string)$rights[0]['maximum_action_class'])) {
+                $right=$rights[0]??null;
+                $expectedOperation=$index===0?'source.read':ModelRegistration::OPERATION_KEY;
+                $expectedClass=$index===0?'READ_ONLY_SOURCE':'INTERNAL_TRANSFORM';
+                if (count($rights)!==1 || $right===null || !is_string($operation) || $operation!==$expectedOperation
+                    || json_decode((string)$right['allowed_operations'],true,32,JSON_THROW_ON_ERROR)!==[$expectedOperation]
+                    || $right['tool_class']!==$expectedClass || $right['maximum_action_class']!==$action
+                    || (int)$right['approval_required']!==0 || (int)$right['frozen_artifact_required']!==0
+                    || (int)$right['evidence_capture_required']!==1) {
                     return Outcome::refuse('MISSION_BROADENS_CONTRACT');
                 }
                 if ($index===0) {
                     $descriptor=$this->db->one("SELECT t.tool_key,o.operation_key FROM governed_tools t JOIN governed_tool_operations o ON o.governed_tool_id=t.governed_tool_id WHERE t.governed_tool_id=? AND o.governed_tool_operation_id=?",[$command['governed_tool_id']??'',$command['governed_tool_operation_id']??'']);
-                    if ($descriptor===null || $descriptor['tool_key']!=='p01.source.read' || $descriptor['operation_key']!=='source.read') { return Outcome::refuse('MONITOR_CAPTURE_DESCRIPTOR_CONFLICT'); }
+                    if ($descriptor===null || $descriptor['tool_key']!=='p01.source.read' || $descriptor['operation_key']!=='source.read'
+                        || (isset($command['required_entitlement_permission']) && $command['required_entitlement_permission']!=='competition_monitoring.read')
+                        || (isset($command['requested_action_class']) && $command['requested_action_class']!=='OBSERVE')) {
+                        return Outcome::refuse('MONITOR_CAPTURE_DESCRIPTOR_CONFLICT');
+                    }
                 } else {
                     if (!(new ModelRegistration($this->db,$this->clock))->validateDispatchIds($command['governed_tool_id']??'',$command['governed_tool_operation_id']??'')->isOk()) { return Outcome::refuse('MODEL_DESCRIPTOR_CONFLICT'); }
                     if (($command['tenant_id']??null)!==$scope['tenant_id'] || ($command['workspace_id']??null)!==$scope['workspace_id']
