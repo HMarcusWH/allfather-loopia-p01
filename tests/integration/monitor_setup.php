@@ -125,6 +125,12 @@ $wrongEntitlement=$definition;$wrongEntitlement['model_governance']['author']['r
 Assert::same('MONITOR_ENTITLEMENT_BINDING_INVALID',(new MissionConfiguration($db,$clock))->validate($scope,$wrongEntitlement,'NATIVE')->reasonCode(),'a model command cannot substitute a different commercial entitlement');
 $wrongPolicy=$definition;$wrongPolicy['p01_policy_id']=$definition['p04_policy_id'];
 Assert::same('MONITOR_POLICY_NOT_CURRENT',(new MissionConfiguration($db,$clock))->validate($scope,$wrongPolicy,'NATIVE')->reasonCode(),'a P04 policy cannot masquerade as the P01 policy binding');
+$db->run("UPDATE arbiter_policy_sets SET default_fail_closed_verdict='BLOCK' WHERE arbiter_policy_set_id=?",[$definition['p01_policy_id']]);
+$driftedPolicyPlan=X::value($setup->plan($scope,$req));
+$driftedPolicySteps=array_column($driftedPolicyPlan['steps'],null,'step');
+Assert::same(['CONFLICT','ARBITER_POLICY_DEFINITION_CHANGED'],[$driftedPolicySteps['P01_POLICY']['action'],$driftedPolicySteps['P01_POLICY']['reason_code']],'an ACTIVE policy with mutated semantics is not reused by setup');
+Assert::same('MONITOR_POLICY_NOT_CURRENT',(new MissionConfiguration($db,$clock))->validate($scope,$definition,'NATIVE')->reasonCode(),'a frozen mission refuses a mutated ACTIVE policy');
+$db->run("UPDATE arbiter_policy_sets SET default_fail_closed_verdict='HOLD' WHERE arbiter_policy_set_id=?",[$definition['p01_policy_id']]);
 $wrongUrl=$definition;$wrongUrl['capture_url']='https://sources.example/not-authorized';
 Assert::same('MONITOR_CAPTURE_URL_OUTSIDE_SOURCE_SCOPE',(new MissionConfiguration($db,$clock))->validate($scope,$wrongUrl,'NATIVE')->reasonCode(),'the frozen capture URL must stay inside the reviewed source-card scope');
 $db->run('UPDATE source_license_cards SET recheck_terms_after_ms=0 WHERE source_license_card_id=?',[$applied['objects']['source_license_card_id']]);
