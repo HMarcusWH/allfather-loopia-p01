@@ -107,6 +107,19 @@ final class ModelRegistration
             ||!AdapterConformance::verify($r))return Outcome::refuse('MODEL_DESCRIPTOR_CONFLICT');
         foreach(['approval_required','frozen_artifact_required','evidence_capture_required_by_default','requires_evidence_capture','requires_approval','requires_frozen_artifact'] as $k)if((int)$r[$k]!==0)return Outcome::refuse('MODEL_DESCRIPTOR_CONFLICT');
         if((int)$r['requires_mission']!==1||(int)$r['requires_valkyrie_contract']!==1)return Outcome::refuse('MODEL_DESCRIPTOR_CONFLICT');
+
+        // Exact descriptor means one operation and one host-tool mapping. M01 resolves by mapping
+        // identity; rival rows would turn a supposedly fixed global descriptor into ambiguous
+        // runtime authority even if one convenient JOIN row still looked correct.
+        $operations=$this->db->all('SELECT governed_tool_operation_id,operation_key,status FROM governed_tool_operations WHERE governed_tool_id=? ORDER BY governed_tool_operation_id',[$r['governed_tool_id']]);
+        if(count($operations)!==1||$operations[0]['governed_tool_operation_id']!==$r['governed_tool_operation_id']
+            ||$operations[0]['operation_key']!==self::OPERATION_KEY||$operations[0]['status']!=='ACTIVE')return Outcome::refuse('MODEL_DESCRIPTOR_CONFLICT');
+        $refs=$this->db->all('SELECT binding_id,runtime_host_tool_ref,tool_surface_type,declared_operation_class,mapping_status,version FROM runtime_host_tool_refs WHERE governed_tool_id=? ORDER BY tool_ref_id',[$r['governed_tool_id']]);
+        if(count($refs)!==1||$refs[0]['binding_id']!==$r['ref_binding_id']
+            ||$refs[0]['runtime_host_tool_ref']!==self::HOST_KEY.':'.self::OPERATION_KEY
+            ||$refs[0]['tool_surface_type']!=='TRANSFORM'||$refs[0]['declared_operation_class']!=='ANALYZE'
+            ||$refs[0]['mapping_status']!=='ACTIVE'||$refs[0]['version']!=='1.0.0')return Outcome::refuse('MODEL_DESCRIPTOR_CONFLICT');
+
         return Outcome::ok(['governed_tool_id'=>$r['governed_tool_id'],'governed_tool_operation_id'=>$r['governed_tool_operation_id'],'runtime_host_tool_ref'=>$r['runtime_host_tool_ref'],'operation_key'=>self::OPERATION_KEY,'model_activation_granted'=>false]);
     }
 }
