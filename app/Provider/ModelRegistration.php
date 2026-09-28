@@ -58,14 +58,53 @@ final class ModelRegistration
     }
     private function existing(): ?array
     {
-        return $this->db->one('SELECT t.*,o.governed_tool_operation_id,o.operation_key,o.operation_class,o.classified_action_class,o.status AS operation_status,o.requires_mission,o.requires_valkyrie_contract,o.requires_evidence_capture,o.requires_approval,o.requires_frozen_artifact,b.safety_classification,b.tenant_id AS binding_tenant,b.workspace_id AS binding_workspace,b.status AS binding_status,b.permitted_operation_classes,b.binding_type,a.*,a.status AS adapter_status,h.status AS host_status,h.host_instance_key,r.runtime_host_tool_ref,r.declared_operation_class,r.mapping_status,r.binding_id AS ref_binding_id FROM governed_tools t LEFT JOIN governed_tool_operations o ON o.governed_tool_id=t.governed_tool_id AND o.operation_key=? LEFT JOIN runtime_host_bindings b ON b.binding_id=t.runtime_mapping_ref_id LEFT JOIN runtime_adapter_instances a ON a.runtime_adapter_instance_id=b.runtime_adapter_instance_id LEFT JOIN runtime_host_instances h ON h.runtime_host_instance_id=b.runtime_host_instance_id LEFT JOIN runtime_host_tool_refs r ON r.governed_tool_id=t.governed_tool_id AND r.binding_id=b.binding_id WHERE t.tool_key=?',[self::OPERATION_KEY,self::TOOL_KEY]);
+        return $this->db->one(
+            'SELECT t.*,
+                    o.governed_tool_operation_id,o.operation_key,o.operation_summary,o.operation_class,o.classified_action_class,
+                    o.status AS operation_status,o.requires_mission,o.requires_valkyrie_contract,o.requires_evidence_capture,o.requires_approval,o.requires_frozen_artifact,
+                    b.safety_classification,b.tenant_id AS binding_tenant,b.workspace_id AS binding_workspace,b.status AS binding_status,
+                    b.permitted_operation_classes,b.binding_type,b.runtime_host_reference,b.runtime_host_version,b.mapping_purpose,b.activation_evidence_refs,
+                    a.*,a.status AS adapter_status,
+                    h.host_family,h.host_name,h.status AS host_status,h.host_instance_key,h.host_version,h.repository_reference_safe,
+                    h.licence_status_ref,h.integration_map_document_ref,h.environment_class,h.declared_security_assumptions,
+                    r.runtime_host_tool_ref,r.tool_surface_type,r.declared_operation_class,r.mapping_status,r.version AS ref_version,r.binding_id AS ref_binding_id
+             FROM governed_tools t
+             LEFT JOIN governed_tool_operations o ON o.governed_tool_id=t.governed_tool_id AND o.operation_key=?
+             LEFT JOIN runtime_host_bindings b ON b.binding_id=t.runtime_mapping_ref_id
+             LEFT JOIN runtime_adapter_instances a ON a.runtime_adapter_instance_id=b.runtime_adapter_instance_id
+             LEFT JOIN runtime_host_instances h ON h.runtime_host_instance_id=b.runtime_host_instance_id
+             LEFT JOIN runtime_host_tool_refs r ON r.governed_tool_id=t.governed_tool_id AND r.binding_id=b.binding_id
+             WHERE t.tool_key=?',
+            [self::OPERATION_KEY,self::TOOL_KEY],
+        );
     }
     private function validateExisting(array $r): Outcome
     {
-        $expected=['tool_key'=>self::TOOL_KEY,'tool_class'=>'INTERNAL_TRANSFORM','maximum_action_class'=>'ANALYZE','descriptor_version'=>'1.0.0','operation_key'=>self::OPERATION_KEY,'operation_class'=>'TRANSFORM','classified_action_class'=>'ANALYZE','operation_status'=>'ACTIVE','safety_classification'=>'SAFE_INTERNAL_TRANSFORM','binding_status'=>'ACTIVE','binding_type'=>'TOOL_SURFACE','adapter_family'=>'LOOPIA_BOUNDED_MODEL','adapter_name'=>self::HOST_KEY,'adapter_version'=>'1.0.0','adapter_status'=>'READY','host_status'=>'REGISTERED','host_instance_key'=>self::HOST_KEY,'runtime_host_tool_ref'=>self::HOST_KEY.':'.self::OPERATION_KEY,'declared_operation_class'=>'ANALYZE','mapping_status'=>'ACTIVE',...self::payloads()];
+        $expected=[
+            'tool_key'=>self::TOOL_KEY,'display_name'=>'Bounded Monitor model',
+            'purpose_summary'=>'Interpret scoped approved inputs; produce an untrusted candidate only.',
+            'tool_class'=>'INTERNAL_TRANSFORM','risk_level'=>'T1','maximum_action_class'=>'ANALYZE','descriptor_version'=>'1.0.0',
+            'operation_key'=>self::OPERATION_KEY,'operation_summary'=>'One bounded structured model interpretation.',
+            'operation_class'=>'TRANSFORM','classified_action_class'=>'ANALYZE','operation_status'=>'ACTIVE',
+            'safety_classification'=>'SAFE_INTERNAL_TRANSFORM','binding_status'=>'ACTIVE','binding_type'=>'TOOL_SURFACE',
+            'runtime_host_reference'=>self::HOST_KEY.':transform','runtime_host_version'=>'1.0.0',
+            'mapping_purpose'=>'Bounded monitor interpretation; no release authority.',
+            'adapter_family'=>'LOOPIA_BOUNDED_MODEL','adapter_name'=>self::HOST_KEY,'adapter_version'=>'1.0.0','adapter_status'=>'READY',
+            'host_family'=>'LOOPIA_BOUNDED_MODEL','host_name'=>self::HOST_KEY,'host_status'=>'REGISTERED',
+            'host_instance_key'=>self::HOST_KEY,'host_version'=>'1.0.0','repository_reference_safe'=>'internal://monitor/model',
+            'licence_status_ref'=>'internal','integration_map_document_ref'=>'docs/BOUNDED_MODEL_BOUNDARY.md','environment_class'=>'TEST',
+            'runtime_host_tool_ref'=>self::HOST_KEY.':'.self::OPERATION_KEY,'tool_surface_type'=>'TRANSFORM',
+            'declared_operation_class'=>'ANALYZE','mapping_status'=>'ACTIVE','ref_version'=>'1.0.0',
+            ...self::payloads()
+        ];
         foreach($expected as $k=>$v)if(($r[$k]??null)!==$v)return Outcome::refuse('MODEL_DESCRIPTOR_CONFLICT');
         // SELECT a.* shadows t.status; tool lifecycle is therefore separately checked.
-        if($this->db->scalar('SELECT status FROM governed_tools WHERE governed_tool_id=?',[$r['governed_tool_id']])!=='ACTIVE'||$r['binding_tenant']!==null||$r['binding_workspace']!==null||$r['runtime_mapping_ref_id']!==$r['ref_binding_id']||json_decode($r['permitted_operation_classes'],true)!==['ANALYZE']||!AdapterConformance::verify($r))return Outcome::refuse('MODEL_DESCRIPTOR_CONFLICT');
+        if($this->db->scalar('SELECT status FROM governed_tools WHERE governed_tool_id=?',[$r['governed_tool_id']])!=='ACTIVE'
+            ||$r['binding_tenant']!==null||$r['binding_workspace']!==null||$r['runtime_mapping_ref_id']!==$r['ref_binding_id']
+            ||json_decode((string)$r['permitted_operation_classes'],true)!==['ANALYZE']
+            ||json_decode((string)$r['activation_evidence_refs'],true)!==[]
+            ||json_decode((string)$r['declared_security_assumptions'],true)!==['NO_EXTERNAL_ACTION','MODEL_TRANSPORT_INACTIVE_BY_DEFAULT']
+            ||!AdapterConformance::verify($r))return Outcome::refuse('MODEL_DESCRIPTOR_CONFLICT');
         foreach(['approval_required','frozen_artifact_required','evidence_capture_required_by_default','requires_evidence_capture','requires_approval','requires_frozen_artifact'] as $k)if((int)$r[$k]!==0)return Outcome::refuse('MODEL_DESCRIPTOR_CONFLICT');
         if((int)$r['requires_mission']!==1||(int)$r['requires_valkyrie_contract']!==1)return Outcome::refuse('MODEL_DESCRIPTOR_CONFLICT');
         return Outcome::ok(['governed_tool_id'=>$r['governed_tool_id'],'governed_tool_operation_id'=>$r['governed_tool_operation_id'],'runtime_host_tool_ref'=>$r['runtime_host_tool_ref'],'operation_key'=>self::OPERATION_KEY,'model_activation_granted'=>false]);

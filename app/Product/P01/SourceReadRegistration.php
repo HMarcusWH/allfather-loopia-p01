@@ -107,18 +107,46 @@ final class SourceReadRegistration
 
     private function row(): ?array
     {
-        return $this->db->one('SELECT b.binding_id,b.binding_type,b.safety_classification,b.status AS binding_status,b.tenant_id AS binding_tenant,b.workspace_id AS binding_workspace,b.permitted_operation_classes,a.*,a.status AS adapter_status,h.status AS host_status,h.host_instance_key FROM runtime_host_instances h JOIN runtime_host_bindings b ON b.runtime_host_instance_id=h.runtime_host_instance_id JOIN runtime_adapter_instances a ON a.runtime_adapter_instance_id=b.runtime_adapter_instance_id WHERE h.host_instance_key=?', [self::HOST_KEY]);
+        return $this->db->one(
+            'SELECT b.binding_id,b.binding_type,b.runtime_host_reference,b.runtime_host_version,b.mapping_purpose,b.safety_classification,
+                    b.status AS binding_status,b.tenant_id AS binding_tenant,b.workspace_id AS binding_workspace,
+                    b.permitted_operation_classes,b.activation_evidence_refs,
+                    a.*,a.status AS adapter_status,
+                    h.host_family,h.host_name,h.host_instance_key,h.host_version,h.repository_reference_safe,
+                    h.licence_status_ref,h.integration_map_document_ref,h.environment_class,h.declared_security_assumptions,
+                    h.status AS host_status
+             FROM runtime_host_instances h
+             JOIN runtime_host_bindings b ON b.runtime_host_instance_id=h.runtime_host_instance_id
+             JOIN runtime_adapter_instances a ON a.runtime_adapter_instance_id=b.runtime_adapter_instance_id
+             WHERE h.host_family=? AND h.host_name=? AND h.host_instance_key=?',
+            ['LOOPIA_BOUNDED_SOURCE_READ', self::HOST_KEY, self::HOST_KEY],
+        );
     }
 
     private function validate(array $r): Outcome
     {
-        $expected = ['binding_type' => 'TOOL_SURFACE', 'safety_classification' => 'SAFE_READ_ONLY', 'binding_status' => 'ACTIVE', 'adapter_family' => 'LOOPIA_BOUNDED_SOURCE_READ', 'adapter_name' => self::HOST_KEY, 'adapter_version' => '1.0.0', 'adapter_status' => 'READY', 'host_status' => 'REGISTERED', 'host_instance_key' => self::HOST_KEY, ...self::payloads()];
+        $expected = [
+            'binding_type' => 'TOOL_SURFACE', 'runtime_host_reference' => self::HOST_KEY . ':tool',
+            'runtime_host_version' => '1.0.0', 'mapping_purpose' => 'Read one approved public competitor page; no external effect.',
+            'safety_classification' => 'SAFE_READ_ONLY', 'binding_status' => 'ACTIVE',
+            'adapter_family' => 'LOOPIA_BOUNDED_SOURCE_READ', 'adapter_name' => self::HOST_KEY,
+            'adapter_version' => '1.0.0', 'adapter_status' => 'READY',
+            'host_family' => 'LOOPIA_BOUNDED_SOURCE_READ', 'host_name' => self::HOST_KEY,
+            'host_status' => 'REGISTERED', 'host_instance_key' => self::HOST_KEY, 'host_version' => '1.0.0',
+            'repository_reference_safe' => 'internal://monitor/source-read', 'licence_status_ref' => 'internal',
+            'integration_map_document_ref' => 'docs/MONITOR_WORKFLOW.md', 'environment_class' => 'TEST',
+            ...self::payloads(),
+        ];
         foreach ($expected as $k => $v) {
             if (($r[$k] ?? null) !== $v) {
                 return Outcome::refuse('SOURCE_READ_DESCRIPTOR_CONFLICT');
             }
         }
-        if ($r['binding_tenant'] !== null || $r['binding_workspace'] !== null || json_decode((string) $r['permitted_operation_classes'], true) !== ['OBSERVE'] || !AdapterConformance::verify($r)) {
+        if ($r['binding_tenant'] !== null || $r['binding_workspace'] !== null
+            || json_decode((string) $r['permitted_operation_classes'], true) !== ['OBSERVE']
+            || json_decode((string) $r['activation_evidence_refs'], true) !== []
+            || json_decode((string) $r['declared_security_assumptions'], true) !== ['NO_EXTERNAL_EFFECT', 'SOURCE_TRANSPORT_INACTIVE_BY_DEFAULT']
+            || !AdapterConformance::verify($r)) {
             return Outcome::refuse('SOURCE_READ_DESCRIPTOR_CONFLICT');
         }
 

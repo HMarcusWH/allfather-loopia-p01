@@ -15,7 +15,7 @@ use Allfather\Loopia\Ingestion\{FetchRequest,FetchResponse,FetchTransport};
 use Allfather\Loopia\Product\P01\{Entitlements,SourceReadRegistration};
 use Allfather\Loopia\PromptOps\{PromptApprovalStore,PromptSelectionResolver};
 use Allfather\Loopia\Product\P04\Distribution;
-use Allfather\Loopia\Provider\{CredentialStore,SecretBox};
+use Allfather\Loopia\Provider\{CredentialStore,ModelRegistration,SecretBox};
 use Allfather\Loopia\Storage\EvidenceStore;
 use Allfather\Loopia\Substrate\M05\EvidenceSpine;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
@@ -178,6 +178,19 @@ $reapplied = X::value($setup->apply($scope, $req, $replan['plan_digest']));
 Assert::same([$applied['setup_receipt_id'], true], [$reapplied['setup_receipt_id'], $reapplied['reused_existing_receipt']], 'the same receipt answers');
 Assert::same($before, $snapshot(), 'and nothing was written');
 Assert::same($applied['setup_receipt_id'], X::value($setup->receipt($scope, 'acme-pricing'))['setup_receipt_id'], 'the receipt can be read back');
+
+// Descriptor reuse is exact. Metadata drift cannot be hidden behind an ACTIVE row.
+$db->run("UPDATE runtime_host_instances SET host_version='9.9.9' WHERE host_family='LOOPIA_BOUNDED_SOURCE_READ' AND host_instance_key=?", [SourceReadRegistration::HOST_KEY]);
+$sourceDescriptorDrift=X::value($setup->plan($scope,$req));
+$sourceDescriptorSteps=array_column($sourceDescriptorDrift['steps'],null,'step');
+Assert::same(['CONFLICT','SOURCE_READ_DESCRIPTOR_CONFLICT'],[$sourceDescriptorSteps['SOURCE_READ_BINDING']['action'],$sourceDescriptorSteps['SOURCE_READ_BINDING']['reason_code']],'a drifted source-read descriptor is not reused');
+$db->run("UPDATE runtime_host_instances SET host_version='1.0.0' WHERE host_family='LOOPIA_BOUNDED_SOURCE_READ' AND host_instance_key=?", [SourceReadRegistration::HOST_KEY]);
+
+$db->run("UPDATE runtime_host_instances SET host_version='9.9.9' WHERE host_family='LOOPIA_BOUNDED_MODEL' AND host_instance_key=?", [ModelRegistration::HOST_KEY]);
+$modelDescriptorDrift=X::value($setup->plan($scope,$req));
+$modelDescriptorSteps=array_column($modelDescriptorDrift['steps'],null,'step');
+Assert::same(['CONFLICT','MODEL_DESCRIPTOR_CONFLICT'],[$modelDescriptorSteps['MODEL_DESCRIPTOR']['action'],$modelDescriptorSteps['MODEL_DESCRIPTOR']['reason_code']],'a drifted model descriptor is not reused');
+$db->run("UPDATE runtime_host_instances SET host_version='1.0.0' WHERE host_family='LOOPIA_BOUNDED_MODEL' AND host_instance_key=?", [ModelRegistration::HOST_KEY]);
 
 // ---------------------------------------------------------------- a changed request is a successor, never a rewrite
 $profileB = 'Owner-provided, unverified: we now also sell evening packages.';
