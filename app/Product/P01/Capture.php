@@ -441,15 +441,16 @@ final class Capture
     }
 
     /**
-     * Re-read the mutable source authority immediately before network I/O.
+     * Read-only current P01 source authority. This is shared by configuration/readiness and the
+     * actual pre-dispatch boundary so "pilot ready" and "may fetch now" cannot drift into two rules.
      *
-     * @param array<string,mixed> $input
-     * @param array<string,mixed> $expectedPolicy
+     * @param array{tenant_id:string,workspace_id:string,monitored_source_id:string,capture_url:string} $input
+     * @param null|array<string,mixed> $expectedPolicy when supplied, policy drift also refuses
      * @return Outcome<array{policy:array<string,mixed>,retain_comparison_allowed:bool}>
      */
-    private function preDispatchPolicy(array $input, array $expectedPolicy): Outcome
+    public static function currentPolicy(Database $db, Clock $clock, array $input, ?array $expectedPolicy = null): Outcome
     {
-        $row = $this->db->one(
+        $row = $db->one(
             'SELECT ms.tenant_id,ms.workspace_id,ms.source_ref_id,ms.status AS ms_status,
                     ms.source_license_card_id,c.status AS competitor_status,
                     sr.tenant_id AS source_ref_tenant_id,sr.status AS source_ref_status,
@@ -474,14 +475,14 @@ final class Capture
             return Outcome::refuse('COMPETITOR_NOT_LIVE');
         }
 
-        $card = $this->db->one(
+        $card = $db->one(
             'SELECT * FROM source_license_cards WHERE source_license_card_id=? AND tenant_id=? AND source_ref_id=?',
             [$row['source_license_card_id'], $input['tenant_id'], $row['source_ref_id']]
         );
         if ($card === null) {
             return Outcome::refuse('MONITORED_SOURCE_SCOPE_MISMATCH');
         }
-        $review = $this->db->one(
+        $review = $db->one(
             'SELECT robots_policy_checked,terms_policy_checked,reviewed_at,expires_at,terms_snapshot_hash
              FROM source_terms_reviews WHERE source_license_card_id=?
              ORDER BY reviewed_at DESC,source_terms_review_id DESC LIMIT 1',
@@ -492,7 +493,7 @@ final class Capture
             'tenant_id' => (string) $row['source_ref_tenant_id'],
             'status' => (string) $row['source_ref_status'],
             'content_sensitivity_class' => (string) $row['content_sensitivity_class'],
-        ], $card, $review, null, self::instantMs($this->clock->now()));
+        ], $card, $review, null, self::instantMs($clock->now()));
 
         $refusal = self::p01ReasonFor($policy['fail_closed_reason_codes']);
         if ($refusal !== null) {
@@ -504,7 +505,8 @@ final class Capture
         if (!SourcePolicy::urlWithinScope($policy['allowed_url_scope'], $input['capture_url'])) {
             return Outcome::refuse('CAPTURE_URL_OUTSIDE_SOURCE_SCOPE');
         }
-        if (!hash_equals((string) $expectedPolicy['policy_digest'], (string) $policy['policy_digest'])) {
+        if ($expectedPolicy !== null
+            && !hash_equals((string) ($expectedPolicy['policy_digest'] ?? ''), (string) $policy['policy_digest'])) {
             return Outcome::refuse('SOURCE_POLICY_CHANGED_BEFORE_DISPATCH');
         }
 
@@ -515,6 +517,12 @@ final class Capture
                 && in_array($card['allowed_use_class'] ?? null, ['derived_summary_allowed','customer_visible_allowed'], true)
                 && ($card['retention_class'] ?? null) === 'standard',
         ]);
+    }
+
+    /** Re-read authority at the actual I/O boundary and require the earlier compiled policy to match. */
+    private function preDispatchPolicy(array $input, array $expectedPolicy): Outcome
+    {
+        return self::currentPolicy($this->db, $this->clock, $input, $expectedPolicy);
     }
 
     /**

@@ -2,10 +2,10 @@
 declare(strict_types=1);
 namespace Allfather\Loopia\Workflow;
 
-use Allfather\Loopia\Core\{ActionClass,Clock,Digest,OperatorScope,Outcome};
+use Allfather\Loopia\Core\{Clock,Digest,OperatorScope,Outcome};
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Ingestion\SourcePolicy;
-use Allfather\Loopia\Product\P01\CompanyContext;
+use Allfather\Loopia\Product\P01\{Capture,CompanyContext};
 use Allfather\Loopia\Provider\ModelRegistration;
 use Allfather\Loopia\Substrate\M02\AccessGuard;
 use Allfather\Loopia\Substrate\M08\PolicySets;
@@ -58,15 +58,13 @@ final class MissionConfiguration
             $mission=$this->db->one('SELECT m.*,w.environment_class FROM missions m JOIN workspaces w ON w.workspace_id=m.workspace_id WHERE m.mission_id=? AND m.tenant_id=? AND m.workspace_id=? AND m.status=? AND w.status=?',[$d['mission_id'],$scope['tenant_id'],$scope['workspace_id'],'ACTIVE','ACTIVE']);
             if ($mission===null || $mission['mission_type']!=='COMPETITION_MONITORING') { return Outcome::refuse('MONITOR_MISSION_NOT_ACTIVE'); }
             if ($mode==='FIXTURE' && $mission['environment_class']!=='TEST') { return Outcome::refuse('MONITOR_FIXTURE_REQUIRES_TEST_SCOPE'); }
-            $source=$this->db->one("SELECT ms.source_ref_id,lc.source_url_safe,lc.review_status,lc.review_expires_at,sr.status AS source_status
-                FROM monitored_sources ms JOIN competitors c ON c.competitor_id=ms.competitor_id
-                JOIN source_license_cards lc ON lc.source_license_card_id=ms.source_license_card_id AND lc.source_ref_id=ms.source_ref_id AND lc.tenant_id=ms.tenant_id
-                JOIN source_references sr ON sr.source_ref_id=ms.source_ref_id AND sr.tenant_id=ms.tenant_id
-                WHERE ms.monitored_source_id=? AND ms.tenant_id=? AND ms.workspace_id=? AND ms.status='ACTIVE' AND c.status IN ('ACTIVE','PAUSED')",[$d['monitored_source_id'],$scope['tenant_id'],$scope['workspace_id']]);
-            if ($source===null || $source['review_status']!=='approved' || $source['source_status']!=='ACTIVE_FOR_CAPTURE' || !is_string($d['capture_url'])) { return Outcome::refuse('MONITOR_SOURCE_NOT_AVAILABLE'); }
-            $urlScope=SourcePolicy::deriveUrlScope(is_string($source['source_url_safe'])?$source['source_url_safe']:null);
-            if ($urlScope===null || !SourcePolicy::urlWithinScope($urlScope['scope'],$d['capture_url'])) { return Outcome::refuse('MONITOR_CAPTURE_URL_OUTSIDE_SOURCE_SCOPE'); }
-            if ($source['review_expires_at']!==null && (string)$source['review_expires_at']<=$this->clock->now()) { return Outcome::refuse('MONITOR_SOURCE_REVIEW_EXPIRED'); }
+            if (!is_string($d['capture_url'])) { return Outcome::refuse('MONITOR_SOURCE_NOT_AVAILABLE'); }
+            $sourceCurrent=Capture::currentPolicy($this->db,$this->clock,[
+                'tenant_id'=>$scope['tenant_id'],'workspace_id'=>$scope['workspace_id'],
+                'monitored_source_id'=>$d['monitored_source_id'],'capture_url'=>$d['capture_url'],
+            ]);
+            if (!$sourceCurrent->isOk()) { return $sourceCurrent; }
+            $sourceRefId=$sourceCurrent->value()['policy']['source_ref_id'];
             $context=$d['context_selection'];
             if (!is_array($context) || array_diff(array_keys($context),['mission_id','purpose','audience','limits','profile_evidence_ids','source_ids','selected_target_org_role'])!==[]
                 || ($context['selected_target_org_role']??null)!==$d['target_org_role'] || !in_array($context['audience']??null,ContextEnvelope::AUDIENCES,true)) { return Outcome::refuse('MONITOR_CONTEXT_CONFIGURATION_INVALID'); }
@@ -74,7 +72,7 @@ final class MissionConfiguration
                 if (!is_int($context['limits'][$key]??null) || $context['limits'][$key]<1 || $context['limits'][$key]>$maximum) { return Outcome::refuse('CONTEXT_LIMIT_INVALID'); }
             }
             if ($context['limits']['max_output_tokens']<16 || array_diff(array_keys($context['limits']),['max_input_bytes','max_output_tokens','max_model_calls','max_observation_age_seconds'])!==[]) { return Outcome::refuse('CONTEXT_LIMIT_INVALID'); }
-            if (($context['mission_id']??null)!==$d['mission_id'] || ($context['purpose']??null)!==$mission['objective'] || empty($context['profile_evidence_ids']) || count($context['profile_evidence_ids'])>4 || !in_array($source['source_ref_id'],$context['source_ids']??[],true)) { return Outcome::refuse('MONITOR_CONTEXT_CONFIGURATION_INVALID'); }
+            if (($context['mission_id']??null)!==$d['mission_id'] || ($context['purpose']??null)!==$mission['objective'] || empty($context['profile_evidence_ids']) || count($context['profile_evidence_ids'])>4 || !in_array($sourceRefId,$context['source_ids']??[],true)) { return Outcome::refuse('MONITOR_CONTEXT_CONFIGURATION_INVALID'); }
             $allowed=json_decode($mission['allowed_source_scope_ids'],true,32,JSON_THROW_ON_ERROR);
             if (array_diff($context['source_ids'],$allowed)!==[]) { return Outcome::refuse('CONTEXT_SOURCE_OUTSIDE_MISSION'); }
             foreach ($context['profile_evidence_ids'] as $id) {
