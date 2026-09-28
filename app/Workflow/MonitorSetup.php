@@ -191,9 +191,11 @@ final class MonitorSetup
             $p04State['arbiter_policy_set_id'] ?? null,
             $p04->isOk() ? null : $p04->reasonCode());
 
-        $target = $this->db->one('SELECT redaction_rules_json FROM console_redaction_policy_projections WHERE tenant_id=? AND workspace_id=? AND target_org_role=?', [$scope['tenant_id'], $scope['workspace_id'], $r['target']['target_org_role']]);
+        $target = $this->db->one('SELECT redaction_rules_json,stale_status FROM console_redaction_policy_projections WHERE tenant_id=? AND workspace_id=? AND target_org_role=?', [$scope['tenant_id'], $scope['workspace_id'], $r['target']['target_org_role']]);
         if ($target === null) {
             $add('DISTRIBUTION_TARGET', 'CREATE', $r['target']['target_org_role']);
+        } elseif ($target['stale_status'] !== 'CURRENT') {
+            $add('DISTRIBUTION_TARGET', 'REFUSE', $r['target']['target_org_role'], 'DISTRIBUTION_TARGET_NOT_CURRENT');
         } elseif (Digest::canonicalDigest(json_decode($target['redaction_rules_json'], true, 32, JSON_THROW_ON_ERROR)) === Digest::canonicalDigest($r['target']['redaction_rules'])) {
             $add('DISTRIBUTION_TARGET', 'REUSE', $r['target']['target_org_role']);
         } else {
