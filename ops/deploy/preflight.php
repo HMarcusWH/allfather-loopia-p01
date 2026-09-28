@@ -386,8 +386,27 @@ foreach (['app', 'public_html', 'worker', 'ops'] as $dir) {
         }
     }
 }
+// The admitted Monitor composition is the ONE reviewed constructor site, and only on its admitted
+// branch (see tests/foundation/no_external_action_surface.php). Anywhere else is wiring nobody reviewed.
+$admittedSite = 'app/Workflow/MonitorFactory.php';
+$factorySource = (string) @file_get_contents($root . '/' . $admittedSite);
+if (in_array($admittedSite, $wired, true)
+    && preg_match('/return\s+\$admitted\s*\?\s*\[\s*new\s+CurlHttpsTransport\(\)\s*,\s*new\s+DnsHostResolver\(\)\s*\]/', $factorySource) === 1
+    && substr_count($factorySource, 'new ' . 'CurlHttpsTransport(') === 1) {
+    $wired = array_values(array_diff($wired, [$admittedSite]));
+}
 foreach ($wired as $file) {
-    $note("{$file} constructs the live-read transport — live read is unwired, not merely flagged off");
+    $note("{$file} constructs the live-read transport outside the admitted Monitor composition");
+}
+
+// ============================================================ an inert copy carries no owner decision
+
+// Live read and model calls are admitted only by citing a reviewed owner decision shipped under
+// docs/decisions/. A release copied as INERT staging must carry none: with none, no grant can be
+// admitted, and the admitted branch above can never be reached on this host.
+$decisionFiles = glob($root . '/docs/decisions/*.json') ?: [];
+if ($decisionFiles !== []) {
+    $note('docs/decisions carries ' . count($decisionFiles) . ' owner decision(s) — this is not an inert release; use ops/monitor/preflight.php for a manual pilot');
 }
 
 // ============================================================ is this tree the named release?

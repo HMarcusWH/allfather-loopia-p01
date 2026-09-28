@@ -5,6 +5,10 @@ remains before anyone should point a customer at it.
 
 Written to be read by someone deciding whether to launch. The uncomfortable parts are in §5 and §6.
 
+For the current source, tested, deployed and activated state in one place, read
+[`MVP_RELEASE_STATE.md`](MVP_RELEASE_STATE.md) first; this report describes capability, and the
+remaining sequence is [`MONITOR_COMPLETION_PLAN.md`](MONITOR_COMPLETION_PLAN.md).
+
 ---
 
 ## 1. What is built
@@ -34,13 +38,13 @@ nowhere else. M15 governed ingestion is present with the guarded egress path.
 | Plane | What it does |
 | --- | --- |
 | P01 | competition monitoring: sources, capture, change detection, signals, battlecards, release, surfacing, usage metering, two audits |
-| P02 | entity and relationship twins with four privacy screens, governed state-change admission, M10 release, and M16 entity/relationship snapshot artifacts; runtime implemented, web surface not included |
-| P03 | catalogue, ICP, fit hypotheses, prospect queue admission, **M10 release and two-gate surfacing** |
+| P02 | entity and relationship twins with four privacy screens, governed state-change admission, M10 release, and M16 entity/relationship snapshot artifacts; the released entity and relationship indexes are readable in the React console, entity detail is not built |
+| P03 | catalogue, ICP, fit hypotheses, prospect queue admission, **M10 release and two-gate surfacing**; the priority-queue and monitored-prospect indexes are readable in the React console, prospect detail is not built |
 | P04 | stakeholder roles, role distribution, admission, release, three-gate surfacing, four audits |
 | P05 | marketing drafts, claim citations, variants, admission, internal release, three audits |
 | P07-A | consent, PII firewall, outreach admission, approval, frozen artifacts, synthetic dispatch, five audits |
 
-**Storage** — 23 migrations in the current implementation candidate, MariaDB 10.6+ / InnoDB, with the invariants held as CHECK constraints,
+**Storage** — 26 migrations in the current implementation candidate, MariaDB 10.6+ / InnoDB, with the invariants held as CHECK constraints,
 append-only triggers and the database-enforced uniqueness translations named in
 `SCHEMA_REACHABILITY.md`. **Loopia Företag is MariaDB 10.6**; 10.11 is Företag Plus only. Both are
 verified against real servers in the test matrix — see `CONFORMANCE_MATRIX.md` §1.
@@ -94,10 +98,10 @@ Its local implementation and fixture checks do not update the deployed PR16 clai
 
 | Area | State |
 | --- | --- |
-| schema migrations | 23 files in candidate; deployed-release count is recorded separately |
+| schema migrations | 26 files in candidate; deployed-release count is recorded separately |
 | authority seeding | `Permissions` vocabulary + role seeds; product registrations provision their selected tenant capabilities |
 | audit profiles | created on demand per category |
-| CI | PR16 exact-head local workflow reproduction PASS: PHP 8.2.34, MariaDB 10.6/10.11 and both host-shaped lanes at 5,552/0/0; hosted runner allocation blocked by account billing/spending |
+| CI | PR16 exact-head local workflow reproduction PASS: PHP 8.2.34, MariaDB 10.6/10.11 and both host-shaped lanes at 5,552/0/0; hosted runner allocation blocked by account billing/spending. The workflow's steps now live in `ops/ci/qualify-release.sh`, whose `local` route reproduces them from an exact-commit export and writes a self-reported receipt |
 | runbook | `DEPLOYMENT_RUNBOOK.md` for the mechanics, `BETA_RUNBOOK.md` for the sequence |
 | rollback | PR16 to PR15 to PR16 drill PASS for named immutable history and request-log prefix; no populated M10 stream or full database restore exercised |
 | host qualification | PR16 actual Loopia strict suite 5,552/0/0, probes, N/O/P and browser checks PASS under the staging deviation; E.1 FAIL_READABLE, E.3 UNVERIFIED |
@@ -123,7 +127,8 @@ separately measured Loopia result. Earlier runtime-version statements described 
 The following remain uncompleted or unauthorized:
 
 - **ROAD_TEST_001 and live read remain off.** No road test has run. The reviewed transport and DNS
-  resolver are structurally unconstructed in the production composition roots; scheduler handler
+  resolver are constructed only on MonitorFactory's admitted branch, and no grant is admitted (no owner
+  decision ships); scheduler handler
   registries remain empty. Their implementation and host capability do not activate them.
 - **Production is not deployed or authorized.** The staging owner direction is not a road-test or
   production launch GO. `OWNER_GO_GRANTED`, customer-visible output, external action and production

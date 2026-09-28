@@ -95,5 +95,90 @@
       "path": "canonical-parity-baseline-2026-09-27.json",
       "sha256": "3a2f89897ec32ecb465b57df3a5fa72e8b0369ecc1bdcf0a2089d286393a49b9"
     }
+  ],
+  "completion_plan_additions": [
+    {
+      "package": "P01",
+      "capability": "Execution admission and approved prompt selection",
+      "paths": [
+        "app/Workflow/ExecutionAdmission.php",
+        "app/Workflow/ExecutionGrantStore.php",
+        "app/Workflow/OwnerDecisionRegistry.php",
+        "app/PromptOps/PromptSelectionResolver.php",
+        "app/PromptOps/PromptApprovalStore.php",
+        "app/Provider/ModelPolicy.php",
+        "ops/monitor/authorization.php",
+        "database/migrations/210_monitor_execution_controls.sql"
+      ],
+      "status": "LOCAL_DEPLOYMENT_CONTROL_INERT_WITHOUT_OWNER_DECISION",
+      "not_claimed": [
+        "canonical authority",
+        "an admitted grant",
+        "an approved prompt",
+        "native execution",
+        "live read"
+      ]
+    },
+    {
+      "package": "P02",
+      "capability": "Real-model evaluation lane that cannot release product intelligence",
+      "paths": [
+        "app/Evaluation/EvaluationFactory.php",
+        "app/Evaluation/MonitorEvaluationRunner.php",
+        "app/Evaluation/EvaluationReport.php",
+        "app/Evaluation/EvaluationManifest.php",
+        "app/Evaluation/EvaluationCaseContext.php",
+        "app/Workflow/ModelContextAuthority.php",
+        "ops/evaluation/monitor.php",
+        "tests/fixtures/monitor_model_eval_cases.json",
+        "database/migrations/220_monitor_evaluation_records.sql"
+      ],
+      "status": "HARNESS_IMPLEMENTED_NO_FUNDED_RUN",
+      "not_claimed": [
+        "a real model evaluation",
+        "an accepted report",
+        "a product prompt approval",
+        "model quality"
+      ]
+    },
+    {
+      "package": "P03",
+      "capability": "Admitted native manual Monitor composition and stand-down",
+      "paths": [
+        "app/Workflow/MonitorFactory.php",
+        "app/Workflow/NativeOperations.php",
+        "ops/monitor/preflight.php",
+        "ops/monitor/stand-down.php",
+        "public_html/index.php",
+        "app/Http/Controllers/MonitorController.php"
+      ],
+      "status": "WIRED_BEHIND_ADMISSION_NOTHING_ADMITTED",
+      "not_claimed": [
+        "live read activation",
+        "native execution in any deployment",
+        "ROAD_TEST_001"
+      ]
+    },
+    {
+      "package": "P04",
+      "capability": "Repeatable operator-supported mission setup",
+      "paths": [
+        "app/Workflow/MonitorSetup.php",
+        "app/Product/P01/SourceReadRegistration.php",
+        "app/Core/OperatorScope.php",
+        "ops/monitor/setup.php",
+        "ops/monitor/import-profile.php",
+        "ops/provider/credential.php",
+        "database/migrations/225_monitor_setup_receipts.sql"
+      ],
+      "status": "SETUP_TOOLING_GRANTS_NO_ROLE_SUBSCRIPTION_OR_EXECUTION",
+      "not_claimed": [
+        "a configured real tenant",
+        "a tenant subscription",
+        "an M02 role grant",
+        "source review by the platform",
+        "native execution"
+      ]
+    }
   ]
 }

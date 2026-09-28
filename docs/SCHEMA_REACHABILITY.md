@@ -387,7 +387,7 @@ application/lookup translation or are unreachable from the selected graph.
 | `ux_audit_profiles_active_key`, `ux_replay_profiles_active_key` | application | an audit grants nothing — `does_not_grant_authority` is CHECK-pinned to 1 |
 | `ux_company_signals_admission_idempotency`, `ux_entity_twin_state_change_admission_idempotency`, `ux_entity_rel_state_change_admission_idempotency`, `ux_console_command_intents_idempotency` | application | a race duplicates work; it does not widen authority |
 | `ux_customer_product_catalogues_active`, `ux_icp_profiles_one_active` | application | internal read models, gated downstream by M02 **and** the tenant tier |
-| `ux_ingestion_fetch_plans_one_active`, `ux_ingestion_entity_aliases_active` | application | live read is inert; nothing constructs the transport (pinned by the foundation suite) |
+| `ux_ingestion_fetch_plans_one_active`, `ux_ingestion_entity_aliases_active` | application | live read is inert; the transport is constructed only behind an admitted execution grant, and none is admitted (pinned by the foundation suite) |
 | `ux_exec_refs_terminal_dispatch`, `ux_decision_input_references_action_ack` | not reachable | no M01 host adapter and no general M09 execution plane in the selected graph |
 | `ux_trait_*`, `ux_entity_*_anchor_candidates_active_key`, `ux_adaptive_config_proposals_active_payload` | not reachable | outside the selected graph entirely |
 
@@ -538,7 +538,15 @@ repin the whole projection or infer canonical authority from tables found in a r
 | Original Loopia host adapters | 8 | Explicit list in section 2.1 and baseline fixture |
 | Bounded model host adapters | 2 | `provider_model_attempts`, `provider_model_results`; migration `190_bounded_model_provenance.sql` |
 | Monitor host adapters | 4 | `monitor_mission_configs`, `monitor_runs`, `monitor_run_events`, `monitor_capture_payloads`; migration `200_monitor_runs.sql` |
-| **Current application total** | **203** | **189 canonical + 14 Loopia adapters** |
+| Monitor execution controls (completion plan P01) | 6 | `monitor_prompt_approvals`, `monitor_prompt_approval_events`, `monitor_execution_grants`, `monitor_execution_grant_events`, `monitor_grant_consumptions`, `monitor_admission_decisions`; migration `210_monitor_execution_controls.sql` |
+| Monitor evaluation records (completion plan P02) | 4 | `monitor_evaluation_runs`, `monitor_evaluation_results`, `monitor_evaluation_assessments`, `provider_attempt_purposes`; migration `220_monitor_evaluation_records.sql` |
+| Monitor setup receipts (completion plan P04) | 1 | `monitor_setup_receipts`; migration `225_monitor_setup_receipts.sql` |
+| **Current application total** | **214** | **189 canonical + 25 Loopia adapters** |
+
+The completion-plan tables are Loopia-local deployment controls, not canonical law: immutable grant
+and approval definitions, append-only lifecycle events, budget consumption and an admission trail.
+They reference reviewed owner decisions under `docs/decisions/` and grant nothing by existing. They
+are declared per migration in `completion_plan_tables` of the inventory fixture.
 
 The single additional canonical table comes from the reviewed repeatable P01 registration repair
 [canonical PR 368](https://github.com/HMarcusWH/Allfatherbusinessintelligence/pull/368), reviewed

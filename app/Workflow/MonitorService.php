@@ -5,7 +5,7 @@ namespace Allfather\Loopia\Workflow;
 use Allfather\Loopia\Core\{Clock,Digest,Outcome};
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Product\P01\ChangeDetection;
-use Allfather\Loopia\PromptOps\ProductPromptPack;
+use Allfather\Loopia\PromptOps\PromptSelectionResolver;
 use Allfather\Loopia\Provider\{ModelExecutor,ModelRequestBuilder};
 use Allfather\Loopia\Substrate\M02\AccessGuard;
 
@@ -14,6 +14,9 @@ final class MonitorService implements MonitorOperations
 {
     private const ROLES=['DIFFED'=>'P01_SIGNAL_CLASSIFIER','ANALYZED'=>'BATTLECARD_GENERATOR','DRAFTED'=>'MONITOR_REVIEW_CRITIC','ROUTING_PREPARED'=>'MONITOR_ROUTING_CRITIC'];
     private const OUTPUTS=['DIFFED'=>['classifier','ANALYZED'],'ANALYZED'=>['draft','DRAFTED'],'DRAFTED'=>['critic','REVIEW_REQUIRED'],'ROUTING_PREPARED'=>['routing_critic','ROUTING_REVIEW']];
+    /** Refusals that mean "not admitted yet", not "this run failed": nothing was spent, so the run waits. */
+    private const ADMISSION_PREFIXES=['EXECUTION_','MODEL_EXECUTION_NOT_ADMITTED','OWNER_DECISION_','PROMPT_APPROVAL_','PROMPT_NOT_APPROVED'];
+    private readonly PromptSelectionResolver $prompts;
     public function __construct(
         private readonly Database $db,private readonly Clock $clock,private readonly RunJournal $journal,
         private readonly MissionConfiguration $configuration,private readonly SourceCaptureStage $capture,
@@ -21,7 +24,8 @@ final class MonitorService implements MonitorOperations
         private readonly RunArtifacts $artifacts,private readonly ReleaseStages $releases,
         private readonly ContextEnvelope $context,
         private readonly bool $fixtureRuntime=false,private readonly bool $nativeEnabled=false,
-    ) {}
+        ?PromptSelectionResolver $prompts=null,private readonly ?ExecutionAdmission $admission=null,
+    ) { $this->prompts=$prompts??PromptSelectionResolver::inert(); }
 
     public function list(array $scope): Outcome
     {
@@ -51,6 +55,7 @@ final class MonitorService implements MonitorOperations
         }
         $result['review_digest']=in_array($run['stage'],['REVIEW_REQUIRED','ROUTING_REVIEW'],true)?self::reviewDigest($run):null;
         $result['native_execution_enabled']=$this->nativeEnabled;
+        $result['execution_admission']=$this->admissionSummary($scope,$run);
         $result['fixture_runtime']=$this->fixtureRuntime;
         // Current reliance is read from M10; a historical COMPLETE journal is not a current release grant.
         $result['current_reliance']=[];
@@ -81,7 +86,14 @@ final class MonitorService implements MonitorOperations
             if (($run['execution_mode']==='FIXTURE')!==$this->fixtureRuntime) { return Outcome::refuse('MONITOR_RUNTIME_MODE_MISMATCH'); }
             try {
                 if ($run['stage']==='NEW') {
-                    $captured=$this->capture->execute($scope,$run);
+                    $beforeFetch=null;
+                    if ($run['execution_mode']==='NATIVE') {
+                        $grant=$this->currentGrant($scope,$run); if (!$grant->isOk()) { return $grant; }
+                        $facts=$this->runFacts($scope,$run,$grant->value());
+                        $admitted=$this->admitCapture($scope,$run,$grant->value(),$facts); if (!$admitted->isOk()) { return $admitted; }
+                        $beforeFetch=fn():Outcome=>$this->admission->check('SOURCE_BEFORE_DISPATCH',$facts);
+                    }
+                    $captured=$this->capture->execute($scope,$run,$beforeFetch);
                     if (!$captured->isOk()) { return $this->block($scope,$run,$captured->reasonCode()); }
                     return $this->journal->advance($scope,$run,$captured->value()['before_snapshot_id']===null?'BASELINE':'CAPTURED',['capture'=>$captured->value()],'SOURCE_CAPTURED');
                 }
@@ -131,6 +143,11 @@ final class MonitorService implements MonitorOperations
                 if ($candidate->value()['context_digest']!==$context->value()['digest']) { return Outcome::refuse('MONITOR_REVIEW_CONTEXT_CHANGED'); }
             }
             if ($run['stage']==='ROUTING_REVIEW') { $access=$this->authorize($scope,['distribution.route']); if (!$access->isOk()) { return $access; } }
+            if ($run['execution_mode']==='NATIVE') {
+                $grant=$this->currentGrant($scope,$run); if (!$grant->isOk()) { return $grant; }
+                $admitted=$this->admission->check($run['stage']==='REVIEW_REQUIRED'?'RELEASE_P01':'RELEASE_ROUTING',$this->runFacts($scope,$run,$grant->value()));
+                if (!$admitted->isOk()) { return $admitted; }
+            }
             return $this->db->transaction(function() use($scope,$run,$classifier,$draft,$critic,$stored,$kind,$context):Outcome {
                 if ($run['stage']==='ROUTING_REVIEW') {
                     $this->db->one('SELECT redaction_rules_json FROM console_redaction_policy_projections WHERE tenant_id=? AND workspace_id=? AND target_org_role=? FOR UPDATE',[$scope['tenant_id'],$scope['workspace_id'],$run['definition']['target_org_role']]);
@@ -162,6 +179,9 @@ final class MonitorService implements MonitorOperations
 
     private function executeModel(array $scope,array $run,?string $expected): Outcome
     {
+        // A native stage needs its admitted grant before anything else — a missing grant is the
+        // answer, not a request digest that no longer matches what the operator saw.
+        if ($run['execution_mode']==='NATIVE') { $grant=$this->currentGrant($scope,$run); if (!$grant->isOk()) { return $grant; } }
         $prepared=$this->prepareModel($scope,$run); if (!$prepared->isOk()) { return $prepared; }
         $request=$prepared->value();
         if ($expected===null || !hash_equals($request->digest(),$expected)) { return Outcome::refuse('MONITOR_REQUEST_INSPECTION_REQUIRED'); }
@@ -169,8 +189,12 @@ final class MonitorService implements MonitorOperations
         $requestArtifact=$this->artifacts->save($run,$name.'_request',$request->inspect()); if (!$requestArtifact->isOk()) { return $requestArtifact; }
         $command=$run['definition']['model_governance'][str_contains($name,'critic')?'critic':'author'];
         $command=array_merge($command,['tenant_id'=>$scope['tenant_id'],'workspace_id'=>$scope['workspace_id'],'calling_actor_type'=>'OPERATOR','calling_actor_id'=>$scope['operator_id'],'requested_action_class'=>'ANALYZE','idempotency_key'=>'monitor.model.'.$run['monitor_run_id'].'.'.$name,'correlation_id'=>$run['monitor_run_id'],'request_purpose_safe'=>'Bounded Monitor '.$name.' candidate']);
-        $result=$this->models->execute($command,$request,$run['definition']['credential_id']);
+        $result=$this->models->execute($command,$request,$run['definition']['credential_id'],['monitor_run_id'=>$run['monitor_run_id'],'mission_id'=>$run['mission_id'],'definition_digest'=>$run['definition_digest']]);
         $cursor=$run['cursor']+[$name.'_request_artifact'=>$requestArtifact->value()['digest']];
+        if (($result['kind']??'')==='MODEL_REFUSED' && !isset($result['dispatch']) && self::isAdmissionRefusal($result['reason_code']??'')) {
+            // Refused before M06 was asked: nothing reserved or sent. The run waits for admission.
+            return Outcome::refuse($result['reason_code']);
+        }
         if (($result['kind']??'')!=='MODEL_CANDIDATE') {
             return $this->journal->advance($scope,$run,'BLOCKED',$cursor+['reason_code'=>$result['kind']==='MODEL_REPLAY'?'MONITOR_MODEL_REQUIRES_RECONCILIATION':($result['reason_code']??'MONITOR_MODEL_REFUSED')],'MODEL_REFUSED');
         }
@@ -185,7 +209,12 @@ final class MonitorService implements MonitorOperations
     private function prepareModel(array $scope,array $run): Outcome
     {
         $context=$this->contextFor($scope,$run); if (!$context->isOk()) { return $context; }
-        $role=self::ROLES[$run['stage']]; $prompt=ProductPromptPack::resolve($role); if (!$prompt->isOk()) { return $prompt; }
+        $role=self::ROLES[$run['stage']];
+        // Fixture runs, and native runs without an admitted grant, get inert content: inspectable,
+        // and refused by any live transport. Only an admitted grant yields an executable selection.
+        $grant=null;
+        if ($run['execution_mode']==='NATIVE' && $this->admission!==null) { $current=$this->currentGrant($scope,$run); if ($current->isOk()) { $grant=$current->value(); } }
+        $prompt=$this->prompts->select($role,$grant); if (!$prompt->isOk()) { return $prompt; }
         $options=['max_output_tokens'=>$run['definition']['context_selection']['limits']['max_output_tokens']];
         if ($role!=='P01_SIGNAL_CLASSIFIER') {
             $prior=$this->candidate($run,$role==='BATTLECARD_GENERATOR'?'classifier':'draft'); if (!$prior->isOk()) { return $prior; }
@@ -196,7 +225,36 @@ final class MonitorService implements MonitorOperations
                 $options['stage_inputs']['routing_package']=$routing->value();
             }
         }
-        return ModelRequestBuilder::prepare($prompt->value(),$context->value(),$options);
+        return ModelRequestBuilder::prepare($prompt->value(),$context->value(),$options,$this->prompts);
+    }
+    /** Admit, then spend, one source capture for this run — before any fetch is attempted. */
+    private function admitCapture(array $scope,array $run,array $grant,array $facts): Outcome
+    {
+        $admitted=$this->admission->check('SOURCE_CAPTURE',$facts); if (!$admitted->isOk()) { return $admitted; }
+        return $this->db->transaction(fn(Database $tx):Outcome=>$this->admission->reserve($tx,$grant['execution_grant_id'],'SOURCE_CAPTURE',$run['monitor_run_id'],$run['monitor_run_id']));
+    }
+    private function currentGrant(array $scope,array $run): Outcome
+    {
+        if ($this->admission===null) { return Outcome::refuse('MODEL_EXECUTION_NOT_ADMITTED'); }
+        return $this->admission->grants()->currentFor($scope['tenant_id'],$scope['workspace_id'],'MANUAL_MONITOR',$run['mission_id'],$run['definition_digest']);
+    }
+    private function runFacts(array $scope,array $run,array $grant): array
+    {
+        return ['tenant_id'=>$scope['tenant_id'],'workspace_id'=>$scope['workspace_id'],'operator_id'=>$scope['operator_id'],'execution_grant_id'=>$grant['execution_grant_id'],'purpose'=>'MANUAL_MONITOR','mission_id'=>$run['mission_id'],'definition_digest'=>$run['definition_digest'],'monitored_source_id'=>$run['definition']['monitored_source_id'],'capture_url'=>$run['definition']['capture_url'],'target_org_role'=>$run['definition']['target_org_role'],'monitor_run_id'=>$run['monitor_run_id']];
+    }
+    /** What the workbench shows about admission. Read-only: it records no decision. */
+    private function admissionSummary(array $scope,array $run): array
+    {
+        if ($run['execution_mode']!=='NATIVE') { return ['required'=>false]; }
+        $grant=$this->currentGrant($scope,$run);
+        if (!$grant->isOk()) { return ['required'=>true,'admitted'=>false,'reason_code'=>$grant->reasonCode()]; }
+        $g=$grant->value(); $d=$g['definition'];
+        return ['required'=>true,'admitted'=>true,'execution_grant_id'=>$g['execution_grant_id'],'grant_digest'=>$g['grant_digest'],'valid_until'=>$g['valid_until'],'model_attempts'=>['used'=>$this->admission->grants()->consumed($g['execution_grant_id'],'MODEL_ATTEMPT'),'limit'=>$d['limits']['max_model_attempts']],'source_captures'=>['used'=>$this->admission->grants()->consumed($g['execution_grant_id'],'SOURCE_CAPTURE'),'limit'=>$d['limits']['max_source_captures']]];
+    }
+    private static function isAdmissionRefusal(string $reason): bool
+    {
+        foreach (self::ADMISSION_PREFIXES as $prefix) { if (str_starts_with($reason,$prefix)) { return true; } }
+        return false;
     }
     private function contextFor(array $scope,array $run): Outcome
     {

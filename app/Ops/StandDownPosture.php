@@ -29,7 +29,8 @@ final class StandDownPosture
      *     deployed_fingerprint: string,
      *     evidence_problems: list<string>,
      *     unsupported_claims: list<string>,
-     *     failing_stream_ids: list<string>
+     *     failing_stream_ids: list<string>,
+     *     admitted_execution_grants?: int
      * } $observed
      * @return list<string>
      */
@@ -84,6 +85,12 @@ final class StandDownPosture
             $findings[] = 'the evidence registry still shows live read activated — no withdrawal record supersedes it';
         }
 
+        // An ADMITTED execution grant is a live capability: it can still reach a source or a model.
+        $admitted = (int) ($observed['admitted_execution_grants'] ?? 0);
+        if ($admitted > 0) {
+            $findings[] = "{$admitted} execution grant(s) are still ADMITTED — suspend or revoke them with ops/monitor/stand-down.php";
+        }
+
         foreach ($observed['evidence_problems'] as $problem) {
             $findings[] = 'deployment evidence: ' . $problem;
         }
@@ -117,6 +124,7 @@ final class StandDownPosture
             'evidence_problems' => [],
             'unsupported_claims' => [],
             'failing_stream_ids' => [],
+            'admitted_execution_grants' => 0,
         ];
     }
 }

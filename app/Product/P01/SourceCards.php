@@ -6,6 +6,7 @@ namespace Allfather\Loopia\Product\P01;
 
 use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Core\Ids;
+use Allfather\Loopia\Core\Outcome;
 use Allfather\Loopia\Db\Database;
 
 /**
@@ -197,6 +198,66 @@ final class SourceCards
                 ? 'SENSITIVITY_BEYOND_PUBLIC_SCOPE'
                 : $admissibility['reason_code'],
         ];
+    }
+
+    /**
+     * Append one reviewed robots/terms attestation for this card.
+     *
+     * P01 owns source_terms_reviews. Callers may supply review evidence, but they do not write this
+     * table directly. This method validates card scope and the review event shape; the append-only
+     * database triggers preserve the resulting history.
+     *
+     * @param array{
+     *   tenant_id:string,source_license_card_id:string,reviewed_by:string,reviewed_at:string,
+     *   robots_policy_checked:bool,terms_policy_checked:bool,terms_snapshot_hash:?string
+     * } $review
+     */
+    public function recordTermsReview(array $review): Outcome
+    {
+        $required = ['tenant_id','source_license_card_id','reviewed_by','reviewed_at','robots_policy_checked','terms_policy_checked','terms_snapshot_hash'];
+        if (array_diff(array_keys($review), $required) !== [] || array_diff($required, array_keys($review)) !== []) {
+            return Outcome::refuse('SOURCE_TERMS_REVIEW_INVALID');
+        }
+        foreach (['tenant_id','source_license_card_id','reviewed_by','reviewed_at'] as $key) {
+            if (!is_string($review[$key]) || trim($review[$key]) === '') {
+                return Outcome::refuse('SOURCE_TERMS_REVIEW_INVALID');
+            }
+        }
+        if (!Clock::isCanonical($review['reviewed_at'])
+            || $review['reviewed_at'] > $this->clock->now()
+            || !is_bool($review['robots_policy_checked'])
+            || !is_bool($review['terms_policy_checked'])
+            || ($review['terms_snapshot_hash'] !== null
+                && (!is_string($review['terms_snapshot_hash']) || preg_match('/^[a-f0-9]{64}$/D', $review['terms_snapshot_hash']) !== 1))) {
+            return Outcome::refuse('SOURCE_TERMS_REVIEW_INVALID');
+        }
+        $card = $this->db->one(
+            'SELECT tenant_id FROM source_license_cards WHERE source_license_card_id=?',
+            [$review['source_license_card_id']]
+        );
+        if ($card === null) {
+            return Outcome::refuse('SOURCE_CARD_NOT_FOUND', [], 'PROVENANCE');
+        }
+        if ((string) $card['tenant_id'] !== $review['tenant_id']) {
+            return Outcome::refuse('SOURCE_CARD_TENANT_MISMATCH', [], 'SCOPE', 'S4');
+        }
+
+        $id = Ids::new();
+        $this->db->insert('source_terms_reviews', [
+            'source_terms_review_id' => $id,
+            'schema_version' => '1',
+            'source_license_card_id' => $review['source_license_card_id'],
+            'robots_url' => null,
+            'terms_url' => null,
+            'robots_policy_checked' => $review['robots_policy_checked'] ? 1 : 0,
+            'terms_policy_checked' => $review['terms_policy_checked'] ? 1 : 0,
+            'terms_snapshot_hash' => $review['terms_snapshot_hash'],
+            'reviewed_by' => $review['reviewed_by'],
+            'reviewed_at' => $review['reviewed_at'],
+            'expires_at' => null,
+        ]);
+
+        return Outcome::ok(['source_terms_review_id' => $id]);
     }
 
     /** Map the card's source type onto the M05 `source_references` vocabulary. */

@@ -55,8 +55,23 @@ Assert::same(1, count($canonicalRepairs), 'one separately reviewed upstream repa
 Assert::same(8, count($baselineLoopia), 'the original host-adaptation inventory remains explicit');
 Assert::same(6, count($loopiaExtensions), 'six bounded model/Monitor host-adaptation tables are declared');
 
-$expected = array_merge($baselineCanonical, $canonicalRepairs, $baselineLoopia, $loopiaExtensions);
-Assert::same(203, count(array_unique($expected)), 'all table classifications are disjoint and duplicate-free');
+// Tables added by the Monitor completion plan, declared per reviewed migration. Each count is
+// stated here rather than read from the fixture, so a table cannot arrive by editing JSON alone.
+$completion = $inventory['completion_plan_tables'];
+Assert::same(
+    ['210_monitor_execution_controls.sql' => 6, '220_monitor_evaluation_records.sql' => 4, '225_monitor_setup_receipts.sql' => 1],
+    array_map('count', $completion),
+    'completion-plan tables are declared per reviewed migration',
+);
+$declaredCompletionMigrations = array_map('basename', $inventory['provenance']['completion_plan_migrations']);
+Assert::same(
+    array_keys($completion),
+    $declaredCompletionMigrations,
+    'completion-plan migration provenance names exactly the migrations whose tables are classified',
+);
+$completionTables = array_merge(...array_values($completion));
+$expected = array_merge($baselineCanonical, $canonicalRepairs, $baselineLoopia, $loopiaExtensions, $completionTables);
+Assert::same(203 + count($completionTables), count(array_unique($expected)), 'all table classifications are disjoint and duplicate-free');
 sort($expected, SORT_STRING);
 $present = array_map(
     static fn (array $r): string => (string) $r['t'],
@@ -69,7 +84,7 @@ sort($present, SORT_STRING);
 Assert::same(
     $expected,
     $present,
-    'the exact declared table set exists: 189 canonical + 14 Loopia adapters, with no missing or extra table',
+    sprintf('the exact declared table set exists: 189 canonical + %d Loopia adapters, with no missing or extra table', 14 + count($completionTables)),
 );
 
 $nonInnodb = (int) $db->scalar(

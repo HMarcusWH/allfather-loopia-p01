@@ -24,7 +24,7 @@ The separate fourth role, `MONITOR_ROUTING_CRITIC`, additionally requires `Conte
 
 `ModelExecutor::execute($command, $request, $credentialId)` requires the context's original actor and exact tenant/workspace/mission scope. Dispatch passes through all existing M06 gates and M01 nominal admission/single-use claim. M01 additionally verifies the exact model descriptor and persisted request digest. The provider callback is reached only after admission. Current context/policy is revalidated before the call and again before returning a candidate; M01 rechecks authority after the callback. A valid model response is still an untrusted candidate requiring human review and never becomes captured source evidence.
 
-The lifetime mission budget serializes reservations under the mission row. Every admitted reserved attempt consumes one slot, including missing-credential and terminal provider refusals. It does not reset for a new run or retry. Recurring monitoring requires explicit new bounded mission/grant decisions. M06 idempotency returns `MODEL_REPLAY` without re-running the provider. A normal read-only run replay displays candidate artifacts already recorded by a completed stage. An interrupted dispatch returning `MODEL_REPLAY` is instead blocked as `MONITOR_MODEL_REQUIRES_RECONCILIATION`; the runner does not automatically retrieve a result or resume the stage. A lost response is not an invitation to retry automatically.
+The product Monitor's lifetime mission budget serializes reservations under the mission row. Every admitted **product** reserved attempt consumes one slot, including missing-credential and terminal provider refusals; it does not reset for a new run or retry. P02 synthetic `MODEL_EVALUATION` attempts are separately identified in `provider_attempt_purposes`, spend the evaluation grant's budget, and are excluded from that product-mission count even when the same M04 mission/assignments carry M06 authority. Historical attempts with no purpose row retain product-budget semantics. Recurring monitoring requires explicit new bounded mission/grant decisions. M06 idempotency returns `MODEL_REPLAY` without re-running the provider. A normal read-only run replay displays candidate artifacts already recorded by a completed stage. An interrupted dispatch returning `MODEL_REPLAY` is instead blocked as `MONITOR_MODEL_REQUIRES_RECONCILIATION`; the runner does not automatically retrieve a result or resume the stage. A lost response is not an invitation to retry automatically.
 
 ## Exact native API contract
 
@@ -37,3 +37,16 @@ Migration 190 records append-only attempt identities (request/context/prompt/sch
 ## Focused verification
 
 `tests/unit/bounded_model.php` covers immutable exact preparation, closed options/models/schemas, baseline/pair refusal, native inactivity, error sanitization/classification and predecessor binding. `tests/integration/bounded_model.php` uses real MariaDB plus fixture transports through P01/M05/M06/M01 to exercise policy revocation, stale evidence, sealing, scoped authority, replay, append-only provenance, quota, post-callback authority change and budget exhaustion. `tests/integration/bounded_model_stages.php` composes classifier/draft/critic with a separately assigned critic, then tests the separate routing critic against an independently produced real service-fixture release. That fixture is explicitly not a claim that the model draft received human approval. `tests/support/MonitorModelFixture.php` exposes setup and manually authored response fixtures; it grants no release and makes no network call.
+
+## Admission, model policy and evaluation (completion plan P01/P02)
+
+The fixed model, endpoint, byte and token ceilings and timeouts are one closed policy,
+`app/Provider/ModelPolicy.php`, with one digest that approvals and grants bind. A live transport
+now runs only with `ExecutionAdmission` and a request whose prompt was selected under an admitted
+grant; admission is re-checked before reservation, before dispatch and after return, and grant
+budget is spent in the attempt's transaction. The single provider-transport constructor is
+`MonitorFactory::modelTransport()`, activated only by `admittedModelTransport()` for an ADMITTED
+grant. The evaluation lane reuses this executor with `EvaluationCaseContext` as its context
+authority. `store=false` is requested; provider-side retention is an account setting reviewed
+separately and is not established by this field.
+

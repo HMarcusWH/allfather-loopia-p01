@@ -2,6 +2,8 @@
 declare(strict_types=1);
 
 // Private CLI only. Input contains approved identifiers and limits, never a provider secret.
+// A mission's configuration is frozen: a changed definition is refused and must become a successor;
+// the successor is set up with `ops/monitor/setup.php plan|apply --successor-of=<receipt>`.
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit(1); }
 require __DIR__.'/../../app/autoload.php';
 

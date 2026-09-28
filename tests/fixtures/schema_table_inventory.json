@@ -16,7 +16,12 @@
       "database/migrations/190_bounded_model_provenance.sql",
       "database/migrations/200_monitor_runs.sql"
     ],
-    "excluded_migration_ledger": "schema_migrations"
+    "excluded_migration_ledger": "schema_migrations",
+    "completion_plan_migrations": [
+      "database/migrations/210_monitor_execution_controls.sql",
+      "database/migrations/220_monitor_evaluation_records.sql",
+      "database/migrations/225_monitor_setup_receipts.sql"
+    ]
   },
   "baseline_canonical_tables": [
     "access_evaluation_records",
@@ -228,5 +233,24 @@
     "monitor_runs",
     "provider_model_attempts",
     "provider_model_results"
-  ]
+  ],
+  "completion_plan_tables": {
+    "210_monitor_execution_controls.sql": [
+      "monitor_admission_decisions",
+      "monitor_execution_grant_events",
+      "monitor_execution_grants",
+      "monitor_grant_consumptions",
+      "monitor_prompt_approval_events",
+      "monitor_prompt_approvals"
+    ],
+    "220_monitor_evaluation_records.sql": [
+      "monitor_evaluation_assessments",
+      "monitor_evaluation_results",
+      "monitor_evaluation_runs",
+      "provider_attempt_purposes"
+    ],
+    "225_monitor_setup_receipts.sql": [
+      "monitor_setup_receipts"
+    ]
+  }
 }

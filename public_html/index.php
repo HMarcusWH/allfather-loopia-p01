@@ -145,13 +145,18 @@ $kernel->route('GET', '/console/decisions', $console->decisions(...));
 $operatorConsole = new OperatorConsoleController(new ConsoleAssetManifest($root . '/public_html/assets/operator-console'), $view);
 $kernel->route('GET', '/console/app', $operatorConsole->shell(...));
 
-// Inspection and manual composition UI. This build grants neither live read nor model activation.
+// Inspection and manual composition UI. The composition is built for the session's workspace:
+// live read and the provider wire exist only when that workspace holds an ADMITTED MANUAL_MONITOR
+// grant, which needs a reviewed owner decision under docs/decisions/. None ships, so this is inert.
 if ($request->path === '/console/monitor') {
-$monitorService = \Allfather\Loopia\Workflow\MonitorFactory::inactive(
+$monitorFor = static fn (array $scope): \Allfather\Loopia\Workflow\MonitorOperations => \Allfather\Loopia\Workflow\MonitorFactory::forWorkspace(
     $db, $clock, new \Allfather\Loopia\Storage\EvidenceStore($root . '/storage/evidence'),
     \Allfather\Loopia\Provider\SecretBox::fromMasterKey($env->require('APP_MASTER_KEY')),
+    \Allfather\Loopia\Workflow\OwnerDecisionRegistry::forRoot($root),
+    static fn (): string => \Allfather\Loopia\Ops\SourceFingerprint::compute($root),
+    $scope['tenant_id'], $scope['workspace_id'],
 );
-$monitorController = new \Allfather\Loopia\Http\Controllers\MonitorController($monitorService, $view);
+$monitorController = new \Allfather\Loopia\Http\Controllers\MonitorController($monitorFor, $view);
 $kernel->route('GET', '/console/monitor', $monitorController->show(...));
 $kernel->route('POST', '/console/monitor', $monitorController->submit(...));
 }

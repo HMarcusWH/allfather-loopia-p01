@@ -389,23 +389,51 @@ final class SourcePolicy
         }
         $host = strtolower($parts['host']);
         $port = $parts['port'] ?? null;
+        $path = $parts['path'] ?? '/';
+        // Dot-segments and encoded path separators/dots are authority-ambiguous: libcurl, proxies
+        // and origin servers can normalize them at different layers. Refuse them instead of
+        // authorizing one spelling and dispatching another effective path.
+        if (str_contains($path, '\\') || preg_match('/%(?:2e|2f|5c|25)/i', $path) === 1) {
+            return null;
+        }
+        foreach (explode('/', rawurldecode($path)) as $segment) {
+            if ($segment === '.' || $segment === '..') {
+                return null;
+            }
+        }
         // A card written as `https://example.com:443/x` normalizes to the same scope as
         // `https://example.com/x`: one card, one stored authority, however the owner spelled it.
         $authority = ($port === null || $port === 443) ? $host : "{$host}:{$port}";
 
-        return ['scope' => 'https://' . $authority . ($parts['path'] ?? '/'), 'host' => $host];
+        return ['scope' => 'https://' . $authority . $path, 'host' => $host];
     }
 
     /** Whether a concrete capture URL falls inside a compiled authority scope. */
     public static function urlWithinScope(string $allowedUrlScope, string $captureUrl): bool
     {
-        $scope = self::deriveUrlScope($captureUrl);
-        if ($scope === null) {
+        $allowed = self::deriveUrlScope($allowedUrlScope);
+        $candidate = self::deriveUrlScope($captureUrl);
+        if ($allowed === null || $candidate === null) {
             return false;
         }
-        // A prefix match on the FULL scope string, so the authority's origin and path prefix both
-        // bind. `https://example.com/pricing` admits `/pricing/enterprise` and refuses `/careers`.
-        return str_starts_with($scope['scope'], $allowedUrlScope);
+        $a = parse_url($allowed['scope']);
+        $c = parse_url($candidate['scope']);
+        if ($a === false || $c === false
+            || ($a['scheme'] ?? null) !== ($c['scheme'] ?? null)
+            || strtolower((string) ($a['host'] ?? '')) !== strtolower((string) ($c['host'] ?? ''))
+            || (int) ($a['port'] ?? 443) !== (int) ($c['port'] ?? 443)) {
+            return false;
+        }
+        $allowedPath = $a['path'] ?? '/';
+        $candidatePath = $c['path'] ?? '/';
+        if ($allowedPath === '/') {
+            return true;
+        }
+        // A path prefix must end on a path-segment boundary. A card for /pricing admits
+        // /pricing and /pricing/enterprise, but not /pricing-admin or /pricing2.
+        $base = rtrim($allowedPath, '/');
+
+        return $candidatePath === $base || str_starts_with($candidatePath, $base . '/');
     }
 
     /**

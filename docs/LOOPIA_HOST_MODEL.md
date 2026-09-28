@@ -153,6 +153,15 @@ this deployment phase**, and the inert staging configuration therefore leaves `S
 
 ## 5. Open blockers before staging
 
+> **Currentness note, 27 September 2026.** This section is the pre-deployment record of
+> 6 September and is kept as written. Since then PR13, PR15 and PR16 were deployed to Loopia staging:
+> the probe (`LOOPIA_PROBE_001`) and the SSH/CLI isolation canary have run on the real host, E.1
+> measured `FAIL_READABLE`, and E.3 web-PHP isolation remains `UNVERIFIED` (blocker 4 below is still
+> open). Blockers 2, 3 and 5 are therefore historical as worded. Hosted CI has not executed since PR13
+> (account billing), so MariaDB 10.6 is verified by complete local reproductions rather than "in CI,
+> on every commit". Blocker 1 — the Kundzon scheduler transport — is unchanged. Current state:
+> [`MVP_RELEASE_STATE.md`](MVP_RELEASE_STATE.md); evidence: `deployment-evidence.json`.
+
 1. **`LOOPIA_SCHEDULER_TRANSPORT_BLOCKER`** — the question above is unanswered. A Kundzon schedule
    may be unable to invoke the tick at all.
 2. **Nothing has run on Loopia.** No deployment, no probe execution, no scheduled task. A container

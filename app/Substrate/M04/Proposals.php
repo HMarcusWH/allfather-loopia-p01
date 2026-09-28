@@ -9,6 +9,7 @@ use Allfather\Loopia\Core\Digest;
 use Allfather\Loopia\Core\Ids;
 use Allfather\Loopia\Core\Outcome;
 use Allfather\Loopia\Db\Database;
+use Allfather\Loopia\Substrate\M03\Eligibility;
 
 /**
  * M04 — missions and proposal envelopes.
@@ -54,7 +55,7 @@ final class Proposals
     ) {
     }
 
-    /** Create an ACTIVE mission. Missions bound what a proposal may request. */
+    /** Create a mission. Supported setup creates DRAFT and activates explicitly; legacy callers may request ACTIVE. */
     public function createMission(
         string $tenantId,
         string $workspaceId,
@@ -68,7 +69,20 @@ final class Proposals
         // The output classes this mission may produce. Defaults to internal informational output —
         // the only kind most missions need — so naming anything else is a deliberate act.
         array $permittedOutputClasses = ['INTERNAL_INFORMATIONAL'],
+        // Supported setup predeclares both source and tool scope before activation. A changed scope
+        // is an explicit successor mission, never a post-activation widening.
+        array $allowedSourceScopeIds = [],
+        array $allowedToolIds = [],
+        ?string $supersedesMissionId = null,
     ): string {
+        $missionVersion = 1;
+        if ($supersedesMissionId !== null) {
+            $prior = $this->db->one('SELECT tenant_id,workspace_id,mission_type,mission_version FROM missions WHERE mission_id=?', [$supersedesMissionId]);
+            if ($prior === null || $prior['tenant_id'] !== $tenantId || $prior['workspace_id'] !== $workspaceId || $prior['mission_type'] !== $missionType) {
+                throw new \InvalidArgumentException('successor mission scope/type mismatch');
+            }
+            $missionVersion = (int) $prior['mission_version'] + 1;
+        }
         $missionId = Ids::new();
         $now = $this->clock->now();
         $this->db->insert('missions', [
@@ -76,7 +90,7 @@ final class Proposals
             'schema_version' => '1',
             'tenant_id' => $tenantId,
             'workspace_id' => $workspaceId,
-            'mission_version' => 1,
+            'mission_version' => $missionVersion,
             'mission_type' => $missionType,
             'title' => $title,
             'objective' => $objective,
@@ -84,8 +98,8 @@ final class Proposals
             'target_scope' => 'WORKSPACE_SCOPED',
             'requested_action_classes' => json_encode(array_values($requestedActionClasses), JSON_THROW_ON_ERROR),
             'permitted_output_classes' => json_encode(array_values($permittedOutputClasses), JSON_THROW_ON_ERROR),
-            'allowed_tool_ids' => json_encode([], JSON_THROW_ON_ERROR),
-            'allowed_source_scope_ids' => json_encode([], JSON_THROW_ON_ERROR),
+            'allowed_tool_ids' => json_encode(array_values(array_unique($allowedToolIds)), JSON_THROW_ON_ERROR),
+            'allowed_source_scope_ids' => json_encode(array_values(array_unique($allowedSourceScopeIds)), JSON_THROW_ON_ERROR),
             'completion_criteria' => 'Governed release recorded, or a refusal recorded with its reason code.',
             'explicit_prohibitions' => json_encode(
                 ['NO_EXTERNAL_ACTION', 'NO_PUBLICATION', 'NO_CUSTOMER_VISIBLE_OUTPUT'],
@@ -97,9 +111,61 @@ final class Proposals
             'created_by_actor_id' => $createdByActorId,
             'created_at' => $now,
             'activated_at' => $status === 'ACTIVE' ? $now : null,
+            'activated_by_operator_id' => $status === 'ACTIVE' && $createdByActorType === 'OPERATOR' ? $createdByActorId : null,
+            'supersedes_mission_id' => $supersedesMissionId,
         ]);
 
         return $missionId;
+    }
+
+    /** Canonical DRAFT -> ACTIVE transition used by operator-supported Monitor setup. */
+    public function activateMission(string $missionId, string $operatorId): Outcome
+    {
+        $row = $this->db->one('SELECT status FROM missions WHERE mission_id=?', [$missionId]);
+        if ($row === null) return Outcome::refuse('MISSION_NOT_FOUND', [], 'PROVENANCE');
+        if ($row['status'] !== 'DRAFT') return Outcome::refuse('MISSION_NOT_IN_DRAFT', ['status' => $row['status']], 'POLICY');
+        $now = $this->clock->now();
+        return $this->db->transaction(function (Database $tx) use ($missionId, $operatorId, $now): Outcome {
+            $changed = $tx->run("UPDATE missions SET status='ACTIVE',activated_at=?,activated_by_operator_id=? WHERE mission_id=? AND status='DRAFT'", [$now, $operatorId, $missionId]);
+            if ($changed !== 1) return Outcome::refuse('MISSION_ACTIVATION_RACED');
+            $tx->insert('mission_status_transitions', [
+                'transition_id' => Ids::new(), 'schema_version' => '1', 'mission_id' => $missionId,
+                'from_status' => 'DRAFT', 'to_status' => 'ACTIVE', 'reason_code' => 'MISSION_ACTIVATED',
+                'initiated_by_operator_id' => $operatorId, 'occurred_at' => $now,
+            ]);
+            return Outcome::ok(['mission_id' => $missionId, 'status' => 'ACTIVE']);
+        });
+    }
+
+    /**
+     * Strict canonical assignment for supported setup. Every assigned tool/action/output must
+     * already be inside the ACTIVE mission and M03 must still permit it under this exact contract.
+     */
+    public function assignToMissionNarrowed(
+        string $missionId, string $valkyrieId, string $capabilityContractId, string $assignmentRole,
+        array $assignedToolIds, array $assignedActionClasses, string $assignedByOperatorId,
+        string $status = 'ACTIVE', array $assignedOutputClasses = ['INTERNAL_INFORMATIONAL'],
+    ): Outcome {
+        $mission = $this->db->one('SELECT tenant_id,workspace_id,status,requested_action_classes,allowed_tool_ids,permitted_output_classes FROM missions WHERE mission_id=?', [$missionId]);
+        if ($mission === null) return Outcome::refuse('MISSION_NOT_FOUND', [], 'PROVENANCE');
+        if ($mission['status'] !== 'ACTIVE') return Outcome::refuse('MISSION_NOT_ACTIVE', ['status' => $mission['status']], 'MISSION');
+        $actions=json_decode((string)$mission['requested_action_classes'],true,64,JSON_THROW_ON_ERROR);
+        $tools=json_decode((string)$mission['allowed_tool_ids'],true,64,JSON_THROW_ON_ERROR);
+        $outputs=json_decode((string)$mission['permitted_output_classes'],true,64,JSON_THROW_ON_ERROR);
+        foreach($assignedActionClasses as $class)if(!in_array($class,$actions,true))return Outcome::refuse('ASSIGNMENT_ACTION_CLASS_OUTSIDE_MISSION_SCOPE',['action_class'=>$class],'POLICY','S4');
+        foreach($assignedToolIds as $tool)if(!in_array($tool,$tools,true))return Outcome::refuse('ASSIGNMENT_TOOL_OUTSIDE_MISSION_SCOPE',['governed_tool_id'=>$tool],'POLICY','S4');
+        foreach($assignedOutputClasses as $output)if(!in_array($output,$outputs,true))return Outcome::refuse('ASSIGNMENT_OUTPUT_OUTSIDE_MISSION_SCOPE',['output_class'=>$output],'POLICY','S4');
+        $eligibility=new Eligibility($this->db,$this->clock);
+        foreach($assignedToolIds as $tool)foreach($assignedActionClasses as $class){
+            $decision=$eligibility->evaluateToolRight([
+                'tenant_id'=>$mission['tenant_id'],'workspace_id'=>$mission['workspace_id'],'mission_id'=>$missionId,
+                'valkyrie_id'=>$valkyrieId,'governed_tool_id'=>$tool,'requested_action_class'=>$class,'purpose'=>'MISSION_ASSIGNMENT',
+            ]);
+            if(!in_array($decision['decision'],['PERMITTED_BY_CONTRACT','REQUIRES_DOWNSTREAM_GATES'],true)||($decision['capability_contract_id']??null)!==$capabilityContractId){
+                return Outcome::refuse('MISSION_BROADENS_CONTRACT',['reason_codes'=>$decision['reason_codes']??[]],'CONTRACT','S4');
+            }
+        }
+        return $this->assignToMission($missionId,$valkyrieId,$capabilityContractId,$assignmentRole,$assignedToolIds,$assignedActionClasses,$assignedByOperatorId,$status,$assignedOutputClasses,false);
     }
 
     /**
@@ -126,6 +192,7 @@ final class Proposals
         string $assignedByOperatorId,
         string $status = 'ACTIVE',
         array $assignedOutputClasses = ['INTERNAL_INFORMATIONAL'],
+        bool $widenMissionTools = true,
     ): Outcome {
         $mission = $this->db->one(
             'SELECT tenant_id, workspace_id, status, requested_action_classes FROM missions WHERE mission_id = ?',
@@ -182,16 +249,19 @@ final class Proposals
             'assigned_at' => $now,
         ]);
 
-        // The mission's own allowed-tool list must name the tool too, or the M04 gate and the
-        // mission record would disagree about what the mission may reach.
-        $allowed = json_decode(
-            (string) $this->db->scalar('SELECT allowed_tool_ids FROM missions WHERE mission_id = ?', [$missionId]),
-            true, 512, JSON_THROW_ON_ERROR
-        );
-        $merged = array_values(array_unique([...$allowed, ...$assignedToolIds]));
-        $this->db->run('UPDATE missions SET allowed_tool_ids = ? WHERE mission_id = ?', [
-            json_encode($merged, JSON_THROW_ON_ERROR), $missionId,
-        ]);
+        // Legacy projection callers historically widened the mission tool list here. Supported
+        // P04 setup passes false: its mission was already DRAFT-frozen with exact tools, so an
+        // assignment may only narrow and must not write mission authority after activation.
+        if ($widenMissionTools) {
+            $allowed = json_decode(
+                (string) $this->db->scalar('SELECT allowed_tool_ids FROM missions WHERE mission_id = ?', [$missionId]),
+                true, 512, JSON_THROW_ON_ERROR
+            );
+            $merged = array_values(array_unique([...$allowed, ...$assignedToolIds]));
+            $this->db->run('UPDATE missions SET allowed_tool_ids = ? WHERE mission_id = ?', [
+                json_encode($merged, JSON_THROW_ON_ERROR), $missionId,
+            ]);
+        }
 
         return Outcome::ok(['assignment_id' => $assignmentId]);
     }

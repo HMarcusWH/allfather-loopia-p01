@@ -179,11 +179,19 @@ and are now filled.
 | --- | --- | --- | --- |
 | P02 stakeholder role profiles | **STANDING_CONTROL_WITHOUT_PRODUCER** | `stakeholder_role_profiles` and `stakeholder_role_attributes` have no producer | the `STAKEHOLDER_PROFILE_MINIMIZATION` audit is ported and proved to bite, so the control precedes the producer rather than following it. No selected flow reads these tables — see §4.4 |
 | P03 assurance (3 M11 audits) | **PORT_REQUIRED_BEFORE_CUSTOMER_LAUNCH** (not before staging) | no post-outcome audit trail for catalogue freshness, signal-pairing freshness or the buyer-intent invariant | every one of the three has its PRIMARY gate ported and tested; these audits are the defence-in-depth re-scan, not the gate — see §4.4 |
-| P03 web surface | **RUNTIME_IMPLEMENTED / WEB_SURFACE_NOT_INCLUDED** | no dedicated console screen renders released prospect outputs | the two-gate read model IS ported and tested (`P03\Release::listVisibleProspectOutputs`). This is a UX scope decision for the first staging experience, NOT missing runtime and NOT a conformance gap |
-| P02 web surface | **RUNTIME_IMPLEMENTED / WEB_SURFACE_NOT_INCLUDED** | no dedicated console screen renders released twin or relationship snapshots | both two-gate read models are ported and tested (`P02\TwinRelease::listVisibleSnapshots`, `P02\RelationshipRelease::listVisibleSnapshots`), and the M16 operator hold-view is where a held artifact is read. The first staging experience for P02 is operator-assisted |
+| P03 web surface | **INDEX_READS_WIRED / DETAIL_READS_NOT_INCLUDED** — superseding `RUNTIME_IMPLEMENTED / WEB_SURFACE_NOT_INCLUDED` (see note below) | no prospect-battlecard detail read exists (`NEEDS_READ_MODEL` in the console), and the scriptless SSR surfaces do not serve P03 | the two-gate read model IS ported and tested (`P03\Release::listVisibleProspectOutputs`), and since PR6 the authenticated React console reads both released-prospect indexes through it (`/console/api/v1/p03/priority-queue`, `/console/api/v1/p03/monitored`). Detail is a UX scope item, NOT missing runtime and NOT a conformance gap |
+| P02 web surface | **INDEX_READS_WIRED / DETAIL_READS_NOT_INCLUDED** — superseding `RUNTIME_IMPLEMENTED / WEB_SURFACE_NOT_INCLUDED` (see note below) | no owner-safe entity-detail read exists (`NEEDS_READ_MODEL` in the console; the relationship picture there is a placeholder, not entity data), and the scriptless SSR surfaces do not serve P02 | both two-gate read models are ported and tested (`P02\TwinRelease::listVisibleSnapshots`, `P02\RelationshipRelease::listVisibleSnapshots`), and since PR6 the authenticated React console reads both released-snapshot indexes through them (`/console/api/v1/p02/entities`, `/console/api/v1/p02/relationships`). The M16 operator hold-view is where a held artifact is read |
 | P02 offering twins | **EXCLUDED_BY_AUTHORITY** | none | not a gap — excluded by the upstream P02 cp11 gate (V1-GAP-097). P03 catalogue is the MVP products/offers authority |
 | P07-A channel binding | **EXCLUDED_BY_AUTHORITY / deliberate** | no `outreach_channel_bindings` row can exist | stronger than porting it inert — the port ships no producer, so there is nothing for the table's CHECK constraints to constrain |
 | P02 stakeholder role OBSERVATIONS | **ALREADY_SUBSUMED** | none | ported as `app/Product/P04/StakeholderRoles.php`, writing `stakeholder_role_observations`, where the distribution path consumes it. This is a DIFFERENT object from P02's role profiles above — an earlier revision of this matrix conflated them |
+
+> **Currentness note, 27 September 2026.** The two web-surface rows above said
+> `WEB_SURFACE_NOT_INCLUDED` from the pre-staging gap pass. PR6 then wired the P02 and P03 **index**
+> reads into the authenticated React console, and the classification was not updated. It is now
+> `INDEX_READS_WIRED / DETAIL_READS_NOT_INCLUDED`; `tests/foundation/deployment_boundary.php` pins
+> that split. Richer detail, lineage and reliance views are work package P09 in
+> [`MONITOR_COMPLETION_PLAN.md`](MONITOR_COMPLETION_PLAN.md) — they are not duplicate index screens.
+> The current state of the whole projection is [`MVP_RELEASE_STATE.md`](MVP_RELEASE_STATE.md).
 
 ### Final selected-graph gap classification
 
@@ -227,8 +235,8 @@ Porting it now would be a side quest against an instruction that forbids one.
 | 2. selected product depends on it | **no** |
 | 3. runtime path reads it | it IS the read path, but it adds none: canonical says it rides "ONLY the existing surfaces" — the two-gate `listVisibleProspectOutputs` read model (ported and tested) and the M12 display guard (ported) |
 | 4. a gate depends on it | **no**. Canonical: "No new permission …, no new authority plane, no customer-visible surface (V1-GAP-093 stands)" |
-| 5. absence creates a false claim | **no**, and the matrix says `RUNTIME_IMPLEMENTED / WEB_SURFACE_NOT_INCLUDED` rather than implying a screen exists. A foundation test pins that classification against drift |
-| 6. staging can proceed | **yes** — `ROAD_TEST_001` requires no browser inspection of P03 output. Operator access to the read model is through the tested API and the database |
+| 5. absence creates a false claim | **no**, and the matrix says `INDEX_READS_WIRED / DETAIL_READS_NOT_INCLUDED` (originally `RUNTIME_IMPLEMENTED / WEB_SURFACE_NOT_INCLUDED`, before PR6 wired the index reads) rather than implying a detail screen exists. A foundation test pins that classification against drift |
+| 6. staging can proceed | **yes** — `ROAD_TEST_001` requires no browser inspection of P03 output. Operator access to the read model is through the tested index API, the React console's index panels, and the database |
 | 7. customer launch can proceed | **not decided here.** It is a UX decision about the first customer experience, not a conformance one, and it belongs to whoever scopes that experience |
 
 **Explicitly:** building this now would be a side quest. It becomes

@@ -121,6 +121,7 @@ final class Capture
         array $input,
         FetchTransport $transport,
         HostResolver $resolver,
+        ?callable $beforeFetch = null,
     ): Outcome {
         $row = $this->db->one(
             'SELECT ms.tenant_id, ms.workspace_id, ms.source_ref_id, ms.status AS ms_status,
@@ -237,7 +238,7 @@ final class Capture
         }
 
         try {
-            return $this->dispatchAndMaterialize($input, $row, $policy, $card, $transport, $resolver);
+            return $this->dispatchAndMaterialize($input, $row, $policy, $card, $transport, $resolver, $beforeFetch);
         } finally {
             // Released whatever happened. The TTL is the safety net for a process that dies; the
             // release is what keeps the normal path from waiting for it.
@@ -262,6 +263,7 @@ final class Capture
         array $card,
         FetchTransport $transport,
         HostResolver $resolver,
+        ?callable $beforeFetch,
     ): Outcome {
         // The guard's specific reason is captured out of the closure so a non-succeeded dispatch can
         // report WHY without a second database round trip — and so the reason reaching the audit
@@ -273,25 +275,52 @@ final class Capture
             && in_array($card['caching_policy'] ?? null, ['standard_cache', 'explicit_contract'], true)
             && in_array($card['allowed_use_class'] ?? null, ['derived_summary_allowed', 'customer_visible_allowed'], true)
             && ($card['retention_class'] ?? null) === 'standard';
-        $performLiveFetch = function () use ($input, $policy, $transport, $resolver, &$guardReason, &$captureProof, $retainComparison): array {
+        $performLiveFetch = function () use ($input, $policy, $transport, $resolver, $beforeFetch, &$guardReason, &$captureProof, $retainComparison): array {
+            // Deployment-specific authority gets one last chance to stand the operation down at the
+            // actual side-effect boundary. This is deliberately INSIDE the M01 callback and before
+            // EgressGuard performs DNS resolution or HTTP. A refusal produces a truthful governed
+            // dispatch outcome, spends the already-reserved budget, and sends nothing.
+            if ($beforeFetch !== null) {
+                $fresh = $beforeFetch();
+                if (!$fresh instanceof Outcome || !$fresh->isOk()) {
+                    $guardReason = $fresh instanceof Outcome ? $fresh->reasonCode() : 'SOURCE_PRE_DISPATCH_CHECK_INVALID';
+                    return ['kind' => 'REFUSED', 'reason_code' => $guardReason];
+                }
+            }
+
+            // Source/card authority is mutable independently of the execution grant. Re-read it at
+            // the SAME side-effect boundary: a card/review/source/competitor revoked after the
+            // earlier compile must not still authorize DNS/HTTP. Any policy drift also refuses
+            // rather than silently using cadence/egress limits computed from stale authority.
+            $current = $this->preDispatchPolicy($input, $policy);
+            if (!$current->isOk()) {
+                $guardReason = $current->reasonCode();
+                return ['kind' => 'REFUSED', 'reason_code' => $guardReason];
+            }
+            $effectivePolicy = $current->value()['policy'];
+            // Retention only narrows across the gap. A newly-permissive card cannot make this
+            // already-started capture retain line-level comparison proof it was not allowed to keep
+            // when the operation began.
+            $retainNow = $retainComparison && $current->value()['retain_comparison_allowed'];
+
             $result = EgressGuard::guardedFetch(
                 $input['capture_url'],
-                $policy['allowed_hosts'],
+                $effectivePolicy['allowed_hosts'],
                 $transport,
                 $resolver,
                 'GET',
-                (int) $policy['timeout_ms'],
-                (int) $policy['max_response_bytes'],
-                (int) $policy['max_redirects'],
-                $policy['allowed_content_types'] === [] ? null : $policy['allowed_content_types'],
+                (int) $effectivePolicy['timeout_ms'],
+                (int) $effectivePolicy['max_response_bytes'],
+                (int) $effectivePolicy['max_redirects'],
+                $effectivePolicy['allowed_content_types'] === [] ? null : $effectivePolicy['allowed_content_types'],
                 // The card's ORIGIN — host and port — carried into every redirect hop.
                 // `allowed_hosts` is hostname-only by design because it feeds DNS screening, so
                 // without this a redirect could reach a different https service on another PORT of
                 // the same hostname and still pass the host allowlist.
-                EgressGuard::effectiveHttpsOrigin($policy['allowed_url_scope']),
+                EgressGuard::effectiveHttpsOrigin($effectivePolicy['allowed_url_scope']),
             );
             if ($result['outcome'] === 'FETCHED') {
-                $captureProof = ['content_hash' => $result['content_hash'], 'text' => $retainComparison
+                $captureProof = ['content_hash' => $result['content_hash'], 'text' => $retainNow
                     ? json_encode(TextProvenance::capture($result['content_hash'], $result['body']), JSON_THROW_ON_ERROR) : null];
                 return ['kind' => 'FETCHED', 'content_hash' => $result['content_hash']];
             }
@@ -409,6 +438,91 @@ final class Capture
                 'tool_request_id' => $dispatch['tool_request_id'],
             ]);
         });
+    }
+
+    /**
+     * Read-only current P01 source authority. This is shared by configuration/readiness and the
+     * actual pre-dispatch boundary so "pilot ready" and "may fetch now" cannot drift into two rules.
+     *
+     * @param array{tenant_id:string,workspace_id:string,monitored_source_id:string,capture_url:string} $input
+     * @param null|array<string,mixed> $expectedPolicy when supplied, policy drift also refuses
+     * @return Outcome<array{policy:array<string,mixed>,retain_comparison_allowed:bool}>
+     */
+    public static function currentPolicy(Database $db, Clock $clock, array $input, ?array $expectedPolicy = null): Outcome
+    {
+        $row = $db->one(
+            'SELECT ms.tenant_id,ms.workspace_id,ms.source_ref_id,ms.status AS ms_status,
+                    ms.source_license_card_id,c.status AS competitor_status,
+                    sr.tenant_id AS source_ref_tenant_id,sr.status AS source_ref_status,
+                    sr.content_sensitivity_class
+             FROM monitored_sources ms
+             JOIN competitors c ON c.competitor_id=ms.competitor_id
+             JOIN source_references sr ON sr.source_ref_id=ms.source_ref_id
+             WHERE ms.monitored_source_id=?',
+            [$input['monitored_source_id']]
+        );
+        if ($row === null) {
+            return Outcome::refuse('MONITORED_SOURCE_NOT_FOUND');
+        }
+        if ($row['tenant_id'] !== $input['tenant_id'] || $row['workspace_id'] !== $input['workspace_id']
+            || $row['source_ref_tenant_id'] !== $input['tenant_id']) {
+            return Outcome::refuse('MONITORED_SOURCE_SCOPE_MISMATCH');
+        }
+        if ($row['ms_status'] !== 'ACTIVE') {
+            return Outcome::refuse('MONITORED_SOURCE_NOT_ACTIVE');
+        }
+        if (!in_array($row['competitor_status'], ['ACTIVE','PAUSED'], true)) {
+            return Outcome::refuse('COMPETITOR_NOT_LIVE');
+        }
+
+        $card = $db->one(
+            'SELECT * FROM source_license_cards WHERE source_license_card_id=? AND tenant_id=? AND source_ref_id=?',
+            [$row['source_license_card_id'], $input['tenant_id'], $row['source_ref_id']]
+        );
+        if ($card === null) {
+            return Outcome::refuse('MONITORED_SOURCE_SCOPE_MISMATCH');
+        }
+        $review = $db->one(
+            'SELECT robots_policy_checked,terms_policy_checked,reviewed_at,expires_at,terms_snapshot_hash
+             FROM source_terms_reviews WHERE source_license_card_id=?
+             ORDER BY reviewed_at DESC,source_terms_review_id DESC LIMIT 1',
+            [$row['source_license_card_id']]
+        );
+        $policy = SourcePolicy::compile([
+            'source_ref_id' => (string) $row['source_ref_id'],
+            'tenant_id' => (string) $row['source_ref_tenant_id'],
+            'status' => (string) $row['source_ref_status'],
+            'content_sensitivity_class' => (string) $row['content_sensitivity_class'],
+        ], $card, $review, null, self::instantMs($clock->now()));
+
+        $refusal = self::p01ReasonFor($policy['fail_closed_reason_codes']);
+        if ($refusal !== null) {
+            return Outcome::refuse($refusal);
+        }
+        if ($policy['allowed_url_scope'] === null) {
+            return Outcome::refuse('SOURCE_URL_MISSING_OR_INVALID');
+        }
+        if (!SourcePolicy::urlWithinScope($policy['allowed_url_scope'], $input['capture_url'])) {
+            return Outcome::refuse('CAPTURE_URL_OUTSIDE_SOURCE_SCOPE');
+        }
+        if ($expectedPolicy !== null
+            && !hash_equals((string) ($expectedPolicy['policy_digest'] ?? ''), (string) $policy['policy_digest'])) {
+            return Outcome::refuse('SOURCE_POLICY_CHANGED_BEFORE_DISPATCH');
+        }
+
+        return Outcome::ok([
+            'policy' => $policy,
+            'retain_comparison_allowed' => (int) ($card['derived_summary_allowed'] ?? 0) === 1
+                && in_array($card['caching_policy'] ?? null, ['standard_cache','explicit_contract'], true)
+                && in_array($card['allowed_use_class'] ?? null, ['derived_summary_allowed','customer_visible_allowed'], true)
+                && ($card['retention_class'] ?? null) === 'standard',
+        ]);
+    }
+
+    /** Re-read authority at the actual I/O boundary and require the earlier compiled policy to match. */
+    private function preDispatchPolicy(array $input, array $expectedPolicy): Outcome
+    {
+        return self::currentPolicy($this->db, $this->clock, $input, $expectedPolicy);
     }
 
     /**

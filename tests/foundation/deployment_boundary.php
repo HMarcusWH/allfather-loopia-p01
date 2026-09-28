@@ -481,11 +481,12 @@ foreach (["'identity_measured' => 'SSH_CLI'", "'web_php_cross_site_isolation' =>
 
 // ---------------------------------------------------------------- the web surface, as classified
 
-// `PORT_SCOPE_MATRIX.md` classifies P02 and P03 as RUNTIME_IMPLEMENTED /
-// WEB_SURFACE_NOT_INCLUDED: their gated read models exist and are tested, and no console screen
-// renders them. That is a UX scope decision, and it is only honest while it stays TRUE — a screen
-// added later without updating the classification would leave the document describing a product
-// that no longer matches, which is the failure this file exists to catch elsewhere too.
+// `PORT_SCOPE_MATRIX.md` classifies P02 and P03 as INDEX_READS_WIRED / DETAIL_READS_NOT_INCLUDED.
+// It used to say WEB_SURFACE_NOT_INCLUDED, and this block used to pin that — against the SSR surface
+// controller only. PR6 then wired the P02/P03 index reads into the React console through
+// ConsoleReadController, the SSR pin stayed green, and the document went on describing a product
+// that no longer matched. So the pin now covers BOTH halves of the classification, on every surface
+// that could serve these products.
 $surfaceController = (string) file_get_contents(
     dirname(__DIR__, 2) . '/app/Http/Controllers/SurfaceController.php'
 );
@@ -499,6 +500,31 @@ foreach (['P01\\Surfacing' => true, 'P04\\Release' => true, 'P05\\Release' => tr
 foreach (['P02\\TwinRelease', 'P02\\RelationshipRelease', 'P03\\Release'] as $notServed) {
     Assert::false(
         str_contains($surfaceController, $notServed),
-        "{$notServed} has no console screen — classified WEB_SURFACE_NOT_INCLUDED, and still true",
+        "{$notServed} has no scriptless SSR screen — still true",
     );
+}
+
+// INDEX_READS_WIRED: the four index reads are registered, and nothing else for P02/P03 is.
+$frontController = (string) file_get_contents(dirname(__DIR__, 2) . '/public_html/index.php');
+preg_match_all('#\$kernel->route\(\'GET\', \'(/console/api/v1/p0[23]/[a-z-]+)\'#', $frontController, $productRoutes);
+Assert::equalsList(
+    [
+        '/console/api/v1/p02/entities',
+        '/console/api/v1/p02/relationships',
+        '/console/api/v1/p03/priority-queue',
+        '/console/api/v1/p03/monitored',
+    ],
+    $productRoutes[1],
+    'P02/P03 are served as exactly their four index reads — INDEX_READS_WIRED, and no detail route',
+);
+
+// DETAIL_READS_NOT_INCLUDED: the console still marks both detail reads as needing a read model.
+$surfaceReads = (string) file_get_contents(dirname(__DIR__, 2) . '/frontend/console/src/data/surface-reads.js');
+foreach (['READS.P02_ENTITY_DETAIL,"P02","NEEDS_READ_MODEL"', 'READS.P03_BATTLECARDS,"P03","NEEDS_READ_MODEL"'] as $detail) {
+    Assert::contains($detail, $surfaceReads, "the console still declares {$detail} — DETAIL_READS_NOT_INCLUDED, and still true");
+}
+
+$scopeMatrix = (string) file_get_contents(dirname(__DIR__, 2) . '/docs/PORT_SCOPE_MATRIX.md');
+foreach (['| P02 web surface | **INDEX_READS_WIRED / DETAIL_READS_NOT_INCLUDED**', '| P03 web surface | **INDEX_READS_WIRED / DETAIL_READS_NOT_INCLUDED**'] as $row) {
+    Assert::contains($row, $scopeMatrix, 'the scope matrix states the classification the code has');
 }

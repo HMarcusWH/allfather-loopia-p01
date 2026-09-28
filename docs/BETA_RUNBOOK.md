@@ -50,7 +50,7 @@ Record:
 
 - full 40-character release SHA;
 - canonical pin from `upstream.lock.json`;
-- exact CI run id.
+- exact CI run id — or, while hosted runners are unavailable, the release qualification receipt.
 
 Require on that SHA:
 
@@ -60,6 +60,22 @@ Require on that SHA:
 - release qualification green;
 - fail = 0;
 - skip = 0.
+
+The same requirements hold on either route, because both run the same steps. The local route is:
+
+```bash
+bash ops/ci/qualify-release.sh local --out=<new-dir> --ref="$SHA" \
+  --env-10.6=<disposable 10.6 env> --env-10.11=<disposable 10.11 env>
+php ops/ci/verify-qualification.php verify-receipt \
+  --receipt=<new-dir>/release-qualification-receipt.json \
+  --lanes-dir=<new-dir>/reports \
+  --preflight=<new-dir>/jobs/release-preparation/work/preflight.json
+```
+
+Require `result: PASS`, `execution.kind: LOCAL`, `hosted_ci: false` and a verifier exit of 0. A local
+receipt is filed, if at all, as `CONFORMANCE` with `environment: "ci"` — never as GitHub green or host
+evidence — and the [deviation record](STAGING_OWNER_DIRECTED_DEVIATION_2026-09-25.md) §4 still governs
+when it may stand in for hosted CI. Record the state in [`MVP_RELEASE_STATE.md`](MVP_RELEASE_STATE.md).
 
 **STOP** on any disagreement.
 

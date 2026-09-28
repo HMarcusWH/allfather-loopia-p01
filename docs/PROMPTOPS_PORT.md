@@ -34,3 +34,14 @@ These checks cannot prove that a cited text entails natural-language claims, det
 Run `php tests/run.php --layer=unit --filter=promptops --strict` without a database or network. The fixture examples in `tests/fixtures/monitor_prompt_offline_cases.json` provide inspectable Swedish inputs, expected cited outputs and negative cases. Provider tests separately own strict schema parsing, request construction, response handling and inactive live-execution refusal. No host deployment, secret access, model call, source fetch or customer output is part of this import.
 
 Battlecard routing recommendations are empty or the single exact `envelope.routing_target.target_org_role`, supplied from a current same-scope configured target by ContextEnvelope. Broad audience names are never mapped into roles. CandidateChecks enforces exact role equality and cardinality; it does not grant recipient membership.
+
+## Approval and evaluation (completion plan P01/P02)
+
+Content and permission are now separate records. The pack above stays immutable, `INACTIVE` content.
+`PromptSelectionResolver` is the only producer of an executable (`ACTIVE`) prompt, bound to an
+approval in `monitor_prompt_approvals` and an admitted grant; `verify()` re-derives a selection
+whole, so a self-promoted or re-hashed array never runs. A `MANUAL_MONITOR` approval must cite an
+accepted, live evaluation of exactly that prompt — see
+[`MONITOR_MODEL_EVALUATION_PROTOCOL.md`](MONITOR_MODEL_EVALUATION_PROTOCOL.md) and
+[`MONITOR_EXECUTION_AUTHORIZATION.md`](MONITOR_EXECUTION_AUTHORIZATION.md). No approval exists.
+

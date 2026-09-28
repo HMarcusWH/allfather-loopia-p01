@@ -5,8 +5,8 @@ namespace Allfather\Loopia\Provider;
 /** Fixed endpoint, explicit activation, one bounded POST. No redirects, retries, tools or logging. */
 final class OpenAIResponsesTransport implements ModelTransport
 {
-    public const ENDPOINT = 'https://api.openai.com/v1/responses';
-    public const MAX_RESPONSE_BYTES = 131072;
+    public const ENDPOINT = ModelPolicy::ENDPOINT;
+    public const MAX_RESPONSE_BYTES = ModelPolicy::MAX_RESPONSE_BYTES;
     public function __construct(private readonly bool $activated = false) {}
     public function isLive(): bool { return true; }
     public function send(PreparedModelRequest $request, string $credential): ModelResponse
@@ -20,8 +20,8 @@ final class OpenAIResponsesTransport implements ModelTransport
         curl_setopt_array($curl,[
             CURLOPT_POST=>true, CURLOPT_POSTFIELDS=>$request->jsonBody(),
             CURLOPT_HTTPHEADER=>['Authorization: Bearer '.$credential,'Content-Type: application/json','Accept: application/json'],
-            CURLOPT_FOLLOWLOCATION=>false, CURLOPT_MAXREDIRS=>0, CURLOPT_CONNECTTIMEOUT_MS=>5000,
-            CURLOPT_TIMEOUT_MS=>20000, CURLOPT_SSL_VERIFYPEER=>true, CURLOPT_SSL_VERIFYHOST=>2,
+            CURLOPT_FOLLOWLOCATION=>false, CURLOPT_MAXREDIRS=>0, CURLOPT_CONNECTTIMEOUT_MS=>ModelPolicy::CONNECT_TIMEOUT_MS,
+            CURLOPT_TIMEOUT_MS=>ModelPolicy::TOTAL_TIMEOUT_MS, CURLOPT_SSL_VERIFYPEER=>true, CURLOPT_SSL_VERIFYHOST=>2,
             CURLOPT_PROTOCOLS=>CURLPROTO_HTTPS, CURLOPT_PROXY=>'',
             CURLOPT_WRITEFUNCTION=>static function ($handle,string $bytes) use (&$body,&$overflow):int {
                 if (strlen($body)+strlen($bytes)>self::MAX_RESPONSE_BYTES) { $overflow=true; return 0; }
