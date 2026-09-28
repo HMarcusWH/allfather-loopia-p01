@@ -43,7 +43,9 @@ flips `activation_status`, names a real grant, or recomputes a hash gets nothing
 `MonitorService`, `PreparedModelRequest` and `ModelExecutor` all go through this resolver. Prompt
 content identity is intentionally separate from an approval's authorization identity: the same
 immutable prompt bytes may receive a later approval under a new reviewed owner decision or accepted
-evaluation, while a withdrawn approval record itself remains terminal. The grant and approval
+evaluation, while a withdrawn approval record itself remains terminal. A `MANUAL_MONITOR`
+approval also fails closed when the evaluation-evidence resolver is absent: an opaque
+`evaluation:...` reference is not evidence by itself. The grant and approval
 identities are inside the request provenance, and therefore inside the digest the
 operator inspects: a changed grant is a different request. M06/M01 bind that digest
 (`model-request://<digest>`), which is how the grant reaches their receipts.

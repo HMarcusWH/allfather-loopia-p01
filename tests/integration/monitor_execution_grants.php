@@ -44,10 +44,22 @@ Assert::true($fx['approvals']->current($scope['tenant_id'], $scope['workspace_id
 
 // Product approvals are authorization instances too: a later accepted evaluation of unchanged
 // prompt bytes is a new immutable approval, never an edit of the earlier evaluation reference.
+$noEvaluationValidator = new PromptApprovalStore($db, $clock, $fx['decisions']);
+$tmpDecision = X::decision($fx, ['MANUAL_MONITOR'], X::promptIdentities('MANUAL_MONITOR', ['P01_SIGNAL_CLASSIFIER']), [], 'manual-no-validator.json');
+Assert::same(
+    'PROMPT_APPROVAL_EVALUATION_VALIDATOR_UNAVAILABLE',
+    $noEvaluationValidator->approve($scope, 'P01_SIGNAL_CLASSIFIER', 'MANUAL_MONITOR', $tmpDecision['ref'], $tmpDecision['sha256'], 'evaluation:fixture')->reasonCode(),
+    'a product approval fails closed when no evaluation-evidence validator is wired',
+);
 $manualDecision = X::decision($fx, ['MANUAL_MONITOR'], X::promptIdentities('MANUAL_MONITOR', ['P01_SIGNAL_CLASSIFIER']), [], 'manual-reeval.json');
 $manualA = X::value($fx['approvals']->approve($scope, 'P01_SIGNAL_CLASSIFIER', 'MANUAL_MONITOR', $manualDecision['ref'], $manualDecision['sha256'], 'evaluation:00000000-0000-0000-0000-000000000001'));
 $manualB = X::value($fx['approvals']->approve($scope, 'P01_SIGNAL_CLASSIFIER', 'MANUAL_MONITOR', $manualDecision['ref'], $manualDecision['sha256'], 'evaluation:00000000-0000-0000-0000-000000000002'));
 Assert::true($manualA['prompt_approval_id'] !== $manualB['prompt_approval_id'], 'a new evaluation reference produces a new immutable product approval');
+Assert::same(
+    'PROMPT_APPROVAL_EVALUATION_VALIDATOR_UNAVAILABLE',
+    $noEvaluationValidator->current($scope['tenant_id'], $scope['workspace_id'], $manualA['prompt_approval_id'])->reasonCode(),
+    'current product reliance also fails closed without the evaluation validator',
+);
 
 // ---------------------------------------------------------------- grant definitions are narrow and exact
 $approvals = X::approveAll($fx, 'MANUAL_MONITOR');

@@ -56,16 +56,17 @@ final class PromptApprovalStore
             if ($evaluationReference === null || preg_match('/^[A-Za-z0-9:._-]{1,191}$/D', $evaluationReference) !== 1) {
                 return Outcome::refuse('PROMPT_APPROVAL_REQUIRES_EVALUATION');
             }
-            if ($this->evaluationEvidence !== null) {
-                $evidence = ($this->evaluationEvidence)($scope + [
-                    'role' => $role, 'pack_version' => $prompt['pack_version'],
-                    'prompt_version_id' => $prompt['prompt_version_id'], 'binding_id' => $prompt['binding_id'],
-                    'prompt_sha256' => $prompt['prompt_sha256'], 'schema_sha256' => $prompt['schema_sha256'],
-                    'model_policy_digest' => ModelPolicy::digest(),
-                ], $evaluationReference);
-                if (!$evidence->isOk()) {
-                    return $evidence;
-                }
+            if ($this->evaluationEvidence === null) {
+                return Outcome::refuse('PROMPT_APPROVAL_EVALUATION_VALIDATOR_UNAVAILABLE');
+            }
+            $evidence = ($this->evaluationEvidence)($scope + [
+                'role' => $role, 'pack_version' => $prompt['pack_version'],
+                'prompt_version_id' => $prompt['prompt_version_id'], 'binding_id' => $prompt['binding_id'],
+                'prompt_sha256' => $prompt['prompt_sha256'], 'schema_sha256' => $prompt['schema_sha256'],
+                'model_policy_digest' => ModelPolicy::digest(),
+            ], $evaluationReference);
+            if (!$evidence->isOk()) {
+                return $evidence;
             }
         } elseif ($evaluationReference !== null) {
             return Outcome::refuse('PROMPT_APPROVAL_PURPOSE_INVALID');
@@ -193,7 +194,10 @@ final class PromptApprovalStore
         // A MANUAL_MONITOR approval's evaluation remains current authority, not creation-time
         // metadata. Deployed execution supplies this resolver and therefore re-checks the cited
         // LIVE accepted evaluation every time the approval is selected.
-        if ($row['purpose'] === 'MANUAL_MONITOR' && $this->evaluationEvidence !== null) {
+        if ($row['purpose'] === 'MANUAL_MONITOR') {
+            if ($this->evaluationEvidence === null) {
+                return Outcome::refuse('PROMPT_APPROVAL_EVALUATION_VALIDATOR_UNAVAILABLE');
+            }
             $evidence = ($this->evaluationEvidence)([
                 'tenant_id' => $tenantId, 'workspace_id' => $workspaceId, 'role' => $row['role'],
                 'pack_version' => $row['pack_version'], 'prompt_version_id' => $row['prompt_version_id'],

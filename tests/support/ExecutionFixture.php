@@ -60,7 +60,14 @@ final class ExecutionFixture
         $dir = sys_get_temp_dir() . '/allfather-decisions-' . Ids::new();
         mkdir($dir, 0700, true);
         $decisions = new OwnerDecisionRegistry($dir);
-        $approvals = new PromptApprovalStore($db, $clock, $decisions);
+        // Synthetic fixture evidence stands in for the real EvaluationReport resolver. Product
+        // approvals still fail closed if a caller omits a validator entirely.
+        $evaluationEvidence = static function (array $facts, string $reference): Outcome {
+            return preg_match('/^evaluation:(?:fixture|[a-f0-9-]{36})$/D', $reference) === 1
+                ? Outcome::ok(['report_digest' => hash('sha256', $reference)])
+                : Outcome::refuse('PROMPT_APPROVAL_EVALUATION_NOT_ACCEPTED');
+        };
+        $approvals = new PromptApprovalStore($db, $clock, $decisions, $evaluationEvidence);
         $grants = new ExecutionGrantStore($db, $clock, $approvals, $decisions);
         $admission = new ExecutionAdmission($db, $clock, $grants, $approvals, $decisions, self::FINGERPRINT);
         $resolver = PromptSelectionResolver::governed($approvals, $grants);

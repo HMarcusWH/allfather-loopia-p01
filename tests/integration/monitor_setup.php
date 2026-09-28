@@ -10,7 +10,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../support/ExecutionFixture.php';
 
-use Allfather\Loopia\Core\Ids;
+use Allfather\Loopia\Core\{Ids,Outcome};
 use Allfather\Loopia\Ingestion\{FetchRequest,FetchResponse,FetchTransport};
 use Allfather\Loopia\Product\P01\{Entitlements,SourceReadRegistration};
 use Allfather\Loopia\PromptOps\{PromptApprovalStore,PromptSelectionResolver};
@@ -136,7 +136,11 @@ Assert::same('COMPETITOR_ORGANIZATION_NUMBER_DIFFERS',array_column($orgPlan['ste
 $dir = sys_get_temp_dir() . '/allfather-setup-decisions-' . Ids::new();
 mkdir($dir, 0700, true);
 $decisions = new OwnerDecisionRegistry($dir);
-$approvals = new PromptApprovalStore($db, $clock, $decisions);
+$fixtureEvaluationEvidence = static fn(array $facts,string $reference): Outcome =>
+    preg_match('/^evaluation:(?:fixture|[a-f0-9-]{36})$/D',$reference)===1
+        ? Outcome::ok(['report_digest'=>hash('sha256',$reference)])
+        : Outcome::refuse('PROMPT_APPROVAL_EVALUATION_NOT_ACCEPTED');
+$approvals = new PromptApprovalStore($db, $clock, $decisions, $fixtureEvaluationEvidence);
 $grants = new ExecutionGrantStore($db, $clock, $approvals, $decisions);
 $fx = ['scope' => $scope, 'decision_dir' => $dir, 'approvals' => $approvals, 'grants' => $grants, 'mission_id' => $applied['mission_id'], 'definition_digest' => $applied['definition_digest'], 'credential_id' => $credential['provider_credential_id'], 'monitored_source_id' => $definition['monitored_source_id'], 'capture_url' => $definition['capture_url'], 'evidence_store' => $store, 'credential_store' => $credentials];
 X::admitted($fx, X::manualDefinition($db, $clock, $fx, X::approveAll($fx, 'MANUAL_MONITOR')));
