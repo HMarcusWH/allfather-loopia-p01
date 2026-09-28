@@ -29,6 +29,9 @@ final class ExecutionAdmission
     /** checkpoint => [purposes it serves, budget kind it must still have room for] */
     public const CHECKPOINTS = [
         'SOURCE_CAPTURE' => [['MANUAL_MONITOR', 'SCHEDULED_OBSERVATION'], 'SOURCE_CAPTURE'],
+        // Re-check after the budget reservation and M06 gates, immediately before DNS/HTTP can
+        // begin. It has no budget test of its own because SOURCE_CAPTURE already spent the unit.
+        'SOURCE_BEFORE_DISPATCH' => [['MANUAL_MONITOR', 'SCHEDULED_OBSERVATION'], null],
         'MODEL_BEFORE_RESERVE' => [['MANUAL_MONITOR', 'MODEL_EVALUATION'], 'MODEL_ATTEMPT'],
         'MODEL_BEFORE_DISPATCH' => [['MANUAL_MONITOR', 'MODEL_EVALUATION'], null],
         'MODEL_AFTER_RETURN' => [['MANUAL_MONITOR', 'MODEL_EVALUATION'], null],
@@ -172,7 +175,9 @@ final class ExecutionAdmission
             if (($facts['definition_digest'] ?? null) !== $grant['definition_digest']) {
                 return 'EXECUTION_GRANT_CONFIGURATION_CHANGED';
             }
-            if ($checkpoint === 'SOURCE_CAPTURE' && (($facts['monitored_source_id'] ?? null) !== $d['source_scope']['monitored_source_id'] || ($facts['capture_url'] ?? null) !== $d['source_scope']['capture_url'])) {
+            if (in_array($checkpoint, ['SOURCE_CAPTURE', 'SOURCE_BEFORE_DISPATCH'], true)
+                && (($facts['monitored_source_id'] ?? null) !== $d['source_scope']['monitored_source_id']
+                    || ($facts['capture_url'] ?? null) !== $d['source_scope']['capture_url'])) {
                 return 'EXECUTION_GRANT_SOURCE_MISMATCH';
             }
             if (in_array($checkpoint, ['RELEASE_P01', 'RELEASE_ROUTING'], true) && ($facts['target_org_role'] ?? null) !== $d['target_org_role']) {

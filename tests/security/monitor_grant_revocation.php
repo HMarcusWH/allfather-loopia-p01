@@ -111,6 +111,7 @@ $freshApprovals = X::approveAll($fresh, 'MANUAL_MONITOR');
 $g = X::admitted($fresh, X::manualDefinition($db, $clock, $fresh, $freshApprovals));
 $facts = ['tenant_id' => $fresh['scope']['tenant_id'], 'workspace_id' => $fresh['scope']['workspace_id'], 'operator_id' => $fresh['scope']['operator_id'], 'execution_grant_id' => $g['execution_grant_id'], 'purpose' => 'MANUAL_MONITOR', 'mission_id' => $fresh['mission_id'], 'definition_digest' => $fresh['definition_digest'], 'monitored_source_id' => $fresh['monitored_source_id'], 'capture_url' => $fresh['capture_url'], 'target_org_role' => 'SALES'];
 Assert::true($fresh['admission']->check('SOURCE_CAPTURE', $facts)->isOk(), 'the exact facts are admitted');
+Assert::true($fresh['admission']->check('SOURCE_BEFORE_DISPATCH', $facts)->isOk(), 'the exact source remains admitted at the immediate pre-dispatch checkpoint');
 foreach ([
     ['operator_id', Seed::operator($db, $clock, $fresh['scope']['tenant_id'], 'Another operator'), 'EXECUTION_GRANT_PRINCIPAL_MISMATCH'],
     ['definition_digest', str_repeat('c', 64), 'EXECUTION_GRANT_CONFIGURATION_CHANGED'],
@@ -120,6 +121,7 @@ foreach ([
 ] as [$key, $changed, $reason]) {
     Assert::same($reason, $fresh['admission']->check('SOURCE_CAPTURE', [$key => $changed] + $facts)->reasonCode(), "changed {$key} refuses");
 }
+Assert::same('EXECUTION_GRANT_SOURCE_MISMATCH', $fresh['admission']->check('SOURCE_BEFORE_DISPATCH', ['capture_url' => 'https://sources.example/other'] + $facts)->reasonCode(), 'the immediate pre-dispatch source check is bound to the frozen URL too');
 Assert::same('EXECUTION_GRANT_TARGET_MISMATCH', $fresh['admission']->check('RELEASE_P01', ['target_org_role' => 'MARKETING'] + $facts)->reasonCode(), 'another target refuses a release');
 $modelFacts = $facts + ['credential_id' => $fresh['credential_id'], 'prompt_approval_id' => $freshApprovals[0]];
 $approvalRow = $fresh['approvals']->find($fresh['scope']['tenant_id'], $fresh['scope']['workspace_id'], $freshApprovals[0]);

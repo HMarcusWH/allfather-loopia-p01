@@ -121,6 +121,7 @@ final class Capture
         array $input,
         FetchTransport $transport,
         HostResolver $resolver,
+        ?callable $beforeFetch = null,
     ): Outcome {
         $row = $this->db->one(
             'SELECT ms.tenant_id, ms.workspace_id, ms.source_ref_id, ms.status AS ms_status,
@@ -237,7 +238,7 @@ final class Capture
         }
 
         try {
-            return $this->dispatchAndMaterialize($input, $row, $policy, $card, $transport, $resolver);
+            return $this->dispatchAndMaterialize($input, $row, $policy, $card, $transport, $resolver, $beforeFetch);
         } finally {
             // Released whatever happened. The TTL is the safety net for a process that dies; the
             // release is what keeps the normal path from waiting for it.
@@ -262,6 +263,7 @@ final class Capture
         array $card,
         FetchTransport $transport,
         HostResolver $resolver,
+        ?callable $beforeFetch,
     ): Outcome {
         // The guard's specific reason is captured out of the closure so a non-succeeded dispatch can
         // report WHY without a second database round trip — and so the reason reaching the audit
@@ -273,7 +275,18 @@ final class Capture
             && in_array($card['caching_policy'] ?? null, ['standard_cache', 'explicit_contract'], true)
             && in_array($card['allowed_use_class'] ?? null, ['derived_summary_allowed', 'customer_visible_allowed'], true)
             && ($card['retention_class'] ?? null) === 'standard';
-        $performLiveFetch = function () use ($input, $policy, $transport, $resolver, &$guardReason, &$captureProof, $retainComparison): array {
+        $performLiveFetch = function () use ($input, $policy, $transport, $resolver, $beforeFetch, &$guardReason, &$captureProof, $retainComparison): array {
+            // Deployment-specific authority gets one last chance to stand the operation down at the
+            // actual side-effect boundary. This is deliberately INSIDE the M01 callback and before
+            // EgressGuard performs DNS resolution or HTTP. A refusal produces a truthful governed
+            // dispatch outcome, spends the already-reserved budget, and sends nothing.
+            if ($beforeFetch !== null) {
+                $fresh = $beforeFetch();
+                if (!$fresh instanceof Outcome || !$fresh->isOk()) {
+                    $guardReason = $fresh instanceof Outcome ? $fresh->reasonCode() : 'SOURCE_PRE_DISPATCH_CHECK_INVALID';
+                    return ['kind' => 'REFUSED', 'reason_code' => $guardReason];
+                }
+            }
             $result = EgressGuard::guardedFetch(
                 $input['capture_url'],
                 $policy['allowed_hosts'],

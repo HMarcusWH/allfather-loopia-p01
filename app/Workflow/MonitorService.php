@@ -86,8 +86,14 @@ final class MonitorService implements MonitorOperations
             if (($run['execution_mode']==='FIXTURE')!==$this->fixtureRuntime) { return Outcome::refuse('MONITOR_RUNTIME_MODE_MISMATCH'); }
             try {
                 if ($run['stage']==='NEW') {
-                    if ($run['execution_mode']==='NATIVE') { $admitted=$this->admitCapture($scope,$run); if (!$admitted->isOk()) { return $admitted; } }
-                    $captured=$this->capture->execute($scope,$run);
+                    $beforeFetch=null;
+                    if ($run['execution_mode']==='NATIVE') {
+                        $grant=$this->currentGrant($scope,$run); if (!$grant->isOk()) { return $grant; }
+                        $facts=$this->runFacts($scope,$run,$grant->value());
+                        $admitted=$this->admitCapture($scope,$run,$grant->value(),$facts); if (!$admitted->isOk()) { return $admitted; }
+                        $beforeFetch=fn():Outcome=>$this->admission->check('SOURCE_BEFORE_DISPATCH',$facts);
+                    }
+                    $captured=$this->capture->execute($scope,$run,$beforeFetch);
                     if (!$captured->isOk()) { return $this->block($scope,$run,$captured->reasonCode()); }
                     return $this->journal->advance($scope,$run,$captured->value()['before_snapshot_id']===null?'BASELINE':'CAPTURED',['capture'=>$captured->value()],'SOURCE_CAPTURED');
                 }
@@ -222,12 +228,10 @@ final class MonitorService implements MonitorOperations
         return ModelRequestBuilder::prepare($prompt->value(),$context->value(),$options,$this->prompts);
     }
     /** Admit, then spend, one source capture for this run — before any fetch is attempted. */
-    private function admitCapture(array $scope,array $run): Outcome
+    private function admitCapture(array $scope,array $run,array $grant,array $facts): Outcome
     {
-        $grant=$this->currentGrant($scope,$run); if (!$grant->isOk()) { return $grant; }
-        $facts=$this->runFacts($scope,$run,$grant->value());
         $admitted=$this->admission->check('SOURCE_CAPTURE',$facts); if (!$admitted->isOk()) { return $admitted; }
-        return $this->db->transaction(fn(Database $tx):Outcome=>$this->admission->reserve($tx,$grant->value()['execution_grant_id'],'SOURCE_CAPTURE',$run['monitor_run_id'],$run['monitor_run_id']));
+        return $this->db->transaction(fn(Database $tx):Outcome=>$this->admission->reserve($tx,$grant['execution_grant_id'],'SOURCE_CAPTURE',$run['monitor_run_id'],$run['monitor_run_id']));
     }
     private function currentGrant(array $scope,array $run): Outcome
     {

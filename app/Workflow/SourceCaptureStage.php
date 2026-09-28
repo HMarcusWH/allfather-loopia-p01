@@ -19,7 +19,8 @@ final class SourceCaptureStage
         private readonly HostResolver $resolver,
     ) {}
 
-    public function execute(array $scope, array $run): Outcome
+    /** @param null|callable():Outcome $beforeFetch */
+    public function execute(array $scope, array $run, ?callable $beforeFetch = null): Outcome
     {
         $definition = $run['definition'];
         $before = $this->db->one('SELECT source_snapshot_id FROM source_snapshots WHERE monitored_source_id = ? AND tenant_id = ? AND workspace_id = ? ORDER BY snapshot_sequence DESC, source_snapshot_id DESC LIMIT 1', [$definition['monitored_source_id'], $scope['tenant_id'], $scope['workspace_id']]);
@@ -29,7 +30,7 @@ final class SourceCaptureStage
             'monitored_source_id' => $definition['monitored_source_id'], 'capture_url' => $definition['capture_url'],
             'idempotency_key' => 'monitor.capture.' . $run['monitor_run_id'], 'correlation_id' => $run['monitor_run_id'],
             'governance' => array_merge($definition['capture_governance'], ['calling_actor_type'=>'OPERATOR','calling_actor_id'=>$scope['operator_id']]),
-        ], $transport, $this->resolver);
+        ], $transport, $this->resolver, $beforeFetch);
         if (!$captured->isOk()) {
             return $transport->failureCode === null ? $captured : Outcome::refuse($transport->failureCode);
         }

@@ -54,6 +54,7 @@ relies on a result, and records its answer:
 | Checkpoint | Where | Also spends |
 | --- | --- | --- |
 | `SOURCE_CAPTURE` | `MonitorService::advance` at `NEW`, before any fetch | one `SOURCE_CAPTURE` unit, reserved first |
+| `SOURCE_BEFORE_DISPATCH` | inside the governed P01/M01 fetch callback, before DNS or HTTP begins | — |
 | `MODEL_BEFORE_RESERVE` | `ModelExecutor::execute`, before M06 is asked | — |
 | (reservation) | inside the attempt's transaction, under the grant row lock | one `MODEL_ATTEMPT` unit |
 | `MODEL_BEFORE_DISPATCH` | immediately before the transport is called | — |
@@ -62,7 +63,9 @@ relies on a result, and records its answer:
 
 At both release checkpoints, admission also re-resolves every prompt approval named by the manual grant. A prompt withdrawal or an evaluation that no longer qualifies therefore blocks release of an older candidate; historical bytes remain historical evidence, not current permission.
 
-A refusal before anything was spent leaves the run waiting, not failed. Revocation during a call
+A refusal before anything was spent leaves the run waiting, not failed. Source capture is checked
+once before its budget reservation and again inside the M01 callback immediately before DNS/HTTP, so
+a stand-down in that gap sends nothing while the reserved unit remains truthfully spent. Revocation during a call
 cannot recall bytes already sent: the attempt stays spent, the result row records the revocation,
 and the response never becomes a candidate. Stand-down never refunds budget, deletes artifacts,
 alters reviews or retracts releases — retraction remains the M10 correction/withdrawal operation.

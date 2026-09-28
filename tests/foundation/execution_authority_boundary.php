@@ -86,9 +86,16 @@ foreach (["'MODEL_BEFORE_RESERVE'", "'MODEL_BEFORE_DISPATCH'", "'MODEL_AFTER_RET
     Assert::contains($checkpoint, $executor, "the executor checks admission at {$checkpoint}");
 }
 $service = $code($root . '/app/Workflow/MonitorService.php');
-foreach (["'SOURCE_CAPTURE'", "'RELEASE_P01'", "'RELEASE_ROUTING'"] as $checkpoint) {
+foreach (["'SOURCE_CAPTURE'", "'SOURCE_BEFORE_DISPATCH'", "'RELEASE_P01'", "'RELEASE_ROUTING'"] as $checkpoint) {
     Assert::contains($checkpoint, $service, "the Monitor checks admission at {$checkpoint}");
 }
+$capture = $code($root . '/app/Product/P01/Capture.php');
+$preFetch = strpos($capture, '$beforeFetch()');
+$egress = strpos($capture, 'EgressGuard::guardedFetch(');
+Assert::true(
+    is_int($preFetch) && is_int($egress) && $preFetch < $egress,
+    'source execution re-checks deployment admission inside the M01 callback before DNS/HTTP begins',
+);
 
 // ---------------------------------------------------------------- the transport's own refusals stay
 $transport = $code($root . '/app/Provider/OpenAIResponsesTransport.php');
