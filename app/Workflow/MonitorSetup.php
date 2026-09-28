@@ -177,10 +177,19 @@ final class MonitorSetup
         }
         $add('COMPANY_PROFILE', $profiles, is_string($profileSource['source_ref_id'] ?? null) ? $profileSource['source_ref_id'] : null, $profiles === 'REFUSE' ? $profileReason : null);
 
-        $p01 = $this->db->scalar("SELECT arbiter_policy_set_id FROM arbiter_policy_sets WHERE policy_key='P01_COMPETITION_RELEVANCE' AND tenant_id=? AND workspace_id=? AND status='ACTIVE'", [$scope['tenant_id'], $scope['workspace_id']]);
-        $add('P01_POLICY', $p01 === null ? 'CREATE' : 'REUSE', $p01 === null ? null : (string) $p01);
-        $p04 = $this->db->scalar("SELECT arbiter_policy_set_id FROM arbiter_policy_sets WHERE policy_key='P04_DISTRIBUTION_ADMISSION' AND tenant_id=? AND workspace_id=? AND status='ACTIVE'", [$scope['tenant_id'], $scope['workspace_id']]);
-        $add('P04_POLICY', $p04 === null ? 'CREATE' : 'REUSE', $p04 === null ? null : (string) $p04);
+        $policyOwner = new PolicySets($this->db, $this->clock);
+        $p01 = $policyOwner->current(PolicySets::P01_COMPETITION_RELEVANCE, $scope['tenant_id'], $scope['workspace_id']);
+        $p01State = $p01->isOk() ? $p01->value() : null;
+        $add('P01_POLICY',
+            !$p01->isOk() ? 'CONFLICT' : (($p01State['state'] ?? null) === 'ABSENT' ? 'CREATE' : 'REUSE'),
+            $p01State['arbiter_policy_set_id'] ?? null,
+            $p01->isOk() ? null : $p01->reasonCode());
+        $p04 = $policyOwner->current(PolicySets::P04_DISTRIBUTION_ADMISSION, $scope['tenant_id'], $scope['workspace_id']);
+        $p04State = $p04->isOk() ? $p04->value() : null;
+        $add('P04_POLICY',
+            !$p04->isOk() ? 'CONFLICT' : (($p04State['state'] ?? null) === 'ABSENT' ? 'CREATE' : 'REUSE'),
+            $p04State['arbiter_policy_set_id'] ?? null,
+            $p04->isOk() ? null : $p04->reasonCode());
 
         $target = $this->db->one('SELECT redaction_rules_json FROM console_redaction_policy_projections WHERE tenant_id=? AND workspace_id=? AND target_org_role=?', [$scope['tenant_id'], $scope['workspace_id'], $r['target']['target_org_role']]);
         if ($target === null) {
