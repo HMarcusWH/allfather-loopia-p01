@@ -205,6 +205,24 @@ $modelDescriptorSteps=array_column($modelDescriptorDrift['steps'],null,'step');
 Assert::same(['CONFLICT','MODEL_DESCRIPTOR_CONFLICT'],[$modelDescriptorSteps['MODEL_DESCRIPTOR']['action'],$modelDescriptorSteps['MODEL_DESCRIPTOR']['reason_code']],'a drifted model descriptor is not reused');
 $db->run("UPDATE runtime_host_instances SET host_version='1.0.0' WHERE host_family='LOOPIA_BOUNDED_MODEL' AND host_instance_key=?", [ModelRegistration::HOST_KEY]);
 
+$duplicateSourceRef=Ids::new();
+$db->run('INSERT INTO runtime_host_tool_refs (tool_ref_id,schema_version,binding_id,governed_tool_id,runtime_host_tool_ref,tool_surface_type,declared_operation_class,mapping_status,version,created_at)
+          SELECT ?,schema_version,binding_id,governed_tool_id,runtime_host_tool_ref,tool_surface_type,declared_operation_class,mapping_status,version,created_at
+          FROM runtime_host_tool_refs WHERE governed_tool_id=? LIMIT 1',[$duplicateSourceRef,$definition['capture_governance']['governed_tool_id']]);
+$ambiguousSourceMapping=X::value($setup->plan($scope,$req));
+$ambiguousSourceSteps=array_column($ambiguousSourceMapping['steps'],null,'step');
+Assert::same(['REFUSE','P01_REGISTRATION_STATE_CHANGED'],[$ambiguousSourceSteps['P01_REGISTRATION']['action'],$ambiguousSourceSteps['P01_REGISTRATION']['reason_code']],'a second source runtime mapping is ambiguous authority');
+$db->run('DELETE FROM runtime_host_tool_refs WHERE tool_ref_id=?',[$duplicateSourceRef]);
+
+$duplicateModelRef=Ids::new();
+$db->run('INSERT INTO runtime_host_tool_refs (tool_ref_id,schema_version,binding_id,governed_tool_id,runtime_host_tool_ref,tool_surface_type,declared_operation_class,mapping_status,version,created_at)
+          SELECT ?,schema_version,binding_id,governed_tool_id,runtime_host_tool_ref,tool_surface_type,declared_operation_class,mapping_status,version,created_at
+          FROM runtime_host_tool_refs WHERE governed_tool_id=? LIMIT 1',[$duplicateModelRef,$definition['model_governance']['author']['governed_tool_id']]);
+$ambiguousModelMapping=X::value($setup->plan($scope,$req));
+$ambiguousModelSteps=array_column($ambiguousModelMapping['steps'],null,'step');
+Assert::same(['CONFLICT','MODEL_DESCRIPTOR_CONFLICT'],[$ambiguousModelSteps['MODEL_DESCRIPTOR']['action'],$ambiguousModelSteps['MODEL_DESCRIPTOR']['reason_code']],'a second model runtime mapping is ambiguous authority');
+$db->run('DELETE FROM runtime_host_tool_refs WHERE tool_ref_id=?',[$duplicateModelRef]);
+
 // ---------------------------------------------------------------- a changed request is a successor, never a rewrite
 $profileB = 'Owner-provided, unverified: we now also sell evening packages.';
 $b = X::value($setup->importProfile($scope, $profileB));
