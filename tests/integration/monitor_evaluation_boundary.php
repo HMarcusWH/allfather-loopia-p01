@@ -79,6 +79,13 @@ $report = X::value(EvaluationReport::build($db, $scope['tenant_id'], $scope['wor
 Assert::same(EvaluationReport::ACCEPTED, $report['verdict'], 'a well-behaved, fully assessed run is accepted for owner review: ' . implode(',', $report['verdict_reasons']));
 Assert::same(1.0, $report['totals']['held_out_mechanical_pass_rate'], 'every held-out mechanical check passed');
 Assert::same(0, $report['totals']['provider_provenance_failures'], 'every accepted candidate is bound to its exact governed provider attempt and call');
+$evaluatedClassifier = $report['prompts']['P01_SIGNAL_CLASSIFIER'];
+$currentClassifier = \Allfather\Loopia\PromptOps\ProductPromptPack::resolve('P01_SIGNAL_CLASSIFIER')->value();
+Assert::same(
+    [$currentClassifier['pack_version'],$currentClassifier['prompt_version_id'],$currentClassifier['binding_id']],
+    [$evaluatedClassifier['pack_version'],$evaluatedClassifier['prompt_version_id'],$evaluatedClassifier['binding_id']],
+    'evaluation evidence names the exact pack, prompt-version and executable binding it tested',
+);
 Assert::same(true, !in_array(false, array_column($report['cases'], 'provider_provenance_valid'), true), 'no evaluated case carries invalid provider provenance');
 Assert::same(7, $report['totals']['held_or_abstained'], 'holds and abstentions are counted, not hidden');
 $approved = $approval();

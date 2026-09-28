@@ -110,13 +110,18 @@ final class ExecutionFixture
         return ['ref' => 'docs/decisions/' . $name, 'sha256' => hash('sha256', $bytes)];
     }
 
-    /** @return list<array{purpose:string,role:string,prompt_sha256:string,schema_sha256:string,model_policy_digest:string}> */
+    /** @return list<array{purpose:string,role:string,pack_version:string,prompt_version_id:string,binding_id:string,prompt_sha256:string,schema_sha256:string,model_policy_digest:string}> */
     public static function promptIdentities(string $purpose, array $roles = ProductPromptPack::ROLES): array
     {
         $out = [];
         foreach ($roles as $role) {
             $p = ProductPromptPack::resolve($role)->value();
-            $out[] = ['purpose' => $purpose, 'role' => $role, 'prompt_sha256' => $p['prompt_sha256'], 'schema_sha256' => $p['schema_sha256'], 'model_policy_digest' => ModelPolicy::digest()];
+            $out[] = [
+                'purpose' => $purpose, 'role' => $role, 'pack_version' => $p['pack_version'],
+                'prompt_version_id' => $p['prompt_version_id'], 'binding_id' => $p['binding_id'],
+                'prompt_sha256' => $p['prompt_sha256'], 'schema_sha256' => $p['schema_sha256'],
+                'model_policy_digest' => ModelPolicy::digest(),
+            ];
         }
 
         return $out;

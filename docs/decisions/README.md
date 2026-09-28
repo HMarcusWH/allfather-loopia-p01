@@ -21,8 +21,11 @@ narrowing or deleting the file withdraws what it authorized on the next check.
   "purposes": ["MODEL_EVALUATION"],
   "authorizes": {
     "prompt_approvals": [
-      {"purpose": "MODEL_EVALUATION", "role": "P01_SIGNAL_CLASSIFIER", "prompt_sha256": "<hex>",
-       "schema_sha256": "<hex>", "model_policy_digest": "<hex>"}
+      {"purpose": "MODEL_EVALUATION", "role": "P01_SIGNAL_CLASSIFIER",
+       "pack_version": "2026-09-27.monitor.v1",
+       "prompt_version_id": "<prompt-id>@2026-09-27.monitor.v1",
+       "binding_id": "loopia.monitor.P01_SIGNAL_CLASSIFIER@2026-09-27.monitor.v1",
+       "prompt_sha256": "<hex>", "schema_sha256": "<hex>", "model_policy_digest": "<hex>"}
     ],
     "execution_grants": ["<grant digest printed by ops/monitor/authorization.php plan>"]
   },

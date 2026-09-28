@@ -35,8 +35,10 @@ prompts approved for product use, each approval citing its evaluation), and `SCH
 
 `ProductPromptPack` holds immutable content in its authored `INACTIVE`/`DRAFT` state and never
 changes. `PromptSelectionResolver` is the only thing that produces an executable prompt: the same
-bytes, marked `ACTIVE`, bound to the approval and admitted grant that permit them. `verify()`
-re-derives the selection from stored approvals and grants and compares it whole, so a caller that
+bytes, marked `ACTIVE`, bound to the approval and admitted grant that permit them. Approval identity
+includes the exact pack version, prompt-version id and binding id as well as prompt/schema/model-policy
+digests; unchanged bytes moved onto another binding therefore need a new reviewed authorization.
+`verify()` re-derives the selection from stored approvals and grants and compares it whole, so a caller that
 flips `activation_status`, names a real grant, or recomputes a hash gets nothing.
 `MonitorService`, `PreparedModelRequest` and `ModelExecutor` all go through this resolver. Prompt
 content identity is intentionally separate from an approval's authorization identity: the same

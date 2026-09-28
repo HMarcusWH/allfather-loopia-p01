@@ -22,7 +22,7 @@ $write = static function (string $name, array|string $document) use ($dir): stri
 $good = [
     'schema_version' => '1.0', 'kind' => 'OWNER_EXECUTION_DECISION', 'decision_id' => 'UNIT-1', 'decided_by' => 'Unit owner',
     'decided_at' => '2026-01-01T00:00:00Z', 'canonical_authority_ref' => 'unit', 'tenant_id' => 't', 'workspace_id' => 'w',
-    'purposes' => ['MODEL_EVALUATION'], 'authorizes' => ['prompt_approvals' => [['purpose' => 'MODEL_EVALUATION', 'role' => 'R', 'prompt_sha256' => 'p', 'schema_sha256' => 's', 'model_policy_digest' => 'm']], 'execution_grants' => [str_repeat('a', 64)]],
+    'purposes' => ['MODEL_EVALUATION'], 'authorizes' => ['prompt_approvals' => [['purpose' => 'MODEL_EVALUATION', 'role' => 'R', 'pack_version' => 'pack-1', 'prompt_version_id' => 'prompt@pack-1', 'binding_id' => 'binding@pack-1', 'prompt_sha256' => str_repeat('1', 64), 'schema_sha256' => str_repeat('2', 64), 'model_policy_digest' => str_repeat('3', 64)]], 'execution_grants' => [str_repeat('a', 64)]],
     'disclosure_scope' => 'd', 'retention_scope' => 'r',
 ];
 $sha = $write('good.json', $good);
@@ -32,8 +32,11 @@ Assert::true(OwnerDecisionRegistry::authorizesGrant($resolved->value(), 't', 'w'
 Assert::false(OwnerDecisionRegistry::authorizesGrant($resolved->value(), 't', 'w', 'MANUAL_MONITOR', str_repeat('a', 64)), 'not for a purpose it does not name');
 Assert::false(OwnerDecisionRegistry::authorizesGrant($resolved->value(), 't', 'other', 'MODEL_EVALUATION', str_repeat('a', 64)), 'not in another workspace');
 Assert::false(OwnerDecisionRegistry::authorizesGrant($resolved->value(), 't', 'w', 'MODEL_EVALUATION', str_repeat('b', 64)), 'not for another digest');
-Assert::true(OwnerDecisionRegistry::authorizesPrompt($resolved->value(), 't', 'w', ['purpose' => 'MODEL_EVALUATION', 'role' => 'R', 'prompt_sha256' => 'p', 'schema_sha256' => 's', 'model_policy_digest' => 'm']), 'it authorizes exactly the prompt identity it lists');
-Assert::false(OwnerDecisionRegistry::authorizesPrompt($resolved->value(), 't', 'w', ['purpose' => 'MODEL_EVALUATION', 'role' => 'R', 'prompt_sha256' => 'p2', 'schema_sha256' => 's', 'model_policy_digest' => 'm']), 'a different prompt hash is not authorized');
+$promptIdentity = ['purpose' => 'MODEL_EVALUATION', 'role' => 'R', 'pack_version' => 'pack-1', 'prompt_version_id' => 'prompt@pack-1', 'binding_id' => 'binding@pack-1', 'prompt_sha256' => str_repeat('1', 64), 'schema_sha256' => str_repeat('2', 64), 'model_policy_digest' => str_repeat('3', 64)];
+Assert::true(OwnerDecisionRegistry::authorizesPrompt($resolved->value(), 't', 'w', $promptIdentity), 'it authorizes exactly the full prompt binding identity it lists');
+Assert::false(OwnerDecisionRegistry::authorizesPrompt($resolved->value(), 't', 'w', ['prompt_sha256' => str_repeat('4', 64)] + $promptIdentity), 'a different prompt hash is not authorized');
+Assert::false(OwnerDecisionRegistry::authorizesPrompt($resolved->value(), 't', 'w', ['binding_id' => 'binding@other-pack'] + $promptIdentity), 'the same content on another binding is not authorized');
+Assert::false(OwnerDecisionRegistry::authorizesPrompt($resolved->value(), 't', 'w', ['prompt_version_id' => 'prompt@pack-2'] + $promptIdentity), 'the same bytes under another prompt-version identity are not authorized');
 Assert::same('OWNER_DECISION_CHANGED', $registry->resolve('docs/decisions/good.json', str_repeat('0', 64))->reasonCode(), 'other bytes than the reviewed ones refuse');
 foreach (['good.json', 'docs/decisions/../good.json', 'docs/decisions/sub/good.json', '/docs/decisions/good.json', 'docs/decisions/.hidden.json'] as $ref) {
     Assert::same('OWNER_DECISION_REFERENCE_INVALID', $registry->resolve($ref, $sha)->reasonCode(), "reference shape refused: {$ref}");
