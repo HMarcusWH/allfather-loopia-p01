@@ -592,8 +592,18 @@ final class MonitorSetup
             && $tier['currency'] === 'SEK' && $tier['billing_period'] === 'MONTHLY' && $tier['status'] === 'ACTIVE'
             && $tierPermissions === self::P01_TIER_PERMISSIONS;
 
+        $toolRefs = $tool === null ? [] : $this->db->all(
+            'SELECT binding_id,runtime_host_tool_ref,tool_surface_type,declared_operation_class,mapping_status,version FROM runtime_host_tool_refs WHERE governed_tool_id=? ORDER BY tool_ref_id',
+            [$saved['governed_tool_id']]
+        );
+        $ref = $toolRefs[0] ?? null;
         $toolCurrent = $tool !== null && $saved['governed_tool_id'] === $tool['governed_tool_id']
-            && $saved['governed_tool_operation_id'] === ($operation['governed_tool_operation_id'] ?? null);
+            && $saved['governed_tool_operation_id'] === ($operation['governed_tool_operation_id'] ?? null)
+            && count($toolRefs) === 1 && $ref !== null
+            && $ref['binding_id'] === $tool['runtime_mapping_ref_id']
+            && $ref['runtime_host_tool_ref'] === SourceReadRegistration::TOOL_REF
+            && $ref['tool_surface_type'] === 'READ' && $ref['declared_operation_class'] === 'OBSERVE'
+            && $ref['mapping_status'] === 'ACTIVE' && $ref['version'] === '1.0.0';
 
         if ($live === null || !$rightsCurrent || !$contractCurrent || !$tierCurrent || !$toolCurrent) {
             return ['action' => 'REFUSE', 'reason' => 'P01_REGISTRATION_STATE_CHANGED'];
