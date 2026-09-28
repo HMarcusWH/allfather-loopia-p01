@@ -4,7 +4,6 @@ namespace Allfather\Loopia\Workflow;
 
 use Allfather\Loopia\Core\{Clock,Digest,OperatorScope,Outcome};
 use Allfather\Loopia\Db\Database;
-use Allfather\Loopia\Ingestion\SourcePolicy;
 use Allfather\Loopia\Product\P01\{Capture,CompanyContext};
 use Allfather\Loopia\Provider\ModelRegistration;
 use Allfather\Loopia\Substrate\M02\AccessGuard;
