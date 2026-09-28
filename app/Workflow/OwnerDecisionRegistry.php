@@ -27,6 +27,10 @@ final class OwnerDecisionRegistry
     public const SCHEMA_VERSION = '1.0';
     public const KIND = 'OWNER_EXECUTION_DECISION';
     public const PURPOSES = ['MODEL_EVALUATION', 'MANUAL_MONITOR', 'SCHEDULED_OBSERVATION'];
+    private const PROMPT_IDENTITY_KEYS = [
+        'purpose', 'role', 'pack_version', 'prompt_version_id', 'binding_id',
+        'prompt_sha256', 'schema_sha256', 'model_policy_digest',
+    ];
     private const REF_PATTERN = '#^docs/decisions/([A-Za-z0-9][A-Za-z0-9._-]{0,120}\.json)$#D';
     private const MAX_BYTES = 65536;
 
@@ -87,7 +91,7 @@ final class OwnerDecisionRegistry
         }
         foreach ($decision['authorizes']['prompt_approvals'] as $allowed) {
             $match = true;
-            foreach (['purpose', 'role', 'prompt_sha256', 'schema_sha256', 'model_policy_digest'] as $key) {
+            foreach (self::PROMPT_IDENTITY_KEYS as $key) {
                 if (($allowed[$key] ?? null) !== ($prompt[$key] ?? null)) {
                     $match = false;
                     break;
@@ -131,8 +135,22 @@ final class OwnerDecisionRegistry
             }
         }
         foreach ($a['prompt_approvals'] as $prompt) {
-            if (!is_array($prompt) || array_diff(array_keys($prompt), ['purpose', 'role', 'prompt_sha256', 'schema_sha256', 'model_policy_digest']) !== [] || count($prompt) !== 5) {
+            if (!is_array($prompt) || array_diff(array_keys($prompt), self::PROMPT_IDENTITY_KEYS) !== []
+                || array_diff(self::PROMPT_IDENTITY_KEYS, array_keys($prompt)) !== []) {
                 return false;
+            }
+            foreach (['purpose','role','pack_version','prompt_version_id','binding_id'] as $key) {
+                if (!is_string($prompt[$key]) || trim($prompt[$key]) === '' || strlen($prompt[$key]) > 191) {
+                    return false;
+                }
+            }
+            if (!in_array($prompt['purpose'], ['MODEL_EVALUATION','MANUAL_MONITOR'], true)) {
+                return false;
+            }
+            foreach (['prompt_sha256','schema_sha256','model_policy_digest'] as $key) {
+                if (!is_string($prompt[$key]) || preg_match('/^[a-f0-9]{64}$/D', $prompt[$key]) !== 1) {
+                    return false;
+                }
             }
         }
 

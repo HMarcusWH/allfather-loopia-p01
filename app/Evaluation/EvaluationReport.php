@@ -38,9 +38,13 @@ final class EvaluationReport
         $prompts = [];
         $grant = $db->one('SELECT definition_json FROM monitor_execution_grants WHERE execution_grant_id=?', [$run['execution_grant_id']]);
         foreach ($grant === null ? [] : json_decode($grant['definition_json'], true, 32, JSON_THROW_ON_ERROR)['prompt_approval_ids'] as $approvalId) {
-            $p = $db->one('SELECT role,prompt_approval_id,prompt_sha256,schema_sha256 FROM monitor_prompt_approvals WHERE prompt_approval_id=? AND tenant_id=? AND workspace_id=?', [$approvalId, $tenantId, $workspaceId]);
+            $p = $db->one('SELECT role,prompt_approval_id,pack_version,prompt_version_id,binding_id,prompt_sha256,schema_sha256 FROM monitor_prompt_approvals WHERE prompt_approval_id=? AND tenant_id=? AND workspace_id=?', [$approvalId, $tenantId, $workspaceId]);
             if ($p !== null) {
-                $prompts[$p['role']] = ['prompt_approval_id' => $p['prompt_approval_id'], 'prompt_sha256' => $p['prompt_sha256'], 'schema_sha256' => $p['schema_sha256']];
+                $prompts[$p['role']] = [
+                    'prompt_approval_id' => $p['prompt_approval_id'], 'pack_version' => $p['pack_version'],
+                    'prompt_version_id' => $p['prompt_version_id'], 'binding_id' => $p['binding_id'],
+                    'prompt_sha256' => $p['prompt_sha256'], 'schema_sha256' => $p['schema_sha256'],
+                ];
             }
         }
         ksort($prompts);
@@ -103,7 +107,8 @@ final class EvaluationReport
                          JOIN provider_attempt_purposes pp ON pp.model_attempt_id=a.model_attempt_id
                          JOIN provider_call_records c ON c.provider_call_id=mr.provider_call_id
                          WHERE a.model_attempt_id=? AND a.tenant_id=? AND a.workspace_id=? AND a.mission_id=?
-                           AND a.execution_mode=? AND a.request_digest=? AND a.prompt_sha256=? AND a.schema_sha256=?
+                           AND a.execution_mode=? AND a.request_digest=?
+                           AND a.prompt_version_id=? AND a.binding_id=? AND a.prompt_sha256=? AND a.schema_sha256=?
                            AND mr.provider_call_id=? AND mr.outcome='CANDIDATE' AND mr.candidate_digest=?
                            AND pp.execution_purpose='MODEL_EVALUATION' AND pp.execution_grant_id=?
                            AND pp.evaluation_run_id=? AND pp.monitor_run_id IS NULL
@@ -112,7 +117,8 @@ final class EvaluationReport
                            AND c.outcome='SUCCEEDED' AND c.correlation_id=?",
                         [
                             $r['model_attempt_id'], $tenantId, $workspaceId, $run['mission_id'],
-                            $run['execution_mode'], $r['request_digest'], $prompt['prompt_sha256'], $prompt['schema_sha256'],
+                            $run['execution_mode'], $r['request_digest'],
+                            $prompt['prompt_version_id'], $prompt['binding_id'], $prompt['prompt_sha256'], $prompt['schema_sha256'],
                             $r['provider_call_id'], $r['candidate_digest'], $run['execution_grant_id'],
                             $runId, $r['provider_call_id'], $tenantId, $workspaceId, $runId,
                         ],
@@ -252,7 +258,13 @@ final class EvaluationReport
                 return Outcome::refuse('PROMPT_APPROVAL_EVALUATION_NOT_ACCEPTED');
             }
             $prompt = $r['prompts'][$facts['role']] ?? null;
-            if ($prompt === null || $prompt['prompt_sha256'] !== $facts['prompt_sha256'] || $prompt['schema_sha256'] !== $facts['schema_sha256'] || $r['model_policy_digest'] !== $facts['model_policy_digest']) {
+            if ($prompt === null
+                || $prompt['pack_version'] !== ($facts['pack_version'] ?? null)
+                || $prompt['prompt_version_id'] !== ($facts['prompt_version_id'] ?? null)
+                || $prompt['binding_id'] !== ($facts['binding_id'] ?? null)
+                || $prompt['prompt_sha256'] !== ($facts['prompt_sha256'] ?? null)
+                || $prompt['schema_sha256'] !== ($facts['schema_sha256'] ?? null)
+                || $r['model_policy_digest'] !== ($facts['model_policy_digest'] ?? null)) {
                 return Outcome::refuse('PROMPT_APPROVAL_EVALUATION_MISMATCH');
             }
 

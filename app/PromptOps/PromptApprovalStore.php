@@ -14,8 +14,10 @@ use Allfather\Loopia\Workflow\OwnerDecisionRegistry;
  * The prompt bundle is immutable content: approving, withdrawing or replacing a prompt never edits
  * the bytes an earlier run used. An approval names the exact prompt and schema hashes, the purpose
  * (evaluation or manual Monitor), the model policy digest, and the reviewed owner decision that
- * authorizes exactly that combination. Withdrawal is an append-only event. A changed prompt is a
- * new identity and needs a new approval — there is nothing here to "update".
+ * authorizes exactly that combination. The identity includes pack/version/binding as well as the
+ * content/schema hashes: moving the same bytes onto a different executable binding is a new thing to
+ * authorize. Withdrawal is an append-only event. A changed prompt is a new identity and needs a new
+ * approval — there is nothing here to "update".
  *
  * A manual-Monitor approval must also cite the evaluation it relies on. An evaluation approval does
  * not: evaluating a draft prompt is how the evidence for a product approval is produced, and it
@@ -55,7 +57,12 @@ final class PromptApprovalStore
                 return Outcome::refuse('PROMPT_APPROVAL_REQUIRES_EVALUATION');
             }
             if ($this->evaluationEvidence !== null) {
-                $evidence = ($this->evaluationEvidence)($scope + ['role' => $role, 'prompt_sha256' => $prompt['prompt_sha256'], 'schema_sha256' => $prompt['schema_sha256'], 'model_policy_digest' => ModelPolicy::digest()], $evaluationReference);
+                $evidence = ($this->evaluationEvidence)($scope + [
+                    'role' => $role, 'pack_version' => $prompt['pack_version'],
+                    'prompt_version_id' => $prompt['prompt_version_id'], 'binding_id' => $prompt['binding_id'],
+                    'prompt_sha256' => $prompt['prompt_sha256'], 'schema_sha256' => $prompt['schema_sha256'],
+                    'model_policy_digest' => ModelPolicy::digest(),
+                ], $evaluationReference);
                 if (!$evidence->isOk()) {
                     return $evidence;
                 }
@@ -64,8 +71,10 @@ final class PromptApprovalStore
             return Outcome::refuse('PROMPT_APPROVAL_PURPOSE_INVALID');
         }
         $identity = [
-            'purpose' => $purpose, 'role' => $role, 'prompt_sha256' => $prompt['prompt_sha256'],
-            'schema_sha256' => $prompt['schema_sha256'], 'model_policy_digest' => ModelPolicy::digest(),
+            'purpose' => $purpose, 'role' => $role, 'pack_version' => $prompt['pack_version'],
+            'prompt_version_id' => $prompt['prompt_version_id'], 'binding_id' => $prompt['binding_id'],
+            'prompt_sha256' => $prompt['prompt_sha256'], 'schema_sha256' => $prompt['schema_sha256'],
+            'model_policy_digest' => ModelPolicy::digest(),
         ];
         $decision = $this->decisions->resolve($decisionRef, $decisionSha256);
         if (!$decision->isOk()) {
@@ -159,14 +168,25 @@ final class PromptApprovalStore
             return Outcome::refuse('PROMPT_APPROVAL_MODEL_POLICY_CHANGED');
         }
         $content = ProductPromptPack::resolve($row['role']);
-        if (!$content->isOk() || $content->value()['prompt_sha256'] !== $row['prompt_sha256'] || $content->value()['schema_sha256'] !== $row['schema_sha256']) {
+        if (!$content->isOk()) {
             return Outcome::refuse('PROMPT_APPROVAL_CONTENT_CHANGED');
+        }
+        $live = $content->value();
+        foreach (['pack_version', 'prompt_version_id', 'binding_id', 'prompt_sha256', 'schema_sha256'] as $key) {
+            if (($live[$key] ?? null) !== ($row[$key] ?? null)) {
+                return Outcome::refuse('PROMPT_APPROVAL_CONTENT_CHANGED');
+            }
         }
         $decision = $this->decisions->resolve($row['owner_decision_ref'], $row['owner_decision_sha256']);
         if (!$decision->isOk()) {
             return $decision;
         }
-        $identity = ['purpose' => $row['purpose'], 'role' => $row['role'], 'prompt_sha256' => $row['prompt_sha256'], 'schema_sha256' => $row['schema_sha256'], 'model_policy_digest' => $row['model_policy_digest']];
+        $identity = [
+            'purpose' => $row['purpose'], 'role' => $row['role'], 'pack_version' => $row['pack_version'],
+            'prompt_version_id' => $row['prompt_version_id'], 'binding_id' => $row['binding_id'],
+            'prompt_sha256' => $row['prompt_sha256'], 'schema_sha256' => $row['schema_sha256'],
+            'model_policy_digest' => $row['model_policy_digest'],
+        ];
         if (!OwnerDecisionRegistry::authorizesPrompt($decision->value(), $tenantId, $workspaceId, $identity)) {
             return Outcome::refuse('OWNER_DECISION_DOES_NOT_AUTHORIZE_PROMPT');
         }
@@ -176,8 +196,9 @@ final class PromptApprovalStore
         if ($row['purpose'] === 'MANUAL_MONITOR' && $this->evaluationEvidence !== null) {
             $evidence = ($this->evaluationEvidence)([
                 'tenant_id' => $tenantId, 'workspace_id' => $workspaceId, 'role' => $row['role'],
-                'prompt_sha256' => $row['prompt_sha256'], 'schema_sha256' => $row['schema_sha256'],
-                'model_policy_digest' => $row['model_policy_digest'],
+                'pack_version' => $row['pack_version'], 'prompt_version_id' => $row['prompt_version_id'],
+                'binding_id' => $row['binding_id'], 'prompt_sha256' => $row['prompt_sha256'],
+                'schema_sha256' => $row['schema_sha256'], 'model_policy_digest' => $row['model_policy_digest'],
             ], (string) $row['evaluation_reference']);
             if (!$evidence->isOk()) {
                 return $evidence;
@@ -195,7 +216,7 @@ final class PromptApprovalStore
     /** @return array<string, mixed> */
     private function public(array $row): array
     {
-        return array_intersect_key($row, array_flip(['prompt_approval_id', 'purpose', 'role', 'prompt_version_id', 'binding_id', 'prompt_sha256', 'schema_sha256', 'model_policy_id', 'model_policy_digest', 'evaluation_reference', 'owner_decision_ref', 'approval_digest']))
+        return array_intersect_key($row, array_flip(['prompt_approval_id', 'purpose', 'role', 'pack_version', 'prompt_version_id', 'binding_id', 'prompt_sha256', 'schema_sha256', 'model_policy_id', 'model_policy_digest', 'evaluation_reference', 'owner_decision_ref', 'approval_digest']))
             + ['status' => 'APPROVED', 'grants_execution' => false];
     }
 

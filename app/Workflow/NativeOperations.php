@@ -116,7 +116,12 @@ final class NativeOperations
                 }
                 if ($this->evaluationEvidence !== null) {
                     $a = $approval->value();
-                    $evidence = ($this->evaluationEvidence)(['tenant_id' => $tenantId, 'workspace_id' => $workspaceId, 'role' => $a['role'], 'prompt_sha256' => $a['prompt_sha256'], 'schema_sha256' => $a['schema_sha256'], 'model_policy_digest' => $a['model_policy_digest']], (string) $a['evaluation_reference']);
+                    $evidence = ($this->evaluationEvidence)([
+                        'tenant_id' => $tenantId, 'workspace_id' => $workspaceId, 'role' => $a['role'],
+                        'pack_version' => $a['pack_version'], 'prompt_version_id' => $a['prompt_version_id'],
+                        'binding_id' => $a['binding_id'], 'prompt_sha256' => $a['prompt_sha256'],
+                        'schema_sha256' => $a['schema_sha256'], 'model_policy_digest' => $a['model_policy_digest'],
+                    ], (string) $a['evaluation_reference']);
                     if (!$evidence->isOk()) {
                         $reasons[] = 'EVALUATION_EVIDENCE_NOT_ACCEPTED:' . $a['role'];
                     }
