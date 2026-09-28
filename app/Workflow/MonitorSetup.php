@@ -619,12 +619,30 @@ final class MonitorSetup
 
     private function criticState(array $scope, ?Database $db = null): array
     {
-        $rows = ($db ?? $this->db)->all("SELECT v.valkyrie_id,v.status,v.active_capability_contract_id,c.status AS contract_status,c.allowed_action_classes,c.purpose_summary FROM valkyries v LEFT JOIN capability_contracts c ON c.capability_contract_id=v.active_capability_contract_id WHERE v.tenant_id=? AND v.workspace_id=? AND v.display_name=? AND v.canonical_role_class='REVIEW_CRITIC_VALKYRIE'", [$scope['tenant_id'], $scope['workspace_id'], self::CRITIC_NAME]);
+        $rows = ($db ?? $this->db)->all(
+            "SELECT v.valkyrie_id,v.status,v.active_capability_contract_id,
+                    c.status AS contract_status,c.allowed_action_classes,c.purpose_summary,
+                    c.tenant_id AS contract_tenant,c.workspace_id AS contract_workspace,
+                    c.role_class AS contract_role_class,c.human_approval_or_execution_authority,
+                    c.valid_from,c.valid_until
+             FROM valkyries v
+             LEFT JOIN capability_contracts c ON c.capability_contract_id=v.active_capability_contract_id
+             WHERE v.tenant_id=? AND v.workspace_id=? AND v.display_name=?
+               AND v.canonical_role_class='REVIEW_CRITIC_VALKYRIE'",
+            [$scope['tenant_id'], $scope['workspace_id'], self::CRITIC_NAME]
+        );
         if ($rows === []) {
             return ['action' => 'CREATE'];
         }
         $v = $rows[0];
-        if (count($rows) === 1 && $v['status'] === 'ACTIVE' && $v['contract_status'] === 'ACTIVE' && $v['purpose_summary'] === self::CRITIC_CONTRACT_KEY && json_decode((string) $v['allowed_action_classes'], true) === ['ANALYZE']) {
+        if (count($rows) === 1 && $v['status'] === 'ACTIVE' && $v['contract_status'] === 'ACTIVE'
+            && $v['contract_tenant'] === $scope['tenant_id'] && $v['contract_workspace'] === $scope['workspace_id']
+            && $v['contract_role_class'] === 'REVIEW_CRITIC_VALKYRIE'
+            && (int) $v['human_approval_or_execution_authority'] === 0
+            && $v['purpose_summary'] === self::CRITIC_CONTRACT_KEY
+            && json_decode((string) $v['allowed_action_classes'], true) === ['ANALYZE']
+            && (string) $v['valid_from'] <= $this->clock->now()
+            && ($v['valid_until'] === null || (string) $v['valid_until'] > $this->clock->now())) {
             return ['action' => 'REUSE', 'valkyrie_id' => $v['valkyrie_id'], 'contract_id' => $v['active_capability_contract_id']];
         }
 

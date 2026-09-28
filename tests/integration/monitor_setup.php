@@ -231,6 +231,12 @@ $changedSteps=array_column($modelRightChanged['steps'],null,'step');
 Assert::same(['REFUSE','MODEL_TOOL_RIGHT_NOT_CURRENT'],[$changedSteps['CRITIC_MODEL_RIGHT']['action'],$changedSteps['CRITIC_MODEL_RIGHT']['reason_code']],'a model right with changed downstream conditions is not silently reused as the exact setup right');
 $db->run('UPDATE tool_rights SET approval_required=0 WHERE tool_right_id=?',[$modelRight]);
 
+$db->run("UPDATE capability_contracts SET role_class='REPLAY_TEST_VALKYRIE' WHERE capability_contract_id=?",[$successor['objects']['critic_contract_id']]);
+$criticChanged=X::value($setup->plan($scope,$reqB));
+$criticChangedSteps=array_column($criticChanged['steps'],null,'step');
+Assert::same(['REFUSE','CRITIC_NOT_CURRENT'],[$criticChangedSteps['CRITIC']['action'],$criticChangedSteps['CRITIC']['reason_code']],'a critic whose active contract no longer has the exact critic role is not silently reused');
+$db->run("UPDATE capability_contracts SET role_class='REVIEW_CRITIC_VALKYRIE' WHERE capability_contract_id=?",[$successor['objects']['critic_contract_id']]);
+
 // ---------------------------------------------------------------- a new key does not retarget frozen missions
 Assert::same('PROVIDER_CREDENTIAL_ROTATION_NOT_ACKNOWLEDGED', $credentials->save($scope, 'sk-synthetic-setup-key-0002', 'Monitor OpenAI', [])->reasonCode(), 'a save that would rotate an unacknowledged key refuses');
 Assert::same('PROVIDER_CREDENTIAL_ROTATION_NOT_ACKNOWLEDGED',$credentials->save($scope,'sk-synthetic-setup-key-0002','Monitor OpenAI')->reasonCode(),'omitting the acknowledgement also refuses at the service boundary');
