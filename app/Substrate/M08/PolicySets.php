@@ -720,22 +720,25 @@ final class PolicySets
      */
     public function seed(array $definition, string $tenantId, string $workspaceId): Outcome
     {
-        $existing = $this->db->one(
-            'SELECT arbiter_policy_set_id FROM arbiter_policy_sets
-             WHERE policy_key = ? AND tenant_id = ? AND workspace_id = ? AND status = ?',
-            [$definition['policy_key'], $tenantId, $workspaceId, 'ACTIVE']
-        );
-        if ($existing !== null) {
-            return Outcome::ok([
-                'arbiter_policy_set_id' => (string) $existing['arbiter_policy_set_id'],
-                'created' => false,
-            ]);
-        }
+        return $this->db->transaction(function (Database $tx) use ($definition, $tenantId, $workspaceId): Outcome {
+            $scope = $tx->one('SELECT workspace_id FROM workspaces WHERE workspace_id=? AND tenant_id=? FOR UPDATE', [$workspaceId, $tenantId]);
+            if ($scope === null) {
+                return Outcome::refuse('ARBITER_POLICY_SCOPE_NOT_FOUND');
+            }
+            $owner = new self($tx, $this->clock);
+            $current = $owner->current($definition, $tenantId, $workspaceId);
+            if (!$current->isOk()) {
+                return $current;
+            }
+            if (($current->value()['state'] ?? null) === 'ACTIVE') {
+                return Outcome::ok([
+                    'arbiter_policy_set_id' => $current->value()['arbiter_policy_set_id'],
+                    'created' => false,
+                ]);
+            }
 
-        $policySetId = Ids::new();
-        $now = $this->clock->now();
-
-        return $this->db->transaction(function (Database $tx) use ($policySetId, $definition, $tenantId, $workspaceId, $now): Outcome {
+            $policySetId = Ids::new();
+            $now = $this->clock->now();
             $tx->insert('arbiter_policy_sets', [
                 'arbiter_policy_set_id' => $policySetId,
                 'schema_version' => '1',
@@ -749,9 +752,6 @@ final class PolicySets
                 'applicable_requested_action_classes' => json_encode($definition['applicable_requested_action_classes'], JSON_THROW_ON_ERROR),
                 'available_verdicts' => json_encode($definition['available_verdicts'], JSON_THROW_ON_ERROR),
                 'default_fail_closed_verdict' => $definition['default_fail_closed_verdict'],
-                // Both CHECK-pinned to 1. A material outcome ALWAYS requires a decision-ledger
-                // record, and a policy set NEVER approves or executes — those are M09's, behind a
-                // separate seat. Neither can be configured away by a policy author.
                 'requires_decision_ledger_for_material_outcome' => 1,
                 'does_not_approve_or_execute' => 1,
                 'status' => 'ACTIVE',
@@ -777,7 +777,10 @@ final class PolicySets
                 ]);
             }
 
-            return Outcome::ok(['arbiter_policy_set_id' => $policySetId, 'created' => true]);
+            $verified = $owner->current($definition, $tenantId, $workspaceId, $policySetId);
+            return $verified->isOk()
+                ? Outcome::ok(['arbiter_policy_set_id' => $policySetId, 'created' => true])
+                : $verified;
         });
     }
 
