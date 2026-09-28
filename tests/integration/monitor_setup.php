@@ -224,6 +224,13 @@ $widenedRegistration=X::value($setup->plan($scope,$reqB));
 Assert::same(['REFUSE','P01_REGISTRATION_STATE_CHANGED'],[$steps($widenedRegistration)['P01_REGISTRATION'],$widenedRegistration['blocked_by'][0]['reason_code']],'a widened P01 source-read right is not silently reused');
 $db->run("UPDATE tool_rights SET maximum_action_class='OBSERVE' WHERE tool_right_id=?",[$sourceRight]);
 
+$modelRight=(string)$db->scalar('SELECT tool_right_id FROM tool_rights WHERE capability_contract_id=? AND governed_tool_id=?',[$successor['objects']['critic_contract_id'],$successor['objects']['model_governed_tool_id']]);
+$db->run('UPDATE tool_rights SET approval_required=1 WHERE tool_right_id=?',[$modelRight]);
+$modelRightChanged=X::value($setup->plan($scope,$reqB));
+$changedSteps=array_column($modelRightChanged['steps'],null,'step');
+Assert::same(['REFUSE','MODEL_TOOL_RIGHT_NOT_CURRENT'],[$changedSteps['CRITIC_MODEL_RIGHT']['action'],$changedSteps['CRITIC_MODEL_RIGHT']['reason_code']],'a model right with changed downstream conditions is not silently reused as the exact setup right');
+$db->run('UPDATE tool_rights SET approval_required=0 WHERE tool_right_id=?',[$modelRight]);
+
 // ---------------------------------------------------------------- a new key does not retarget frozen missions
 Assert::same('PROVIDER_CREDENTIAL_ROTATION_NOT_ACKNOWLEDGED', $credentials->save($scope, 'sk-synthetic-setup-key-0002', 'Monitor OpenAI', [])->reasonCode(), 'a save that would rotate an unacknowledged key refuses');
 Assert::same('PROVIDER_CREDENTIAL_ROTATION_NOT_ACKNOWLEDGED',$credentials->save($scope,'sk-synthetic-setup-key-0002','Monitor OpenAI')->reasonCode(),'omitting the acknowledgement also refuses at the service boundary');

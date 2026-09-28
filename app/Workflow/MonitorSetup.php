@@ -597,12 +597,20 @@ final class MonitorSetup
         if ($contractId === null || $toolId === null) {
             return ['action' => 'CREATE'];
         }
-        $rows = ($db ?? $this->db)->all('SELECT tool_right_id,status,allowed_operations,tool_class,maximum_action_class FROM tool_rights WHERE capability_contract_id=? AND governed_tool_id=?', [$contractId, $toolId]);
+        $rows = ($db ?? $this->db)->all(
+            'SELECT tool_right_id,status,allowed_operations,tool_class,maximum_action_class,approval_required,frozen_artifact_required,evidence_capture_required
+             FROM tool_rights WHERE capability_contract_id=? AND governed_tool_id=?',
+            [$contractId, $toolId]
+        );
         if ($rows === []) {
             return ['action' => 'CREATE'];
         }
         $r = $rows[0];
-        if (count($rows) === 1 && $r['status'] === 'ACTIVE' && json_decode($r['allowed_operations'], true) === [ModelRegistration::OPERATION_KEY] && $r['tool_class'] === 'INTERNAL_TRANSFORM' && $r['maximum_action_class'] === 'ANALYZE') {
+        if (count($rows) === 1 && $r['status'] === 'ACTIVE'
+            && json_decode($r['allowed_operations'], true) === [ModelRegistration::OPERATION_KEY]
+            && $r['tool_class'] === 'INTERNAL_TRANSFORM' && $r['maximum_action_class'] === 'ANALYZE'
+            && (int) $r['approval_required'] === 0 && (int) $r['frozen_artifact_required'] === 0
+            && (int) $r['evidence_capture_required'] === 1) {
             return ['action' => 'REUSE', 'id' => $r['tool_right_id']];
         }
 
