@@ -635,6 +635,85 @@ final class PolicySets
     }
 
     /**
+     * Read-only exact-currentness check for one scoped policy definition.
+     *
+     * An ACTIVE row with the right key is not enough: altered ceilings or rules are a different
+     * authority wearing the same name. Multiple ACTIVE rows are ambiguous and fail closed.
+     *
+     * @param array<string,mixed> $definition
+     * @return Outcome<array{state:string,arbiter_policy_set_id?:string}>
+     */
+    public function current(array $definition, string $tenantId, string $workspaceId, ?string $expectedId = null): Outcome
+    {
+        $rows = $this->db->all(
+            "SELECT * FROM arbiter_policy_sets WHERE policy_key=? AND tenant_id=? AND workspace_id=? AND status='ACTIVE' ORDER BY arbiter_policy_set_id",
+            [$definition['policy_key'], $tenantId, $workspaceId]
+        );
+        if ($rows === []) {
+            return $expectedId === null
+                ? Outcome::ok(['state' => 'ABSENT'])
+                : Outcome::refuse('ARBITER_POLICY_NOT_CURRENT');
+        }
+        if (count($rows) !== 1) {
+            return Outcome::refuse('ARBITER_POLICY_AMBIGUOUS');
+        }
+        $row = $rows[0];
+        if ($expectedId !== null && $row['arbiter_policy_set_id'] !== $expectedId) {
+            return Outcome::refuse('ARBITER_POLICY_NOT_CURRENT');
+        }
+        foreach ([
+            'policy_version' => $definition['policy_version'],
+            'display_name' => $definition['display_name'],
+            'purpose_summary' => $definition['purpose_summary'],
+            'default_fail_closed_verdict' => $definition['default_fail_closed_verdict'],
+        ] as $key => $value) {
+            if ($row[$key] !== $value) {
+                return Outcome::refuse('ARBITER_POLICY_DEFINITION_CHANGED');
+            }
+        }
+        foreach ([
+            'applicable_proposal_types' => $definition['applicable_proposal_types'],
+            'applicable_requested_action_classes' => $definition['applicable_requested_action_classes'],
+            'available_verdicts' => $definition['available_verdicts'],
+        ] as $key => $value) {
+            if (json_decode((string) $row[$key], true, 64, JSON_THROW_ON_ERROR) !== $value) {
+                return Outcome::refuse('ARBITER_POLICY_DEFINITION_CHANGED');
+            }
+        }
+        if ((int) $row['requires_decision_ledger_for_material_outcome'] !== 1
+            || (int) $row['does_not_approve_or_execute'] !== 1
+            || $row['activated_at'] === null) {
+            return Outcome::refuse('ARBITER_POLICY_DEFINITION_CHANGED');
+        }
+
+        $expectedRules = [...self::SEED_RULES, ...$definition['rules']];
+        usort($expectedRules, static fn (array $a, array $b): int => strcmp($a['rule_key'], $b['rule_key']));
+        $actualRules = $this->db->all(
+            "SELECT policy_version,rule_key,rule_category,rule_summary,check_type,failure_effect,incident_evaluation_if_failed,priority
+             FROM arbiter_policy_rules WHERE arbiter_policy_set_id=? AND status='ACTIVE' ORDER BY rule_key",
+            [$row['arbiter_policy_set_id']]
+        );
+        if (count($actualRules) !== count($expectedRules)) {
+            return Outcome::refuse('ARBITER_POLICY_DEFINITION_CHANGED');
+        }
+        foreach ($expectedRules as $i => $rule) {
+            $actual = $actualRules[$i];
+            if ($actual['policy_version'] !== $definition['policy_version']
+                || $actual['rule_key'] !== $rule['rule_key']
+                || $actual['rule_category'] !== $rule['rule_category']
+                || $actual['rule_summary'] !== $rule['rule_summary']
+                || $actual['check_type'] !== $rule['check_type']
+                || $actual['failure_effect'] !== $rule['failure_effect']
+                || (int) $actual['incident_evaluation_if_failed'] !== (int) ($rule['incident_evaluation_if_failed'] ?? 0)
+                || (int) $actual['priority'] !== (int) $rule['priority']) {
+                return Outcome::refuse('ARBITER_POLICY_DEFINITION_CHANGED');
+            }
+        }
+
+        return Outcome::ok(['state' => 'ACTIVE', 'arbiter_policy_set_id' => (string) $row['arbiter_policy_set_id']]);
+    }
+
+    /**
      * Create and ACTIVATE a policy set for a scope.
      *
      * @param array<string, mixed> $definition one of the constants above
