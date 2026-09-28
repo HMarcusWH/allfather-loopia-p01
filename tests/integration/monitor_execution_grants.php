@@ -36,7 +36,18 @@ $outsider = Seed::tenantWorkspace($db, $clock, 'approval-outsider');
 Assert::same('PROMPT_APPROVAL_DENIED', $fx['approvals']->approve($outsider, 'P01_SIGNAL_CLASSIFIER', 'MODEL_EVALUATION', $evalDecision['ref'], $evalDecision['sha256'])->reasonCode(), 'an operator without administration cannot approve');
 X::value($fx['approvals']->withdraw($scope, $approved['prompt_approval_id'], 'TEST_WITHDRAWN'));
 Assert::same('PROMPT_APPROVAL_WITHDRAWN', $fx['approvals']->current($scope['tenant_id'], $scope['workspace_id'], $approved['prompt_approval_id'])->reasonCode(), 'withdrawal takes effect');
-Assert::same('PROMPT_APPROVAL_WITHDRAWN', $fx['approvals']->approve($scope, 'P01_SIGNAL_CLASSIFIER', 'MODEL_EVALUATION', $evalDecision['ref'], $evalDecision['sha256'])->reasonCode(), 'approving again does not resurrect a withdrawn identity');
+Assert::same('PROMPT_APPROVAL_WITHDRAWN', $fx['approvals']->approve($scope, 'P01_SIGNAL_CLASSIFIER', 'MODEL_EVALUATION', $evalDecision['ref'], $evalDecision['sha256'])->reasonCode(), 'approving the exact withdrawn authorization again does not resurrect it');
+$successorDecision = X::decision($fx, ['MODEL_EVALUATION'], $identity, [], 'eval-successor.json');
+$successorApproval = X::value($fx['approvals']->approve($scope, 'P01_SIGNAL_CLASSIFIER', 'MODEL_EVALUATION', $successorDecision['ref'], $successorDecision['sha256']));
+Assert::true($successorApproval['prompt_approval_id'] !== $approved['prompt_approval_id'], 'a new reviewed owner decision may authorize the same immutable prompt as a new approval record');
+Assert::true($fx['approvals']->current($scope['tenant_id'], $scope['workspace_id'], $successorApproval['prompt_approval_id'])->isOk(), 'the successor authorization is current while the withdrawn record remains historical');
+
+// Product approvals are authorization instances too: a later accepted evaluation of unchanged
+// prompt bytes is a new immutable approval, never an edit of the earlier evaluation reference.
+$manualDecision = X::decision($fx, ['MANUAL_MONITOR'], X::promptIdentities('MANUAL_MONITOR', ['P01_SIGNAL_CLASSIFIER']), [], 'manual-reeval.json');
+$manualA = X::value($fx['approvals']->approve($scope, 'P01_SIGNAL_CLASSIFIER', 'MANUAL_MONITOR', $manualDecision['ref'], $manualDecision['sha256'], 'evaluation:00000000-0000-0000-0000-000000000001'));
+$manualB = X::value($fx['approvals']->approve($scope, 'P01_SIGNAL_CLASSIFIER', 'MANUAL_MONITOR', $manualDecision['ref'], $manualDecision['sha256'], 'evaluation:00000000-0000-0000-0000-000000000002'));
+Assert::true($manualA['prompt_approval_id'] !== $manualB['prompt_approval_id'], 'a new evaluation reference produces a new immutable product approval');
 
 // ---------------------------------------------------------------- grant definitions are narrow and exact
 $approvals = X::approveAll($fx, 'MANUAL_MONITOR');

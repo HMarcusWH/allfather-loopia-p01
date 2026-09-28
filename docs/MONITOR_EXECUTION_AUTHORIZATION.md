@@ -20,7 +20,7 @@ output cannot mint that authority. The repository ships no decision, so nothing 
 | Object | Table | Immutable? | What changes it |
 | --- | --- | --- | --- |
 | Owner decision | file under `docs/decisions/` | per commit | a reviewed commit; editing or removing it withdraws what it authorized on the next check |
-| Prompt approval | `monitor_prompt_approvals` | yes | `WITHDRAWN` event in `monitor_prompt_approval_events` |
+| Prompt approval | `monitor_prompt_approvals` | yes | `WITHDRAWN` event in `monitor_prompt_approval_events`; a later owner decision/evaluation creates a new approval record |
 | Execution grant | `monitor_execution_grants` | yes | `ADMITTED`, `SUSPENDED`, `REVOKED` events in `monitor_execution_grant_events`; `EXPIRED` is computed |
 | Budget spent | `monitor_grant_consumptions` | yes | nothing — spent stays spent |
 | Admission trail | `monitor_admission_decisions` | yes | every checkpoint appends one row, allow or refuse |
@@ -38,8 +38,11 @@ changes. `PromptSelectionResolver` is the only thing that produces an executable
 bytes, marked `ACTIVE`, bound to the approval and admitted grant that permit them. `verify()`
 re-derives the selection from stored approvals and grants and compares it whole, so a caller that
 flips `activation_status`, names a real grant, or recomputes a hash gets nothing.
-`MonitorService`, `PreparedModelRequest` and `ModelExecutor` all go through this resolver. The grant
-and approval identities are inside the request provenance, and therefore inside the digest the
+`MonitorService`, `PreparedModelRequest` and `ModelExecutor` all go through this resolver. Prompt
+content identity is intentionally separate from an approval's authorization identity: the same
+immutable prompt bytes may receive a later approval under a new reviewed owner decision or accepted
+evaluation, while a withdrawn approval record itself remains terminal. The grant and approval
+identities are inside the request provenance, and therefore inside the digest the
 operator inspects: a changed grant is a different request. M06/M01 bind that digest
 (`model-request://<digest>`), which is how the grant reaches their receipts.
 

@@ -75,12 +75,17 @@ final class PromptApprovalStore
             return Outcome::refuse('OWNER_DECISION_DOES_NOT_AUTHORIZE_PROMPT');
         }
 
-        $existing = $this->db->one('SELECT * FROM monitor_prompt_approvals WHERE tenant_id=? AND workspace_id=? AND purpose=? AND prompt_sha256=? AND schema_sha256=? AND model_policy_digest=?', [
-            $scope['tenant_id'], $scope['workspace_id'], $purpose, $prompt['prompt_sha256'], $prompt['schema_sha256'], ModelPolicy::digest(),
+        // The prompt CONTENT identity and the AUTHORIZATION instance are different things.
+        // A later reviewed owner decision, or a later accepted product evaluation, must be able to
+        // authorize the same immutable prompt bytes without mutating/resurrecting the old approval.
+        // The exact same authorization remains idempotent; a withdrawn authorization stays terminal.
+        $approvalDigest = Digest::canonicalDigest($identity + [
+            'tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'],
+            'owner_decision_ref' => $decisionRef, 'owner_decision_sha256' => $decisionSha256,
+            'evaluation_reference' => $evaluationReference,
         ]);
+        $existing = $this->db->one('SELECT * FROM monitor_prompt_approvals WHERE approval_digest=?', [$approvalDigest]);
         if ($existing !== null) {
-            // A withdrawn approval is not re-granted by approving again: history would then say the
-            // prompt was withdrawn and yet runs on under the same identity.
             return $this->withdrawn($existing['prompt_approval_id'])
                 ? Outcome::refuse('PROMPT_APPROVAL_WITHDRAWN')
                 : Outcome::ok($this->public($existing));
@@ -93,8 +98,7 @@ final class PromptApprovalStore
             'prompt_sha256' => $prompt['prompt_sha256'], 'schema_sha256' => $prompt['schema_sha256'],
             'model_policy_id' => ModelPolicy::ID, 'model_policy_digest' => ModelPolicy::digest(),
             'evaluation_reference' => $evaluationReference, 'owner_decision_ref' => $decisionRef,
-            'owner_decision_sha256' => $decisionSha256,
-            'approval_digest' => Digest::canonicalDigest($identity + ['tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'], 'owner_decision_sha256' => $decisionSha256, 'evaluation_reference' => $evaluationReference]),
+            'owner_decision_sha256' => $decisionSha256, 'approval_digest' => $approvalDigest,
             'approved_by_operator_id' => $scope['operator_id'], 'created_at' => $this->clock->now(),
         ];
         try {

@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS monitor_prompt_approvals (
   approval_digest CHAR(64) NOT NULL,
   approved_by_operator_id CHAR(36) NOT NULL,
   created_at CHAR(24) NOT NULL,
-  UNIQUE KEY uq_prompt_approval_identity (tenant_id, workspace_id, purpose, prompt_sha256, schema_sha256, model_policy_digest),
+  UNIQUE KEY uq_prompt_approval_digest (approval_digest),
   CHECK (purpose IN ('MODEL_EVALUATION', 'MANUAL_MONITOR')),
   CHECK (purpose <> 'MANUAL_MONITOR' OR evaluation_reference IS NOT NULL),
   CONSTRAINT fk_prompt_approval_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
