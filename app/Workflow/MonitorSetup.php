@@ -42,6 +42,7 @@ final class MonitorSetup
     private const CRITIC_CONTRACT_KEY = 'monitor.review_critic';
     private const MISSION_ACTION_CLASSES = ['OBSERVE', 'ANALYZE', 'RELEASE_INTELLIGENCE'];
     private const ENTITLEMENT = 'competition_monitoring.read';
+    private const P01_TIER_PERMISSIONS = ['battlecard.read', 'briefing.read', 'company_signal.review', 'competition_monitoring.read'];
 
     public function __construct(private readonly Database $db, private readonly Clock $clock, private readonly EvidenceStore $store) {}
 
@@ -500,21 +501,90 @@ final class MonitorSetup
         return $rows[0] + ['ambiguous' => false];
     }
 
-    /** Mirrors P01 Registration's own reuse checks, so a revoked or narrowed registration refuses. */
+    /** Mirrors P01 Registration's own reuse checks, so a revoked, narrowed or widened registration refuses. */
     private function registrationState(array $scope, ?string $bindingId): array
     {
         $prior = $this->db->one("SELECT outcome_json FROM p01_registration_receipts WHERE tenant_id=? AND workspace_id=? AND tool_key='p01.source.read'", [$scope['tenant_id'], $scope['workspace_id']]);
-        $tool = $this->db->one("SELECT governed_tool_id,runtime_mapping_ref_id FROM governed_tools WHERE tool_key='p01.source.read' AND descriptor_version='1.0.0'");
-        if ($tool !== null && ($bindingId === null || $tool['runtime_mapping_ref_id'] !== $bindingId)) {
-            return ['action' => 'CONFLICT', 'reason' => 'P01_SHARED_TOOL_CONFLICT'];
+        $tool = $this->db->one("SELECT * FROM governed_tools WHERE tool_key='p01.source.read' AND descriptor_version='1.0.0'");
+        if ($tool !== null) {
+            $expectedTool = [
+                'display_name' => 'Competitor source read',
+                'purpose_summary' => 'Read an approved public competitor source page.',
+                'tool_class' => 'READ_ONLY_SOURCE',
+                'risk_level' => 'T1',
+                'maximum_action_class' => 'OBSERVE',
+                'runtime_mapping_ref_id' => $bindingId,
+                'evidence_capture_required_by_default' => 1,
+                'approval_required' => 0,
+                'frozen_artifact_required' => 0,
+                'status' => 'ACTIVE',
+            ];
+            foreach ($expectedTool as $key => $value) {
+                if (($value === null && $tool[$key] !== null) || ($value !== null && (string) $tool[$key] !== (string) $value)) {
+                    return ['action' => 'CONFLICT', 'reason' => 'P01_SHARED_TOOL_CONFLICT'];
+                }
+            }
+            $operations = $this->db->all("SELECT * FROM governed_tool_operations WHERE governed_tool_id=? AND operation_key='source.read'", [$tool['governed_tool_id']]);
+            $operation = $operations[0] ?? null;
+            $expectedOperation = [
+                'operation_summary' => 'Fetch one approved source URL.',
+                'operation_class' => 'READ',
+                'classified_action_class' => 'OBSERVE',
+                'requires_mission' => 1,
+                'requires_valkyrie_contract' => 1,
+                'requires_evidence_capture' => 1,
+                'requires_approval' => 0,
+                'requires_frozen_artifact' => 0,
+                'status' => 'ACTIVE',
+            ];
+            if (count($operations) !== 1 || $operation === null) {
+                return ['action' => 'CONFLICT', 'reason' => 'P01_SHARED_TOOL_CONFLICT'];
+            }
+            foreach ($expectedOperation as $key => $value) {
+                if ((string) $operation[$key] !== (string) $value) {
+                    return ['action' => 'CONFLICT', 'reason' => 'P01_SHARED_TOOL_CONFLICT'];
+                }
+            }
         }
         if ($prior === null) {
             return ['action' => 'CREATE'];
         }
+
         $saved = json_decode((string) $prior['outcome_json'], true, 32, JSON_THROW_ON_ERROR);
+        foreach (['valkyrie_id','capability_contract_id','tool_right_id','governed_tool_id','governed_tool_operation_id','arbiter_policy_set_id','subscription_tier_id'] as $required) {
+            if (!is_string($saved[$required] ?? null) || $saved[$required] === '') {
+                return ['action' => 'REFUSE', 'reason' => 'P01_REGISTRATION_STATE_CHANGED'];
+            }
+        }
         $live = $this->db->one("SELECT 1 FROM valkyries v JOIN capability_contracts c ON c.capability_contract_id=v.active_capability_contract_id JOIN arbiter_policy_sets ps ON ps.arbiter_policy_set_id=? WHERE v.valkyrie_id=? AND v.tenant_id=? AND v.workspace_id=? AND v.status='ACTIVE' AND c.capability_contract_id=? AND c.status='ACTIVE' AND ps.status='ACTIVE'", [$saved['arbiter_policy_set_id'], $saved['valkyrie_id'], $scope['tenant_id'], $scope['workspace_id'], $saved['capability_contract_id']]);
-        $rights = $this->db->all("SELECT tool_right_id,status FROM tool_rights WHERE capability_contract_id=? AND governed_tool_id=?", [$saved['capability_contract_id'], $saved['governed_tool_id']]);
-        if ($live === null || count($rights) !== 1 || $rights[0]['tool_right_id'] !== $saved['tool_right_id'] || $rights[0]['status'] !== 'ACTIVE' || $saved['governed_tool_id'] !== ($tool['governed_tool_id'] ?? null)) {
+
+        $rights = $this->db->all('SELECT * FROM tool_rights WHERE capability_contract_id=? AND governed_tool_id=?', [$saved['capability_contract_id'], $saved['governed_tool_id']]);
+        $right = $rights[0] ?? null;
+        $rightsCurrent = count($rights) === 1 && $right !== null
+            && $right['tool_right_id'] === $saved['tool_right_id'] && $right['status'] === 'ACTIVE'
+            && $right['tool_class'] === 'READ_ONLY_SOURCE' && $right['maximum_action_class'] === 'OBSERVE'
+            && (int) $right['evidence_capture_required'] === 1 && (int) $right['approval_required'] === 0
+            && (int) $right['frozen_artifact_required'] === 0
+            && json_decode((string) $right['allowed_operations'], true, 32, JSON_THROW_ON_ERROR) === ['source.read'];
+
+        $contract = $this->db->one('SELECT tenant_id,workspace_id,allowed_action_classes,role_class,human_approval_or_execution_authority FROM capability_contracts WHERE capability_contract_id=?', [$saved['capability_contract_id']]);
+        $actions = $contract === null ? [] : json_decode((string) $contract['allowed_action_classes'], true, 32, JSON_THROW_ON_ERROR);
+        sort($actions, SORT_STRING);
+        $contractCurrent = $contract !== null && $contract['tenant_id'] === $scope['tenant_id'] && $contract['workspace_id'] === $scope['workspace_id']
+            && $contract['role_class'] === 'COMPETITION_MONITOR_VALKYRIE' && (int) $contract['human_approval_or_execution_authority'] === 0
+            && $actions === ['ANALYZE','OBSERVE','RELEASE_INTELLIGENCE'];
+
+        $tier = $this->db->one('SELECT * FROM subscription_tiers WHERE subscription_tier_id=?', [$saved['subscription_tier_id']]);
+        $tierPermissions = $tier === null ? [] : array_column($this->db->all('SELECT permission_key FROM subscription_tier_permissions WHERE subscription_tier_id=? ORDER BY permission_key', [$saved['subscription_tier_id']]), 'permission_key');
+        $tierCurrent = $tier !== null && $tier['tier_key'] === 'p01_monitor' && $tier['tier_version'] === '1'
+            && $tier['display_name'] === 'P01 Competition Monitor' && (int) $tier['monthly_fee_minor_units'] === 249900
+            && $tier['currency'] === 'SEK' && $tier['billing_period'] === 'MONTHLY' && $tier['status'] === 'ACTIVE'
+            && $tierPermissions === self::P01_TIER_PERMISSIONS;
+
+        $toolCurrent = $tool !== null && $saved['governed_tool_id'] === $tool['governed_tool_id']
+            && $saved['governed_tool_operation_id'] === ($operation['governed_tool_operation_id'] ?? null);
+
+        if ($live === null || !$rightsCurrent || !$contractCurrent || !$tierCurrent || !$toolCurrent) {
             return ['action' => 'REFUSE', 'reason' => 'P01_REGISTRATION_STATE_CHANGED'];
         }
 

@@ -203,6 +203,14 @@ Assert::same($config, $db->one('SELECT * FROM monitor_mission_configs WHERE miss
 Assert::same($historicalRequestBytes,X::value($store->get($historicalRequestDigest)),'the exact historical prepared request bytes survive profile replacement and successor setup unchanged');
 Assert::same('MONITOR_SETUP_SUCCESSOR_NOT_LATEST', X::value($setup->plan($scope, $request([$a['evidence_id']], $credential['provider_credential_id'], ['mission' => ['title' => 'Another']]), $applied['setup_receipt_id']))['blocked_by'][0]['reason_code'], 'only the latest revision can be succeeded');
 
+// Registration reuse is exact, not merely "the right row is still ACTIVE". A widened source-read
+// right would be broader than the reviewed P01 registration and must fail the setup probe.
+$sourceRight=$successor['objects']['p01_registration']['tool_right_id'];
+$db->run("UPDATE tool_rights SET maximum_action_class='ANALYZE' WHERE tool_right_id=?",[$sourceRight]);
+$widenedRegistration=X::value($setup->plan($scope,$reqB));
+Assert::same(['REFUSE','P01_REGISTRATION_STATE_CHANGED'],[$steps($widenedRegistration)['P01_REGISTRATION'],$widenedRegistration['blocked_by'][0]['reason_code']],'a widened P01 source-read right is not silently reused');
+$db->run("UPDATE tool_rights SET maximum_action_class='OBSERVE' WHERE tool_right_id=?",[$sourceRight]);
+
 // ---------------------------------------------------------------- a new key does not retarget frozen missions
 Assert::same('PROVIDER_CREDENTIAL_ROTATION_NOT_ACKNOWLEDGED', $credentials->save($scope, 'sk-synthetic-setup-key-0002', 'Monitor OpenAI', [])->reasonCode(), 'a save that would rotate an unacknowledged key refuses');
 Assert::same('PROVIDER_CREDENTIAL_ROTATION_NOT_ACKNOWLEDGED',$credentials->save($scope,'sk-synthetic-setup-key-0002','Monitor OpenAI')->reasonCode(),'omitting the acknowledgement also refuses at the service boundary');
