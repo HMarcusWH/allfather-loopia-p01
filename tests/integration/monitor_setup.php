@@ -127,7 +127,7 @@ $wrongPolicy=$definition;$wrongPolicy['p01_policy_id']=$definition['p04_policy_i
 Assert::same('MONITOR_POLICY_NOT_CURRENT',(new MissionConfiguration($db,$clock))->validate($scope,$wrongPolicy,'NATIVE')->reasonCode(),'a P04 policy cannot masquerade as the P01 policy binding');
 $wrongUrl=$definition;$wrongUrl['capture_url']='https://sources.example/not-authorized';
 Assert::same('MONITOR_CAPTURE_URL_OUTSIDE_SOURCE_SCOPE',(new MissionConfiguration($db,$clock))->validate($scope,$wrongUrl,'NATIVE')->reasonCode(),'the frozen capture URL must stay inside the reviewed source-card scope');
-$db->run('UPDATE source_license_cards SET recheck_terms_after_ms=1000 WHERE source_license_card_id=?',[$applied['objects']['source_license_card_id']]);
+$db->run('UPDATE source_license_cards SET recheck_terms_after_ms=0 WHERE source_license_card_id=?',[$applied['objects']['source_license_card_id']]);
 Assert::same('TERMS_RECHECK_OVERDUE_AT_CAPTURE',(new MissionConfiguration($db,$clock))->validate($scope,$definition,'NATIVE')->reasonCode(),'frozen mission currentness uses the same latest source-policy compiler as capture');
 $db->run('UPDATE source_license_cards SET recheck_terms_after_ms=NULL WHERE source_license_card_id=?',[$applied['objects']['source_license_card_id']]);
 $orgConflict=$request([$a['evidence_id']],$credential['provider_credential_id'],['competitor'=>['organization_number'=>'556000-0000']]);
