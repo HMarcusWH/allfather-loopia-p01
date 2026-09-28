@@ -205,7 +205,7 @@ Assert::same('MONITOR_SETUP_SUCCESSOR_NOT_LATEST', X::value($setup->plan($scope,
 
 // Registration reuse is exact, not merely "the right row is still ACTIVE". A widened source-read
 // right would be broader than the reviewed P01 registration and must fail the setup probe.
-$sourceRight=$successor['objects']['p01_registration']['tool_right_id'];
+$sourceRight=(string)$db->scalar('SELECT tool_right_id FROM tool_rights WHERE capability_contract_id=? AND governed_tool_id=?',[$successor['objects']['monitor_contract_id'],$definition['capture_governance']['governed_tool_id']]);
 $db->run("UPDATE tool_rights SET maximum_action_class='ANALYZE' WHERE tool_right_id=?",[$sourceRight]);
 $widenedRegistration=X::value($setup->plan($scope,$reqB));
 Assert::same(['REFUSE','P01_REGISTRATION_STATE_CHANGED'],[$steps($widenedRegistration)['P01_REGISTRATION'],$widenedRegistration['blocked_by'][0]['reason_code']],'a widened P01 source-read right is not silently reused');
