@@ -85,7 +85,101 @@ CREATE TABLE IF NOT EXISTS monitor_run_reconciliations (
 CREATE INDEX ix_monitor_reconciliation_scope
   ON monitor_run_reconciliations(tenant_id,workspace_id,monitor_run_id,run_revision);
 
-DELIMITER $$
+DELIMITER $
+CREATE TRIGGER trg_model_candidate_artifacts_consistent BEFORE INSERT ON provider_model_candidate_artifacts FOR EACH ROW
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM provider_model_attempts a
+    WHERE a.model_attempt_id=NEW.model_attempt_id
+      AND a.tenant_id=NEW.tenant_id
+      AND a.workspace_id=NEW.workspace_id
+      AND a.mission_id=NEW.mission_id
+      AND a.tool_request_id=NEW.tool_request_id
+      AND BINARY a.request_digest=BINARY NEW.request_digest
+  ) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'provider candidate artifact does not match its attempt';
+  END IF;
+END$
+
+CREATE TRIGGER trg_monitor_attempt_bindings_consistent BEFORE INSERT ON monitor_model_attempt_bindings FOR EACH ROW
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM provider_model_attempts a
+    JOIN monitor_runs r ON r.monitor_run_id=NEW.monitor_run_id
+    JOIN tool_requests tr ON tr.tool_request_id=a.tool_request_id
+    WHERE a.model_attempt_id=NEW.model_attempt_id
+      AND a.tenant_id=r.tenant_id
+      AND a.workspace_id=r.workspace_id
+      AND a.mission_id=r.mission_id
+      AND BINARY a.request_digest=BINARY NEW.request_digest
+      AND tr.tenant_id=r.tenant_id
+      AND tr.workspace_id=r.workspace_id
+      AND tr.idempotency_key=CONCAT('monitor.model.',NEW.monitor_run_id,'.',NEW.model_stage)
+      AND NOT EXISTS (
+        SELECT 1 FROM provider_attempt_purposes pp
+        WHERE pp.model_attempt_id=a.model_attempt_id
+          AND pp.execution_purpose='MODEL_EVALUATION'
+      )
+  ) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'monitor attempt binding crosses run/request scope';
+  END IF;
+END$
+
+CREATE TRIGGER trg_monitor_reconciliations_consistent BEFORE INSERT ON monitor_run_reconciliations FOR EACH ROW
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM monitor_runs r
+    WHERE r.monitor_run_id=NEW.monitor_run_id
+      AND r.tenant_id=NEW.tenant_id
+      AND r.workspace_id=NEW.workspace_id
+  ) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'reconciliation run scope mismatch';
+  END IF;
+
+  IF NEW.tool_request_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM tool_requests tr
+    WHERE tr.tool_request_id=NEW.tool_request_id
+      AND tr.tenant_id=NEW.tenant_id
+      AND tr.workspace_id=NEW.workspace_id
+  ) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'reconciliation tool request scope mismatch';
+  END IF;
+
+  IF NEW.model_attempt_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1
+    FROM provider_model_attempts a
+    JOIN monitor_runs r ON r.monitor_run_id=NEW.monitor_run_id
+    WHERE a.model_attempt_id=NEW.model_attempt_id
+      AND a.tenant_id=NEW.tenant_id
+      AND a.workspace_id=NEW.workspace_id
+      AND a.mission_id=r.mission_id
+      AND (NEW.tool_request_id IS NULL OR a.tool_request_id=NEW.tool_request_id)
+      AND (NEW.request_digest IS NULL OR BINARY a.request_digest=BINARY NEW.request_digest)
+  ) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'reconciliation attempt scope mismatch';
+  END IF;
+
+  IF NEW.model_result_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM provider_model_results mr
+    WHERE mr.model_result_id=NEW.model_result_id
+      AND (NEW.model_attempt_id IS NULL OR mr.model_attempt_id=NEW.model_attempt_id)
+      AND (NEW.tool_request_id IS NULL OR mr.tool_request_id=NEW.tool_request_id)
+      AND (NEW.candidate_digest IS NULL OR BINARY mr.candidate_digest=BINARY NEW.candidate_digest)
+  ) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'reconciliation result mismatch';
+  END IF;
+
+  IF NEW.artifact_digest IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM provider_model_candidate_artifacts ca
+    WHERE ca.model_attempt_id=NEW.model_attempt_id
+      AND BINARY ca.artifact_digest=BINARY NEW.artifact_digest
+      AND BINARY ca.candidate_digest=BINARY NEW.candidate_digest
+  ) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'reconciliation candidate artifact mismatch';
+  END IF;
+END$
+
 CREATE TRIGGER trg_model_candidate_artifacts_no_update BEFORE UPDATE ON provider_model_candidate_artifacts FOR EACH ROW
 BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'provider model candidate artifacts are append-only'; END$$
 CREATE TRIGGER trg_model_candidate_artifacts_no_delete BEFORE DELETE ON provider_model_candidate_artifacts FOR EACH ROW

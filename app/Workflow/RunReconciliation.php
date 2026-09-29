@@ -52,7 +52,7 @@ final class RunReconciliation
 
     public function adopt(array $scope, string $runId, int $expectedRevision): Outcome
     {
-        $access = $this->authorize($scope, ['mission.transition', 'evidence.read']);
+        $access = $this->authorize($scope, ['mission.transition', 'evidence.read', 'tool.invoke']);
         if (!$access->isOk()) {
             return $access;
         }
@@ -397,6 +397,14 @@ final class RunReconciliation
             if (!is_string($reason) || preg_match('/^[A-Z][A-Z0-9_]{0,95}$/D', $reason) !== 1) {
                 return Outcome::ok($base + [
                     'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_REFUSAL_INVALID',
+                ]);
+            }
+            if ($toolOutcome['outcome_status'] !== 'FAILED'
+                || (string) ($toolOutcome['error_code'] ?? '') !== $reason
+                || ($call['outcome'] !== 'SUCCEEDED' && (string) ($call['failure_code'] ?? '') !== $reason)) {
+                return Outcome::ok($base + [
+                    'status' => 'UNRESOLVED',
+                    'reason_code' => 'MONITOR_RECONCILIATION_REFUSAL_PROVENANCE_INVALID',
                 ]);
             }
             if (in_array($reason, ['MODEL_NETWORK_OUTCOME_UNKNOWN','MODEL_TIMEOUT','MODEL_ADAPTER_EXCEPTION'], true)) {

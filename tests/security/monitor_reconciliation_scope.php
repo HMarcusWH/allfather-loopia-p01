@@ -72,6 +72,33 @@ Assert::false($staleAdoption->isOk(), 'reconciliation re-checks current source/c
 Assert::same('DIFFED', (new RunJournal($db, $clock))->find($scope, $id)['stage'], 'currentness refusal leaves interrupted history untouched');
 $db->run('UPDATE source_references SET status=? WHERE source_ref_id=?', [$sourceStatus, $sourceRefId]);
 
+// Storage pins reject a forged cross-scope reconciliation even when every referenced identity exists.
+$foreignForWrite = Seed::tenantWorkspace($db, $clock, 'p05-reconciliation-direct-write');
+try {
+    $db->insert('monitor_run_reconciliations', [
+        'reconciliation_id' => \Allfather\Loopia\Core\Ids::new(),
+        'tenant_id' => $foreignForWrite['tenant_id'],
+        'workspace_id' => $foreignForWrite['workspace_id'],
+        'monitor_run_id' => $id,
+        'run_revision' => $inspection['run_revision'],
+        'model_stage' => 'classifier',
+        'disposition' => 'UNRESOLVED',
+        'tool_request_id' => null,
+        'model_attempt_id' => null,
+        'model_result_id' => null,
+        'request_digest' => $inspection['request_digest'],
+        'candidate_digest' => null,
+        'artifact_digest' => null,
+        'observed_reason_code' => 'FORGED_SCOPE',
+        'operator_reason_code' => 'TEST_FORGED_SCOPE',
+        'recorded_by_operator_id' => $foreignForWrite['operator_id'],
+        'recorded_at' => $clock->now(),
+    ]);
+    Assert::fail('database accepted a reconciliation whose tenant/workspace do not own the run');
+} catch (\PDOException) {
+    Assert::pass();
+}
+
 foreach ([
     "UPDATE provider_model_candidate_artifacts SET candidate_digest='" . str_repeat('0', 64) . "'",
     'DELETE FROM provider_model_candidate_artifacts',
