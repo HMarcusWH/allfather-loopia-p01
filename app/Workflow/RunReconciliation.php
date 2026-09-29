@@ -206,6 +206,11 @@ final class RunReconciliation
             if (in_array($state['status'], ['RECOVERABLE_CANDIDATE', 'RECOVERABLE_REFUSAL'], true)) {
                 return Outcome::refuse('MONITOR_RECONCILIATION_RESULT_IS_RECOVERABLE');
             }
+            if (($state['status'] ?? null) !== 'UNRESOLVED') {
+                return Outcome::refuse('MONITOR_RECONCILIATION_NOT_UNRESOLVED', [
+                    'status' => $state['status'] ?? 'UNKNOWN',
+                ]);
+            }
 
             return $this->db->transaction(function (Database $tx) use ($scope, $run, $state, $operatorReason): Outcome {
                 $existing = $tx->one(

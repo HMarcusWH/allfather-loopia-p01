@@ -200,3 +200,14 @@ Assert::same(
     'an ambiguous provider outcome cannot be adopted as a known refusal',
 );
 Assert::same(1, $unknownTransport->calls, 'failed adoption still performs no provider call');
+
+
+// "Nothing was dispatched" is not an unresolved provider outcome and cannot be filed as one.
+$cleanRun = X::value($service->startConfigured($scope, $fx['mission_id'], 'p05-no-dispatch'));
+$cleanInspection = X::value($reconciliation->inspect($scope, $cleanRun['monitor_run_id']));
+Assert::same('NO_DISPATCH_RECORDED', $cleanInspection['status'], 'a model-less stage reports that nothing was dispatched');
+Assert::same(
+    'MONITOR_RECONCILIATION_NOT_UNRESOLVED',
+    $reconciliation->markUnresolved($scope, $cleanRun['monitor_run_id'], $cleanInspection['run_revision'], 'TEST_NOT_AN_UNKNOWN_OUTCOME')->reasonCode(),
+    'operator cannot relabel a safe no-dispatch state as an unknown provider outcome',
+);
