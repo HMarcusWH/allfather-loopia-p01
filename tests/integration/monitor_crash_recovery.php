@@ -105,6 +105,8 @@ Assert::same(2, $fx['model']->calls, 'unknown attempt is never automatically ret
 $unknown = X::value($reconciliation->inspect($scope, $id));
 Assert::same('UNRESOLVED', $unknown['status'], 'missing final provider result remains honestly unresolved');
 Assert::same('MONITOR_RECONCILIATION_RESULT_NOT_RECORDED', $unknown['reason_code'], 'inspection names the missing durable fact');
+Assert::true(is_string($unknown['candidate_artifact_digest']) && $unknown['candidate_artifact_digest'] !== '', 'inspection still exposes candidate bytes that survived result-finalization loss');
+Assert::same('SUCCEEDED', $unknown['tool_outcome_status'], 'inspection distinguishes successful M06 completion from the missing provider-result row');
 $marked = X::value($reconciliation->markUnresolved($scope, $id, $unknown['run_revision'], 'TEST_RESULT_FINALIZATION_FAILED'));
 Assert::same('UNRESOLVED', $marked['disposition'], 'operator can append an unresolved acknowledgement');
 Assert::same('ANALYZED', (new RunJournal($db, $clock))->find($scope, $id)['stage'], 'UNRESOLVED acknowledgement does not manufacture a continuation');
@@ -337,7 +339,8 @@ $outcomeReconciliation = new RunReconciliation(
 );
 $outcomeInspection = X::value($outcomeReconciliation->inspect($outcomeScope, $outcomeId));
 Assert::same('UNRESOLVED', $outcomeInspection['status'], 'candidate bytes without the final governed result stay unresolved');
-Assert::same('MONITOR_RECONCILIATION_RESULT_NOT_RECORDED', $outcomeInspection['reason_code'], 'reconciliation names the missing result receipt');
+Assert::same('MONITOR_RECONCILIATION_TOOL_OUTCOME_NOT_RECORDED', $outcomeInspection['reason_code'], 'reconciliation names the earlier missing M06 completion receipt');
+Assert::true(is_string($outcomeInspection['candidate_artifact_digest']) && $outcomeInspection['candidate_artifact_digest'] !== '', 'candidate bytes remain visible as historical evidence even when M06 completion is absent');
 Assert::same('MONITOR_MODEL_REQUIRES_RECONCILIATION', $outcomeService->advance($outcomeScope, $outcomeId, $outcomeDetail['preview_request']['request_digest'])->reasonCode(), 'post-crash replay still refuses a second dispatch');
 Assert::same(1, $outcomeFx['model']->calls, 'M06-completion replay does not call the provider again');
 

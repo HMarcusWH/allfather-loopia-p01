@@ -373,10 +373,37 @@ final class RunReconciliation
             $base['execution_purpose'] = $purpose['execution_purpose'];
         }
 
+        // Report independently durable facts before deciding whether they are sufficient to adopt.
+        // Candidate bytes may exist even when the later M06/provider-result finalization crashed.
+        $artifactMeta = $this->db->one(
+            'SELECT candidate_digest,artifact_digest,artifact_size
+             FROM provider_model_candidate_artifacts WHERE model_attempt_id=?',
+            [$attempt['model_attempt_id']],
+        );
+        if ($artifactMeta !== null) {
+            $base['candidate_artifact_digest'] = $artifactMeta['artifact_digest'];
+            $base['artifact_candidate_digest'] = $artifactMeta['candidate_digest'];
+            $base['candidate_artifact_size'] = (int) $artifactMeta['artifact_size'];
+        }
+
+        $toolOutcome = $this->db->one(
+            'SELECT tool_execution_outcome_id,outcome_status,result_digest,error_code
+             FROM tool_execution_outcomes WHERE tool_request_id=? ORDER BY completed_at DESC LIMIT 1',
+            [$tool['tool_request_id']],
+        );
+        if ($toolOutcome !== null) {
+            $base['tool_execution_outcome_id'] = $toolOutcome['tool_execution_outcome_id'];
+            $base['tool_outcome_status'] = $toolOutcome['outcome_status'];
+            $base['tool_error_code'] = $toolOutcome['error_code'];
+        }
+
         $result = $this->db->one('SELECT * FROM provider_model_results WHERE model_attempt_id=?', [$attempt['model_attempt_id']]);
         if ($result === null) {
             return Outcome::ok($base + [
-                'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_RESULT_NOT_RECORDED',
+                'status' => 'UNRESOLVED',
+                'reason_code' => $toolOutcome === null
+                    ? 'MONITOR_RECONCILIATION_TOOL_OUTCOME_NOT_RECORDED'
+                    : 'MONITOR_RECONCILIATION_RESULT_NOT_RECORDED',
             ]);
         }
         if ($result['tool_request_id'] !== $tool['tool_request_id']) {
@@ -390,19 +417,11 @@ final class RunReconciliation
             'candidate_digest' => $result['candidate_digest'],
         ];
 
-        $toolOutcome = $this->db->one(
-            'SELECT tool_execution_outcome_id,outcome_status,result_digest,error_code
-             FROM tool_execution_outcomes WHERE tool_request_id=? ORDER BY completed_at DESC LIMIT 1',
-            [$tool['tool_request_id']],
-        );
         if ($toolOutcome === null) {
             return Outcome::ok($base + [
                 'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_TOOL_OUTCOME_NOT_RECORDED',
             ]);
         }
-        $base['tool_execution_outcome_id'] = $toolOutcome['tool_execution_outcome_id'];
-        $base['tool_outcome_status'] = $toolOutcome['outcome_status'];
-        $base['tool_error_code'] = $toolOutcome['error_code'];
 
         $call = $result['provider_call_id'] === null ? null : $this->db->one(
             'SELECT provider_call_id,outcome,failure_code,correlation_id
@@ -504,6 +523,12 @@ final class RunReconciliation
         }
 
         $id = Ids::new();
+        $candidateDigest = $disposition === 'ADOPTED_REFUSAL'
+            ? null
+            : ($state['candidate_digest'] ?? $state['artifact_candidate_digest'] ?? null);
+        $artifactDigest = $disposition === 'ADOPTED_REFUSAL'
+            ? null
+            : ($state['candidate_artifact_digest'] ?? null);
         $tx->insert('monitor_run_reconciliations', [
             'reconciliation_id' => $id,
             'tenant_id' => $scope['tenant_id'],
@@ -516,8 +541,8 @@ final class RunReconciliation
             'model_attempt_id' => $state['model_attempt_id'] ?? null,
             'model_result_id' => $state['model_result_id'] ?? null,
             'request_digest' => $state['request_digest'] ?? null,
-            'candidate_digest' => $state['candidate_digest'] ?? null,
-            'artifact_digest' => $state['candidate_artifact_digest'] ?? null,
+            'candidate_digest' => $candidateDigest,
+            'artifact_digest' => $artifactDigest,
             'observed_reason_code' => $observedReason,
             'operator_reason_code' => $operatorReason,
             'recorded_by_operator_id' => $scope['operator_id'],
