@@ -91,7 +91,9 @@ Working end to end today, given seeded authority:
 
 The current working candidate has additional migrations. PR16 staging evidence proves the prior
 19-migration release only; candidate migration execution, repeatability and host qualification must
-be evidenced for the new exact release before claiming deployment readiness.
+be evidenced for the new exact release before claiming deployment readiness. P05 also makes named
+MariaDB advisory locking a required host capability because Monitor run/source serialization now
+depends on it; the PR16 host probe predates that proof, so it must be re-run for the P05 candidate.
 The candidate also adds the inactive Monitor workbench and bounded model composition described in
 [Monitor delivery and remaining work](MONITOR_DELIVERY_AND_REMAINING_WORK_2026_09_27.md).
 Its local implementation and fixture checks do not update the deployed PR16 claims below.
