@@ -347,6 +347,7 @@ $dbFacts = [
     'transaction_rollback' => ['NOT_PROBED', null],
     'foreign_keys_enforced' => ['NOT_PROBED', null],
     'row_locking' => ['NOT_PROBED', null],
+    'named_advisory_locking' => ['NOT_PROBED', null],
     'trigger_support' => ['NOT_PROBED', null],
 ];
 
@@ -517,6 +518,58 @@ if ($env->has('DB_NAME')) {
             }
         }
 
+        // ---- NAMED ADVISORY LOCKING, across TWO INDEPENDENT CONNECTIONS
+        //
+        // RunJournal and P05 source serialization use GET_LOCK/RELEASE_LOCK specifically so no SQL
+        // transaction is held open across network I/O. Prove acquisition, ownership and release on
+        // this account rather than assuming those functions are enabled from the MariaDB version.
+        $advisoryName = 'probe_advisory_' . $suffix;
+        $advisoryHolder = null;
+        $advisoryContender = null;
+        try {
+            $advisoryHolder = $connect();
+            $advisoryContender = $connect();
+
+            $holderAcquired = (int) $advisoryHolder->scalar('SELECT GET_LOCK(?, 0)', [$advisoryName]) === 1;
+            $contenderBlocked = $holderAcquired
+                && (int) $advisoryContender->scalar('SELECT GET_LOCK(?, 0)', [$advisoryName]) === 0;
+            $contenderCannotReleaseForeign = $holderAcquired
+                && (int) $advisoryContender->scalar('SELECT RELEASE_LOCK(?)', [$advisoryName]) === 0;
+            $holderReleased = $holderAcquired
+                && (int) $advisoryHolder->scalar('SELECT RELEASE_LOCK(?)', [$advisoryName]) === 1;
+            $contenderAcquiredAfter = $holderReleased
+                && (int) $advisoryContender->scalar('SELECT GET_LOCK(?, 0)', [$advisoryName]) === 1;
+            $contenderReleased = $contenderAcquiredAfter
+                && (int) $advisoryContender->scalar('SELECT RELEASE_LOCK(?)', [$advisoryName]) === 1;
+
+            $advisoryWorks = $holderAcquired && $contenderBlocked && $contenderCannotReleaseForeign
+                && $holderReleased && $contenderAcquiredAfter && $contenderReleased;
+            $dbFacts['named_advisory_locking'] = [
+                $advisoryWorks ? 'PRESENT' : 'MISSING',
+                [
+                    'holder_acquired' => $holderAcquired,
+                    'contender_blocked' => $contenderBlocked,
+                    'foreign_release_refused' => $contenderCannotReleaseForeign,
+                    'released_by_owner' => $holderReleased,
+                    'acquired_after_release' => $contenderAcquiredAfter,
+                    'released_after_acquire' => $contenderReleased,
+                ],
+            ];
+        } catch (\PDOException) {
+            $dbFacts['named_advisory_locking'] = ['MISSING', ['operation_failed' => true]];
+        } finally {
+            // Best-effort release on both sessions. A connection close also releases named locks.
+            foreach ([$advisoryHolder, $advisoryContender] as $extra) {
+                if ($extra !== null) {
+                    try {
+                        $extra->scalar('SELECT RELEASE_LOCK(?)', [$advisoryName]);
+                    } catch (\PDOException) {
+                        // best-effort
+                    }
+                }
+            }
+        }
+
         // ---- TRIGGER creation AND execution, on this account
         //
         // The append-only guarantees in SECURITY_BOUNDARY §9 are triggers. A host whose MariaDB user
@@ -604,6 +657,7 @@ foreach ($dbFacts as $key => [$status, $detail]) {
         'transaction_rollback' => 'A governed write that half-committed would release without its binding.',
         'foreign_keys_enforced' => 'Deferred FKs (900_deferred_foreign_keys) are the referential half of the schema.',
         'row_locking' => 'The job machine leases work by locking a row; without it two ticks claim one job.',
+        'named_advisory_locking' => 'Monitor run/source serialization uses named session locks so no SQL transaction spans network I/O.',
         'trigger_support' => 'The append-only tables ARE triggers. Without the privilege they import and vanish.',
         default => 'Storage capability.',
     });
@@ -688,7 +742,7 @@ $stagingRequired = [
     'private_storage_writable', 'atomic_rename', 'public_root_separation',
     'mariadb', 'mariadb_version_floor', 'innodb_available',
     'check_constraints_enforced', 'transaction_rollback', 'foreign_keys_enforced',
-    'row_locking', 'trigger_support', 'probe_cleanup',
+    'row_locking', 'named_advisory_locking', 'trigger_support', 'probe_cleanup',
 ];
 $liveReadRequired = [
     'ext_curl', 'curl_ssl', 'curl_resolve_pinning', 'curl_timeout_ms', 'curl_writefunction',
