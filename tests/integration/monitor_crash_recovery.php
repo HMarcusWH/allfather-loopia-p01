@@ -27,6 +27,7 @@ if ($otherConnection !== null) {
     Assert::same('MONITOR_SOURCE_BUSY', $service->advance($scope, $baseline['monitor_run_id'])->reasonCode(), 'another in-flight capture of this source refuses before fetch');
     Assert::same('NEW', (new RunJournal($db, $clock))->find($scope, $baseline['monitor_run_id'])['stage'], 'source contention does not terminalize the run');
     Assert::same(0, $fx['source']->calls, 'source contention performs no HTTP fetch');
+    Assert::same(0, $fx['grants']->consumed(X::value($fx['grants']->currentFor($scope['tenant_id'], $scope['workspace_id'], 'MANUAL_MONITOR', $fx['mission_id'], $fx['definition_digest']))['execution_grant_id'], 'SOURCE_CAPTURE'), 'source-lock contention spends no capture budget');
     $otherConnection->scalar('SELECT RELEASE_LOCK(?)', [$sourceLock]);
 }
 $baseline = X::value($service->advance($scope, $baseline['monitor_run_id']));

@@ -88,15 +88,21 @@ final class MonitorService implements MonitorOperations
             if (($run['execution_mode']==='FIXTURE')!==$this->fixtureRuntime) { return Outcome::refuse('MONITOR_RUNTIME_MODE_MISMATCH'); }
             try {
                 if ($run['stage']==='NEW') {
-                    $beforeFetch=null;
+                    $beforeFetch=null; $beforeCapture=null;
                     if ($run['execution_mode']==='NATIVE') {
                         $grant=$this->currentGrant($scope,$run); if (!$grant->isOk()) { return $grant; }
                         $facts=$this->runFacts($scope,$run,$grant->value());
-                        $admitted=$this->admitCapture($scope,$run,$grant->value(),$facts); if (!$admitted->isOk()) { return $admitted; }
+                        // Acquire SourceCaptureStage's source-scoped lock BEFORE spending the capture
+                        // unit. Local contention is not a source attempt and must not burn budget.
+                        $beforeCapture=fn():Outcome=>$this->admitCapture($scope,$run,$grant->value(),$facts);
                         $beforeFetch=fn():Outcome=>$this->admission->check('SOURCE_BEFORE_DISPATCH',$facts);
                     }
-                    $captured=$this->capture->execute($scope,$run,$beforeFetch);
-                    if (!$captured->isOk()) { if ($captured->reasonCode()==='MONITOR_SOURCE_BUSY') { return $captured; } return $this->block($scope,$run,$captured->reasonCode()); }
+                    $captured=$this->capture->execute($scope,$run,$beforeFetch,$beforeCapture);
+                    if (!$captured->isOk()) {
+                        $reason=$captured->reasonCode();
+                        if ($reason==='MONITOR_SOURCE_BUSY' || self::isAdmissionRefusal($reason)) { return $captured; }
+                        return $this->block($scope,$run,$reason);
+                    }
                     return $this->journal->advance($scope,$run,$captured->value()['before_snapshot_id']===null?'BASELINE':'CAPTURED',['capture'=>$captured->value()],'SOURCE_CAPTURED');
                 }
                 if ($run['stage']==='CAPTURED') {
