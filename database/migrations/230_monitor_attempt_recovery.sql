@@ -195,11 +195,19 @@ BEGIN
     WHERE mr.model_result_id=NEW.model_result_id
       AND (NEW.model_attempt_id IS NULL OR mr.model_attempt_id=NEW.model_attempt_id)
       AND (NEW.tool_request_id IS NULL OR mr.tool_request_id=NEW.tool_request_id)
-      AND (NEW.candidate_digest IS NULL OR BINARY mr.candidate_digest=BINARY NEW.candidate_digest)
       AND (
         NEW.disposition='UNRESOLVED'
-        OR (NEW.disposition='ADOPTED_CANDIDATE' AND mr.outcome='CANDIDATE')
-        OR (NEW.disposition='ADOPTED_REFUSAL' AND mr.outcome='REFUSED')
+        OR (
+          NEW.disposition='ADOPTED_CANDIDATE'
+          AND mr.outcome='CANDIDATE'
+          AND NEW.candidate_digest IS NOT NULL
+          AND BINARY mr.candidate_digest=BINARY NEW.candidate_digest
+        )
+        OR (
+          NEW.disposition='ADOPTED_REFUSAL'
+          AND mr.outcome='REFUSED'
+          AND NEW.candidate_digest IS NULL
+        )
       )
   ) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'reconciliation result mismatch';
