@@ -82,6 +82,31 @@ try {
         'monitor_run_id' => $id,
         'run_revision' => $inspection['run_revision'],
         'model_stage' => 'classifier',
+        'disposition' => 'ADOPTED_REFUSAL',
+        'tool_request_id' => $inspection['tool_request_id'],
+        'model_attempt_id' => $inspection['model_attempt_id'],
+        'model_result_id' => $inspection['model_result_id'],
+        'request_digest' => $inspection['request_digest'],
+        'candidate_digest' => null,
+        'artifact_digest' => null,
+        'observed_reason_code' => 'FORGED_REFUSAL',
+        'operator_reason_code' => null,
+        'recorded_by_operator_id' => $scope['operator_id'],
+        'recorded_at' => $clock->now(),
+    ]);
+    Assert::fail('database accepted a CANDIDATE provider result as an adopted refusal');
+} catch (\PDOException) {
+    Assert::pass();
+}
+
+try {
+    $db->insert('monitor_run_reconciliations', [
+        'reconciliation_id' => \Allfather\Loopia\Core\Ids::new(),
+        'tenant_id' => $scope['tenant_id'],
+        'workspace_id' => $scope['workspace_id'],
+        'monitor_run_id' => $id,
+        'run_revision' => $inspection['run_revision'],
+        'model_stage' => 'classifier',
         'disposition' => 'UNRESOLVED',
         'tool_request_id' => null,
         'model_attempt_id' => null,

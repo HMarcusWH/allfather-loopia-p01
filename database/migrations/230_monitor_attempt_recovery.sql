@@ -68,11 +68,14 @@ CREATE TABLE IF NOT EXISTS monitor_run_reconciliations (
   CHECK (model_stage IN ('classifier','draft','critic','routing_critic')),
   CHECK (disposition IN ('ADOPTED_CANDIDATE','ADOPTED_REFUSAL','UNRESOLVED')),
   CHECK (disposition <> 'ADOPTED_CANDIDATE' OR (
-    model_attempt_id IS NOT NULL AND model_result_id IS NOT NULL
-    AND candidate_digest IS NOT NULL AND artifact_digest IS NOT NULL
+    tool_request_id IS NOT NULL AND model_attempt_id IS NOT NULL AND model_result_id IS NOT NULL
+    AND request_digest IS NOT NULL AND candidate_digest IS NOT NULL AND artifact_digest IS NOT NULL
     AND candidate_digest = artifact_digest
   )),
-  CHECK (disposition <> 'ADOPTED_REFUSAL' OR model_result_id IS NOT NULL),
+  CHECK (disposition <> 'ADOPTED_REFUSAL' OR (
+    tool_request_id IS NOT NULL AND model_attempt_id IS NOT NULL AND model_result_id IS NOT NULL
+    AND request_digest IS NOT NULL AND candidate_digest IS NULL AND artifact_digest IS NULL
+  )),
   CONSTRAINT fk_monitor_reconciliation_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
   CONSTRAINT fk_monitor_reconciliation_workspace FOREIGN KEY (workspace_id) REFERENCES workspaces(workspace_id),
   CONSTRAINT fk_monitor_reconciliation_run FOREIGN KEY (monitor_run_id) REFERENCES monitor_runs(monitor_run_id),
@@ -182,6 +185,11 @@ BEGIN
       AND (NEW.model_attempt_id IS NULL OR mr.model_attempt_id=NEW.model_attempt_id)
       AND (NEW.tool_request_id IS NULL OR mr.tool_request_id=NEW.tool_request_id)
       AND (NEW.candidate_digest IS NULL OR BINARY mr.candidate_digest=BINARY NEW.candidate_digest)
+      AND (
+        NEW.disposition='UNRESOLVED'
+        OR (NEW.disposition='ADOPTED_CANDIDATE' AND mr.outcome='CANDIDATE')
+        OR (NEW.disposition='ADOPTED_REFUSAL' AND mr.outcome='REFUSED')
+      )
   ) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'reconciliation result mismatch';
   END IF;
