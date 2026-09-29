@@ -555,13 +555,16 @@ The single additional canonical table comes from the reviewed repeatable P01 reg
 [canonical PR 368](https://github.com/HMarcusWH/Allfatherbusinessintelligence/pull/368), reviewed
 at `af5992c58bdb653f6ca8be905a17ddab992c5702` and merged as
 `1c40306c22e15b2ad3049e8d32abff47450c8921`. It is a curated extension to the retained baseline,
-not evidence that all current canonical schema has been projected. The six new host tables record
-bounded model provenance and Monitor orchestration; they introduce no separate canonical law.
-The projection's `schema_migrations` ledger is excluded from every application-table count above.
+not evidence that all current canonical schema has been projected. The original six bounded-model/
+Monitor host-extension tables remain deployment furniture, and the completion-plan migrations add
+fourteen more local control/durability tables through P05. None of those local tables introduces
+separate canonical product law. The projection's `schema_migrations` ledger is excluded from every
+application-table count above.
 
 [`schema_invariants.php`](../tests/integration/schema_invariants.php) compares the exact sorted
 application-table names returned by MariaDB with the explicit fixture. It separately checks group
 counts and disjointness. A missing, renamed or unexpected table therefore fails even when the
 overall count stays the same; tables outside the declared adapter list are no longer classified
-as canonical by taking a complement. Existing constraint, engine and excluded-family checks
-remain in force. This inventory correction changes no runtime code or migration.
+as canonical by taking a complement. Existing constraint, engine and excluded-family checks remain in force. P05 deliberately extends
+that inventory with migration `230_monitor_attempt_recovery.sql`; the older baseline classifications
+remain unchanged.
