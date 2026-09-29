@@ -218,6 +218,31 @@ try {
     Assert::pass();
 }
 
+try {
+    $db->insert('monitor_run_reconciliations', [
+        'reconciliation_id' => \Allfather\Loopia\Core\Ids::new(),
+        'tenant_id' => $scope['tenant_id'],
+        'workspace_id' => $scope['workspace_id'],
+        'monitor_run_id' => $id,
+        'run_revision' => $inspection['run_revision'],
+        'model_stage' => 'classifier',
+        'disposition' => 'ADOPTED_REFUSAL',
+        'tool_request_id' => $captureRequest,
+        'model_attempt_id' => $dummyAttemptId,
+        'model_result_id' => null,
+        'request_digest' => str_repeat('d', 64),
+        'candidate_digest' => null,
+        'artifact_digest' => null,
+        'observed_reason_code' => 'FORGED_ATTEMPT',
+        'operator_reason_code' => null,
+        'recorded_by_operator_id' => $scope['operator_id'],
+        'recorded_at' => $clock->now(),
+    ]);
+    Assert::fail('database accepted reconciliation around an attempt not bound to this run/stage');
+} catch (\PDOException) {
+    Assert::pass();
+}
+
 foreach ([
     "UPDATE monitor_run_reconciliations SET observed_reason_code='REWRITTEN'",
     'DELETE FROM monitor_run_reconciliations',

@@ -169,12 +169,19 @@ BEGIN
     SELECT 1
     FROM provider_model_attempts a
     JOIN monitor_runs r ON r.monitor_run_id=NEW.monitor_run_id
+    JOIN monitor_model_attempt_bindings b ON b.model_attempt_id=a.model_attempt_id
     WHERE a.model_attempt_id=NEW.model_attempt_id
       AND a.tenant_id=NEW.tenant_id
       AND a.workspace_id=NEW.workspace_id
       AND a.mission_id=r.mission_id
+      AND b.monitor_run_id=NEW.monitor_run_id
+      AND b.run_revision=NEW.run_revision
+      AND b.model_stage=NEW.model_stage
       AND (NEW.tool_request_id IS NULL OR a.tool_request_id=NEW.tool_request_id)
-      AND (NEW.request_digest IS NULL OR BINARY a.request_digest=BINARY NEW.request_digest)
+      AND (NEW.request_digest IS NULL OR (
+        BINARY a.request_digest=BINARY NEW.request_digest
+        AND BINARY b.request_digest=BINARY NEW.request_digest
+      ))
   ) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'reconciliation attempt scope mismatch';
   END IF;
