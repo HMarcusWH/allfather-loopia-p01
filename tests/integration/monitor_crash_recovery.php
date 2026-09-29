@@ -73,6 +73,8 @@ Assert::same('RECOVERABLE_CANDIDATE', $inspection['status'], 'exact provider/res
 Assert::same(false, $inspection['will_call_provider'], 'inspection is read-only and provider-free');
 Assert::same('MANUAL_MONITOR', $inspection['execution_purpose'], 'inspection exposes the exact recorded execution purpose');
 Assert::true(is_string($inspection['execution_grant_id']) && $inspection['execution_grant_id'] !== '', 'inspection exposes the exact recorded execution grant identity');
+Assert::true(is_string($inspection['tool_execution_outcome_id']) && $inspection['tool_execution_outcome_id'] !== '', 'inspection exposes the exact M06 tool outcome identity');
+Assert::same('SUCCEEDED', $inspection['tool_outcome_status'], 'recoverable candidate shows the exact successful M06 outcome');
 Assert::false(isset($inspection['candidate']), 'operator inspection does not print private candidate bytes');
 
 $adopted = X::value($reconciliation->adopt($scope, $id, $inspection['run_revision']));

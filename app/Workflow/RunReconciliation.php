@@ -394,7 +394,9 @@ final class RunReconciliation
                 'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_TOOL_OUTCOME_NOT_RECORDED',
             ]);
         }
+        $base['tool_execution_outcome_id'] = $toolOutcome['tool_execution_outcome_id'];
         $base['tool_outcome_status'] = $toolOutcome['outcome_status'];
+        $base['tool_error_code'] = $toolOutcome['error_code'];
 
         $call = $result['provider_call_id'] === null ? null : $this->db->one(
             'SELECT provider_call_id,outcome,failure_code,correlation_id
