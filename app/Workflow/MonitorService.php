@@ -16,6 +16,8 @@ final class MonitorService implements MonitorOperations
     private const OUTPUTS=['DIFFED'=>['classifier','ANALYZED'],'ANALYZED'=>['draft','DRAFTED'],'DRAFTED'=>['critic','REVIEW_REQUIRED'],'ROUTING_PREPARED'=>['routing_critic','ROUTING_REVIEW']];
     /** Refusals that mean "not admitted yet", not "this run failed": nothing was spent, so the run waits. */
     private const ADMISSION_PREFIXES=['EXECUTION_','MODEL_EXECUTION_NOT_ADMITTED','OWNER_DECISION_','PROMPT_APPROVAL_','PROMPT_NOT_APPROVED'];
+    /** Post-dispatch states that do not establish whether usable provider output exists. */
+    private const RECONCILIATION_REASONS=['MODEL_NETWORK_OUTCOME_UNKNOWN','MODEL_TIMEOUT','MODEL_ADAPTER_EXCEPTION'];
     private readonly PromptSelectionResolver $prompts;
     public function __construct(
         private readonly Database $db,private readonly Clock $clock,private readonly RunJournal $journal,
@@ -200,7 +202,8 @@ final class MonitorService implements MonitorOperations
             return Outcome::refuse($result['reason_code']);
         }
         if (($result['kind']??'')!=='MODEL_CANDIDATE') {
-            if (($result['kind']??'')==='MODEL_REPLAY' || ($result['reason_code']??'')==='MODEL_PROVENANCE_FINALIZATION_FAILED') {
+            if (($result['kind']??'')==='MODEL_REPLAY' || ($result['reason_code']??'')==='MODEL_PROVENANCE_FINALIZATION_FAILED'
+                || in_array($result['reason_code']??'',self::RECONCILIATION_REASONS,true)) {
                 return Outcome::refuse('MONITOR_MODEL_REQUIRES_RECONCILIATION', [
                     'tool_request_id'=>$result['dispatch']['prior_tool_request_id']??$result['dispatch']['tool_request_id']??null,
                 ]);

@@ -154,3 +154,7 @@ Assert::same('ADOPTED_REFUSAL', $refusalAdopted['disposition'], 'operator adopts
 Assert::same('BLOCKED', $refusalAdopted['run']['stage'], 'known terminal refusal becomes the ordinary BLOCKED journal outcome');
 Assert::same(1, $quotaTransport->calls, 'refusal adoption never calls the provider again');
 Assert::false(str_contains(json_encode($refusalAdopted), 'PRIVATE_PROVIDER_TEXT'), 'provider error text never enters reconciliation output');
+
+$serviceSource = (string) file_get_contents(dirname(__DIR__, 2) . '/app/Workflow/MonitorService.php');
+Assert::contains('MODEL_NETWORK_OUTCOME_UNKNOWN', $serviceSource, 'network-unknown model outcomes route to reconciliation instead of ordinary terminal refusal');
+Assert::contains('MODEL_TIMEOUT', $serviceSource, 'timeouts route to reconciliation rather than being silently treated as known results');

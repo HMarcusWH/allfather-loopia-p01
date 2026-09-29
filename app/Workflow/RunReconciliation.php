@@ -399,6 +399,13 @@ final class RunReconciliation
                     'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_REFUSAL_INVALID',
                 ]);
             }
+            if (in_array($reason, ['MODEL_NETWORK_OUTCOME_UNKNOWN','MODEL_TIMEOUT','MODEL_ADAPTER_EXCEPTION'], true)) {
+                return Outcome::ok($base + [
+                    'status' => 'UNRESOLVED',
+                    'reason_code' => $reason,
+                    'provider_call_outcome' => $call['outcome'],
+                ]);
+            }
 
             return Outcome::ok($base + [
                 'status' => 'RECOVERABLE_REFUSAL',
