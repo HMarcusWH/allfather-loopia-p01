@@ -303,6 +303,12 @@ final class RunReconciliation
             'execution_mode' => $attempt['execution_mode'],
             'context_digest' => $attempt['context_digest'],
         ];
+        $expectedAttemptMode = $run['execution_mode'] === 'NATIVE' ? 'LIVE' : 'FIXTURE';
+        if ($attempt['execution_mode'] !== $expectedAttemptMode) {
+            return Outcome::ok($base + [
+                'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_EXECUTION_MODE_MISMATCH',
+            ]);
+        }
         if (!hash_equals((string) $attempt['request_digest'], $requestDigest)) {
             return Outcome::ok($base + [
                 'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_ATTEMPT_MISMATCH',

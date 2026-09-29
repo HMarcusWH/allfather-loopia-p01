@@ -115,6 +115,10 @@ BEGIN
       AND a.tenant_id=r.tenant_id
       AND a.workspace_id=r.workspace_id
       AND a.mission_id=r.mission_id
+      AND (
+        (r.execution_mode='NATIVE' AND a.execution_mode='LIVE')
+        OR (r.execution_mode='FIXTURE' AND a.execution_mode='FIXTURE')
+      )
       AND r.revision=NEW.run_revision
       AND (
         (r.stage='DIFFED' AND NEW.model_stage='classifier')
