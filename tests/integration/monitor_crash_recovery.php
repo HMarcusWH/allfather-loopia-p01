@@ -71,6 +71,8 @@ $reconciliation = new RunReconciliation(
 $inspection = X::value($reconciliation->inspect($scope, $id));
 Assert::same('RECOVERABLE_CANDIDATE', $inspection['status'], 'exact provider/result/artifact facts establish a recoverable candidate');
 Assert::same(false, $inspection['will_call_provider'], 'inspection is read-only and provider-free');
+Assert::same('MANUAL_MONITOR', $inspection['execution_purpose'], 'inspection exposes the exact recorded execution purpose');
+Assert::true(is_string($inspection['execution_grant_id']) && $inspection['execution_grant_id'] !== '', 'inspection exposes the exact recorded execution grant identity');
 Assert::false(isset($inspection['candidate']), 'operator inspection does not print private candidate bytes');
 
 $adopted = X::value($reconciliation->adopt($scope, $id, $inspection['run_revision']));
@@ -78,6 +80,7 @@ Assert::same('ADOPTED_CANDIDATE', $adopted['disposition'], 'operator explicitly 
 Assert::same('ANALYZED', $adopted['run']['stage'], 'adoption uses the ordinary DIFFED -> ANALYZED transition');
 Assert::same($inspection['request_artifact_digest'], $adopted['run']['cursor']['classifier_request_artifact'], 'recovered run preserves the exact inspected request artifact in its cursor');
 Assert::same(1, $fx['model']->calls, 'adoption never repeats the model call');
+Assert::same('PASS', X::value((new RunJournal($db, $clock))->replay($scope, $id))['integrity'], 'recovered history preserves the existing journal digest law');
 Assert::same(1, (int) $db->scalar("SELECT COUNT(*) FROM monitor_run_reconciliations WHERE disposition='ADOPTED_CANDIDATE'"), 'adoption is append-only evidence');
 Assert::same('MONITOR_RUN_REVISION_CHANGED_RELOAD_REQUIRED', $reconciliation->adopt($scope, $id, $inspection['run_revision'])->reasonCode(), 'stale adoption cannot consume a result twice');
 

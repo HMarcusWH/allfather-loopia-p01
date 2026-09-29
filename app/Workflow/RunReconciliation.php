@@ -99,13 +99,13 @@ final class RunReconciliation
                     }
                 }
                 if ($run['execution_mode'] === 'NATIVE') {
-                    if ($this->admission === null || !is_string($state['_execution_grant_id'] ?? null)) {
+                    if ($this->admission === null || !is_string($state['execution_grant_id'] ?? null)) {
                         return Outcome::refuse('MONITOR_RECONCILIATION_ADMISSION_UNAVAILABLE');
                     }
                     $p = $state['_request']['provenance'] ?? [];
                     $fresh = $this->admission->check('MODEL_AFTER_RETURN', [
                         'tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'],
-                        'operator_id' => $scope['operator_id'], 'execution_grant_id' => $state['_execution_grant_id'],
+                        'operator_id' => $scope['operator_id'], 'execution_grant_id' => $state['execution_grant_id'],
                         'purpose' => 'MANUAL_MONITOR', 'mission_id' => $run['mission_id'],
                         'definition_digest' => $run['definition_digest'],
                         'credential_id' => $run['definition']['credential_id'] ?? null,
@@ -363,7 +363,8 @@ final class RunReconciliation
                     'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_PURPOSE_MISMATCH',
                 ]);
             }
-            $base['_execution_grant_id'] = $purpose['execution_grant_id'];
+            $base['execution_grant_id'] = $purpose['execution_grant_id'];
+            $base['execution_purpose'] = $purpose['execution_purpose'];
         }
 
         $result = $this->db->one('SELECT * FROM provider_model_results WHERE model_attempt_id=?', [$attempt['model_attempt_id']]);
