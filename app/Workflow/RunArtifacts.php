@@ -16,6 +16,22 @@ final class RunArtifacts
             'workspace_id'=>$run['workspace_id'], 'kind'=>$kind, 'payload'=>$payload,
         ]));
     }
+    /** A model candidate envelope may only cite an already-durable provider candidate. */
+    public function saveCandidate(array $run, string $kind, array $payload): Outcome
+    {
+        foreach (['role','context_digest','request_digest','candidate_digest','provider_call_id','model_attempt_id','model_result_id','candidate_artifact_digest','execution_mode'] as $key) {
+            if (!is_string($payload[$key] ?? null) || $payload[$key] === '') {
+                return Outcome::refuse('MONITOR_CANDIDATE_ARTIFACT_INVALID');
+            }
+        }
+        if (!is_array($payload['candidate'] ?? null)
+            || !hash_equals(Digest::canonicalDigest($payload['candidate']), $payload['candidate_digest'])
+            || !hash_equals($payload['candidate_digest'], $payload['candidate_artifact_digest'])) {
+            return Outcome::refuse('MONITOR_CANDIDATE_ARTIFACT_INVALID');
+        }
+
+        return $this->save($run, $kind, $payload);
+    }
     public function read(array $run, string $digest, string $kind): Outcome
     {
         $stored=$this->store->get($digest);

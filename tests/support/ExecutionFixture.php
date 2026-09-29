@@ -8,7 +8,7 @@ use Allfather\Loopia\Ingestion\{FetchRequest,FetchResponse,FetchTransport,FixedH
 use Allfather\Loopia\Product\P01\{Capture,ChangeDetection};
 use Allfather\Loopia\Product\P04\Distribution;
 use Allfather\Loopia\PromptOps\{ProductPromptPack,PromptApprovalStore,PromptSelectionResolver};
-use Allfather\Loopia\Provider\{ModelExecutor,ModelPolicy,ModelResponse,ModelTransport,PreparedModelRequest};
+use Allfather\Loopia\Provider\{ModelArtifactStore,ModelExecutor,ModelPolicy,ModelResponse,ModelTransport,PreparedModelRequest};
 use Allfather\Loopia\Substrate\M01\Invocation;
 use Allfather\Loopia\Substrate\M02\AccessGuard;
 use Allfather\Loopia\Substrate\M03\Eligibility;
@@ -96,7 +96,7 @@ final class ExecutionFixture
 
         return new MonitorService($db, $clock, new RunJournal($db, $clock), new MissionConfiguration($db, $clock),
             new SourceCaptureStage($db, $clock, new Capture($db, $clock, $gateway, $evidence), $evidence, $f['evidence_store'], $context, $source, new FixedHostResolver(['sources.example' => ['93.184.216.34']])),
-            new ChangeDetection($db, $clock, $evidence), new ModelExecutor($db, $clock, $gateway, $f['credential_store'], $model, $context, $resolver, $admission),
+            new ChangeDetection($db, $clock, $evidence), new ModelExecutor($db, $clock, $gateway, $f['credential_store'], $model, $context, new ModelArtifactStore($db, $clock, $f['evidence_store']), $resolver, $admission),
             new RunArtifacts($f['evidence_store']), new ReleaseStages($db, $clock), $context, false, $nativeEnabled, $resolver, $admission);
     }
 

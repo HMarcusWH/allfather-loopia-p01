@@ -16,7 +16,7 @@ final class ModelExecutor
      * A live transport runs only with an ExecutionAdmission and a request whose prompt was selected
      * under an admitted grant. Without both it refuses before M06 is asked — nothing is reserved.
      */
-    public function __construct(private readonly Database $db,private readonly Clock $clock,private readonly Gateway $gateway,private readonly CredentialStore $credentials,private readonly ModelTransport $transport,private readonly ModelContextAuthority $context,?PromptSelectionResolver $prompts=null,private readonly ?ExecutionAdmission $admission=null)
+    public function __construct(private readonly Database $db,private readonly Clock $clock,private readonly Gateway $gateway,private readonly CredentialStore $credentials,private readonly ModelTransport $transport,private readonly ModelContextAuthority $context,private readonly ModelArtifactStore $artifacts,?PromptSelectionResolver $prompts=null,private readonly ?ExecutionAdmission $admission=null)
     {
         $this->prompts=$prompts??PromptSelectionResolver::inert();
     }
@@ -40,8 +40,8 @@ final class ModelExecutor
             $admitted=$this->admission->check('MODEL_BEFORE_RESERVE',$facts);
             if(!$admitted->isOk())return $refuse($admitted->reasonCode());
         }
-        $attemptId=null;$callId=null;$result=null;$response=null;
-        $dispatch=$this->gateway->requestModelDispatch($command,$request,function(string $toolRequestId) use($p,$request,$credentialId,$command,$facts,$grantId,&$attemptId,&$callId,&$result,&$response):array {
+        $attemptId=null;$callId=null;$result=null;$response=null;$candidateArtifact=null;$modelResultId=null;
+        $dispatch=$this->gateway->requestModelDispatch($command,$request,function(string $toolRequestId) use($p,$request,$credentialId,$command,$facts,$grantId,&$attemptId,&$callId,&$result,&$response,&$candidateArtifact):array {
             $current=$this->context->revalidate($p['context']);
             if(!$current->isOk())return ['kind'=>'FAILED','reason_code'=>$current->reasonCode()];
             if($p['role']==='MONITOR_ROUTING_CRITIC'){$routing=$this->context->validateRoutingPackage($p['context'],$p['stage_inputs']['routing_package'],$p['stage_inputs']['prior_candidate']['candidate']);if(!$routing->isOk())return ['kind'=>'FAILED','reason_code'=>$routing->reasonCode()];}
@@ -71,6 +71,11 @@ final class ModelExecutor
                     // After return, before acceptance: revocation during the call cannot unsend the
                     // request, but it does stop the response from becoming an accepted candidate.
                     if($facts!==null&&($result['kind']??'')==='GENERATED'){$after=$this->admission->check('MODEL_AFTER_RETURN',$facts);if(!$after->isOk())$result=['kind'=>'FAILED','reason_code'=>$after->reasonCode(),'telemetry_outcome'=>$result['telemetry_outcome'],'input_tokens'=>$result['input_tokens']??null,'output_tokens'=>$result['output_tokens']??null];}
+                    if(($result['kind']??'')==='GENERATED'){
+                        $persisted=$this->artifacts->persist($attemptId,$toolRequestId,$request->digest(),$result['candidate'],$result['result_digest']);
+                        if(!$persisted->isOk())$result=['kind'=>'FAILED','reason_code'=>'MODEL_CANDIDATE_ARTIFACT_PERSIST_FAILED','telemetry_outcome'=>'FAILED','input_tokens'=>$result['input_tokens']??null,'output_tokens'=>$result['output_tokens']??null];
+                        else $candidateArtifact=$persisted->value();
+                    }
                 }
             } catch(\Throwable) { $result=['kind'=>'FAILED','reason_code'=>'MODEL_ADAPTER_EXCEPTION','telemetry_outcome'=>'FAILED']; }
             $callId=Ids::new();
@@ -84,13 +89,15 @@ final class ModelExecutor
         if(!$succeeded && isset($dispatch['m01_reason_code']))$reason=$dispatch['m01_reason_code'];
         if($succeeded){$freshContext=$this->context->revalidate($p['context']);if(!$freshContext->isOk()){$succeeded=false;$reason=$freshContext->reasonCode();}}
         if($succeeded&&$p['role']==='MONITOR_ROUTING_CRITIC'){$routing=$this->context->validateRoutingPackage($p['context'],$p['stage_inputs']['routing_package'],$p['stage_inputs']['prior_candidate']['candidate']);if(!$routing->isOk()){$succeeded=false;$reason=$routing->reasonCode();}}
+        if($succeeded&&$candidateArtifact===null){$succeeded=false;$reason='MODEL_CANDIDATE_ARTIFACT_MISSING';}
         if($attemptId!==null) {
             try {
-                $this->db->insert('provider_model_results',['model_result_id'=>Ids::new(),'model_attempt_id'=>$attemptId,'provider_call_id'=>$callId,'tool_request_id'=>$dispatch['tool_request_id'],'outcome'=>$succeeded?'CANDIDATE':'REFUSED','candidate_digest'=>$succeeded?$result['result_digest']:null,'provider_request_id'=>self::safeRequestId($response?->requestId),'failure_code'=>$succeeded?null:$reason,'recorded_at'=>$this->clock->now()]);
+                $modelResultId=Ids::new();
+                $this->db->insert('provider_model_results',['model_result_id'=>$modelResultId,'model_attempt_id'=>$attemptId,'provider_call_id'=>$callId,'tool_request_id'=>$dispatch['tool_request_id'],'outcome'=>$succeeded?'CANDIDATE':'REFUSED','candidate_digest'=>$succeeded?$result['result_digest']:null,'provider_request_id'=>self::safeRequestId($response?->requestId),'failure_code'=>$succeeded?null:$reason,'recorded_at'=>$this->clock->now()]);
             } catch(\Throwable) { return $refuse('MODEL_PROVENANCE_FINALIZATION_FAILED')+['dispatch'=>$dispatch]; }
         }
         if(!$succeeded)return $refuse($reason)+['provider_call_id'=>$callId,'dispatch'=>$dispatch];
-        return ['kind'=>'MODEL_CANDIDATE','candidate'=>$result['candidate'],'candidate_digest'=>$result['result_digest'],'request_digest'=>$digest,'provider_call_id'=>$callId,'execution_mode'=>$this->transport->isLive()?'LIVE':'FIXTURE','human_review_required'=>true,'dispatch'=>$dispatch];
+        return ['kind'=>'MODEL_CANDIDATE','candidate'=>$result['candidate'],'candidate_digest'=>$result['result_digest'],'request_digest'=>$digest,'provider_call_id'=>$callId,'model_attempt_id'=>$attemptId,'model_result_id'=>$modelResultId,'candidate_artifact_digest'=>$candidateArtifact['artifact_digest'],'execution_mode'=>$this->transport->isLive()?'LIVE':'FIXTURE','human_review_required'=>true,'dispatch'=>$dispatch];
     }
 
     private function reserve(array $p,PreparedModelRequest $request,string $toolRequestId,?array $facts=null): Outcome

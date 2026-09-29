@@ -94,7 +94,7 @@ final class MonitorService implements MonitorOperations
                         $beforeFetch=fn():Outcome=>$this->admission->check('SOURCE_BEFORE_DISPATCH',$facts);
                     }
                     $captured=$this->capture->execute($scope,$run,$beforeFetch);
-                    if (!$captured->isOk()) { return $this->block($scope,$run,$captured->reasonCode()); }
+                    if (!$captured->isOk()) { if ($captured->reasonCode()==='MONITOR_SOURCE_BUSY') { return $captured; } return $this->block($scope,$run,$captured->reasonCode()); }
                     return $this->journal->advance($scope,$run,$captured->value()['before_snapshot_id']===null?'BASELINE':'CAPTURED',['capture'=>$captured->value()],'SOURCE_CAPTURED');
                 }
                 if ($run['stage']==='CAPTURED') {
@@ -115,8 +115,12 @@ final class MonitorService implements MonitorOperations
                 }
                 return Outcome::refuse('MONITOR_STAGE_REQUIRES_REVIEW_OR_IS_TERMINAL');
             } catch (\Throwable) {
-                // An unknown transport outcome never becomes an automatic retry. Existing M01/M06
-                // receipts remain authoritative; support can reconcile the run by its correlation ID.
+                // A model-stage crash may have happened after a paid/result-bearing provider call.
+                // Keep the pre-call journal stage intact so explicit reconciliation can inspect the
+                // durable M01/M06/provider facts; never turn an exception into an automatic retry.
+                if (isset(self::ROLES[$run['stage']])) {
+                    return Outcome::refuse('MONITOR_STAGE_FAILED_RECONCILIATION_REQUIRED');
+                }
                 return $this->block($scope,$run,'MONITOR_STAGE_FAILED_RECONCILIATION_REQUIRED','FAILED');
             }
         });
@@ -196,10 +200,15 @@ final class MonitorService implements MonitorOperations
             return Outcome::refuse($result['reason_code']);
         }
         if (($result['kind']??'')!=='MODEL_CANDIDATE') {
-            return $this->journal->advance($scope,$run,'BLOCKED',$cursor+['reason_code'=>$result['kind']==='MODEL_REPLAY'?'MONITOR_MODEL_REQUIRES_RECONCILIATION':($result['reason_code']??'MONITOR_MODEL_REFUSED')],'MODEL_REFUSED');
+            if (($result['kind']??'')==='MODEL_REPLAY' || ($result['reason_code']??'')==='MODEL_PROVENANCE_FINALIZATION_FAILED') {
+                return Outcome::refuse('MONITOR_MODEL_REQUIRES_RECONCILIATION', [
+                    'tool_request_id'=>$result['dispatch']['prior_tool_request_id']??$result['dispatch']['tool_request_id']??null,
+                ]);
+            }
+            return $this->journal->advance($scope,$run,'BLOCKED',$cursor+['reason_code'=>$result['reason_code']??'MONITOR_MODEL_REFUSED'],'MODEL_REFUSED');
         }
-        $payload=['role'=>self::ROLES[$run['stage']],'context_digest'=>$request->provenance()['context_digest'],'request_digest'=>$request->digest(),'candidate_digest'=>$result['candidate_digest'],'candidate'=>$result['candidate'],'provider_call_id'=>$result['provider_call_id'],'execution_mode'=>$result['execution_mode']];
-        $stored=$this->artifacts->save($run,$name,$payload); if (!$stored->isOk()) { return $stored; }
+        $payload=['role'=>self::ROLES[$run['stage']],'context_digest'=>$request->provenance()['context_digest'],'request_digest'=>$request->digest(),'candidate_digest'=>$result['candidate_digest'],'candidate'=>$result['candidate'],'provider_call_id'=>$result['provider_call_id'],'model_attempt_id'=>$result['model_attempt_id'],'model_result_id'=>$result['model_result_id'],'candidate_artifact_digest'=>$result['candidate_artifact_digest'],'execution_mode'=>$result['execution_mode']];
+        $stored=$this->artifacts->saveCandidate($run,$name,$payload); if (!$stored->isOk()) { return $stored; }
         $cursor[$name.'_artifact']=$stored->value()['digest'];
         if ($name==='classifier' && $result['candidate']['status']==='NO_MATERIAL_CHANGE') { $next='NO_CHANGE'; }
         elseif (!str_contains($name,'critic') && $result['candidate']['status']==='HELD') { $next='BLOCKED'; $cursor['reason_code']='MONITOR_MODEL_HELD'; }
@@ -267,8 +276,24 @@ final class MonitorService implements MonitorOperations
         $p=$artifact->value();
         if (!isset($p['candidate'],$p['candidate_digest'],$p['provider_call_id'],$p['request_digest'],$p['context_digest'])
             || !hash_equals(Digest::canonicalDigest($p['candidate']),$p['candidate_digest'])) { return Outcome::refuse('MONITOR_CANDIDATE_INTEGRITY_FAILED'); }
-        $receipt=$this->db->one('SELECT r.candidate_digest,a.request_digest,a.context_digest FROM provider_model_results r JOIN provider_model_attempts a ON a.model_attempt_id=r.model_attempt_id WHERE r.provider_call_id=? AND r.outcome=? AND a.tenant_id=? AND a.workspace_id=? AND a.mission_id=?',[$p['provider_call_id'],'CANDIDATE',$run['tenant_id'],$run['workspace_id'],$run['mission_id']]);
-        if ($receipt===null || $receipt['candidate_digest']!==$p['candidate_digest'] || $receipt['request_digest']!==$p['request_digest'] || $receipt['context_digest']!==$p['context_digest']) { return Outcome::refuse('MONITOR_CANDIDATE_PROVENANCE_INVALID'); }
+        if (isset($p['model_attempt_id'],$p['model_result_id'],$p['candidate_artifact_digest'])) {
+            $receipt=$this->db->one('SELECT r.candidate_digest,a.request_digest,a.context_digest,ca.artifact_digest
+                FROM provider_model_results r
+                JOIN provider_model_attempts a ON a.model_attempt_id=r.model_attempt_id
+                JOIN provider_model_candidate_artifacts ca ON ca.model_attempt_id=a.model_attempt_id
+                WHERE r.model_result_id=? AND r.model_attempt_id=? AND r.provider_call_id=? AND r.outcome=?
+                  AND a.tenant_id=? AND a.workspace_id=? AND a.mission_id=?',
+                [$p['model_result_id'],$p['model_attempt_id'],$p['provider_call_id'],'CANDIDATE',$run['tenant_id'],$run['workspace_id'],$run['mission_id']]);
+            if ($receipt===null || $receipt['candidate_digest']!==$p['candidate_digest']
+                || $receipt['request_digest']!==$p['request_digest'] || $receipt['context_digest']!==$p['context_digest']
+                || $receipt['artifact_digest']!==$p['candidate_artifact_digest']) {
+                return Outcome::refuse('MONITOR_CANDIDATE_PROVENANCE_INVALID');
+            }
+        } else {
+            // Historical pre-P05 candidate envelopes remain replayable under their original proof.
+            $receipt=$this->db->one('SELECT r.candidate_digest,a.request_digest,a.context_digest FROM provider_model_results r JOIN provider_model_attempts a ON a.model_attempt_id=r.model_attempt_id WHERE r.provider_call_id=? AND r.outcome=? AND a.tenant_id=? AND a.workspace_id=? AND a.mission_id=?',[$p['provider_call_id'],'CANDIDATE',$run['tenant_id'],$run['workspace_id'],$run['mission_id']]);
+            if ($receipt===null || $receipt['candidate_digest']!==$p['candidate_digest'] || $receipt['request_digest']!==$p['request_digest'] || $receipt['context_digest']!==$p['context_digest']) { return Outcome::refuse('MONITOR_CANDIDATE_PROVENANCE_INVALID'); }
+        }
         return $artifact;
     }
     private function validateRun(array $scope,array $run): Outcome

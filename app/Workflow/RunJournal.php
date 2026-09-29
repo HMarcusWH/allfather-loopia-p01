@@ -89,6 +89,21 @@ final class RunJournal
         }
     }
 
+    /** Same session lock, plus the exact revision the operator inspected. */
+    public function exclusiveAtRevision(array $scope, string $id, int $expectedRevision, callable $work): Outcome
+    {
+        return $this->exclusive($scope, $id, static function (?array $run) use ($expectedRevision, $work): Outcome {
+            if ($run === null) {
+                return Outcome::refuse('MONITOR_RUN_NOT_FOUND');
+            }
+            if ((int) $run['revision'] !== $expectedRevision) {
+                return Outcome::refuse('MONITOR_RUN_REVISION_CHANGED_RELOAD_REQUIRED');
+            }
+
+            return $work($run);
+        });
+    }
+
     /** Cursor is operational state. Event chain records the exact transition, not authority. */
     public function advance(array $scope, array $run, string $stage, array $cursor, string $kind): Outcome
     {
