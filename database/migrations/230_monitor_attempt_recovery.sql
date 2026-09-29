@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS monitor_run_reconciliations (
 CREATE INDEX ix_monitor_reconciliation_scope
   ON monitor_run_reconciliations(tenant_id,workspace_id,monitor_run_id,run_revision);
 
-DELIMITER $
+DELIMITER $$
 CREATE TRIGGER trg_model_candidate_artifacts_consistent BEFORE INSERT ON provider_model_candidate_artifacts FOR EACH ROW
 BEGIN
   IF NOT EXISTS (
@@ -99,7 +99,7 @@ BEGIN
   ) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'provider candidate artifact does not match its attempt';
   END IF;
-END$
+END$$
 
 CREATE TRIGGER trg_monitor_attempt_bindings_consistent BEFORE INSERT ON monitor_model_attempt_bindings FOR EACH ROW
 BEGIN
@@ -124,7 +124,7 @@ BEGIN
   ) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'monitor attempt binding crosses run/request scope';
   END IF;
-END$
+END$$
 
 CREATE TRIGGER trg_monitor_reconciliations_consistent BEFORE INSERT ON monitor_run_reconciliations FOR EACH ROW
 BEGIN
@@ -178,16 +178,16 @@ BEGIN
   ) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'reconciliation candidate artifact mismatch';
   END IF;
-END$
+END$$
 
 CREATE TRIGGER trg_model_candidate_artifacts_no_update BEFORE UPDATE ON provider_model_candidate_artifacts FOR EACH ROW
 BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'provider model candidate artifacts are append-only'; END$$
 CREATE TRIGGER trg_model_candidate_artifacts_no_delete BEFORE DELETE ON provider_model_candidate_artifacts FOR EACH ROW
 BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'provider model candidate artifacts preserve history'; END$$
 CREATE TRIGGER trg_monitor_attempt_bindings_no_update BEFORE UPDATE ON monitor_model_attempt_bindings FOR EACH ROW
-BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'monitor model attempt bindings are append-only'; END$
+BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'monitor model attempt bindings are append-only'; END$$
 CREATE TRIGGER trg_monitor_attempt_bindings_no_delete BEFORE DELETE ON monitor_model_attempt_bindings FOR EACH ROW
-BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'monitor model attempt bindings preserve history'; END$
+BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'monitor model attempt bindings preserve history'; END$$
 CREATE TRIGGER trg_monitor_reconciliations_no_update BEFORE UPDATE ON monitor_run_reconciliations FOR EACH ROW
 BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'monitor reconciliations are append-only'; END$$
 CREATE TRIGGER trg_monitor_reconciliations_no_delete BEFORE DELETE ON monitor_run_reconciliations FOR EACH ROW
