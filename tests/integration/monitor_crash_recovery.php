@@ -203,11 +203,32 @@ Assert::same(1, $unknownTransport->calls, 'failed adoption still performs no pro
 
 
 // "Nothing was dispatched" is not an unresolved provider outcome and cannot be filed as one.
-$cleanRun = X::value($service->startConfigured($scope, $fx['mission_id'], 'p05-no-dispatch'));
-$cleanInspection = X::value($reconciliation->inspect($scope, $cleanRun['monitor_run_id']));
-Assert::same('NO_DISPATCH_RECORDED', $cleanInspection['status'], 'a model-less stage reports that nothing was dispatched');
+$noDispatchFx = X::create($db, $clock, ['The note says alpha.', 'The note says beta.']);
+$noDispatchScope = $noDispatchFx['scope'];
+$noDispatchApprovals = X::approveAll($noDispatchFx, 'MANUAL_MONITOR');
+X::admitted($noDispatchFx, X::manualDefinition($db, $clock, $noDispatchFx, $noDispatchApprovals));
+$noDispatchService = $noDispatchFx['service'];
+$noDispatchBaseline = X::value($noDispatchService->startConfigured($noDispatchScope, $noDispatchFx['mission_id'], 'p05-no-dispatch-baseline'));
+X::value($noDispatchService->advance($noDispatchScope, $noDispatchBaseline['monitor_run_id']));
+$clock->advanceDays(1);
+$noDispatchRun = X::value($noDispatchService->startConfigured($noDispatchScope, $noDispatchFx['mission_id'], 'p05-no-dispatch-changed'));
+$noDispatchId = $noDispatchRun['monitor_run_id'];
+X::value($noDispatchService->advance($noDispatchScope, $noDispatchId));
+Assert::same('DIFFED', X::value($noDispatchService->advance($noDispatchScope, $noDispatchId))['stage'], 'fixture reaches a model stage without dispatching it');
+$noDispatchReconciliation = new RunReconciliation(
+    $db,
+    $clock,
+    new RunJournal($db, $clock),
+    new RunArtifacts($noDispatchFx['evidence_store']),
+    new ModelArtifactStore($db, $clock, $noDispatchFx['evidence_store']),
+    new MissionConfiguration($db, $clock),
+    new ContextEnvelope($db, $clock, $noDispatchFx['evidence_store']),
+    $noDispatchFx['admission'],
+);
+$cleanInspection = X::value($noDispatchReconciliation->inspect($noDispatchScope, $noDispatchId));
+Assert::same('NO_DISPATCH_RECORDED', $cleanInspection['status'], 'an untouched model stage reports that nothing was dispatched');
 Assert::same(
     'MONITOR_RECONCILIATION_NOT_UNRESOLVED',
-    $reconciliation->markUnresolved($scope, $cleanRun['monitor_run_id'], $cleanInspection['run_revision'], 'TEST_NOT_AN_UNKNOWN_OUTCOME')->reasonCode(),
+    $noDispatchReconciliation->markUnresolved($noDispatchScope, $noDispatchId, $cleanInspection['run_revision'], 'TEST_NOT_AN_UNKNOWN_OUTCOME')->reasonCode(),
     'operator cannot relabel a safe no-dispatch state as an unknown provider outcome',
 );
