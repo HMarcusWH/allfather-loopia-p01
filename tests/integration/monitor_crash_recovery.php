@@ -155,6 +155,48 @@ Assert::same('BLOCKED', $refusalAdopted['run']['stage'], 'known terminal refusal
 Assert::same(1, $quotaTransport->calls, 'refusal adoption never calls the provider again');
 Assert::false(str_contains(json_encode($refusalAdopted), 'PRIVATE_PROVIDER_TEXT'), 'provider error text never enters reconciliation output');
 
-$serviceSource = (string) file_get_contents(dirname(__DIR__, 2) . '/app/Workflow/MonitorService.php');
-Assert::contains('MODEL_NETWORK_OUTCOME_UNKNOWN', $serviceSource, 'network-unknown model outcomes route to reconciliation instead of ordinary terminal refusal');
-Assert::contains('MODEL_TIMEOUT', $serviceSource, 'timeouts route to reconciliation rather than being silently treated as known results');
+$unknownFx = X::create($db, $clock, ['The offer says Q1.', 'The offer says Q2.']);
+$unknownScope = $unknownFx['scope'];
+$unknownApprovals = X::approveAll($unknownFx, 'MANUAL_MONITOR');
+X::admitted($unknownFx, X::manualDefinition($db, $clock, $unknownFx, $unknownApprovals));
+$unknownTransport = new \Allfather\Loopia\Tests\LiveFlaggedFixtureTransport(
+    static fn ($request) => new \Allfather\Loopia\Provider\ModelResponse(
+        0, '', null, 'MODEL_NETWORK_OUTCOME_UNKNOWN'
+    ),
+);
+$unknownService = X::service(
+    $db, $clock, $unknownFx, $unknownFx['source'], $unknownTransport,
+    $unknownFx['resolver'], $unknownFx['admission'],
+);
+$unknownBaseline = X::value($unknownService->startConfigured($unknownScope, $unknownFx['mission_id'], 'p05-network-baseline'));
+X::value($unknownService->advance($unknownScope, $unknownBaseline['monitor_run_id']));
+$clock->advanceDays(1);
+$unknownRun = X::value($unknownService->startConfigured($unknownScope, $unknownFx['mission_id'], 'p05-network-changed'));
+$unknownId = $unknownRun['monitor_run_id'];
+X::value($unknownService->advance($unknownScope, $unknownId));
+X::value($unknownService->advance($unknownScope, $unknownId));
+$unknownDetail = X::value($unknownService->detail($unknownScope, $unknownId));
+$unknownAdvance = $unknownService->advance($unknownScope, $unknownId, $unknownDetail['preview_request']['request_digest']);
+Assert::same('MONITOR_MODEL_REQUIRES_RECONCILIATION', $unknownAdvance->reasonCode(), 'network-unknown result routes to reconciliation rather than ordinary BLOCKED');
+Assert::same('DIFFED', (new RunJournal($db, $clock))->find($unknownScope, $unknownId)['stage'], 'ambiguous network outcome leaves the model stage intact');
+Assert::same(1, $unknownTransport->calls, 'ambiguous transport is never automatically retried');
+
+$unknownReconciliation = new RunReconciliation(
+    $db,
+    $clock,
+    new RunJournal($db, $clock),
+    new RunArtifacts($unknownFx['evidence_store']),
+    new ModelArtifactStore($db, $clock, $unknownFx['evidence_store']),
+    new MissionConfiguration($db, $clock),
+    new ContextEnvelope($db, $clock, $unknownFx['evidence_store']),
+    $unknownFx['admission'],
+);
+$unknownInspection = X::value($unknownReconciliation->inspect($unknownScope, $unknownId));
+Assert::same('UNRESOLVED', $unknownInspection['status'], 'network-unknown provider result stays explicitly unresolved');
+Assert::same('MODEL_NETWORK_OUTCOME_UNKNOWN', $unknownInspection['reason_code'], 'the ambiguous transport reason is preserved');
+Assert::same(
+    'MONITOR_RECONCILIATION_NOT_RECOVERABLE',
+    $unknownReconciliation->adopt($unknownScope, $unknownId, $unknownInspection['run_revision'])->reasonCode(),
+    'an ambiguous provider outcome cannot be adopted as a known refusal',
+);
+Assert::same(1, $unknownTransport->calls, 'failed adoption still performs no provider call');

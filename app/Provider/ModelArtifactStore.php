@@ -110,7 +110,9 @@ final class ModelArtifactStore
         ?string $expectedRequestDigest = null,
     ): Outcome {
         $row = $this->db->one(
-            'SELECT ca.*,a.execution_mode,a.context_digest
+            'SELECT ca.*,a.execution_mode,a.context_digest,
+                    a.tool_request_id AS attempt_tool_request_id,
+                    a.request_digest AS attempt_request_digest
              FROM provider_model_candidate_artifacts ca
              JOIN provider_model_attempts a ON a.model_attempt_id=ca.model_attempt_id
              WHERE ca.model_attempt_id=? AND ca.tenant_id=? AND ca.workspace_id=? AND ca.mission_id=?
@@ -119,6 +121,10 @@ final class ModelArtifactStore
         );
         if ($row === null) {
             return Outcome::refuse('MODEL_CANDIDATE_ARTIFACT_NOT_FOUND');
+        }
+        if ((string) $row['tool_request_id'] !== (string) $row['attempt_tool_request_id']
+            || !hash_equals((string) $row['request_digest'], (string) $row['attempt_request_digest'])) {
+            return Outcome::refuse('MODEL_CANDIDATE_ARTIFACT_ATTEMPT_MISMATCH');
         }
         if ($expectedRequestDigest !== null && !hash_equals((string) $row['request_digest'], $expectedRequestDigest)) {
             return Outcome::refuse('MODEL_CANDIDATE_ARTIFACT_REQUEST_MISMATCH');

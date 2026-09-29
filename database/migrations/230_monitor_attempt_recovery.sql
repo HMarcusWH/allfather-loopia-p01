@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS monitor_model_attempt_bindings (
   request_artifact_digest CHAR(64) NOT NULL,
   request_digest CHAR(64) NOT NULL,
   recorded_at CHAR(24) NOT NULL,
+  UNIQUE KEY uq_monitor_attempt_binding_stage (monitor_run_id,run_revision,model_stage),
   CHECK (run_revision >= 0),
   CHECK (model_stage IN ('classifier','draft','critic','routing_critic')),
   CONSTRAINT fk_monitor_attempt_binding_attempt FOREIGN KEY (model_attempt_id) REFERENCES provider_model_attempts(model_attempt_id),

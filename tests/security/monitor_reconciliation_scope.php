@@ -64,6 +64,14 @@ Assert::same(
     'known durable result cannot be mislabeled unresolved',
 );
 
+$sourceRefId = (string) $db->scalar('SELECT source_ref_id FROM monitored_sources WHERE monitored_source_id=?', [$fx['monitored_source_id']]);
+$sourceStatus = (string) $db->scalar('SELECT status FROM source_references WHERE source_ref_id=?', [$sourceRefId]);
+$db->run("UPDATE source_references SET status='REVOKED' WHERE source_ref_id=?", [$sourceRefId]);
+$staleAdoption = $reconciliation->adopt($scope, $id, $inspection['run_revision']);
+Assert::false($staleAdoption->isOk(), 'reconciliation re-checks current source/context authority before consuming a candidate');
+Assert::same('DIFFED', (new RunJournal($db, $clock))->find($scope, $id)['stage'], 'currentness refusal leaves interrupted history untouched');
+$db->run('UPDATE source_references SET status=? WHERE source_ref_id=?', [$sourceStatus, $sourceRefId]);
+
 foreach ([
     "UPDATE provider_model_candidate_artifacts SET candidate_digest='" . str_repeat('0', 64) . "'",
     'DELETE FROM provider_model_candidate_artifacts',
