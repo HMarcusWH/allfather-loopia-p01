@@ -109,9 +109,19 @@ BEGIN
   IF NEW.outcome='CANDIDATE' THEN
     IF NEW.candidate_digest IS NULL OR NEW.failure_code IS NOT NULL OR NEW.provider_call_id IS NULL
        OR NOT EXISTS (
-         SELECT 1 FROM provider_model_candidate_artifacts ca
+         SELECT 1
+         FROM provider_model_candidate_artifacts ca
+         JOIN provider_model_attempts a ON a.model_attempt_id=ca.model_attempt_id
+         JOIN provider_call_records pc ON pc.provider_call_id=NEW.provider_call_id
+         JOIN tool_execution_outcomes teo ON teo.tool_request_id=NEW.tool_request_id
          WHERE ca.model_attempt_id=NEW.model_attempt_id
            AND ca.tool_request_id=NEW.tool_request_id
+           AND a.tool_request_id=NEW.tool_request_id
+           AND pc.tenant_id=a.tenant_id
+           AND pc.workspace_id=a.workspace_id
+           AND pc.outcome='SUCCEEDED'
+           AND teo.outcome_status='SUCCEEDED'
+           AND BINARY teo.result_digest=BINARY NEW.candidate_digest
            AND BINARY ca.candidate_digest=BINARY NEW.candidate_digest
            AND BINARY ca.artifact_digest=BINARY NEW.candidate_digest
        )
