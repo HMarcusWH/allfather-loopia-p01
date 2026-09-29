@@ -181,7 +181,10 @@ final class ModelExecutor
         if(!StructuredOutput::matches($candidate,$request->outputSchema()))return $failure('MODEL_OUTPUT_SCHEMA_INVALID');
         $value=json_decode($texts[0],true,24,JSON_THROW_ON_ERROR);
         $usage=static fn(mixed $v):?int=>is_int($v)&&$v>=0&&$v<=10000000?$v:null;
-        return ['kind'=>'GENERATED','candidate'=>$value,'result_digest'=>Digest::canonicalDigest($candidate),'telemetry_outcome'=>'SUCCEEDED','input_tokens'=>$usage($decoded->usage->input_tokens??null),'output_tokens'=>$usage($decoded->usage->output_tokens??null)];
+        // Digest the exact PHP/JSON value that leaves this method and is persisted by P05. Using the
+        // stdClass validation view here would diverge from the returned associative value for an empty
+        // JSON object (`{}` vs PHP `[]`), creating a candidate whose own durable bytes cannot verify.
+        return ['kind'=>'GENERATED','candidate'=>$value,'result_digest'=>Digest::canonicalDigest($value),'telemetry_outcome'=>'SUCCEEDED','input_tokens'=>$usage($decoded->usage->input_tokens??null),'output_tokens'=>$usage($decoded->usage->output_tokens??null)];
     }
     private static function safeRequestId(?string $value): ?string
     {
