@@ -109,6 +109,65 @@ foreach ([
 
 $adopted = X::value($reconciliation->adopt($scope, $id, $inspection['run_revision']));
 Assert::same('ANALYZED', $adopted['run']['stage'], 'the exact scoped adoption succeeds once');
+// Direct-write consistency pins also protect the two pre-reconciliation binding tables.
+$actualAttempt = $db->one('SELECT * FROM provider_model_attempts WHERE model_attempt_id=?', [$inspection['model_attempt_id']]);
+$captureRequest = (string) $db->scalar(
+    "SELECT tool_request_id FROM tool_requests
+     WHERE tenant_id=? AND workspace_id=? AND idempotency_key LIKE 'monitor.capture.%'
+     ORDER BY requested_at LIMIT 1",
+    [$scope['tenant_id'], $scope['workspace_id']],
+);
+$dummyAttemptId = \Allfather\Loopia\Core\Ids::new();
+$db->insert('provider_model_attempts', [
+    'model_attempt_id' => $dummyAttemptId,
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $scope['workspace_id'],
+    'mission_id' => $fx['mission_id'],
+    'tool_request_id' => $captureRequest,
+    'request_digest' => str_repeat('d', 64),
+    'context_digest' => $actualAttempt['context_digest'],
+    'prompt_version_id' => $actualAttempt['prompt_version_id'],
+    'binding_id' => $actualAttempt['binding_id'],
+    'output_schema_id' => $actualAttempt['output_schema_id'],
+    'prompt_sha256' => $actualAttempt['prompt_sha256'],
+    'schema_sha256' => $actualAttempt['schema_sha256'],
+    'execution_mode' => 'FIXTURE',
+    'reserved_at' => $clock->now(),
+]);
+
+try {
+    $db->insert('provider_model_candidate_artifacts', [
+        'model_attempt_id' => $dummyAttemptId,
+        'tenant_id' => $foreignForWrite['tenant_id'],
+        'workspace_id' => $foreignForWrite['workspace_id'],
+        'mission_id' => $fx['mission_id'],
+        'tool_request_id' => $captureRequest,
+        'request_digest' => str_repeat('d', 64),
+        'candidate_digest' => str_repeat('e', 64),
+        'artifact_digest' => str_repeat('e', 64),
+        'artifact_size' => 1,
+        'recorded_at' => $clock->now(),
+    ]);
+    Assert::fail('database accepted provider candidate metadata under a foreign tenant/workspace');
+} catch (\PDOException) {
+    Assert::pass();
+}
+
+try {
+    $db->insert('monitor_model_attempt_bindings', [
+        'model_attempt_id' => $dummyAttemptId,
+        'monitor_run_id' => $id,
+        'run_revision' => $inspection['run_revision'],
+        'model_stage' => 'classifier',
+        'request_artifact_digest' => $inspection['request_artifact_digest'],
+        'request_digest' => str_repeat('d', 64),
+        'recorded_at' => $clock->now(),
+    ]);
+    Assert::fail('database accepted a non-Monitor tool request as a Monitor attempt binding');
+} catch (\PDOException) {
+    Assert::pass();
+}
+
 foreach ([
     "UPDATE monitor_run_reconciliations SET observed_reason_code='REWRITTEN'",
     'DELETE FROM monitor_run_reconciliations',
