@@ -184,6 +184,18 @@ $db->insert('provider_model_attempts', [
     'execution_mode' => 'FIXTURE',
     'reserved_at' => $clock->now(),
 ]);
+$dummyResultId = \Allfather\Loopia\Core\Ids::new();
+$db->insert('provider_model_results', [
+    'model_result_id' => $dummyResultId,
+    'model_attempt_id' => $dummyAttemptId,
+    'provider_call_id' => null,
+    'tool_request_id' => $captureRequest,
+    'outcome' => 'REFUSED',
+    'candidate_digest' => null,
+    'provider_request_id' => null,
+    'failure_code' => 'FORGED_REFUSAL',
+    'recorded_at' => $clock->now(),
+]);
 
 try {
     $db->insert('provider_model_candidate_artifacts', [
@@ -229,7 +241,7 @@ try {
         'disposition' => 'ADOPTED_REFUSAL',
         'tool_request_id' => $captureRequest,
         'model_attempt_id' => $dummyAttemptId,
-        'model_result_id' => null,
+        'model_result_id' => $dummyResultId,
         'request_digest' => str_repeat('d', 64),
         'candidate_digest' => null,
         'artifact_digest' => null,
