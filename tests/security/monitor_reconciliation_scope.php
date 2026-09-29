@@ -159,6 +159,7 @@ foreach ([
 
 $adopted = X::value($reconciliation->adopt($scope, $id, $inspection['run_revision']));
 Assert::same('ANALYZED', $adopted['run']['stage'], 'the exact scoped adoption succeeds once');
+$currentRevision = (int) $adopted['run']['revision'];
 // Direct-write consistency pins also protect the two pre-reconciliation binding tables.
 $actualAttempt = $db->one('SELECT * FROM provider_model_attempts WHERE model_attempt_id=?', [$inspection['model_attempt_id']]);
 $captureRequest = (string) $db->scalar(
@@ -235,7 +236,7 @@ try {
     $db->insert('monitor_model_attempt_bindings', [
         'model_attempt_id' => $dummyAttemptId,
         'monitor_run_id' => $id,
-        'run_revision' => $inspection['run_revision'],
+        'run_revision' => $currentRevision,
         'model_stage' => 'draft',
         'request_artifact_digest' => $inspection['request_artifact_digest'],
         'request_digest' => str_repeat('d', 64),
@@ -252,8 +253,8 @@ try {
         'tenant_id' => $scope['tenant_id'],
         'workspace_id' => $scope['workspace_id'],
         'monitor_run_id' => $id,
-        'run_revision' => $inspection['run_revision'],
-        'model_stage' => 'classifier',
+        'run_revision' => $currentRevision,
+        'model_stage' => 'draft',
         'disposition' => 'ADOPTED_REFUSAL',
         'tool_request_id' => $captureRequest,
         'model_attempt_id' => $dummyAttemptId,
