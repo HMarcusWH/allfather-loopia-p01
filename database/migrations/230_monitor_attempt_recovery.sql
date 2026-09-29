@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS provider_model_candidate_artifacts (
   artifact_size INT NOT NULL,
   recorded_at CHAR(24) NOT NULL,
   CHECK (artifact_size >= 0),
-  CHECK (candidate_digest = artifact_digest),
+  CHECK (BINARY candidate_digest = BINARY artifact_digest),
   CONSTRAINT fk_model_candidate_artifact_attempt FOREIGN KEY (model_attempt_id) REFERENCES provider_model_attempts(model_attempt_id),
   CONSTRAINT fk_model_candidate_artifact_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id),
   CONSTRAINT fk_model_candidate_artifact_workspace FOREIGN KEY (workspace_id) REFERENCES workspaces(workspace_id),
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS monitor_run_reconciliations (
   CHECK (disposition <> 'ADOPTED_CANDIDATE' OR (
     tool_request_id IS NOT NULL AND model_attempt_id IS NOT NULL AND model_result_id IS NOT NULL
     AND request_digest IS NOT NULL AND candidate_digest IS NOT NULL AND artifact_digest IS NOT NULL
-    AND candidate_digest = artifact_digest
+    AND BINARY candidate_digest = BINARY artifact_digest
   )),
   CHECK (disposition <> 'ADOPTED_REFUSAL' OR (
     tool_request_id IS NOT NULL AND model_attempt_id IS NOT NULL AND model_result_id IS NOT NULL

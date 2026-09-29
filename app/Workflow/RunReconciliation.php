@@ -137,7 +137,10 @@ final class RunReconciliation
                 }
 
                 $next = $state['next_stage'];
-                $cursor = $run['cursor'] + [$state['model_stage'] . '_artifact' => $saved->value()['digest']];
+                $cursor = $run['cursor'] + [
+                    $state['model_stage'] . '_request_artifact' => $state['request_artifact_digest'],
+                    $state['model_stage'] . '_artifact' => $saved->value()['digest'],
+                ];
                 if ($state['model_stage'] === 'classifier' && ($state['_candidate']['status'] ?? null) === 'NO_MATERIAL_CHANGE') {
                     $next = 'NO_CHANGE';
                 } elseif (!str_contains($state['model_stage'], 'critic') && ($state['_candidate']['status'] ?? null) === 'HELD') {
@@ -169,7 +172,10 @@ final class RunReconciliation
                     $scope,
                     $run,
                     'BLOCKED',
-                    $run['cursor'] + ['reason_code' => $reason],
+                    $run['cursor'] + [
+                        $state['model_stage'] . '_request_artifact' => $state['request_artifact_digest'],
+                        'reason_code' => $reason,
+                    ],
                     'MODEL_REFUSAL_RECONCILED',
                 );
                 if (!$advanced->isOk()) {

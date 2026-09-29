@@ -76,6 +76,7 @@ Assert::false(isset($inspection['candidate']), 'operator inspection does not pri
 $adopted = X::value($reconciliation->adopt($scope, $id, $inspection['run_revision']));
 Assert::same('ADOPTED_CANDIDATE', $adopted['disposition'], 'operator explicitly adopts the durable candidate');
 Assert::same('ANALYZED', $adopted['run']['stage'], 'adoption uses the ordinary DIFFED -> ANALYZED transition');
+Assert::same($inspection['request_artifact_digest'], $adopted['run']['cursor']['classifier_request_artifact'], 'recovered run preserves the exact inspected request artifact in its cursor');
 Assert::same(1, $fx['model']->calls, 'adoption never repeats the model call');
 Assert::same(1, (int) $db->scalar("SELECT COUNT(*) FROM monitor_run_reconciliations WHERE disposition='ADOPTED_CANDIDATE'"), 'adoption is append-only evidence');
 Assert::same('MONITOR_RUN_REVISION_CHANGED_RELOAD_REQUIRED', $reconciliation->adopt($scope, $id, $inspection['run_revision'])->reasonCode(), 'stale adoption cannot consume a result twice');
@@ -153,6 +154,7 @@ Assert::same('MODEL_QUOTA_EXHAUSTED', $refusalInspection['reason_code'], 'specif
 $refusalAdopted = X::value($refusalReconciliation->adopt($refusalScope, $refusalId, $refusalInspection['run_revision']));
 Assert::same('ADOPTED_REFUSAL', $refusalAdopted['disposition'], 'operator adopts the exact durable refusal');
 Assert::same('BLOCKED', $refusalAdopted['run']['stage'], 'known terminal refusal becomes the ordinary BLOCKED journal outcome');
+Assert::same($refusalInspection['request_artifact_digest'], $refusalAdopted['run']['cursor']['classifier_request_artifact'], 'reconciled refusal preserves the inspected request artifact exactly like the ordinary path');
 Assert::same(1, $quotaTransport->calls, 'refusal adoption never calls the provider again');
 Assert::false(str_contains(json_encode($refusalAdopted), 'PRIVATE_PROVIDER_TEXT'), 'provider error text never enters reconciliation output');
 
