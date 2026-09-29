@@ -99,9 +99,10 @@ Loopia support, never by this probe reporting READY and never by weakening the P
   a one-second `innodb_lock_wait_timeout`, blocks and times out; the holder rolls back; the
   contender then acquires. Both halves matter — a database that blocked forever would pass the first.
 - `named_advisory_locking` — two independent connections prove `GET_LOCK(...,0)` acquisition,
-  refusal to acquire while held, refusal by the non-owner to release it, owner release, and
-  acquisition/release by the contender afterwards. This is the exact session-lock primitive used by
-  the Monitor run journal and P05 source serialization, so no SQL transaction has to stay open
+  **two distinct locks held simultaneously by one session** (the Monitor nests its source lock inside
+  its run lock), refusal to acquire while held, refusal by the non-owner to release it, owner release,
+  and acquisition/release by the contender afterwards. This is the exact session-lock primitive used
+  by the Monitor run journal and P05 source serialization, so no SQL transaction has to stay open
   across network I/O.
 - `trigger_support` — a `BEFORE DELETE` trigger is created, the DELETE is refused **with SQLSTATE
   `45000`**, and the row survives. This is the capability most likely to be silently absent: the

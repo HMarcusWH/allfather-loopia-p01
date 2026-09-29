@@ -151,6 +151,7 @@ Assert::contains(
 Assert::contains("'named_advisory_locking' => ['NOT_PROBED', null]", $code, 'named advisory locking is a distinct capability');
 Assert::contains("SELECT GET_LOCK(?, 0)", $code, 'the probe executes the same non-blocking named-lock primitive the Monitor uses');
 Assert::contains("SELECT RELEASE_LOCK(?)", $code, 'and executes the matching release primitive');
+Assert::contains("'nested_lock_same_connection' => \$holderNestedAcquired", $code, 'the same session can hold the run lock and nested source lock together');
 Assert::contains("'foreign_release_refused' => \$contenderCannotReleaseForeign", $code, 'another connection cannot release the holder\'s lock');
 Assert::contains("'acquired_after_release' => \$contenderAcquiredAfter", $code, 'the contender acquires after the owner releases');
 
