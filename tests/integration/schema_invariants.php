@@ -59,7 +59,7 @@ Assert::same(6, count($loopiaExtensions), 'six bounded model/Monitor host-adapta
 // stated here rather than read from the fixture, so a table cannot arrive by editing JSON alone.
 $completion = $inventory['completion_plan_tables'];
 Assert::same(
-    ['210_monitor_execution_controls.sql' => 6, '220_monitor_evaluation_records.sql' => 4, '225_monitor_setup_receipts.sql' => 1],
+    ['210_monitor_execution_controls.sql' => 6, '220_monitor_evaluation_records.sql' => 4, '225_monitor_setup_receipts.sql' => 1, '230_monitor_attempt_recovery.sql' => 2],
     array_map('count', $completion),
     'completion-plan tables are declared per reviewed migration',
 );
