@@ -193,7 +193,7 @@ final class MonitorService implements MonitorOperations
         $requestArtifact=$this->artifacts->save($run,$name.'_request',$request->inspect()); if (!$requestArtifact->isOk()) { return $requestArtifact; }
         $command=$run['definition']['model_governance'][str_contains($name,'critic')?'critic':'author'];
         $command=array_merge($command,['tenant_id'=>$scope['tenant_id'],'workspace_id'=>$scope['workspace_id'],'calling_actor_type'=>'OPERATOR','calling_actor_id'=>$scope['operator_id'],'requested_action_class'=>'ANALYZE','idempotency_key'=>'monitor.model.'.$run['monitor_run_id'].'.'.$name,'correlation_id'=>$run['monitor_run_id'],'request_purpose_safe'=>'Bounded Monitor '.$name.' candidate']);
-        $result=$this->models->execute($command,$request,$run['definition']['credential_id'],['monitor_run_id'=>$run['monitor_run_id'],'mission_id'=>$run['mission_id'],'definition_digest'=>$run['definition_digest']]);
+        $result=$this->models->execute($command,$request,$run['definition']['credential_id'],['monitor_run_id'=>$run['monitor_run_id'],'monitor_run_revision'=>(int)$run['revision'],'monitor_model_stage'=>$name,'request_artifact_digest'=>$requestArtifact->value()['digest'],'mission_id'=>$run['mission_id'],'definition_digest'=>$run['definition_digest']]);
         $cursor=$run['cursor']+[$name.'_request_artifact'=>$requestArtifact->value()['digest']];
         if (($result['kind']??'')==='MODEL_REFUSED' && !isset($result['dispatch']) && self::isAdmissionRefusal($result['reason_code']??'')) {
             // Refused before M06 was asked: nothing reserved or sent. The run waits for admission.

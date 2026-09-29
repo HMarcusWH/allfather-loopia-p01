@@ -28,6 +28,7 @@ final class RunReconciliation
         private readonly RunArtifacts $runArtifacts,
         private readonly ModelArtifactStore $modelArtifacts,
         private readonly MissionConfiguration $configuration,
+        private readonly ModelContextAuthority $context,
         private readonly ?ExecutionAdmission $admission = null,
     ) {}
 
@@ -73,6 +74,29 @@ final class RunReconciliation
                 $valid = $this->configuration->validate($scope, $run['definition'], $run['execution_mode']);
                 if (!$valid->isOk()) {
                     return $valid;
+                }
+                $requestProvenance = $state['_request']['provenance'] ?? null;
+                if (!is_array($requestProvenance) || !is_array($requestProvenance['context'] ?? null)) {
+                    return Outcome::refuse('MONITOR_RECONCILIATION_REQUEST_INVALID');
+                }
+                $currentContext = $this->context->revalidate($requestProvenance['context']);
+                if (!$currentContext->isOk()) {
+                    return $currentContext;
+                }
+                if ($state['role'] === 'MONITOR_ROUTING_CRITIC') {
+                    $inputs = $requestProvenance['stage_inputs'] ?? null;
+                    if (!is_array($inputs) || !is_array($inputs['routing_package'] ?? null)
+                        || !is_array($inputs['prior_candidate']['candidate'] ?? null)) {
+                        return Outcome::refuse('MONITOR_RECONCILIATION_REQUEST_INVALID');
+                    }
+                    $routing = $this->context->validateRoutingPackage(
+                        $requestProvenance['context'],
+                        $inputs['routing_package'],
+                        $inputs['prior_candidate']['candidate'],
+                    );
+                    if (!$routing->isOk()) {
+                        return $routing;
+                    }
                 }
                 if ($run['execution_mode'] === 'NATIVE') {
                     if ($this->admission === null || !is_string($state['_execution_grant_id'] ?? null)) {
@@ -226,34 +250,10 @@ final class RunReconciliation
             return Outcome::refuse('MONITOR_RECONCILIATION_NOT_MODEL_STAGE');
         }
 
-        $requestKey = $spec['name'] . '_request_artifact';
-        if (!isset($run['cursor'][$requestKey])) {
-            return Outcome::ok([
-                'status' => 'NO_REQUEST_RECORDED', 'reason_code' => 'MONITOR_RECONCILIATION_REQUEST_NOT_RECORDED',
-                'monitor_run_id' => $run['monitor_run_id'], 'run_revision' => (int) $run['revision'],
-                'stage' => $run['stage'], 'model_stage' => $spec['name'], 'role' => $spec['role'],
-                'next_stage' => $spec['next'], 'will_call_provider' => false, 'will_release' => false,
-            ]);
-        }
-        $request = $this->runArtifacts->read($run, $run['cursor'][$requestKey], $spec['name'] . '_request');
-        if (!$request->isOk()) {
-            return $request;
-        }
-        $inspected = $request->value();
-        $requestDigest = $inspected['request_digest'] ?? null;
-        if (!is_string($requestDigest) || preg_match('/^[a-f0-9]{64}$/D', $requestDigest) !== 1) {
-            return Outcome::refuse('MONITOR_RECONCILIATION_REQUEST_INVALID');
-        }
-        $provenance = $inspected['provenance'] ?? null;
-        if (!is_array($provenance) || ($provenance['role'] ?? null) !== $spec['role']) {
-            return Outcome::refuse('MONITOR_RECONCILIATION_REQUEST_INVALID');
-        }
-
         $base = [
             'monitor_run_id' => $run['monitor_run_id'], 'run_revision' => (int) $run['revision'],
             'stage' => $run['stage'], 'model_stage' => $spec['name'], 'role' => $spec['role'],
-            'next_stage' => $spec['next'], 'request_digest' => $requestDigest,
-            'will_call_provider' => false, 'will_release' => false, '_request' => $inspected,
+            'next_stage' => $spec['next'], 'will_call_provider' => false, 'will_release' => false,
         ];
         $idempotencyKey = 'monitor.model.' . $run['monitor_run_id'] . '.' . $spec['name'];
         $tool = $this->db->one(
@@ -269,11 +269,13 @@ final class RunReconciliation
             ]);
         }
         $base['tool_request_id'] = $tool['tool_request_id'];
-        if ($tool['normalized_input_ref_safe'] !== 'model-request://' . $requestDigest) {
+        if (preg_match('/^model-request:\/\/([a-f0-9]{64})$/D', (string) $tool['normalized_input_ref_safe'], $m) !== 1) {
             return Outcome::ok($base + [
-                'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_REQUEST_MISMATCH',
+                'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_REQUEST_REFERENCE_INVALID',
             ]);
         }
+        $requestDigest = $m[1];
+        $base['request_digest'] = $requestDigest;
 
         $attempt = $this->db->one(
             'SELECT * FROM provider_model_attempts
@@ -290,12 +292,54 @@ final class RunReconciliation
             'execution_mode' => $attempt['execution_mode'],
             'context_digest' => $attempt['context_digest'],
         ];
-        if (!hash_equals((string) $attempt['request_digest'], $requestDigest)
-            || ($provenance['context_digest'] ?? null) !== $attempt['context_digest']) {
+        if (!hash_equals((string) $attempt['request_digest'], $requestDigest)) {
             return Outcome::ok($base + [
                 'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_ATTEMPT_MISMATCH',
             ]);
         }
+
+        $binding = $this->db->one(
+            'SELECT monitor_run_id,run_revision,model_stage,request_artifact_digest,request_digest
+             FROM monitor_model_attempt_bindings WHERE model_attempt_id=?',
+            [$attempt['model_attempt_id']],
+        );
+        $requestKey = $spec['name'] . '_request_artifact';
+        $requestArtifactDigest = $binding['request_artifact_digest'] ?? ($run['cursor'][$requestKey] ?? null);
+        if ($binding !== null
+            && ($binding['monitor_run_id'] !== $run['monitor_run_id']
+                || (int) $binding['run_revision'] !== (int) $run['revision']
+                || $binding['model_stage'] !== $spec['name']
+                || !hash_equals((string) $binding['request_digest'], $requestDigest))) {
+            return Outcome::ok($base + [
+                'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_RUN_BINDING_MISMATCH',
+            ]);
+        }
+        if (isset($run['cursor'][$requestKey]) && $binding !== null
+            && !hash_equals((string) $run['cursor'][$requestKey], (string) $binding['request_artifact_digest'])) {
+            return Outcome::ok($base + [
+                'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_REQUEST_ARTIFACT_MISMATCH',
+            ]);
+        }
+        if (!is_string($requestArtifactDigest) || preg_match('/^[a-f0-9]{64}$/D', $requestArtifactDigest) !== 1) {
+            return Outcome::ok($base + [
+                'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_REQUEST_NOT_RECORDED',
+            ]);
+        }
+        $base['request_artifact_digest'] = $requestArtifactDigest;
+        $request = $this->runArtifacts->read($run, $requestArtifactDigest, $spec['name'] . '_request');
+        if (!$request->isOk()) {
+            return $request;
+        }
+        $inspected = $request->value();
+        if (($inspected['request_digest'] ?? null) !== $requestDigest
+            || !is_array($inspected['provenance'] ?? null)
+            || ($inspected['provenance']['role'] ?? null) !== $spec['role']
+            || ($inspected['provenance']['context_digest'] ?? null) !== $attempt['context_digest']) {
+            return Outcome::ok($base + [
+                'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_REQUEST_MISMATCH',
+            ]);
+        }
+        $base['_request'] = $inspected;
 
         $purpose = $this->db->one('SELECT * FROM provider_attempt_purposes WHERE model_attempt_id=?', [$attempt['model_attempt_id']]);
         if ($run['execution_mode'] === 'NATIVE') {
@@ -312,6 +356,11 @@ final class RunReconciliation
         if ($result === null) {
             return Outcome::ok($base + [
                 'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_RESULT_NOT_RECORDED',
+            ]);
+        }
+        if ($result['tool_request_id'] !== $tool['tool_request_id']) {
+            return Outcome::ok($base + [
+                'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_RESULT_REQUEST_MISMATCH',
             ]);
         }
         $base += [

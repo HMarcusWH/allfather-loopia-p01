@@ -124,6 +124,20 @@ final class ModelExecutor
             if($facts!==null){
                 $evaluation=$facts['purpose']==='MODEL_EVALUATION';
                 $tx->insert('provider_attempt_purposes',['model_attempt_id'=>$id,'execution_purpose'=>$facts['purpose'],'execution_grant_id'=>$facts['execution_grant_id'],'evaluation_run_id'=>$evaluation?($facts['evaluation_run_id']??null):null,'monitor_run_id'=>$evaluation?null:($facts['monitor_run_id']??null),'material_provenance'=>$evaluation?'SYNTHETIC_EVALUATION_CASE':'PRODUCT_MISSION','recorded_at'=>$this->clock->now()]);
+                if(!$evaluation){
+                    $revision=$facts['monitor_run_revision']??null;
+                    $stage=$facts['monitor_model_stage']??null;
+                    $requestArtifact=$facts['request_artifact_digest']??null;
+                    if(!is_int($revision)||$revision<0||!in_array($stage,['classifier','draft','critic','routing_critic'],true)
+                        ||!is_string($requestArtifact)||preg_match('/^[a-f0-9]{64}$/D',$requestArtifact)!==1){
+                        return Outcome::refuse('MODEL_MONITOR_ATTEMPT_BINDING_INVALID');
+                    }
+                    $tx->insert('monitor_model_attempt_bindings',[
+                        'model_attempt_id'=>$id,'monitor_run_id'=>$facts['monitor_run_id'],'run_revision'=>$revision,
+                        'model_stage'=>$stage,'request_artifact_digest'=>$requestArtifact,'request_digest'=>$request->digest(),
+                        'recorded_at'=>$this->clock->now(),
+                    ]);
+                }
             }
             return Outcome::ok($id);
         });

@@ -254,6 +254,7 @@
       "monitor_setup_receipts"
     ],
     "230_monitor_attempt_recovery.sql": [
+      "monitor_model_attempt_bindings",
       "monitor_run_reconciliations",
       "provider_model_candidate_artifacts"
     ]

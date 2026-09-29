@@ -6,7 +6,7 @@ require_once __DIR__ . '/../support/ExecutionFixture.php';
 use Allfather\Loopia\Core\Digest;
 use Allfather\Loopia\Provider\ModelArtifactStore;
 use Allfather\Loopia\Tests\{Assert,ExecutionFixture as X,Harness,Seed};
-use Allfather\Loopia\Workflow\{MissionConfiguration,RunArtifacts,RunJournal,RunReconciliation};
+use Allfather\Loopia\Workflow\{ContextEnvelope,MissionConfiguration,RunArtifacts,RunJournal,RunReconciliation};
 
 $db = Harness::freshDb();
 if ($db === null) { Assert::skip(Harness::unavailableReason()); return; }
@@ -38,6 +38,7 @@ $reconciliation = new RunReconciliation(
     new RunArtifacts($fx['evidence_store']),
     $artifacts,
     new MissionConfiguration($db, $clock),
+    new ContextEnvelope($db, $clock, $fx['evidence_store']),
     $fx['admission'],
 );
 $inspection = X::value($reconciliation->inspect($scope, $id));

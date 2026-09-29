@@ -28,7 +28,7 @@ use Allfather\Loopia\PromptOps\PromptApprovalStore;
 use Allfather\Loopia\Provider\ModelArtifactStore;
 use Allfather\Loopia\Storage\EvidenceStore;
 use Allfather\Loopia\Workflow\{
-    ExecutionAdmission,ExecutionGrantStore,MissionConfiguration,OwnerDecisionRegistry,
+    ContextEnvelope,ExecutionAdmission,ExecutionGrantStore,MissionConfiguration,OwnerDecisionRegistry,
     RunArtifacts,RunJournal,RunReconciliation
 };
 
@@ -83,6 +83,7 @@ $reconciliation = new RunReconciliation(
     new RunArtifacts($store),
     new ModelArtifactStore($db, $clock, $store),
     new MissionConfiguration($db, $clock),
+    new ContextEnvelope($db, $clock, $store),
     $admission,
 );
 $scope = [

@@ -5,7 +5,7 @@ require_once __DIR__ . '/../support/ExecutionFixture.php';
 
 use Allfather\Loopia\Provider\ModelArtifactStore;
 use Allfather\Loopia\Tests\{Assert,ExecutionFixture as X,Harness};
-use Allfather\Loopia\Workflow\{MissionConfiguration,RunArtifacts,RunJournal,RunReconciliation};
+use Allfather\Loopia\Workflow\{ContextEnvelope,MissionConfiguration,RunArtifacts,RunJournal,RunReconciliation};
 
 $db = Harness::freshDb();
 if ($db === null) { Assert::skip(Harness::unavailableReason()); return; }
@@ -37,6 +37,7 @@ Assert::same('DIFFED', (new RunJournal($db, $clock))->find($scope, $id)['stage']
 Assert::same(1, $fx['model']->calls, 'the provider transport ran exactly once');
 Assert::same(1, (int) $db->scalar('SELECT COUNT(*) FROM provider_model_results WHERE outcome=?', ['CANDIDATE']), 'candidate provider result is durable');
 Assert::same(1, (int) $db->scalar('SELECT COUNT(*) FROM provider_model_candidate_artifacts'), 'exact candidate bytes are durably bound to the attempt');
+Assert::same(1, (int) $db->scalar('SELECT COUNT(*) FROM monitor_model_attempt_bindings WHERE monitor_run_id=?', [$id]), 'the inspected request artifact is durably bound before the journal transition');
 
 // The normal path now sees the governed replay and still does not call the provider.
 $replay = $service->advance($scope, $id, $requestDigest);
@@ -51,6 +52,7 @@ $reconciliation = new RunReconciliation(
     new RunArtifacts($fx['evidence_store']),
     new ModelArtifactStore($db, $clock, $fx['evidence_store']),
     new MissionConfiguration($db, $clock),
+    new ContextEnvelope($db, $clock, $fx['evidence_store']),
     $fx['admission'],
 );
 $inspection = X::value($reconciliation->inspect($scope, $id));
