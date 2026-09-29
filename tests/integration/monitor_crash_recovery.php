@@ -232,3 +232,103 @@ Assert::same(
     $noDispatchReconciliation->markUnresolved($noDispatchScope, $noDispatchId, $cleanInspection['run_revision'], 'TEST_NOT_AN_UNKNOWN_OUTCOME')->reasonCode(),
     'operator cannot relabel a safe no-dispatch state as an unknown provider outcome',
 );
+
+
+// ---------------------------------------------------------------- additional crash windows
+
+// Failure while reserving the attempt occurs before provider dispatch. M01/M06 still leave a
+// governed failed tool receipt, but there is no provider attempt and no safe automatic second call.
+$preFx = X::create($db, $clock, ['The page says old.', 'The page says new.']);
+$preScope = $preFx['scope'];
+$preApprovals = X::approveAll($preFx, 'MANUAL_MONITOR');
+X::admitted($preFx, X::manualDefinition($db, $clock, $preFx, $preApprovals));
+$preService = $preFx['service'];
+$preBaseline = X::value($preService->startConfigured($preScope, $preFx['mission_id'], 'p05-pre-reserve-baseline'));
+X::value($preService->advance($preScope, $preBaseline['monitor_run_id']));
+$clock->advanceDays(1);
+$preRun = X::value($preService->startConfigured($preScope, $preFx['mission_id'], 'p05-pre-reserve-changed'));
+$preId = $preRun['monitor_run_id'];
+X::value($preService->advance($preScope, $preId));
+X::value($preService->advance($preScope, $preId));
+$preDetail = X::value($preService->detail($preScope, $preId));
+$db->run("CREATE TRIGGER test_p05_attempt_reservation_failure BEFORE INSERT ON provider_model_attempts FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected reservation failure'");
+$preAdvance = $preService->advance($preScope, $preId, $preDetail['preview_request']['request_digest']);
+Assert::same('MONITOR_MODEL_REQUIRES_RECONCILIATION', $preAdvance->reasonCode(), 'reservation failure is not turned into an automatic retry');
+$db->run('DROP TRIGGER test_p05_attempt_reservation_failure');
+Assert::same(0, $preFx['model']->calls, 'reservation failure occurs before provider transport');
+Assert::same('DIFFED', (new RunJournal($db, $clock))->find($preScope, $preId)['stage'], 'pre-dispatch failure leaves the inspected model stage intact');
+$preReconciliation = new RunReconciliation(
+    $db, $clock, new RunJournal($db, $clock), new RunArtifacts($preFx['evidence_store']),
+    new ModelArtifactStore($db, $clock, $preFx['evidence_store']), new MissionConfiguration($db, $clock),
+    new ContextEnvelope($db, $clock, $preFx['evidence_store']), $preFx['admission'],
+);
+$preInspection = X::value($preReconciliation->inspect($preScope, $preId));
+Assert::same('UNRESOLVED', $preInspection['status'], 'a failed reservation has no fabricated attempt');
+Assert::same('MONITOR_RECONCILIATION_ATTEMPT_NOT_RECORDED', $preInspection['reason_code'], 'the missing attempt is named');
+Assert::same('MONITOR_MODEL_REQUIRES_RECONCILIATION', $preService->advance($preScope, $preId, $preDetail['preview_request']['request_digest'])->reasonCode(), 'same governed request replays instead of dispatching anew');
+Assert::same(0, $preFx['model']->calls, 'replay after reservation failure still makes no provider call');
+
+// Provider bytes returned, but candidate persistence failed. The response cannot become a recoverable
+// candidate; it is a known durable refusal and remains single-spend.
+$artifactFx = X::create($db, $clock, ['The item says bronze.', 'The item says silver.']);
+$artifactScope = $artifactFx['scope'];
+$artifactApprovals = X::approveAll($artifactFx, 'MANUAL_MONITOR');
+X::admitted($artifactFx, X::manualDefinition($db, $clock, $artifactFx, $artifactApprovals));
+$artifactService = $artifactFx['service'];
+$artifactBaseline = X::value($artifactService->startConfigured($artifactScope, $artifactFx['mission_id'], 'p05-artifact-baseline'));
+X::value($artifactService->advance($artifactScope, $artifactBaseline['monitor_run_id']));
+$clock->advanceDays(1);
+$artifactRun = X::value($artifactService->startConfigured($artifactScope, $artifactFx['mission_id'], 'p05-artifact-changed'));
+$artifactId = $artifactRun['monitor_run_id'];
+X::value($artifactService->advance($artifactScope, $artifactId));
+X::value($artifactService->advance($artifactScope, $artifactId));
+$artifactDetail = X::value($artifactService->detail($artifactScope, $artifactId));
+$db->run("CREATE TRIGGER test_p05_candidate_persist_failure BEFORE INSERT ON provider_model_candidate_artifacts FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected candidate persistence failure'");
+$db->run("CREATE TRIGGER test_p05_candidate_refusal_journal_failure BEFORE INSERT ON monitor_run_events FOR EACH ROW BEGIN IF NEW.event_kind = 'MODEL_REFUSED' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected refusal journal failure'; END IF; END");
+$artifactAdvance = $artifactService->advance($artifactScope, $artifactId, $artifactDetail['preview_request']['request_digest']);
+Assert::same('MONITOR_STAGE_FAILED_RECONCILIATION_REQUIRED', $artifactAdvance->reasonCode(), 'journal crash after candidate-persistence refusal requires reconciliation');
+$db->run('DROP TRIGGER test_p05_candidate_refusal_journal_failure');
+$db->run('DROP TRIGGER test_p05_candidate_persist_failure');
+Assert::same(1, $artifactFx['model']->calls, 'provider returned exactly once before persistence failed');
+Assert::same(0, (int) $db->scalar('SELECT COUNT(*) FROM provider_model_candidate_artifacts ca JOIN provider_model_attempts a ON a.model_attempt_id=ca.model_attempt_id WHERE a.tenant_id=?', [$artifactScope['tenant_id']]), 'failed persistence left no candidate artifact');
+$artifactReconciliation = new RunReconciliation(
+    $db, $clock, new RunJournal($db, $clock), new RunArtifacts($artifactFx['evidence_store']),
+    new ModelArtifactStore($db, $clock, $artifactFx['evidence_store']), new MissionConfiguration($db, $clock),
+    new ContextEnvelope($db, $clock, $artifactFx['evidence_store']), $artifactFx['admission'],
+);
+$artifactInspection = X::value($artifactReconciliation->inspect($artifactScope, $artifactId));
+Assert::same('RECOVERABLE_REFUSAL', $artifactInspection['status'], 'failed candidate persistence is recoverable only as its refusal');
+Assert::same('MODEL_CANDIDATE_ARTIFACT_PERSIST_FAILED', $artifactInspection['reason_code'], 'the durable refusal names the lost-candidate boundary');
+
+// Candidate bytes persisted, then M06 outcome finalization failed. The bytes alone do not establish a
+// completed governed result, and the same idempotency key cannot cause a second provider call.
+$outcomeFx = X::create($db, $clock, ['The page says north.', 'The page says south.']);
+$outcomeScope = $outcomeFx['scope'];
+$outcomeApprovals = X::approveAll($outcomeFx, 'MANUAL_MONITOR');
+X::admitted($outcomeFx, X::manualDefinition($db, $clock, $outcomeFx, $outcomeApprovals));
+$outcomeService = $outcomeFx['service'];
+$outcomeBaseline = X::value($outcomeService->startConfigured($outcomeScope, $outcomeFx['mission_id'], 'p05-outcome-baseline'));
+X::value($outcomeService->advance($outcomeScope, $outcomeBaseline['monitor_run_id']));
+$clock->advanceDays(1);
+$outcomeRun = X::value($outcomeService->startConfigured($outcomeScope, $outcomeFx['mission_id'], 'p05-outcome-changed'));
+$outcomeId = $outcomeRun['monitor_run_id'];
+X::value($outcomeService->advance($outcomeScope, $outcomeId));
+X::value($outcomeService->advance($outcomeScope, $outcomeId));
+$outcomeDetail = X::value($outcomeService->detail($outcomeScope, $outcomeId));
+$db->run("CREATE TRIGGER test_p05_tool_outcome_failure BEFORE INSERT ON tool_execution_outcomes FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected m06 completion failure'");
+$outcomeAdvance = $outcomeService->advance($outcomeScope, $outcomeId, $outcomeDetail['preview_request']['request_digest']);
+Assert::same('MONITOR_STAGE_FAILED_RECONCILIATION_REQUIRED', $outcomeAdvance->reasonCode(), 'M06 completion crash is caught at the workflow boundary');
+$db->run('DROP TRIGGER test_p05_tool_outcome_failure');
+Assert::same(1, $outcomeFx['model']->calls, 'provider was called once before M06 completion failed');
+Assert::same(1, (int) $db->scalar('SELECT COUNT(*) FROM provider_model_candidate_artifacts ca JOIN provider_model_attempts a ON a.model_attempt_id=ca.model_attempt_id WHERE a.tenant_id=?', [$outcomeScope['tenant_id']]), 'candidate bytes survived the M06 completion crash');
+Assert::same(0, (int) $db->scalar('SELECT COUNT(*) FROM provider_model_results r JOIN provider_model_attempts a ON a.model_attempt_id=r.model_attempt_id WHERE a.tenant_id=?', [$outcomeScope['tenant_id']]), 'provider result finalization never ran after the M06 exception');
+$outcomeReconciliation = new RunReconciliation(
+    $db, $clock, new RunJournal($db, $clock), new RunArtifacts($outcomeFx['evidence_store']),
+    new ModelArtifactStore($db, $clock, $outcomeFx['evidence_store']), new MissionConfiguration($db, $clock),
+    new ContextEnvelope($db, $clock, $outcomeFx['evidence_store']), $outcomeFx['admission'],
+);
+$outcomeInspection = X::value($outcomeReconciliation->inspect($outcomeScope, $outcomeId));
+Assert::same('UNRESOLVED', $outcomeInspection['status'], 'candidate bytes without the final governed result stay unresolved');
+Assert::same('MONITOR_RECONCILIATION_RESULT_NOT_RECORDED', $outcomeInspection['reason_code'], 'reconciliation names the missing result receipt');
+Assert::same('MONITOR_MODEL_REQUIRES_RECONCILIATION', $outcomeService->advance($outcomeScope, $outcomeId, $outcomeDetail['preview_request']['request_digest'])->reasonCode(), 'post-crash replay still refuses a second dispatch');
+Assert::same(1, $outcomeFx['model']->calls, 'M06-completion replay does not call the provider again');
