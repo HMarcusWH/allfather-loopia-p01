@@ -17,6 +17,18 @@ X::admitted($fx, X::manualDefinition($db, $clock, $fx, $approvals));
 $service = $fx['service'];
 
 $baseline = X::value($service->startConfigured($scope, $fx['mission_id'], 'p05-baseline'));
+// A different run/process holding the same source lock must not let us choose a stale shared
+// baseline. The refusal leaves NEW intact and performs no fetch; releasing the lock makes progress
+// possible without changing the run identity.
+$otherConnection = Harness::secondConnection();
+if ($otherConnection !== null) {
+    $sourceLock = 'monitor-source:' . substr(hash('sha256', $fx['monitored_source_id']), 0, 48);
+    Assert::same(1, (int) $otherConnection->scalar('SELECT GET_LOCK(?, 0)', [$sourceLock]), 'second session can hold the source serialization lock');
+    Assert::same('MONITOR_SOURCE_BUSY', $service->advance($scope, $baseline['monitor_run_id'])->reasonCode(), 'another in-flight capture of this source refuses before fetch');
+    Assert::same('NEW', (new RunJournal($db, $clock))->find($scope, $baseline['monitor_run_id'])['stage'], 'source contention does not terminalize the run');
+    Assert::same(0, $fx['source']->calls, 'source contention performs no HTTP fetch');
+    $otherConnection->scalar('SELECT RELEASE_LOCK(?)', [$sourceLock]);
+}
 $baseline = X::value($service->advance($scope, $baseline['monitor_run_id']));
 Assert::same('BASELINE', $baseline['stage'], 'first capture remains a baseline');
 $clock->advanceDays(1);
@@ -90,3 +102,55 @@ $marked = X::value($reconciliation->markUnresolved($scope, $id, $unknown['run_re
 Assert::same('UNRESOLVED', $marked['disposition'], 'operator can append an unresolved acknowledgement');
 Assert::same('ANALYZED', (new RunJournal($db, $clock))->find($scope, $id)['stage'], 'UNRESOLVED acknowledgement does not manufacture a continuation');
 Assert::same(0, (int) $db->scalar('SELECT COUNT(*) FROM released_briefings'), 'reconciliation never releases product output');
+
+
+// A durable provider refusal is also a known result. If the process dies before the journal can
+// record BLOCKED, reconciliation adopts that exact refusal without another provider call.
+$refusalFx = X::create($db, $clock, ['The pricing note says November.', 'The pricing note says December.']);
+$refusalScope = $refusalFx['scope'];
+$refusalApprovals = X::approveAll($refusalFx, 'MANUAL_MONITOR');
+X::admitted($refusalFx, X::manualDefinition($db, $clock, $refusalFx, $refusalApprovals));
+$quotaTransport = new \Allfather\Loopia\Tests\LiveFlaggedFixtureTransport(
+    static fn ($request) => new \Allfather\Loopia\Provider\ModelResponse(
+        429,
+        '{"error":{"code":"insufficient_quota","message":"PRIVATE_PROVIDER_TEXT"}}',
+    ),
+);
+$refusalService = X::service(
+    $db, $clock, $refusalFx, $refusalFx['source'], $quotaTransport,
+    $refusalFx['resolver'], $refusalFx['admission'],
+);
+$refusalBaseline = X::value($refusalService->startConfigured($refusalScope, $refusalFx['mission_id'], 'p05-refusal-baseline'));
+X::value($refusalService->advance($refusalScope, $refusalBaseline['monitor_run_id']));
+$clock->advanceDays(1);
+$refusalRun = X::value($refusalService->startConfigured($refusalScope, $refusalFx['mission_id'], 'p05-refusal-changed'));
+$refusalId = $refusalRun['monitor_run_id'];
+X::value($refusalService->advance($refusalScope, $refusalId));
+X::value($refusalService->advance($refusalScope, $refusalId));
+$refusalDetail = X::value($refusalService->detail($refusalScope, $refusalId));
+
+$db->run("CREATE TRIGGER test_p05_refusal_journal_failure BEFORE INSERT ON monitor_run_events FOR EACH ROW BEGIN IF NEW.event_kind = 'MODEL_REFUSED' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected p05 refusal journal crash'; END IF; END");
+$refusalCrash = $refusalService->advance($refusalScope, $refusalId, $refusalDetail['preview_request']['request_digest']);
+Assert::same('MONITOR_STAGE_FAILED_RECONCILIATION_REQUIRED', $refusalCrash->reasonCode(), 'known provider refusal survives a journal crash as reconciliation work');
+$db->run('DROP TRIGGER test_p05_refusal_journal_failure');
+Assert::same('DIFFED', (new RunJournal($db, $clock))->find($refusalScope, $refusalId)['stage'], 'refusal crash leaves the model stage intact');
+Assert::same(1, $quotaTransport->calls, 'quota provider path ran once');
+
+$refusalReconciliation = new RunReconciliation(
+    $db,
+    $clock,
+    new RunJournal($db, $clock),
+    new RunArtifacts($refusalFx['evidence_store']),
+    new ModelArtifactStore($db, $clock, $refusalFx['evidence_store']),
+    new MissionConfiguration($db, $clock),
+    new ContextEnvelope($db, $clock, $refusalFx['evidence_store']),
+    $refusalFx['admission'],
+);
+$refusalInspection = X::value($refusalReconciliation->inspect($refusalScope, $refusalId));
+Assert::same('RECOVERABLE_REFUSAL', $refusalInspection['status'], 'durable refusal is distinguishable from an unknown outcome');
+Assert::same('MODEL_QUOTA_EXHAUSTED', $refusalInspection['reason_code'], 'specific governed refusal is preserved');
+$refusalAdopted = X::value($refusalReconciliation->adopt($refusalScope, $refusalId, $refusalInspection['run_revision']));
+Assert::same('ADOPTED_REFUSAL', $refusalAdopted['disposition'], 'operator adopts the exact durable refusal');
+Assert::same('BLOCKED', $refusalAdopted['run']['stage'], 'known terminal refusal becomes the ordinary BLOCKED journal outcome');
+Assert::same(1, $quotaTransport->calls, 'refusal adoption never calls the provider again');
+Assert::false(str_contains(json_encode($refusalAdopted), 'PRIVATE_PROVIDER_TEXT'), 'provider error text never enters reconciliation output');
