@@ -340,3 +340,61 @@ Assert::same('UNRESOLVED', $outcomeInspection['status'], 'candidate bytes withou
 Assert::same('MONITOR_RECONCILIATION_RESULT_NOT_RECORDED', $outcomeInspection['reason_code'], 'reconciliation names the missing result receipt');
 Assert::same('MONITOR_MODEL_REQUIRES_RECONCILIATION', $outcomeService->advance($outcomeScope, $outcomeId, $outcomeDetail['preview_request']['request_digest'])->reasonCode(), 'post-crash replay still refuses a second dispatch');
 Assert::same(1, $outcomeFx['model']->calls, 'M06-completion replay does not call the provider again');
+
+
+// Reservation is durable before provider dispatch. If authority disappears in that exact window,
+// the spent attempt remains truthful and zero provider bytes leave.
+$reserveFx = X::create($db, $clock, ['The policy says east.', 'The policy says west.']);
+$reserveScope = $reserveFx['scope'];
+$reserveApprovals = X::approveAll($reserveFx, 'MANUAL_MONITOR');
+X::admitted($reserveFx, X::manualDefinition($db, $clock, $reserveFx, $reserveApprovals));
+$reserveService = $reserveFx['service'];
+$reserveBaseline = X::value($reserveService->startConfigured($reserveScope, $reserveFx['mission_id'], 'p05-after-reserve-baseline'));
+X::value($reserveService->advance($reserveScope, $reserveBaseline['monitor_run_id']));
+$clock->advanceDays(1);
+$reserveRun = X::value($reserveService->startConfigured($reserveScope, $reserveFx['mission_id'], 'p05-after-reserve-changed'));
+$reserveId = $reserveRun['monitor_run_id'];
+X::value($reserveService->advance($reserveScope, $reserveId));
+X::value($reserveService->advance($reserveScope, $reserveId));
+$reserveDetail = X::value($reserveService->detail($reserveScope, $reserveId));
+$reserveGrant = X::value($reserveFx['grants']->currentFor(
+    $reserveScope['tenant_id'], $reserveScope['workspace_id'], 'MANUAL_MONITOR',
+    $reserveFx['mission_id'], $reserveFx['definition_digest'],
+));
+foreach ([$reserveGrant['execution_grant_id'], $reserveScope['operator_id'], $reserveScope['tenant_id']] as $safeId) {
+    Assert::true(preg_match('/^[a-f0-9-]{36}$/D', $safeId) === 1, 'fixture id is safe for the fault-injection trigger');
+}
+$db->run(sprintf(
+    "CREATE TRIGGER test_p05_suspend_after_reserve AFTER INSERT ON provider_model_attempts FOR EACH ROW
+     BEGIN
+       IF NEW.tenant_id='%s' THEN
+         INSERT INTO monitor_execution_grant_events
+           (execution_grant_event_id,execution_grant_id,sequence_no,event_kind,owner_decision_ref,owner_decision_sha256,reason_code,recorded_by_operator_id,recorded_at)
+         VALUES (UUID(),'%s',2,'SUSPENDED',NULL,NULL,'TEST_SUSPEND_AFTER_RESERVE','%s',NEW.reserved_at);
+       END IF;
+     END",
+    $reserveScope['tenant_id'],
+    $reserveGrant['execution_grant_id'],
+    $reserveScope['operator_id'],
+));
+$reserveAdvance = X::value($reserveService->advance($reserveScope, $reserveId, $reserveDetail['preview_request']['request_digest']));
+$db->run('DROP TRIGGER test_p05_suspend_after_reserve');
+Assert::same('BLOCKED', $reserveAdvance['stage'], 'fresh pre-dispatch admission refusal becomes the ordinary terminal refusal');
+Assert::same('EXECUTION_GRANT_SUSPENDED', $reserveAdvance['cursor']['reason_code'], 'the exact post-reservation authority loss is retained');
+Assert::same(0, $reserveFx['model']->calls, 'authority loss after reservation sends no provider request');
+Assert::same(1, $reserveFx['grants']->consumed($reserveGrant['execution_grant_id'], 'MODEL_ATTEMPT'), 'the reserved attempt remains consumed');
+Assert::same(
+    1,
+    (int) $db->scalar('SELECT COUNT(*) FROM provider_model_attempts WHERE tenant_id=? AND workspace_id=? AND mission_id=?', [$reserveScope['tenant_id'], $reserveScope['workspace_id'], $reserveFx['mission_id']]),
+    'the exact reserved attempt remains durable',
+);
+Assert::same(
+    'EXECUTION_GRANT_SUSPENDED',
+    $db->scalar("SELECT failure_code FROM provider_model_results r JOIN provider_model_attempts a ON a.model_attempt_id=r.model_attempt_id WHERE a.tenant_id=? AND a.workspace_id=? AND a.mission_id=?", [$reserveScope['tenant_id'], $reserveScope['workspace_id'], $reserveFx['mission_id']]),
+    'the durable provider-result refusal names why dispatch never occurred',
+);
+Assert::same(
+    0,
+    (int) $db->scalar('SELECT COUNT(*) FROM provider_model_candidate_artifacts ca JOIN provider_model_attempts a ON a.model_attempt_id=ca.model_attempt_id WHERE a.tenant_id=? AND a.workspace_id=? AND a.mission_id=?', [$reserveScope['tenant_id'], $reserveScope['workspace_id'], $reserveFx['mission_id']]),
+    'no candidate artifact exists when provider dispatch never occurred',
+);
