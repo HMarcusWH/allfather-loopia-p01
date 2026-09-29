@@ -333,7 +333,10 @@ final class RunReconciliation
         $base['request_artifact_digest'] = $requestArtifactDigest;
         $request = $this->runArtifacts->read($run, $requestArtifactDigest, $spec['name'] . '_request');
         if (!$request->isOk()) {
-            return $request;
+            return Outcome::ok($base + [
+                'status' => 'UNRESOLVED',
+                'reason_code' => 'MONITOR_RECONCILIATION_REQUEST_ARTIFACT_UNAVAILABLE',
+            ]);
         }
         $inspected = $request->value();
         if (($inspected['request_digest'] ?? null) !== $requestDigest
