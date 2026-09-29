@@ -41,11 +41,11 @@ final class ModelExecutor
             if(!$admitted->isOk())return $refuse($admitted->reasonCode());
         }
         $attemptId=null;$callId=null;$result=null;$response=null;$candidateArtifact=null;$modelResultId=null;
-        $dispatch=$this->gateway->requestModelDispatch($command,$request,function(string $toolRequestId) use($p,$request,$credentialId,$command,$facts,$grantId,&$attemptId,&$callId,&$result,&$response,&$candidateArtifact):array {
+        $dispatch=$this->gateway->requestModelDispatch($command,$request,function(string $toolRequestId) use($p,$request,$credentialId,$command,$facts,$admissionFacts,$grantId,&$attemptId,&$callId,&$result,&$response,&$candidateArtifact):array {
             $current=$this->context->revalidate($p['context']);
             if(!$current->isOk())return ['kind'=>'FAILED','reason_code'=>$current->reasonCode()];
             if($p['role']==='MONITOR_ROUTING_CRITIC'){$routing=$this->context->validateRoutingPackage($p['context'],$p['stage_inputs']['routing_package'],$p['stage_inputs']['prior_candidate']['candidate']);if(!$routing->isOk())return ['kind'=>'FAILED','reason_code'=>$routing->reasonCode()];}
-            $reserved=$this->reserve($p,$request,$toolRequestId,$facts);
+            $reserved=$this->reserve($p,$request,$toolRequestId,$facts,$admissionFacts);
             if(!$reserved->isOk())return ['kind'=>'FAILED','reason_code'=>$reserved->reasonCode()];
             $attemptId=$reserved->value();
             try {
@@ -100,9 +100,9 @@ final class ModelExecutor
         return ['kind'=>'MODEL_CANDIDATE','candidate'=>$result['candidate'],'candidate_digest'=>$result['result_digest'],'request_digest'=>$digest,'provider_call_id'=>$callId,'model_attempt_id'=>$attemptId,'model_result_id'=>$modelResultId,'candidate_artifact_digest'=>$candidateArtifact['artifact_digest'],'execution_mode'=>$this->transport->isLive()?'LIVE':'FIXTURE','human_review_required'=>true,'dispatch'=>$dispatch];
     }
 
-    private function reserve(array $p,PreparedModelRequest $request,string $toolRequestId,?array $facts=null): Outcome
+    private function reserve(array $p,PreparedModelRequest $request,string $toolRequestId,?array $facts=null,array $runFacts=[]): Outcome
     {
-        return $this->db->transaction(function(Database $tx) use($p,$request,$toolRequestId,$facts):Outcome {
+        return $this->db->transaction(function(Database $tx) use($p,$request,$toolRequestId,$facts,$runFacts):Outcome {
             $mission=$tx->one('SELECT status FROM missions WHERE mission_id=? AND tenant_id=? AND workspace_id=? FOR UPDATE',[$p['mission_id'],$p['tenant_id'],$p['workspace_id']]);
             if($mission===null||$mission['status']!=='ACTIVE')return Outcome::refuse('MODEL_MISSION_NOT_ACTIVE');
             // Evaluation attempts are explicitly synthetic and have their own grant budget. They
@@ -124,20 +124,24 @@ final class ModelExecutor
             if($facts!==null){
                 $evaluation=$facts['purpose']==='MODEL_EVALUATION';
                 $tx->insert('provider_attempt_purposes',['model_attempt_id'=>$id,'execution_purpose'=>$facts['purpose'],'execution_grant_id'=>$facts['execution_grant_id'],'evaluation_run_id'=>$evaluation?($facts['evaluation_run_id']??null):null,'monitor_run_id'=>$evaluation?null:($facts['monitor_run_id']??null),'material_provenance'=>$evaluation?'SYNTHETIC_EVALUATION_CASE':'PRODUCT_MISSION','recorded_at'=>$this->clock->now()]);
-                if(!$evaluation){
-                    $revision=$facts['monitor_run_revision']??null;
-                    $stage=$facts['monitor_model_stage']??null;
-                    $requestArtifact=$facts['request_artifact_digest']??null;
-                    if(!is_int($revision)||$revision<0||!in_array($stage,['classifier','draft','critic','routing_critic'],true)
-                        ||!is_string($requestArtifact)||preg_match('/^[a-f0-9]{64}$/D',$requestArtifact)!==1){
-                        return Outcome::refuse('MODEL_MONITOR_ATTEMPT_BINDING_INVALID');
-                    }
-                    $tx->insert('monitor_model_attempt_bindings',[
-                        'model_attempt_id'=>$id,'monitor_run_id'=>$facts['monitor_run_id'],'run_revision'=>$revision,
-                        'model_stage'=>$stage,'request_artifact_digest'=>$requestArtifact,'request_digest'=>$request->digest(),
-                        'recorded_at'=>$this->clock->now(),
-                    ]);
+            }
+            // The request/run binding is execution-history, not execution authority. Fixture Monitor
+            // runs need it too so a fault-injected interrupted run exercises the same reconciliation
+            // semantics without pretending to hold a native execution grant.
+            if(isset($runFacts['monitor_run_id'])){
+                $revision=$runFacts['monitor_run_revision']??null;
+                $stage=$runFacts['monitor_model_stage']??null;
+                $requestArtifact=$runFacts['request_artifact_digest']??null;
+                if(!is_string($runFacts['monitor_run_id'])||preg_match('/^[a-f0-9-]{36}$/D',$runFacts['monitor_run_id'])!==1
+                    ||!is_int($revision)||$revision<0||!in_array($stage,['classifier','draft','critic','routing_critic'],true)
+                    ||!is_string($requestArtifact)||preg_match('/^[a-f0-9]{64}$/D',$requestArtifact)!==1){
+                    return Outcome::refuse('MODEL_MONITOR_ATTEMPT_BINDING_INVALID');
                 }
+                $tx->insert('monitor_model_attempt_bindings',[
+                    'model_attempt_id'=>$id,'monitor_run_id'=>$runFacts['monitor_run_id'],'run_revision'=>$revision,
+                    'model_stage'=>$stage,'request_artifact_digest'=>$requestArtifact,'request_digest'=>$request->digest(),
+                    'recorded_at'=>$this->clock->now(),
+                ]);
             }
             return Outcome::ok($id);
         });
