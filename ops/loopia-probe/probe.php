@@ -511,6 +511,11 @@ if ($env->has('DB_NAME')) {
                     }
                 }
             }
+            // Release the extra PDO sessions before the advisory-lock proof opens two more.
+            // Shared hosting can enforce a low per-user connection ceiling; accumulating probe-only
+            // sessions would turn that ceiling into a false capability failure.
+            $holder = null;
+            $contender = null;
             try {
                 $db->run('DROP TABLE IF EXISTS ' . Database::identifier($lockTable));
             } catch (\PDOException) {
@@ -577,6 +582,8 @@ if ($env->has('DB_NAME')) {
                     }
                 }
             }
+            $advisoryHolder = null;
+            $advisoryContender = null;
         }
 
         // ---- TRIGGER creation AND execution, on this account

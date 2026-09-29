@@ -154,6 +154,8 @@ Assert::contains("SELECT RELEASE_LOCK(?)", $code, 'and executes the matching rel
 Assert::contains("'nested_lock_same_connection' => \$holderNestedAcquired", $code, 'the same session can hold the run lock and nested source lock together');
 Assert::contains("'foreign_release_refused' => \$contenderCannotReleaseForeign", $code, 'another connection cannot release the holder\'s lock');
 Assert::contains("'acquired_after_release' => \$contenderAcquiredAfter", $code, 'the contender acquires after the owner releases');
+Assert::contains('$holder = null;', $code, 'row-lock proof releases its extra connection objects before opening advisory-lock sessions');
+Assert::contains('$advisoryHolder = null;', $code, 'advisory-lock proof releases its extra connection objects after cleanup');
 
 // ============================================================ the network is opt-in, both ways
 
