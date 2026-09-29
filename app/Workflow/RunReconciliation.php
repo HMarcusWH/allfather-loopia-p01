@@ -404,9 +404,12 @@ final class RunReconciliation
                     'status' => 'UNRESOLVED', 'reason_code' => 'MONITOR_RECONCILIATION_REFUSAL_INVALID',
                 ]);
             }
-            if ($toolOutcome['outcome_status'] !== 'FAILED'
-                || (string) ($toolOutcome['error_code'] ?? '') !== $reason
-                || ($call['outcome'] !== 'SUCCEEDED' && (string) ($call['failure_code'] ?? '') !== $reason)) {
+            $failedTransform = $toolOutcome['outcome_status'] === 'FAILED'
+                && (string) ($toolOutcome['error_code'] ?? '') === $reason
+                && ($call['outcome'] === 'SUCCEEDED' || (string) ($call['failure_code'] ?? '') === $reason);
+            $postTransformRefusal = $toolOutcome['outcome_status'] === 'SUCCEEDED'
+                && $call['outcome'] === 'SUCCEEDED';
+            if (!$failedTransform && !$postTransformRefusal) {
                 return Outcome::ok($base + [
                     'status' => 'UNRESOLVED',
                     'reason_code' => 'MONITOR_RECONCILIATION_REFUSAL_PROVENANCE_INVALID',

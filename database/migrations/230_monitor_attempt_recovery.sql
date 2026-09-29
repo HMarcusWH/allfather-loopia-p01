@@ -112,6 +112,13 @@ BEGIN
       AND a.tenant_id=r.tenant_id
       AND a.workspace_id=r.workspace_id
       AND a.mission_id=r.mission_id
+      AND r.revision=NEW.run_revision
+      AND (
+        (r.stage='DIFFED' AND NEW.model_stage='classifier')
+        OR (r.stage='ANALYZED' AND NEW.model_stage='draft')
+        OR (r.stage='DRAFTED' AND NEW.model_stage='critic')
+        OR (r.stage='ROUTING_PREPARED' AND NEW.model_stage='routing_critic')
+      )
       AND BINARY a.request_digest=BINARY NEW.request_digest
       AND tr.tenant_id=r.tenant_id
       AND tr.workspace_id=r.workspace_id
@@ -130,9 +137,18 @@ CREATE TRIGGER trg_monitor_reconciliations_consistent BEFORE INSERT ON monitor_r
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM monitor_runs r
+    JOIN operators o ON o.operator_id=NEW.recorded_by_operator_id
     WHERE r.monitor_run_id=NEW.monitor_run_id
       AND r.tenant_id=NEW.tenant_id
       AND r.workspace_id=NEW.workspace_id
+      AND r.revision=NEW.run_revision
+      AND o.tenant_id=NEW.tenant_id
+      AND (
+        (r.stage='DIFFED' AND NEW.model_stage='classifier')
+        OR (r.stage='ANALYZED' AND NEW.model_stage='draft')
+        OR (r.stage='DRAFTED' AND NEW.model_stage='critic')
+        OR (r.stage='ROUTING_PREPARED' AND NEW.model_stage='routing_critic')
+      )
   ) THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'reconciliation run scope mismatch';
   END IF;

@@ -77,6 +77,31 @@ $foreignForWrite = Seed::tenantWorkspace($db, $clock, 'p05-reconciliation-direct
 try {
     $db->insert('monitor_run_reconciliations', [
         'reconciliation_id' => \Allfather\Loopia\Core\Ids::new(),
+        'tenant_id' => $scope['tenant_id'],
+        'workspace_id' => $scope['workspace_id'],
+        'monitor_run_id' => $id,
+        'run_revision' => $inspection['run_revision'],
+        'model_stage' => 'classifier',
+        'disposition' => 'UNRESOLVED',
+        'tool_request_id' => null,
+        'model_attempt_id' => null,
+        'model_result_id' => null,
+        'request_digest' => $inspection['request_digest'],
+        'candidate_digest' => null,
+        'artifact_digest' => null,
+        'observed_reason_code' => 'FORGED_OPERATOR_SCOPE',
+        'operator_reason_code' => 'TEST_FORGED_OPERATOR_SCOPE',
+        'recorded_by_operator_id' => $foreignForWrite['operator_id'],
+        'recorded_at' => $clock->now(),
+    ]);
+    Assert::fail('database accepted a reconciliation recorded by an operator from another tenant');
+} catch (\PDOException) {
+    Assert::pass();
+}
+
+try {
+    $db->insert('monitor_run_reconciliations', [
+        'reconciliation_id' => \Allfather\Loopia\Core\Ids::new(),
         'tenant_id' => $foreignForWrite['tenant_id'],
         'workspace_id' => $foreignForWrite['workspace_id'],
         'monitor_run_id' => $id,
@@ -158,7 +183,7 @@ try {
         'model_attempt_id' => $dummyAttemptId,
         'monitor_run_id' => $id,
         'run_revision' => $inspection['run_revision'],
-        'model_stage' => 'classifier',
+        'model_stage' => 'draft',
         'request_artifact_digest' => $inspection['request_artifact_digest'],
         'request_digest' => str_repeat('d', 64),
         'recorded_at' => $clock->now(),
