@@ -7,7 +7,7 @@ use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Evaluation\EvaluationReport;
 use Allfather\Loopia\Ingestion\{CurlHttpsTransport,DnsHostResolver,FetchTransport,HostResolver,NoNetworkTransport,FixedHostResolver};
 use Allfather\Loopia\PromptOps\{PromptApprovalStore,PromptSelectionResolver};
-use Allfather\Loopia\Provider\{CredentialStore,ModelExecutor,ModelTransport,OpenAIResponsesTransport,SecretBox};
+use Allfather\Loopia\Provider\{CredentialStore,ModelArtifactStore,ModelExecutor,ModelTransport,OpenAIResponsesTransport,SecretBox};
 use Allfather\Loopia\Product\P01\{Capture,ChangeDetection};
 use Allfather\Loopia\Storage\EvidenceStore;
 use Allfather\Loopia\Substrate\M01\Invocation;
@@ -78,7 +78,7 @@ final class MonitorFactory
         $evidence=new EvidenceSpine($db,$clock); $context=new ContextEnvelope($db,$clock,$store);
         return new MonitorService($db,$clock,new RunJournal($db,$clock),new MissionConfiguration($db,$clock),
             new SourceCaptureStage($db,$clock,new Capture($db,$clock,$gateway,$evidence),$evidence,$store,$context,$source,$resolver),
-            new ChangeDetection($db,$clock,$evidence),new ModelExecutor($db,$clock,$gateway,$credentials,$model,$context,$prompts,$admission),
+            new ChangeDetection($db,$clock,$evidence),new ModelExecutor($db,$clock,$gateway,$credentials,$model,$context,new ModelArtifactStore($db,$clock,$store),$prompts,$admission),
             new RunArtifacts($store),new ReleaseStages($db,$clock),$context,$fixture,$native,$prompts,$admission);
     }
 }

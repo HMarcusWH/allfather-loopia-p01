@@ -97,9 +97,9 @@ Assert::contains(
 );
 Assert::contains('DROP TRIGGER IF EXISTS ', $code, 'the probe trigger is dropped with its table');
 Assert::same(
-    4,
+    5,
     substr_count($code, '} finally {'),
-    'each storage proof cleans up in a finally, so a thrown proof still tidies up',
+    'four disposable-table proofs plus the named-lock proof clean up in finally blocks',
 );
 Assert::false(str_contains($code, 'DROP DATABASE'), 'the probe drops no database');
 Assert::false(str_contains($code, 'TRUNCATE'), 'and truncates nothing');

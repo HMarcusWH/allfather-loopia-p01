@@ -16,6 +16,8 @@ final class MonitorService implements MonitorOperations
     private const OUTPUTS=['DIFFED'=>['classifier','ANALYZED'],'ANALYZED'=>['draft','DRAFTED'],'DRAFTED'=>['critic','REVIEW_REQUIRED'],'ROUTING_PREPARED'=>['routing_critic','ROUTING_REVIEW']];
     /** Refusals that mean "not admitted yet", not "this run failed": nothing was spent, so the run waits. */
     private const ADMISSION_PREFIXES=['EXECUTION_','MODEL_EXECUTION_NOT_ADMITTED','OWNER_DECISION_','PROMPT_APPROVAL_','PROMPT_NOT_APPROVED'];
+    /** Post-dispatch states that do not establish whether usable provider output exists. */
+    private const RECONCILIATION_REASONS=['MODEL_NETWORK_OUTCOME_UNKNOWN','MODEL_TIMEOUT','MODEL_ADAPTER_EXCEPTION'];
     private readonly PromptSelectionResolver $prompts;
     public function __construct(
         private readonly Database $db,private readonly Clock $clock,private readonly RunJournal $journal,
@@ -86,15 +88,21 @@ final class MonitorService implements MonitorOperations
             if (($run['execution_mode']==='FIXTURE')!==$this->fixtureRuntime) { return Outcome::refuse('MONITOR_RUNTIME_MODE_MISMATCH'); }
             try {
                 if ($run['stage']==='NEW') {
-                    $beforeFetch=null;
+                    $beforeFetch=null; $beforeCapture=null;
                     if ($run['execution_mode']==='NATIVE') {
                         $grant=$this->currentGrant($scope,$run); if (!$grant->isOk()) { return $grant; }
                         $facts=$this->runFacts($scope,$run,$grant->value());
-                        $admitted=$this->admitCapture($scope,$run,$grant->value(),$facts); if (!$admitted->isOk()) { return $admitted; }
+                        // Acquire SourceCaptureStage's source-scoped lock BEFORE spending the capture
+                        // unit. Local contention is not a source attempt and must not burn budget.
+                        $beforeCapture=fn():Outcome=>$this->admitCapture($scope,$run,$grant->value(),$facts);
                         $beforeFetch=fn():Outcome=>$this->admission->check('SOURCE_BEFORE_DISPATCH',$facts);
                     }
-                    $captured=$this->capture->execute($scope,$run,$beforeFetch);
-                    if (!$captured->isOk()) { return $this->block($scope,$run,$captured->reasonCode()); }
+                    $captured=$this->capture->execute($scope,$run,$beforeFetch,$beforeCapture);
+                    if (!$captured->isOk()) {
+                        $reason=$captured->reasonCode();
+                        if ($reason==='MONITOR_SOURCE_BUSY' || self::isAdmissionRefusal($reason)) { return $captured; }
+                        return $this->block($scope,$run,$reason);
+                    }
                     return $this->journal->advance($scope,$run,$captured->value()['before_snapshot_id']===null?'BASELINE':'CAPTURED',['capture'=>$captured->value()],'SOURCE_CAPTURED');
                 }
                 if ($run['stage']==='CAPTURED') {
@@ -115,8 +123,12 @@ final class MonitorService implements MonitorOperations
                 }
                 return Outcome::refuse('MONITOR_STAGE_REQUIRES_REVIEW_OR_IS_TERMINAL');
             } catch (\Throwable) {
-                // An unknown transport outcome never becomes an automatic retry. Existing M01/M06
-                // receipts remain authoritative; support can reconcile the run by its correlation ID.
+                // A model-stage crash may have happened after a paid/result-bearing provider call.
+                // Keep the pre-call journal stage intact so explicit reconciliation can inspect the
+                // durable M01/M06/provider facts; never turn an exception into an automatic retry.
+                if (isset(self::ROLES[$run['stage']])) {
+                    return Outcome::refuse('MONITOR_STAGE_FAILED_RECONCILIATION_REQUIRED');
+                }
                 return $this->block($scope,$run,'MONITOR_STAGE_FAILED_RECONCILIATION_REQUIRED','FAILED');
             }
         });
@@ -189,17 +201,23 @@ final class MonitorService implements MonitorOperations
         $requestArtifact=$this->artifacts->save($run,$name.'_request',$request->inspect()); if (!$requestArtifact->isOk()) { return $requestArtifact; }
         $command=$run['definition']['model_governance'][str_contains($name,'critic')?'critic':'author'];
         $command=array_merge($command,['tenant_id'=>$scope['tenant_id'],'workspace_id'=>$scope['workspace_id'],'calling_actor_type'=>'OPERATOR','calling_actor_id'=>$scope['operator_id'],'requested_action_class'=>'ANALYZE','idempotency_key'=>'monitor.model.'.$run['monitor_run_id'].'.'.$name,'correlation_id'=>$run['monitor_run_id'],'request_purpose_safe'=>'Bounded Monitor '.$name.' candidate']);
-        $result=$this->models->execute($command,$request,$run['definition']['credential_id'],['monitor_run_id'=>$run['monitor_run_id'],'mission_id'=>$run['mission_id'],'definition_digest'=>$run['definition_digest']]);
+        $result=$this->models->execute($command,$request,$run['definition']['credential_id'],['monitor_run_id'=>$run['monitor_run_id'],'monitor_run_revision'=>(int)$run['revision'],'monitor_model_stage'=>$name,'request_artifact_digest'=>$requestArtifact->value()['digest'],'mission_id'=>$run['mission_id'],'definition_digest'=>$run['definition_digest']]);
         $cursor=$run['cursor']+[$name.'_request_artifact'=>$requestArtifact->value()['digest']];
         if (($result['kind']??'')==='MODEL_REFUSED' && !isset($result['dispatch']) && self::isAdmissionRefusal($result['reason_code']??'')) {
             // Refused before M06 was asked: nothing reserved or sent. The run waits for admission.
             return Outcome::refuse($result['reason_code']);
         }
         if (($result['kind']??'')!=='MODEL_CANDIDATE') {
-            return $this->journal->advance($scope,$run,'BLOCKED',$cursor+['reason_code'=>$result['kind']==='MODEL_REPLAY'?'MONITOR_MODEL_REQUIRES_RECONCILIATION':($result['reason_code']??'MONITOR_MODEL_REFUSED')],'MODEL_REFUSED');
+            if (($result['kind']??'')==='MODEL_REPLAY' || ($result['reason_code']??'')==='MODEL_PROVENANCE_FINALIZATION_FAILED'
+                || in_array($result['reason_code']??'',self::RECONCILIATION_REASONS,true)) {
+                return Outcome::refuse('MONITOR_MODEL_REQUIRES_RECONCILIATION', [
+                    'tool_request_id'=>$result['dispatch']['prior_tool_request_id']??$result['dispatch']['tool_request_id']??null,
+                ]);
+            }
+            return $this->journal->advance($scope,$run,'BLOCKED',$cursor+['reason_code'=>$result['reason_code']??'MONITOR_MODEL_REFUSED'],'MODEL_REFUSED');
         }
-        $payload=['role'=>self::ROLES[$run['stage']],'context_digest'=>$request->provenance()['context_digest'],'request_digest'=>$request->digest(),'candidate_digest'=>$result['candidate_digest'],'candidate'=>$result['candidate'],'provider_call_id'=>$result['provider_call_id'],'execution_mode'=>$result['execution_mode']];
-        $stored=$this->artifacts->save($run,$name,$payload); if (!$stored->isOk()) { return $stored; }
+        $payload=['role'=>self::ROLES[$run['stage']],'context_digest'=>$request->provenance()['context_digest'],'request_digest'=>$request->digest(),'candidate_digest'=>$result['candidate_digest'],'candidate'=>$result['candidate'],'provider_call_id'=>$result['provider_call_id'],'model_attempt_id'=>$result['model_attempt_id'],'model_result_id'=>$result['model_result_id'],'candidate_artifact_digest'=>$result['candidate_artifact_digest'],'execution_mode'=>$result['execution_mode']];
+        $stored=$this->artifacts->saveCandidate($run,$name,$payload); if (!$stored->isOk()) { return $stored; }
         $cursor[$name.'_artifact']=$stored->value()['digest'];
         if ($name==='classifier' && $result['candidate']['status']==='NO_MATERIAL_CHANGE') { $next='NO_CHANGE'; }
         elseif (!str_contains($name,'critic') && $result['candidate']['status']==='HELD') { $next='BLOCKED'; $cursor['reason_code']='MONITOR_MODEL_HELD'; }
@@ -267,8 +285,24 @@ final class MonitorService implements MonitorOperations
         $p=$artifact->value();
         if (!isset($p['candidate'],$p['candidate_digest'],$p['provider_call_id'],$p['request_digest'],$p['context_digest'])
             || !hash_equals(Digest::canonicalDigest($p['candidate']),$p['candidate_digest'])) { return Outcome::refuse('MONITOR_CANDIDATE_INTEGRITY_FAILED'); }
-        $receipt=$this->db->one('SELECT r.candidate_digest,a.request_digest,a.context_digest FROM provider_model_results r JOIN provider_model_attempts a ON a.model_attempt_id=r.model_attempt_id WHERE r.provider_call_id=? AND r.outcome=? AND a.tenant_id=? AND a.workspace_id=? AND a.mission_id=?',[$p['provider_call_id'],'CANDIDATE',$run['tenant_id'],$run['workspace_id'],$run['mission_id']]);
-        if ($receipt===null || $receipt['candidate_digest']!==$p['candidate_digest'] || $receipt['request_digest']!==$p['request_digest'] || $receipt['context_digest']!==$p['context_digest']) { return Outcome::refuse('MONITOR_CANDIDATE_PROVENANCE_INVALID'); }
+        if (isset($p['model_attempt_id'],$p['model_result_id'],$p['candidate_artifact_digest'])) {
+            $receipt=$this->db->one('SELECT r.candidate_digest,a.request_digest,a.context_digest,ca.artifact_digest
+                FROM provider_model_results r
+                JOIN provider_model_attempts a ON a.model_attempt_id=r.model_attempt_id
+                JOIN provider_model_candidate_artifacts ca ON ca.model_attempt_id=a.model_attempt_id
+                WHERE r.model_result_id=? AND r.model_attempt_id=? AND r.provider_call_id=? AND r.outcome=?
+                  AND a.tenant_id=? AND a.workspace_id=? AND a.mission_id=?',
+                [$p['model_result_id'],$p['model_attempt_id'],$p['provider_call_id'],'CANDIDATE',$run['tenant_id'],$run['workspace_id'],$run['mission_id']]);
+            if ($receipt===null || $receipt['candidate_digest']!==$p['candidate_digest']
+                || $receipt['request_digest']!==$p['request_digest'] || $receipt['context_digest']!==$p['context_digest']
+                || $receipt['artifact_digest']!==$p['candidate_artifact_digest']) {
+                return Outcome::refuse('MONITOR_CANDIDATE_PROVENANCE_INVALID');
+            }
+        } else {
+            // Historical pre-P05 candidate envelopes remain replayable under their original proof.
+            $receipt=$this->db->one('SELECT r.candidate_digest,a.request_digest,a.context_digest FROM provider_model_results r JOIN provider_model_attempts a ON a.model_attempt_id=r.model_attempt_id WHERE r.provider_call_id=? AND r.outcome=? AND a.tenant_id=? AND a.workspace_id=? AND a.mission_id=?',[$p['provider_call_id'],'CANDIDATE',$run['tenant_id'],$run['workspace_id'],$run['mission_id']]);
+            if ($receipt===null || $receipt['candidate_digest']!==$p['candidate_digest'] || $receipt['request_digest']!==$p['request_digest'] || $receipt['context_digest']!==$p['context_digest']) { return Outcome::refuse('MONITOR_CANDIDATE_PROVENANCE_INVALID'); }
+        }
         return $artifact;
     }
     private function validateRun(array $scope,array $run): Outcome

@@ -19,10 +19,37 @@ final class SourceCaptureStage
         private readonly HostResolver $resolver,
     ) {}
 
-    /** @param null|callable():Outcome $beforeFetch */
-    public function execute(array $scope, array $run, ?callable $beforeFetch = null): Outcome
+    /** @param null|callable():Outcome $beforeFetch @param null|callable():Outcome $beforeCapture */
+    public function execute(array $scope, array $run, ?callable $beforeFetch = null, ?callable $beforeCapture = null): Outcome
+    {
+        $sourceId = $run['definition']['monitored_source_id'] ?? '';
+        if (!is_string($sourceId) || $sourceId === '') {
+            return Outcome::refuse('MONITOR_SOURCE_SCOPE_INVALID');
+        }
+        // Run locks protect one run. This source lock protects the before->after baseline shared by
+        // different runs without holding a SQL transaction open through DNS/HTTP.
+        $database = (string) $this->db->scalar('SELECT DATABASE()');
+        $lock = 'monitor-source:' . substr(hash('sha256', $database . "\0" . $sourceId), 0, 48);
+        if ((int) $this->db->scalar('SELECT GET_LOCK(?, 0)', [$lock]) !== 1) {
+            return Outcome::refuse('MONITOR_SOURCE_BUSY');
+        }
+        try {
+            return $this->executeLocked($scope, $run, $beforeFetch, $beforeCapture);
+        } finally {
+            $this->db->scalar('SELECT RELEASE_LOCK(?)', [$lock]);
+        }
+    }
+
+    /** @param null|callable():Outcome $beforeFetch @param null|callable():Outcome $beforeCapture */
+    private function executeLocked(array $scope, array $run, ?callable $beforeFetch = null, ?callable $beforeCapture = null): Outcome
     {
         $definition = $run['definition'];
+        if ($beforeCapture !== null) {
+            $admitted = $beforeCapture();
+            if (!$admitted instanceof Outcome || !$admitted->isOk()) {
+                return $admitted instanceof Outcome ? $admitted : Outcome::refuse('SOURCE_CAPTURE_ADMISSION_CHECK_INVALID');
+            }
+        }
         $before = $this->db->one('SELECT source_snapshot_id FROM source_snapshots WHERE monitored_source_id = ? AND tenant_id = ? AND workspace_id = ? ORDER BY snapshot_sequence DESC, source_snapshot_id DESC LIMIT 1', [$definition['monitored_source_id'], $scope['tenant_id'], $scope['workspace_id']]);
         $transport = new RecordingSourceTransport($this->transport);
         $captured = $this->capture->captureMonitoredSource([

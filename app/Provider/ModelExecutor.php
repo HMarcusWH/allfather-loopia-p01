@@ -16,7 +16,7 @@ final class ModelExecutor
      * A live transport runs only with an ExecutionAdmission and a request whose prompt was selected
      * under an admitted grant. Without both it refuses before M06 is asked — nothing is reserved.
      */
-    public function __construct(private readonly Database $db,private readonly Clock $clock,private readonly Gateway $gateway,private readonly CredentialStore $credentials,private readonly ModelTransport $transport,private readonly ModelContextAuthority $context,?PromptSelectionResolver $prompts=null,private readonly ?ExecutionAdmission $admission=null)
+    public function __construct(private readonly Database $db,private readonly Clock $clock,private readonly Gateway $gateway,private readonly CredentialStore $credentials,private readonly ModelTransport $transport,private readonly ModelContextAuthority $context,private readonly ModelArtifactStore $artifacts,?PromptSelectionResolver $prompts=null,private readonly ?ExecutionAdmission $admission=null)
     {
         $this->prompts=$prompts??PromptSelectionResolver::inert();
     }
@@ -40,12 +40,12 @@ final class ModelExecutor
             $admitted=$this->admission->check('MODEL_BEFORE_RESERVE',$facts);
             if(!$admitted->isOk())return $refuse($admitted->reasonCode());
         }
-        $attemptId=null;$callId=null;$result=null;$response=null;
-        $dispatch=$this->gateway->requestModelDispatch($command,$request,function(string $toolRequestId) use($p,$request,$credentialId,$command,$facts,$grantId,&$attemptId,&$callId,&$result,&$response):array {
+        $attemptId=null;$callId=null;$result=null;$response=null;$candidateArtifact=null;$modelResultId=null;
+        $dispatch=$this->gateway->requestModelDispatch($command,$request,function(string $toolRequestId) use($p,$request,$credentialId,$command,$facts,$admissionFacts,$grantId,&$attemptId,&$callId,&$result,&$response,&$candidateArtifact):array {
             $current=$this->context->revalidate($p['context']);
             if(!$current->isOk())return ['kind'=>'FAILED','reason_code'=>$current->reasonCode()];
             if($p['role']==='MONITOR_ROUTING_CRITIC'){$routing=$this->context->validateRoutingPackage($p['context'],$p['stage_inputs']['routing_package'],$p['stage_inputs']['prior_candidate']['candidate']);if(!$routing->isOk())return ['kind'=>'FAILED','reason_code'=>$routing->reasonCode()];}
-            $reserved=$this->reserve($p,$request,$toolRequestId,$facts);
+            $reserved=$this->reserve($p,$request,$toolRequestId,$facts,$admissionFacts);
             if(!$reserved->isOk())return ['kind'=>'FAILED','reason_code'=>$reserved->reasonCode()];
             $attemptId=$reserved->value();
             try {
@@ -71,6 +71,11 @@ final class ModelExecutor
                     // After return, before acceptance: revocation during the call cannot unsend the
                     // request, but it does stop the response from becoming an accepted candidate.
                     if($facts!==null&&($result['kind']??'')==='GENERATED'){$after=$this->admission->check('MODEL_AFTER_RETURN',$facts);if(!$after->isOk())$result=['kind'=>'FAILED','reason_code'=>$after->reasonCode(),'telemetry_outcome'=>$result['telemetry_outcome'],'input_tokens'=>$result['input_tokens']??null,'output_tokens'=>$result['output_tokens']??null];}
+                    if(($result['kind']??'')==='GENERATED'){
+                        $persisted=$this->artifacts->persist($attemptId,$toolRequestId,$request->digest(),$result['candidate'],$result['result_digest']);
+                        if(!$persisted->isOk())$result=['kind'=>'FAILED','reason_code'=>'MODEL_CANDIDATE_ARTIFACT_PERSIST_FAILED','telemetry_outcome'=>'FAILED','input_tokens'=>$result['input_tokens']??null,'output_tokens'=>$result['output_tokens']??null];
+                        else $candidateArtifact=$persisted->value();
+                    }
                 }
             } catch(\Throwable) { $result=['kind'=>'FAILED','reason_code'=>'MODEL_ADAPTER_EXCEPTION','telemetry_outcome'=>'FAILED']; }
             $callId=Ids::new();
@@ -84,18 +89,20 @@ final class ModelExecutor
         if(!$succeeded && isset($dispatch['m01_reason_code']))$reason=$dispatch['m01_reason_code'];
         if($succeeded){$freshContext=$this->context->revalidate($p['context']);if(!$freshContext->isOk()){$succeeded=false;$reason=$freshContext->reasonCode();}}
         if($succeeded&&$p['role']==='MONITOR_ROUTING_CRITIC'){$routing=$this->context->validateRoutingPackage($p['context'],$p['stage_inputs']['routing_package'],$p['stage_inputs']['prior_candidate']['candidate']);if(!$routing->isOk()){$succeeded=false;$reason=$routing->reasonCode();}}
+        if($succeeded&&$candidateArtifact===null){$succeeded=false;$reason='MODEL_CANDIDATE_ARTIFACT_MISSING';}
         if($attemptId!==null) {
             try {
-                $this->db->insert('provider_model_results',['model_result_id'=>Ids::new(),'model_attempt_id'=>$attemptId,'provider_call_id'=>$callId,'tool_request_id'=>$dispatch['tool_request_id'],'outcome'=>$succeeded?'CANDIDATE':'REFUSED','candidate_digest'=>$succeeded?$result['result_digest']:null,'provider_request_id'=>self::safeRequestId($response?->requestId),'failure_code'=>$succeeded?null:$reason,'recorded_at'=>$this->clock->now()]);
+                $modelResultId=Ids::new();
+                $this->db->insert('provider_model_results',['model_result_id'=>$modelResultId,'model_attempt_id'=>$attemptId,'provider_call_id'=>$callId,'tool_request_id'=>$dispatch['tool_request_id'],'outcome'=>$succeeded?'CANDIDATE':'REFUSED','candidate_digest'=>$succeeded?$result['result_digest']:null,'provider_request_id'=>self::safeRequestId($response?->requestId),'failure_code'=>$succeeded?null:$reason,'recorded_at'=>$this->clock->now()]);
             } catch(\Throwable) { return $refuse('MODEL_PROVENANCE_FINALIZATION_FAILED')+['dispatch'=>$dispatch]; }
         }
         if(!$succeeded)return $refuse($reason)+['provider_call_id'=>$callId,'dispatch'=>$dispatch];
-        return ['kind'=>'MODEL_CANDIDATE','candidate'=>$result['candidate'],'candidate_digest'=>$result['result_digest'],'request_digest'=>$digest,'provider_call_id'=>$callId,'execution_mode'=>$this->transport->isLive()?'LIVE':'FIXTURE','human_review_required'=>true,'dispatch'=>$dispatch];
+        return ['kind'=>'MODEL_CANDIDATE','candidate'=>$result['candidate'],'candidate_digest'=>$result['result_digest'],'request_digest'=>$digest,'provider_call_id'=>$callId,'model_attempt_id'=>$attemptId,'model_result_id'=>$modelResultId,'candidate_artifact_digest'=>$candidateArtifact['artifact_digest'],'execution_mode'=>$this->transport->isLive()?'LIVE':'FIXTURE','human_review_required'=>true,'dispatch'=>$dispatch];
     }
 
-    private function reserve(array $p,PreparedModelRequest $request,string $toolRequestId,?array $facts=null): Outcome
+    private function reserve(array $p,PreparedModelRequest $request,string $toolRequestId,?array $facts=null,array $runFacts=[]): Outcome
     {
-        return $this->db->transaction(function(Database $tx) use($p,$request,$toolRequestId,$facts):Outcome {
+        return $this->db->transaction(function(Database $tx) use($p,$request,$toolRequestId,$facts,$runFacts):Outcome {
             $mission=$tx->one('SELECT status FROM missions WHERE mission_id=? AND tenant_id=? AND workspace_id=? FOR UPDATE',[$p['mission_id'],$p['tenant_id'],$p['workspace_id']]);
             if($mission===null||$mission['status']!=='ACTIVE')return Outcome::refuse('MODEL_MISSION_NOT_ACTIVE');
             // Evaluation attempts are explicitly synthetic and have their own grant budget. They
@@ -117,6 +124,24 @@ final class ModelExecutor
             if($facts!==null){
                 $evaluation=$facts['purpose']==='MODEL_EVALUATION';
                 $tx->insert('provider_attempt_purposes',['model_attempt_id'=>$id,'execution_purpose'=>$facts['purpose'],'execution_grant_id'=>$facts['execution_grant_id'],'evaluation_run_id'=>$evaluation?($facts['evaluation_run_id']??null):null,'monitor_run_id'=>$evaluation?null:($facts['monitor_run_id']??null),'material_provenance'=>$evaluation?'SYNTHETIC_EVALUATION_CASE':'PRODUCT_MISSION','recorded_at'=>$this->clock->now()]);
+            }
+            // The request/run binding is execution-history, not execution authority. Fixture Monitor
+            // runs need it too so a fault-injected interrupted run exercises the same reconciliation
+            // semantics without pretending to hold a native execution grant.
+            if(isset($runFacts['monitor_run_id'])){
+                $revision=$runFacts['monitor_run_revision']??null;
+                $stage=$runFacts['monitor_model_stage']??null;
+                $requestArtifact=$runFacts['request_artifact_digest']??null;
+                if(!is_string($runFacts['monitor_run_id'])||preg_match('/^[a-f0-9-]{36}$/D',$runFacts['monitor_run_id'])!==1
+                    ||!is_int($revision)||$revision<0||!in_array($stage,['classifier','draft','critic','routing_critic'],true)
+                    ||!is_string($requestArtifact)||preg_match('/^[a-f0-9]{64}$/D',$requestArtifact)!==1){
+                    return Outcome::refuse('MODEL_MONITOR_ATTEMPT_BINDING_INVALID');
+                }
+                $tx->insert('monitor_model_attempt_bindings',[
+                    'model_attempt_id'=>$id,'monitor_run_id'=>$runFacts['monitor_run_id'],'run_revision'=>$revision,
+                    'model_stage'=>$stage,'request_artifact_digest'=>$requestArtifact,'request_digest'=>$request->digest(),
+                    'recorded_at'=>$this->clock->now(),
+                ]);
             }
             return Outcome::ok($id);
         });
@@ -156,7 +181,10 @@ final class ModelExecutor
         if(!StructuredOutput::matches($candidate,$request->outputSchema()))return $failure('MODEL_OUTPUT_SCHEMA_INVALID');
         $value=json_decode($texts[0],true,24,JSON_THROW_ON_ERROR);
         $usage=static fn(mixed $v):?int=>is_int($v)&&$v>=0&&$v<=10000000?$v:null;
-        return ['kind'=>'GENERATED','candidate'=>$value,'result_digest'=>Digest::canonicalDigest($candidate),'telemetry_outcome'=>'SUCCEEDED','input_tokens'=>$usage($decoded->usage->input_tokens??null),'output_tokens'=>$usage($decoded->usage->output_tokens??null)];
+        // Digest the exact PHP/JSON value that leaves this method and is persisted by P05. Using the
+        // stdClass validation view here would diverge from the returned associative value for an empty
+        // JSON object (`{}` vs PHP `[]`), creating a candidate whose own durable bytes cannot verify.
+        return ['kind'=>'GENERATED','candidate'=>$value,'result_digest'=>Digest::canonicalDigest($value),'telemetry_outcome'=>'SUCCEEDED','input_tokens'=>$usage($decoded->usage->input_tokens??null),'output_tokens'=>$usage($decoded->usage->output_tokens??null)];
     }
     private static function safeRequestId(?string $value): ?string
     {

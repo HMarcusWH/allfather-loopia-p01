@@ -5,7 +5,7 @@ use Allfather\Loopia\Core\Ids;
 use Allfather\Loopia\Ingestion\{FetchResponse,FixedHostResolver,FixtureTransport};
 use Allfather\Loopia\Product\P01\Capture;
 use Allfather\Loopia\PromptOps\ProductPromptPack;
-use Allfather\Loopia\Provider\{FixtureModelTransport,ModelExecutor,ModelRequestBuilder};
+use Allfather\Loopia\Provider\{FixtureModelTransport,ModelArtifactStore,ModelExecutor,ModelRequestBuilder};
 use Allfather\Loopia\Substrate\M01\Invocation;
 use Allfather\Loopia\Substrate\M02\AccessGuard;
 use Allfather\Loopia\Substrate\M03\Eligibility;
@@ -23,10 +23,10 @@ foreach([$fixture['before_body'],$fixture['after_body']] as $i=>$body){
  Assert::true($r->isOk(),'stage fixture uses real capture '.$i);if(!$r->isOk())return;
  $eid=$db->scalar('SELECT evidence_id FROM source_snapshots WHERE source_snapshot_id=?',[$r->value()['source_snapshot_id']]);$input['observation_evidence_ids'][]=$eid;$input['observation_payloads'][$eid]=['url'=>$fixture['capture_url'],'body'=>$body];
 }
-$contextService=new ContextEnvelope($db,$clock,$fixture['evidence_store']);$result=$contextService->prepare($scope,$input);
+$contextService=new ContextEnvelope($db,$clock,$fixture['evidence_store']);$modelArtifacts=new ModelArtifactStore($db,$clock,$fixture['evidence_store']);$result=$contextService->prepare($scope,$input);
 Assert::true($result->isOk(),'shared stage context');if(!$result->isOk())return;$context=$result->value();
 $transport=new FixtureModelTransport(MonitorModelFixture::response(...));
-$executor=new ModelExecutor($db,$clock,$gateway,$fixture['credential_store'],$transport,$contextService);
+$executor=new ModelExecutor($db,$clock,$gateway,$fixture['credential_store'],$transport,$contextService,$modelArtifacts);
 $prior=null;
 foreach(['P01_SIGNAL_CLASSIFIER','BATTLECARD_GENERATOR','MONITOR_REVIEW_CRITIC'] as $i=>$role){
  $request=ModelRequestBuilder::prepare(ProductPromptPack::resolve($role)->value(),$context,$prior===null?[]:['stage_inputs'=>['prior_candidate'=>$prior]]);

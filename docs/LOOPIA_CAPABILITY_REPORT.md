@@ -44,7 +44,7 @@ nowhere else. M15 governed ingestion is present with the guarded egress path.
 | P05 | marketing drafts, claim citations, variants, admission, internal release, three audits |
 | P07-A | consent, PII firewall, outreach admission, approval, frozen artifacts, synthetic dispatch, five audits |
 
-**Storage** — 26 migrations in the current implementation candidate, MariaDB 10.6+ / InnoDB, with the invariants held as CHECK constraints,
+**Storage** — 27 migrations in the current implementation candidate, MariaDB 10.6+ / InnoDB, with the invariants held as CHECK constraints,
 append-only triggers and the database-enforced uniqueness translations named in
 `SCHEMA_REACHABILITY.md`. **Loopia Företag is MariaDB 10.6**; 10.11 is Företag Plus only. Both are
 verified against real servers in the test matrix — see `CONFORMANCE_MATRIX.md` §1.
@@ -91,14 +91,16 @@ Working end to end today, given seeded authority:
 
 The current working candidate has additional migrations. PR16 staging evidence proves the prior
 19-migration release only; candidate migration execution, repeatability and host qualification must
-be evidenced for the new exact release before claiming deployment readiness.
+be evidenced for the new exact release before claiming deployment readiness. P05 also makes named
+MariaDB advisory locking a required host capability because Monitor run/source serialization now
+depends on it; the PR16 host probe predates that proof, so it must be re-run for the P05 candidate.
 The candidate also adds the inactive Monitor workbench and bounded model composition described in
 [Monitor delivery and remaining work](MONITOR_DELIVERY_AND_REMAINING_WORK_2026_09_27.md).
 Its local implementation and fixture checks do not update the deployed PR16 claims below.
 
 | Area | State |
 | --- | --- |
-| schema migrations | 26 files in candidate; deployed-release count is recorded separately |
+| schema migrations | 27 files in candidate; deployed-release count is recorded separately |
 | authority seeding | `Permissions` vocabulary + role seeds; product registrations provision their selected tenant capabilities |
 | audit profiles | created on demand per category |
 | CI | PR16 exact-head local workflow reproduction PASS: PHP 8.2.34, MariaDB 10.6/10.11 and both host-shaped lanes at 5,552/0/0; hosted runner allocation blocked by account billing/spending. The workflow's steps now live in `ops/ci/qualify-release.sh`, whose `local` route reproduces them from an exact-commit export and writes a self-reported receipt |

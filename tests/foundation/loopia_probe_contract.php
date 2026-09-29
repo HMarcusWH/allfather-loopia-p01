@@ -98,7 +98,7 @@ $stagingRequired = [
     'php_version', 'ext_pdo', 'ext_pdo_mysql', 'ext_openssl', 'ext_json', 'ext_mbstring', 'ext_hash',
     'aes_256_gcm', 'csprng', 'private_storage_writable', 'atomic_rename', 'public_root_separation',
     'mariadb', 'mariadb_version_floor', 'innodb_available', 'check_constraints_enforced',
-    'transaction_rollback', 'foreign_keys_enforced', 'row_locking', 'trigger_support',
+    'transaction_rollback', 'foreign_keys_enforced', 'row_locking', 'named_advisory_locking', 'trigger_support',
 ];
 $stagingBlock = substr($code, (int) strpos($code, '$stagingRequired = ['), 900);
 foreach ($stagingRequired as $capability) {
@@ -145,6 +145,17 @@ Assert::contains(
     $code,
     'and proves the lock is RELEASED again — a database that blocked forever would pass half of this',
 );
+
+// NAMED SESSION LOCKS ARE A DIFFERENT PRIMITIVE. P05 uses them specifically to avoid holding an SQL
+// transaction across DNS/HTTP, so they need their own host proof rather than inheriting row-locking.
+Assert::contains("'named_advisory_locking' => ['NOT_PROBED', null]", $code, 'named advisory locking is a distinct capability');
+Assert::contains("SELECT GET_LOCK(?, 0)", $code, 'the probe executes the same non-blocking named-lock primitive the Monitor uses');
+Assert::contains("SELECT RELEASE_LOCK(?)", $code, 'and executes the matching release primitive');
+Assert::contains("'nested_lock_same_connection' => \$holderNestedAcquired", $code, 'the same session can hold the run lock and nested source lock together');
+Assert::contains("'foreign_release_refused' => \$contenderCannotReleaseForeign", $code, 'another connection cannot release the holder\'s lock');
+Assert::contains("'acquired_after_release' => \$contenderAcquiredAfter", $code, 'the contender acquires after the owner releases');
+Assert::contains('$holder = null;', $code, 'row-lock proof releases its extra connection objects before opening advisory-lock sessions');
+Assert::contains('$advisoryHolder = null;', $code, 'advisory-lock proof releases its extra connection objects after cleanup');
 
 // ============================================================ the network is opt-in, both ways
 

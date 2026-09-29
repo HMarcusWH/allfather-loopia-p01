@@ -541,24 +541,30 @@ repin the whole projection or infer canonical authority from tables found in a r
 | Monitor execution controls (completion plan P01) | 6 | `monitor_prompt_approvals`, `monitor_prompt_approval_events`, `monitor_execution_grants`, `monitor_execution_grant_events`, `monitor_grant_consumptions`, `monitor_admission_decisions`; migration `210_monitor_execution_controls.sql` |
 | Monitor evaluation records (completion plan P02) | 4 | `monitor_evaluation_runs`, `monitor_evaluation_results`, `monitor_evaluation_assessments`, `provider_attempt_purposes`; migration `220_monitor_evaluation_records.sql` |
 | Monitor setup receipts (completion plan P04) | 1 | `monitor_setup_receipts`; migration `225_monitor_setup_receipts.sql` |
-| **Current application total** | **214** | **189 canonical + 25 Loopia adapters** |
+| Monitor attempt recovery (completion plan P05) | 3 | `monitor_model_attempt_bindings`, `provider_model_candidate_artifacts`, `monitor_run_reconciliations`; migration `230_monitor_attempt_recovery.sql` |
+| **Current application total** | **217** | **189 canonical + 28 Loopia adapters** |
 
 The completion-plan tables are Loopia-local deployment controls, not canonical law: immutable grant
 and approval definitions, append-only lifecycle events, budget consumption and an admission trail.
-They reference reviewed owner decisions under `docs/decisions/` and grant nothing by existing. They
-are declared per migration in `completion_plan_tables` of the inventory fixture.
+They reference reviewed owner decisions under `docs/decisions/` and grant nothing by existing. P05's
+candidate-artifact binding and reconciliation ledger add durability only: neither creates execution
+permission nor release authority. They are declared per migration in `completion_plan_tables` of the
+inventory fixture.
 
 The single additional canonical table comes from the reviewed repeatable P01 registration repair
 [canonical PR 368](https://github.com/HMarcusWH/Allfatherbusinessintelligence/pull/368), reviewed
 at `af5992c58bdb653f6ca8be905a17ddab992c5702` and merged as
 `1c40306c22e15b2ad3049e8d32abff47450c8921`. It is a curated extension to the retained baseline,
-not evidence that all current canonical schema has been projected. The six new host tables record
-bounded model provenance and Monitor orchestration; they introduce no separate canonical law.
-The projection's `schema_migrations` ledger is excluded from every application-table count above.
+not evidence that all current canonical schema has been projected. The original six bounded-model/
+Monitor host-extension tables remain deployment furniture, and the completion-plan migrations add
+fourteen more local control/durability tables through P05. None of those local tables introduces
+separate canonical product law. The projection's `schema_migrations` ledger is excluded from every
+application-table count above.
 
 [`schema_invariants.php`](../tests/integration/schema_invariants.php) compares the exact sorted
 application-table names returned by MariaDB with the explicit fixture. It separately checks group
 counts and disjointness. A missing, renamed or unexpected table therefore fails even when the
 overall count stays the same; tables outside the declared adapter list are no longer classified
-as canonical by taking a complement. Existing constraint, engine and excluded-family checks
-remain in force. This inventory correction changes no runtime code or migration.
+as canonical by taking a complement. Existing constraint, engine and excluded-family checks remain in force. P05 deliberately extends
+that inventory with migration `230_monitor_attempt_recovery.sql`; the older baseline classifications
+remain unchanged.

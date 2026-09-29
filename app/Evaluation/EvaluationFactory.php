@@ -5,7 +5,7 @@ namespace Allfather\Loopia\Evaluation;
 use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\PromptOps\{PromptApprovalStore,PromptSelectionResolver};
-use Allfather\Loopia\Provider\{CredentialStore,ModelExecutor,ModelTransport};
+use Allfather\Loopia\Provider\{CredentialStore,ModelArtifactStore,ModelExecutor,ModelTransport};
 use Allfather\Loopia\Storage\EvidenceStore;
 use Allfather\Loopia\Substrate\M01\Invocation;
 use Allfather\Loopia\Substrate\M02\AccessGuard;
@@ -42,7 +42,7 @@ final class EvaluationFactory
         $resolver = PromptSelectionResolver::governed($approvals, $grants);
         $gateway = new Gateway($db, $clock, new AccessGuard($db, $clock), new Eligibility($db, $clock), new Invocation($db, $clock));
         $cases = new EvaluationCaseContext($manifest);
-        $executor = new ModelExecutor($db, $clock, $gateway, $credentials, $transport, $cases, $resolver, $admission);
+        $executor = new ModelExecutor($db, $clock, $gateway, $credentials, $transport, $cases, new ModelArtifactStore($db, $clock, $store), $resolver, $admission);
 
         return [
             'runner' => new MonitorEvaluationRunner($db, $clock, $grants, $resolver, $executor, $cases, $store, $transport->isLive()),

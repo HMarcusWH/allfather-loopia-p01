@@ -20,7 +20,8 @@
     "completion_plan_migrations": [
       "database/migrations/210_monitor_execution_controls.sql",
       "database/migrations/220_monitor_evaluation_records.sql",
-      "database/migrations/225_monitor_setup_receipts.sql"
+      "database/migrations/225_monitor_setup_receipts.sql",
+      "database/migrations/230_monitor_attempt_recovery.sql"
     ]
   },
   "baseline_canonical_tables": [
@@ -251,6 +252,11 @@
     ],
     "225_monitor_setup_receipts.sql": [
       "monitor_setup_receipts"
+    ],
+    "230_monitor_attempt_recovery.sql": [
+      "monitor_model_attempt_bindings",
+      "monitor_run_reconciliations",
+      "provider_model_candidate_artifacts"
     ]
   }
 }
