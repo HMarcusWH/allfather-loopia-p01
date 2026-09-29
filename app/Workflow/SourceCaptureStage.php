@@ -28,7 +28,8 @@ final class SourceCaptureStage
         }
         // Run locks protect one run. This source lock protects the before->after baseline shared by
         // different runs without holding a SQL transaction open through DNS/HTTP.
-        $lock = 'monitor-source:' . substr(hash('sha256', $sourceId), 0, 48);
+        $database = (string) $this->db->scalar('SELECT DATABASE()');
+        $lock = 'monitor-source:' . substr(hash('sha256', $database . "\0" . $sourceId), 0, 48);
         if ((int) $this->db->scalar('SELECT GET_LOCK(?, 0)', [$lock]) !== 1) {
             return Outcome::refuse('MONITOR_SOURCE_BUSY');
         }

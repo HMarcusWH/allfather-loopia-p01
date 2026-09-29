@@ -22,7 +22,7 @@ $baseline = X::value($service->startConfigured($scope, $fx['mission_id'], 'p05-b
 // possible without changing the run identity.
 $otherConnection = Harness::secondConnection();
 if ($otherConnection !== null) {
-    $sourceLock = 'monitor-source:' . substr(hash('sha256', $fx['monitored_source_id']), 0, 48);
+    $sourceLock = 'monitor-source:' . substr(hash('sha256', (string) $db->scalar('SELECT DATABASE()') . "\0" . $fx['monitored_source_id']), 0, 48);
     Assert::same(1, (int) $otherConnection->scalar('SELECT GET_LOCK(?, 0)', [$sourceLock]), 'second session can hold the source serialization lock');
     Assert::same('MONITOR_SOURCE_BUSY', $service->advance($scope, $baseline['monitor_run_id'])->reasonCode(), 'another in-flight capture of this source refuses before fetch');
     Assert::same('NEW', (new RunJournal($db, $clock))->find($scope, $baseline['monitor_run_id'])['stage'], 'source contention does not terminalize the run');
