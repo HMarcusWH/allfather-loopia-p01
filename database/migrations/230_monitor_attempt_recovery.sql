@@ -104,6 +104,27 @@ BEGIN
   END IF;
 END$$
 
+CREATE TRIGGER trg_provider_model_results_require_artifact BEFORE INSERT ON provider_model_results FOR EACH ROW
+BEGIN
+  IF NEW.outcome='CANDIDATE' THEN
+    IF NEW.candidate_digest IS NULL OR NEW.failure_code IS NOT NULL OR NEW.provider_call_id IS NULL
+       OR NOT EXISTS (
+         SELECT 1 FROM provider_model_candidate_artifacts ca
+         WHERE ca.model_attempt_id=NEW.model_attempt_id
+           AND ca.tool_request_id=NEW.tool_request_id
+           AND BINARY ca.candidate_digest=BINARY NEW.candidate_digest
+           AND BINARY ca.artifact_digest=BINARY NEW.candidate_digest
+       )
+    THEN
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'candidate provider result requires exact durable artifact';
+    END IF;
+  ELSEIF NEW.outcome='REFUSED' THEN
+    IF NEW.candidate_digest IS NOT NULL OR NEW.failure_code IS NULL THEN
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'refused provider result shape invalid';
+    END IF;
+  END IF;
+END$
+
 CREATE TRIGGER trg_monitor_attempt_bindings_consistent BEFORE INSERT ON monitor_model_attempt_bindings FOR EACH ROW
 BEGIN
   IF NOT EXISTS (

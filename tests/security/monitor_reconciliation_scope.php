@@ -184,6 +184,22 @@ $db->insert('provider_model_attempts', [
     'execution_mode' => 'FIXTURE',
     'reserved_at' => $clock->now(),
 ]);
+try {
+    $db->insert('provider_model_results', [
+        'model_result_id' => \Allfather\Loopia\Core\Ids::new(),
+        'model_attempt_id' => $dummyAttemptId,
+        'provider_call_id' => null,
+        'tool_request_id' => $captureRequest,
+        'outcome' => 'CANDIDATE',
+        'candidate_digest' => str_repeat('e', 64),
+        'provider_request_id' => null,
+        'failure_code' => null,
+        'recorded_at' => $clock->now(),
+    ]);
+    Assert::fail('database accepted a CANDIDATE provider result with no exact durable candidate artifact');
+} catch (\PDOException) {
+    Assert::pass();
+}
 $dummyResultId = \Allfather\Loopia\Core\Ids::new();
 $db->insert('provider_model_results', [
     'model_result_id' => $dummyResultId,
