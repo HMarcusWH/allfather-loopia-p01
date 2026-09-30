@@ -23,6 +23,8 @@ use Allfather\Loopia\Support\Env;
  */
 final class BetaCli
 {
+    /** @var list<MaintenanceLease> process-lifetime shared leases for ordinary operator commands. */
+    private static array $maintenanceLeases = [];
     /**
      * Parse `--flag=value` arguments, refusing anything not on the known list.
      *
@@ -157,9 +159,27 @@ final class BetaCli
         return ['env' => $boot['env'], 'environment' => $boot['environment']];
     }
 
-    /** @param Env $env */
-    public static function connect(Env $env, callable $fail): Database
+    /**
+     * Open an operator database connection.
+     *
+     * Ordinary commands first take the same shared MaintenanceGate lease as web/scheduler runtime
+     * and keep it for the whole process. That closes the "backup quiesced the website but a private
+     * CLI kept writing" gap. Only P10's own maintenance/backup verifier may opt out; those commands
+     * are the mechanism that creates/observes the quiesced snapshot and are separately reviewed.
+     *
+     * @param Env $env
+     */
+    public static function connect(Env $env, callable $fail, bool $allowDuringMaintenance = false): Database
     {
+        if (!$allowDuringMaintenance) {
+            $gate = new MaintenanceGate(dirname(__DIR__, 2));
+            $lease = $gate->acquireRuntimeLease();
+            if (!$lease->isOk()) {
+                $fail('database access refused by maintenance gate: ' . $lease->reasonCode(), 4);
+            }
+            self::$maintenanceLeases[] = $lease->value()['lease'];
+        }
+
         try {
             return Database::connect(
                 $env->get('DB_HOST', '127.0.0.1') ?? '127.0.0.1',

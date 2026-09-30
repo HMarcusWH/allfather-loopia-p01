@@ -30,7 +30,10 @@ final class StandDownPosture
      *     evidence_problems: list<string>,
      *     unsupported_claims: list<string>,
      *     failing_stream_ids: list<string>,
-     *     admitted_execution_grants?: int
+     *     admitted_execution_grants?: int,
+     *     maintenance_state?: string,
+     *     maintenance_operation_state?: string,
+     *     maintenance_operation_kind?: ?string
      * } $observed
      * @return list<string>
      */
@@ -85,10 +88,23 @@ final class StandDownPosture
             $findings[] = 'the evidence registry still shows live read activated — no withdrawal record supersedes it';
         }
 
-        // An ADMITTED execution grant is a live capability: it can still reach a source or a model.
+        // A current OR future-dated owner-admitted grant is execution-capable state: a NOT_YET_VALID
+        // grant can become live later without another owner act. Stand-down must remove both.
         $admitted = (int) ($observed['admitted_execution_grants'] ?? 0);
         if ($admitted > 0) {
-            $findings[] = "{$admitted} execution grant(s) are still ADMITTED — suspend or revoke them with ops/monitor/stand-down.php";
+            $findings[] = "{$admitted} execution grant(s) are still admitted or future-admitted — suspend or revoke them with ops/monitor/stand-down.php";
+        }
+
+        if (($observed['maintenance_state'] ?? 'OPEN') === 'INVALID') {
+            $findings[] = 'the deployment maintenance marker is invalid — runtime fails closed until an operator repairs it';
+        }
+        $operationState = (string) ($observed['maintenance_operation_state'] ?? 'OPEN');
+        if ($operationState === 'INVALID') {
+            $findings[] = 'the deployment maintenance-operation marker is invalid — runtime fails closed until an operator repairs it';
+        } elseif ($operationState !== 'OPEN') {
+            $kind = $observed['maintenance_operation_kind'] ?? null;
+            $suffix = is_string($kind) && $kind !== '' ? " ({$kind})" : '';
+            $findings[] = "a deployment maintenance operation is still active{$suffix} — complete or explicitly recover it before declaring stand-down";
         }
 
         foreach ($observed['evidence_problems'] as $problem) {
@@ -125,6 +141,9 @@ final class StandDownPosture
             'unsupported_claims' => [],
             'failing_stream_ids' => [],
             'admitted_execution_grants' => 0,
+            'maintenance_state' => 'OPEN',
+            'maintenance_operation_state' => 'OPEN',
+            'maintenance_operation_kind' => null,
         ];
     }
 }

@@ -7,6 +7,7 @@ namespace Allfather\Loopia\Http;
 use Allfather\Loopia\Auth\Authenticator;
 use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Db\Database;
+use Allfather\Loopia\Ops\MaintenanceGate;
 
 /**
  * The front controller. Identity is resolved here; authorization remains with each owning surface.
@@ -36,6 +37,7 @@ final class Kernel
         private readonly Clock $clock,
         private readonly Authenticator $auth,
         private readonly View $view,
+        private readonly ?MaintenanceGate $maintenance = null,
     ) {
     }
 
@@ -77,6 +79,26 @@ final class Kernel
 
     private function dispatch(Request $request): Response
     {
+        // Production reaches this after the front-controller runtime lease has been acquired. This
+        // duplicate read makes direct Kernel composition fail closed too, and — critically — runs
+        // before resolveSession(), whose last_seen update is a write.
+        if ($this->maintenance !== null) {
+            $maintenanceState = $this->maintenance->status();
+            $operationState = $this->maintenance->operationStatus();
+            if (($maintenanceState['active'] ?? false) === true || ($operationState['active'] ?? false) === true) {
+                return Response::json([
+                    'status' => 'MAINTENANCE',
+                    'reason_codes' => [
+                        ($maintenanceState['active'] ?? false) === true
+                            ? (($maintenanceState['state'] ?? '') === 'INVALID' ? 'MAINTENANCE_STATE_INVALID' : 'MAINTENANCE_ACTIVE')
+                            : (($operationState['state'] ?? '') === 'INVALID'
+                                ? 'MAINTENANCE_OPERATION_STATE_INVALID'
+                                : 'MAINTENANCE_OPERATION_ORPHANED'),
+                    ],
+                ], 503);
+            }
+        }
+
         $session = $this->resolveSession($request);
 
         if (Csrf::required($request->method)) {

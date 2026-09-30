@@ -229,3 +229,26 @@ evidence may support a claim without automatically asserting it in the lock.
 
 See [the Gate R filing](STAGING_GATE_R_EVIDENCE_2026-09-26.md) for the exact release, source hashes,
 measured results, failed attempts, rollback/restore and remaining limits.
+
+## Backup/restore evidence (P10)
+
+A backup package and a restore rehearsal are operational evidence, not authority. P10's manifest
+pins the exact maintenance/export-operation identities, release/source/console identity, source
+database and authenticated-principal hashes, exact migration-ledger rows and trigger definitions,
+the native dump digest/size, database-principal binding for trigger ownership, complete per-table
+row-state digests, referenced private
+artifact digests, the frozen request-log prefix, governed-history summaries and the digest/count of
+read-only retained-output render models. Those facts may establish what was backed up and what a
+clean-target rehearsal reproduced; they may not make `production_launch_authorized`,
+`owner_go_granted`, `customer_visible_output_authorized` or any execution grant true.
+
+The repository evidence registry does not yet invent a BACKUP or RESTORE record kind. P10 tooling
+therefore emits its own sanitized manifest and verification result; adding a registry kind is a
+separate versioned schema review. The encrypted archive, plaintext dump/evidence tree and recovery
+identity are never registry payloads. A failed restore rehearsal must remain a failed observation,
+and a successful one proves only that the selected encrypted backup was imported into an explicitly
+empty, different target and reproduced its database/private-artifact/request-log/governed-history
+state under the exact protected release tree. It does not deploy that target or re-admit execution.
+
+Neither the encrypted archive nor its private recovery key belongs under `docs/`,
+`deployment-evidence.json`, the release tree, or any `public_html/` path.

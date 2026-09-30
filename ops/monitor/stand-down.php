@@ -24,7 +24,7 @@ if (PHP_SAPI !== 'cli') {
 require __DIR__ . '/../../app/autoload.php';
 
 use Allfather\Loopia\Core\Clock;
-use Allfather\Loopia\Ops\{BetaCli,SourceFingerprint};
+use Allfather\Loopia\Ops\{BetaCli,MaintenanceGate,SourceFingerprint};
 use Allfather\Loopia\PromptOps\PromptApprovalStore;
 use Allfather\Loopia\Provider\SecretBox;
 use Allfather\Loopia\Storage\EvidenceStore;
@@ -43,7 +43,28 @@ foreach (['tenant-id', 'workspace-id', 'operator-id', 'reason'] as $required) {
 $root = dirname(__DIR__, 2);
 $config = BetaCli::configuration($root, $args, $fail);
 $env = $config['env'];
-$db = BetaCli::connect($env, $fail);
+$maintenanceGate = new MaintenanceGate($root);
+$maintenanceState = $maintenanceGate->status();
+$maintenanceOperationId = null;
+if (($maintenanceState['active'] ?? false) === true) {
+    if (($maintenanceState['state'] ?? '') !== 'QUIESCED'
+        || ($maintenanceState['reason'] ?? null) !== 'BACKUP') {
+        $fail('stand-down maintenance state is invalid for backup authority narrowing', 4);
+    }
+    $operation = $maintenanceGate->beginOperation(
+        (string) $maintenanceState['maintenance_id'],
+        (string) $args['operator-id'],
+        'AUTHORITY_STAND_DOWN',
+    );
+    if (!$operation->isOk()) {
+        $fail('maintenance operation unavailable: ' . $operation->reasonCode(), 4);
+    }
+    $maintenanceOperationId = (string) $operation->value()['operation_id'];
+}
+// Outside maintenance this is an ordinary writer and must hold the shared quiescence lease.
+ // Inside a BACKUP window the AUTHORITY_STAND_DOWN operation marker serializes it against export,
+ // so the reviewed maintenance bypass is safe and strictly authority-narrowing.
+$db = BetaCli::connect($env, $fail, $maintenanceOperationId !== null);
 $clock = new Clock();
 $decisions = OwnerDecisionRegistry::forRoot($root);
 $approvals = new PromptApprovalStore($db, $clock, $decisions);
@@ -55,4 +76,10 @@ $stopper = isset($args['stop-runs'])
     ? MonitorFactory::inactive($db, $clock, new EvidenceStore($root . '/storage/evidence'), SecretBox::fromMasterKey($env->require('APP_MASTER_KEY')))
     : null;
 $out = $native->standDown($scope, $args['mode'] ?? 'suspend', $args['reason'], ($args['grant-id'] ?? '') !== '' ? $args['grant-id'] : null, $stopper);
+if ($maintenanceOperationId !== null) {
+    $ended = $maintenanceGate->endOperation($maintenanceOperationId, (string) $args['operator-id']);
+    if (!$ended->isOk()) {
+        $fail('stand-down completed but maintenance operation could not close: ' . $ended->reasonCode(), 4);
+    }
+}
 BetaCli::emit($out->isOk() ? ['ok' => true, 'result' => $out->value()] : ['ok' => false, 'reason_code' => $out->reasonCode()], $out->isOk() ? 0 : 1);

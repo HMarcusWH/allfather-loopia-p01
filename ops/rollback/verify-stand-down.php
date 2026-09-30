@@ -20,6 +20,7 @@ use Allfather\Loopia\Http\ConsoleAssetManifest;
 use Allfather\Loopia\Jobs\SchedulerAuth;
 use Allfather\Loopia\Ops\BetaCli;
 use Allfather\Loopia\Ops\DeploymentEvidence;
+use Allfather\Loopia\Ops\MaintenanceGate;
 use Allfather\Loopia\Ops\SourceFingerprint;
 use Allfather\Loopia\Ops\StandDownPosture;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
@@ -49,6 +50,12 @@ $environment = $configuration['environment'];
 
 /** @var array<string, mixed> $observed */
 $observed = ['expected_release' => $expectRelease];
+$maintenanceGate = new MaintenanceGate($root);
+$maintenance = $maintenanceGate->status();
+$maintenanceOperation = $maintenanceGate->operationStatus();
+$observed['maintenance_state'] = (string) ($maintenance['state'] ?? 'INVALID');
+$observed['maintenance_operation_state'] = (string) ($maintenanceOperation['state'] ?? 'INVALID');
+$observed['maintenance_operation_kind'] = $maintenanceOperation['kind'] ?? null;
 
 $runningRelease = $env->get('APP_RELEASE_REF');
 $observed['running_release'] = $runningRelease;
@@ -113,7 +120,7 @@ $observed['unsupported_claims'] = $registry->unsupportedClaims($claimBoundary);
 $observed['live_read_claimed'] = ($claimBoundary['live_read_activated'] ?? null) === true;
 $observed['live_read_supported'] = $supported['live_read_activated'] === true;
 
-$db = BetaCli::connect($env, $fail);
+$db = BetaCli::connect($env, $fail, true);
 $clock = new Clock();
 $accounts = new AccountService($db, $clock, new Authenticator($db, $clock));
 
@@ -142,7 +149,8 @@ $grantStore = new \Allfather\Loopia\Workflow\ExecutionGrantStore($db, $clock, ne
 $observed['admitted_execution_grants'] = 0;
 try {
     foreach ($db->all('SELECT execution_grant_id FROM monitor_execution_grants') as $row) {
-        $observed['admitted_execution_grants'] += $grantStore->status((string) $row['execution_grant_id']) === 'ADMITTED' ? 1 : 0;
+        $status = $grantStore->status((string) $row['execution_grant_id']);
+        $observed['admitted_execution_grants'] += in_array($status, ['ADMITTED', 'NOT_YET_VALID'], true) ? 1 : 0;
     }
 } catch (\PDOException) {
     // A release older than migration 210 has no grants table, and therefore no grant.
@@ -202,6 +210,8 @@ BetaCli::emit([
     'account' => $accountState,
     'm10_integrity' => $integrity,
     'admitted_execution_grants' => $observed['admitted_execution_grants'],
+    'maintenance' => $maintenance,
+    'maintenance_operation' => $maintenanceOperation,
     'findings' => $findings,
     'writes_performed' => 0,
     'records_evidence' => false,

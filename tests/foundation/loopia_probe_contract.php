@@ -96,7 +96,7 @@ Assert::contains(
 // make a verdict a guess, so each is asserted to be IN the required set rather than merely probed.
 $stagingRequired = [
     'php_version', 'ext_pdo', 'ext_pdo_mysql', 'ext_openssl', 'ext_json', 'ext_mbstring', 'ext_hash',
-    'aes_256_gcm', 'csprng', 'private_storage_writable', 'atomic_rename', 'public_root_separation',
+    'aes_256_gcm', 'csprng', 'private_storage_writable', 'atomic_rename', 'filesystem_advisory_locking', 'public_root_separation',
     'mariadb', 'mariadb_version_floor', 'innodb_available', 'check_constraints_enforced',
     'transaction_rollback', 'foreign_keys_enforced', 'row_locking', 'named_advisory_locking', 'trigger_support',
 ];
@@ -130,6 +130,11 @@ Assert::contains('CONSTRAINT fk_probe_', $code, 'foreign key enforcement is prov
 Assert::contains('FOR UPDATE', $code, 'row locking is proved by actually taking a lock');
 Assert::contains("SIGNAL SQLSTATE '45000'", $code, 'trigger support is proved by a trigger that fires');
 Assert::contains('CHECK (flag = 0)', $code, 'CHECK enforcement is proved by a refused write');
+
+Assert::contains("'filesystem_advisory_locking'", $code, 'P10 filesystem advisory locking is a named staging capability');
+Assert::contains('LOCK_SH | LOCK_NB', $code, 'P10 probe demonstrates shared runtime flock leases');
+Assert::contains('LOCK_EX | LOCK_NB', $code, 'P10 probe demonstrates the exclusive maintenance drain lock');
+Assert::contains("'exclusive_after_release'", $code, 'P10 probe proves exclusive acquisition after readers drain');
 
 // TWO CONNECTIONS, OR THE LOCK PROOF PROVES NOTHING. Statements on one handle are serialized by the
 // wire: the "contender" would simply read what the holder committed.

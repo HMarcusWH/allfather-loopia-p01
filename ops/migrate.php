@@ -23,6 +23,7 @@ require __DIR__ . '/../app/autoload.php';
 
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Db\Migrator;
+use Allfather\Loopia\Ops\MaintenanceGate;
 use Allfather\Loopia\Support\Bootstrap;
 use Allfather\Loopia\Support\Env;
 
@@ -78,6 +79,13 @@ if (!$quiet) {
         PHP_EOL,
     ));
 }
+
+$maintenance = (new MaintenanceGate($root))->acquireRuntimeLease();
+if (!$maintenance->isOk()) {
+    fwrite(STDERR, 'migrate: database access refused by maintenance gate: ' . $maintenance->reasonCode() . PHP_EOL);
+    exit(4);
+}
+$maintenanceLease = $maintenance->value()['lease'];
 
 try {
     $db = Database::connect(

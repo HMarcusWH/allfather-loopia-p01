@@ -6,7 +6,7 @@ described as deployed or a deployment gets described as activated:
 
 | Question | Current answer | Evidence |
 | --- | --- | --- |
-| **Source** — what application code is on `main`? | P00–P04 are merged through PR23 at `5c77f9ca`; P05 is the current unmerged candidate | Git history; [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) |
+| **Source** — what application code is on `main`? | P00–P05 are merged through PR24 at `d5d2ba59`; P10 backup/full-restore is the current unmerged candidate | Git history; [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) |
 | **Tested** — which exact commit was qualified, and how? | from this change on: a receipt from `ops/ci/qualify-release.sh` per commit. Latest registry-backed qualification: PR16 | §2; `deployment-evidence.json` |
 | **Deployed** — which application runs on staging? | PR16 `392f48de`, inert. **None of the Monitor work is deployed** | §3; [Gate R filing](STAGING_GATE_R_EVIDENCE_2026-09-26.md) |
 | **Activated** — what may run against the world? | nothing: no live read, no native model call, no scheduler handler, no external action | §4; `upstream.lock.json` |
@@ -17,7 +17,7 @@ stop matching `upstream.lock.json`, `deployment-evidence.json` and `database/mig
 
 ```text
 canonical_pin                      = c6d9cf9a7a1001b001ca6118999e9cb75c831c4d
-last_reviewed_application_merge    = 5c77f9ca8a16ab386892de604b6b5ea767de980f
+last_reviewed_application_merge    = d5d2ba59a84e0fbf479bd330a7892ca1ab84fdc3
 deployed_staging_release           = 392f48deef11380f6dccfe88f2a47ba1fd94575c
 evidence_records                   = 12
 candidate_migrations               = 27
@@ -40,15 +40,14 @@ candidate_migrations               = 27
   [`reconciliation/`](reconciliation/monitor-scoped-extension-2026-09-27.json); the latest canonical
   main inspected for them is `1c40306c22e15b2ad3049e8d32abff47450c8921` (canonical PR 368).
   Inspecting a newer canonical head does not advance the pin.
-- **Last reviewed application merge:** `5c77f9ca8a16ab386892de604b6b5ea767de980f` (PR23), adding
-  completion packages **P00–P04**: reproducible qualification, execution admission/prompt approval,
-  the bounded real-model evaluation lane, admitted manual-native composition/stand-down, and
-  repeatable operator-supported mission setup.
-- **Qualification caveat:** PR23 was merged by owner decision while its exact-head qualification gap
-  remained open because hosted runners executed zero steps and no accepted local exact-head receipt
-  was produced. Merge is therefore recorded as source state, not retroactively described as PASS.
-- **Since then:** the current P05 branch candidate adds durable provider-candidate bytes and explicit
-  interruption reconciliation. It is not merged, qualified, deployed or activated.
+- **Last reviewed application merge:** `d5d2ba59a84e0fbf479bd330a7892ca1ab84fdc3` (PR24), completing
+  **P00–P05** through durable provider-candidate bytes, exact attempt/request binding, explicit
+  interruption reconciliation and source-baseline serialization.
+- **Qualification caveat:** PR23 and PR24 were merged by owner decision while exact-head qualification
+  remained incomplete: hosted runners executed zero steps, and PR24's MariaDB/destructive tests are
+  intentionally deferred. These merges are source facts, not retroactive PASS claims.
+- **Since then:** the current P10 branch candidate adds deployment quiescence plus independent
+  backup/full-restore tooling. It is not merged, qualified, deployed or activated.
 - **Candidate schema:** 27 migration files, including `210_monitor_execution_controls`,
   `220_monitor_evaluation_records`, `225_monitor_setup_receipts` and `230_monitor_attempt_recovery`.
   The deployed PR16 release has 19.
@@ -96,8 +95,8 @@ SHA.
   PHP 8.5.9, MariaDB 10.11.19, 19 migrations, strict host suite 5,552/0/0, rollback drill
   PR16→PR15→PR16 passed. E.1 remains `FAIL_READABLE` and E.3 `UNVERIFIED`; neither is an isolation
   pass.
-- **The merged Monitor work through PR23 and the current P05 candidate are not deployed.** The
-  deployed PR16 tree predates `/console/monitor`, the bounded model/admission path and P04/P05 tooling.
+- **The merged Monitor work through PR24 and the current P10 candidate are not deployed.** The
+  deployed PR16 tree predates `/console/monitor`, the bounded model/admission path and P04/P05/P10 tooling.
 - **Production** is neither deployed nor authorized.
 - **Evidence registry:** 12 reviewed records, preserving the PR13 host failure and the PR15 isolation
   failure alongside current PR16 evidence.
@@ -135,9 +134,9 @@ road_test_001_executed             = false
 ## 5. What comes next
 
 The [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) sequences the rest as three releases.
-PR23 merged **P00–P04**. The current candidate implements **P05 — recoverable model results and
-explicit interruption handling**; P10 backup/restore can proceed in parallel. P06 still waits for
-both P05 and P10. Neither code merge creates execution authority, deployment evidence or owner GO.
+PR24 merged **P00–P05**. The current candidate implements **P10 — independent backup and verified
+full restore**. P06 still waits for P10; P11 can begin after P10. Neither code merge creates
+execution authority, deployment evidence or owner GO.
 
 ## 6. Superseded narrative
 

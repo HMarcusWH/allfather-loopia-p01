@@ -140,6 +140,28 @@ Assert::same(
     'and every failing stream is named, not just the first',
 );
 
+Assert::equalsList(
+    ['1 execution grant(s) are still admitted or future-admitted — suspend or revoke them with ops/monitor/stand-down.php'],
+    $with(['admitted_execution_grants' => 1]),
+    'a current or future-admitted execution grant prevents stand-down verification',
+);
+
+Assert::equalsList(
+    ['the deployment maintenance marker is invalid — runtime fails closed until an operator repairs it'],
+    $with(['maintenance_state' => 'INVALID']),
+    'an invalid maintenance marker cannot verify stand-down',
+);
+Assert::equalsList(
+    ['the deployment maintenance-operation marker is invalid — runtime fails closed until an operator repairs it'],
+    $with(['maintenance_operation_state' => 'INVALID']),
+    'an invalid maintenance-operation marker cannot verify stand-down',
+);
+Assert::equalsList(
+    ['a deployment maintenance operation is still active (BACKUP_EXPORT) — complete or explicitly recover it before declaring stand-down'],
+    $with(['maintenance_operation_state' => 'ACTIVE', 'maintenance_operation_kind' => 'BACKUP_EXPORT']),
+    'an active backup operation cannot be silently ignored by stand-down verification',
+);
+
 // ============================================================ nothing is configurable away
 
 // A deployment that has legitimately activated something is not a deployment that has stood down.
@@ -168,6 +190,17 @@ Assert::same(
 Assert::false(
     str_contains($command, '$findings[] ='),
     'the command appends no finding of its own, so none can bypass the rule',
+);
+
+Assert::contains(
+    '$maintenanceOperation = $maintenanceGate->operationStatus();',
+    $command,
+    'the verifier observes the same maintenance-operation state that can hold runtime closed',
+);
+Assert::contains(
+    "'maintenance_operation' => \$maintenanceOperation",
+    $command,
+    'and reports that operation state beside the maintenance marker',
 );
 
 // ============================================================ the manifest check is the runtime's

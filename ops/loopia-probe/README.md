@@ -84,6 +84,10 @@ Loopia support, never by this probe reporting READY and never by weakening the P
 - `atomic_rename` — write to a same-directory temporary name, rename into place, **and read the
   payload back intact**. A rename that returned true onto a filesystem serving stale content would
   pass a rename check and fail the thing the rename exists for.
+- `filesystem_advisory_locking` — opens three independent handles to one private-storage file,
+  proves two shared `flock` leases coexist, proves a non-blocking exclusive lease is refused while
+  they exist, releases both readers, then proves the exclusive lease succeeds. P10's maintenance
+  drain/quiescence barrier depends on exactly this geometry.
 - `public_root_separation` — that `storage/` really is outside `public_html/`, checked as a resolved
   path relationship rather than as a directory that happens to exist
 
