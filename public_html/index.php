@@ -26,6 +26,7 @@ use Allfather\Loopia\Http\RequestId;
 use Allfather\Loopia\Http\RequestLog;
 use Allfather\Loopia\Http\Response;
 use Allfather\Loopia\Http\View;
+use Allfather\Loopia\Ops\MaintenanceGate;
 use Allfather\Loopia\Product\P01\Entitlements;
 use Allfather\Loopia\Product\P01\Surfacing;
 use Allfather\Loopia\Product\P02\EntityTwins;
@@ -54,6 +55,21 @@ $earlyFailure = static function (Response $response) use ($request): void {
     RequestLog::record($request->requestId, $request->method, $request->path, $stamped->status);
     $stamped->send();
 };
+
+// P10 operational quiescence happens before Bootstrap, authentication or DB composition. In
+// particular, Authenticator::resolveSession updates last_seen_at, so checking later would make a
+// "maintenance" GET a database writer. Keep the lease referenced until this process exits.
+$maintenanceGate = new MaintenanceGate($root);
+$maintenance = $maintenanceGate->acquireRuntimeLease();
+if (!$maintenance->isOk()) {
+    $earlyFailure(Response::json([
+        'status' => 'MAINTENANCE',
+        'reason_codes' => [$maintenance->reasonCode()],
+        'request_reference' => $request->requestId,
+    ], 503));
+    return;
+}
+$maintenanceLease = $maintenance->value()['lease'];
 
 // Last-resort boundary for failures that happen after bootstrap but before a request reaches Kernel
 // (for example while a future composition root is being assembled). Kernel has its own boundary for
@@ -116,7 +132,7 @@ $ledger = new DecisionLedger($db, $clock);
 $assurance = new Assurance($db, $clock, $ledger);
 $entitlements = new Entitlements($db, $clock);
 $m12 = new Console($db, $clock, $access, $ledger, $assurance);
-$kernel = new Kernel($db, $clock, $auth, $view);
+$kernel = new Kernel($db, $clock, $auth, $view, $maintenanceGate);
 
 $session = new SessionController($auth, $view);
 $kernel->route('GET', '/login', $session->showLogin(...));

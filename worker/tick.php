@@ -32,9 +32,22 @@ use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Jobs\JobMachine;
 use Allfather\Loopia\Jobs\SchedulerRunner;
+use Allfather\Loopia\Ops\MaintenanceGate;
 use Allfather\Loopia\Support\Bootstrap;
 
 $root = dirname(__DIR__);
+
+$maintenance = (new MaintenanceGate($root))->acquireRuntimeLease();
+if (!$maintenance->isOk()) {
+    echo json_encode([
+        'status' => 'MAINTENANCE',
+        'reason_code' => $maintenance->reasonCode(),
+        'claimed' => 0,
+        'advanced' => 0,
+    ], JSON_THROW_ON_ERROR), "\n";
+    exit(0);
+}
+$maintenanceLease = $maintenance->value()['lease'];
 
 try {
     $boot = Bootstrap::load($root);

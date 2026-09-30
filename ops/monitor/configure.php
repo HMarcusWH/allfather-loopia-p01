@@ -9,6 +9,7 @@ require __DIR__.'/../../app/autoload.php';
 
 use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Db\Database;
+use Allfather\Loopia\Ops\MaintenanceGate;
 use Allfather\Loopia\Support\Env;
 use Allfather\Loopia\Workflow\MissionConfiguration;
 
@@ -22,6 +23,9 @@ try {
     $document=json_decode((string)file_get_contents($path),true,64,JSON_THROW_ON_ERROR);
     if (!is_array($document) || array_diff(array_keys($document),['scope','definition','execution_mode'])!==[] || !is_array($document['scope']??null) || !is_array($document['definition']??null)) { throw new RuntimeException('MONITOR_CONFIGURATION_FILE_INVALID'); }
     $env=Env::load($args['env']);
+    $maintenance=(new MaintenanceGate(dirname(__DIR__,2)))->acquireRuntimeLease();
+    if(!$maintenance->isOk()){throw new RuntimeException($maintenance->reasonCode());}
+    $maintenanceLease=$maintenance->value()['lease'];
     $db=Database::connect($env->get('DB_HOST','127.0.0.1'),$env->int('DB_PORT',3306),$env->require('DB_NAME'),$env->require('DB_USER'),$env->get('DB_PASSWORD',''),$env->get('DB_SOCKET'));
     $out=(new MissionConfiguration($db,new Clock()))->configure($document['scope'],$document['definition'],(string)($document['execution_mode']??''));
     // No definition, private file path or provider credential is echoed.

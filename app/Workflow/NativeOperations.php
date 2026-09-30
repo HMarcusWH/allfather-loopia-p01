@@ -157,11 +157,15 @@ final class NativeOperations
         if ($grantId === null) {
             foreach (['MANUAL_MONITOR', 'MODEL_EVALUATION', 'SCHEDULED_OBSERVATION'] as $purpose) {
                 $ids = [...$ids, ...$this->grants->admittedIn($scope['tenant_id'], $scope['workspace_id'], $purpose)];
-                if ($mode === 'revoke') {
-                    foreach ($this->db->all('SELECT execution_grant_id FROM monitor_execution_grants WHERE tenant_id=? AND workspace_id=? AND purpose=?', [$scope['tenant_id'], $scope['workspace_id'], $purpose]) as $row) {
-                        if ($this->grants->status($row['execution_grant_id']) === 'SUSPENDED') {
-                            $ids[] = $row['execution_grant_id'];
-                        }
+                foreach ($this->db->all(
+                    'SELECT execution_grant_id FROM monitor_execution_grants
+                     WHERE tenant_id=? AND workspace_id=? AND purpose=?',
+                    [$scope['tenant_id'], $scope['workspace_id'], $purpose]
+                ) as $row) {
+                    $status = $this->grants->status($row['execution_grant_id']);
+                    if ($status === 'NOT_YET_VALID'
+                        || ($mode === 'revoke' && $status === 'SUSPENDED')) {
+                        $ids[] = $row['execution_grant_id'];
                     }
                 }
             }

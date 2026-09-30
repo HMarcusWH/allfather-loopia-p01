@@ -301,3 +301,69 @@ production_launch_authorized        = false
 
 Production provisioning remains structurally refused because canonical customer/production identity
 vocabulary does not exist at the pinned head.
+
+## P10 backup/full-restore boundary
+
+A code rollback is **not** a database restore. Before a backup window, enter deployment maintenance
+with the private operator CLI:
+
+```sh
+php ops/backup/maintenance.php enter --env=/private/staging.env \
+  --tenant-id=<tenant> --workspace-id=<workspace> --operator-id=<operator> --reason=BACKUP
+```
+
+The command takes an exclusive filesystem lock first. Ordinary web requests, both scheduler entry
+points, ordinary operator DB commands, migrations/provisioning and the destructive host DB probe
+hold the shared side of the same gate, so the maintenance marker is published only after in-flight
+runtime work has drained. While the marker exists, those writers refuse before product/auth/database
+mutation. This does not itself withdraw M10 releases or execution grants; it is an operational
+quiescence boundary only.
+
+While still in maintenance, explicitly suspend/revoke any admitted Monitor execution grants with
+`ops/monitor/stand-down.php`. That authority-narrowing command is deliberately allowed through the
+maintenance barrier. `export.sh` independently refuses to build a backup while any grant remains
+currently `ADMITTED`.
+
+Native backup/export is operator-side. Supply a private MariaDB client option file (mode 0600/0400)
+and an age **public** recipient; do not place passwords or private keys on argv:
+
+```sh
+bash ops/backup/export.sh --env=/private/staging.env \
+  --client-options=/private/mariadb-backup.cnf --database=<runtime_db> \
+  --recipient=age1... --out=/off-host/allfather-<timestamp>.tar.age
+```
+
+The exporter requires quiesced maintenance, pins a `BACKUP_EXPORT` maintenance operation so runtime
+cannot reopen between the native snapshot and post-dump reads, performs a native single-transaction
+dump, packages every referenced private content-addressed blob and the exact request-log prefix,
+records exact migration-ledger rows/trigger definitions plus schema/data digests and release/asset
+identity, verifies the plaintext package, then encrypts it. The
+plaintext work directory is temporary. `.env`, provider credentials, scheduler tokens, SSH keys and
+the application master key are not backup-manifest fields.
+
+A restore rehearsal targets an explicitly empty **different** database and uses a separate private
+age identity/client option file:
+
+```sh
+bash ops/backup/restore-rehearsal.sh --archive=/off-host/backup.tar.age \
+  --identity=/private/age-recovery.key --env=/private/restore.env \
+  --client-options=/private/mariadb-restore.cnf --database=<empty_restore_db>
+```
+
+Before import it verifies the package after decryption, refuses a target whose host+port+database identity
+equals the source, and refuses any target containing tables. After import it verifies the exact schema/migration/trigger state, complete table-by-table restored
+row state, every retained blob and request-log prefix, all M10 stream chains/current-reliance
+summaries, every Monitor journal chain, and the ability to materialize/JSON-render retained M16/P04
+output read models without writing new access-audit rows. The rehearsal starts no web runtime or scheduler; a
+restored historical grant is not permission to run it. Native execution requires a separate
+post-restore re-admission/activation decision.
+
+After a successful source backup window, leave only the exact maintenance ID returned by `enter`:
+
+```sh
+php ops/backup/maintenance.php leave ... --maintenance-id=<exact-id>
+```
+
+Never restore an old dump into the live append-only database and never use a down-migration as a
+rollback substitute. If old application code is not explicitly compatible with the expanded schema,
+stand down and roll forward to a repaired release.

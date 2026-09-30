@@ -51,6 +51,7 @@ require __DIR__ . '/../app/autoload.php';
 use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Core\Ids;
 use Allfather\Loopia\Db\Database;
+use Allfather\Loopia\Ops\MaintenanceGate;
 use Allfather\Loopia\Product\P01\Entitlements;
 use Allfather\Loopia\Product\P01\Registration as P01Registration;
 use Allfather\Loopia\Product\P02\Registration as P02Registration;
@@ -155,6 +156,12 @@ fwrite(STDERR, sprintf(
     isset($args['dry-run']) ? ' DRY RUN' : '',
     PHP_EOL,
 ));
+
+$maintenance = (new MaintenanceGate($root))->acquireRuntimeLease();
+if (!$maintenance->isOk()) {
+    $fail('database access refused by maintenance gate: ' . $maintenance->reasonCode(), 4);
+}
+$maintenanceLease = $maintenance->value()['lease'];
 
 try {
     $db = Database::connect(

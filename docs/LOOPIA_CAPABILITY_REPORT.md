@@ -89,14 +89,21 @@ Working end to end today, given seeded authority:
 
 ## 4. Operational readiness
 
-The current working candidate has additional migrations. PR16 staging evidence proves the prior
-19-migration release only; candidate migration execution, repeatability and host qualification must
-be evidenced for the new exact release before claiming deployment readiness. P05 also makes named
-MariaDB advisory locking a required host capability because Monitor run/source serialization now
-depends on it; the PR16 host probe predates that proof, so it must be re-run for the P05 candidate.
-The candidate also adds the inactive Monitor workbench and bounded model composition described in
+The current working candidate has additional migrations and operational controls. PR16 staging
+evidence proves the prior 19-migration release only; candidate migration execution, repeatability
+and host qualification must be evidenced for the new exact release before claiming deployment
+readiness. P05 made named MariaDB advisory locking load-bearing for Monitor run/source serialization.
+P10 now also makes **filesystem advisory locking (`flock`) load-bearing** for backup quiescence:
+ordinary runtime holds shared leases and maintenance takes an exclusive drain lease. The P10 probe
+therefore demonstrates both lock families separately. PR16 host evidence predates both additions,
+so it does not prove the current candidate's lock capabilities.
+
+P10 also depends on operator-side native `mariadb-dump`/`mariadb` and `age`, same-account trigger
+DEFINER behavior, and a real empty disposable restore target. Those are not inferred from PHP,
+MariaDB version strings, or code review; they remain operational qualification work. The candidate
+retains the inactive Monitor workbench and bounded model composition described in
 [Monitor delivery and remaining work](MONITOR_DELIVERY_AND_REMAINING_WORK_2026_09_27.md).
-Its local implementation and fixture checks do not update the deployed PR16 claims below.
+Its implementation and static/fixture checks do not update the deployed PR16 claims below.
 
 | Area | State |
 | --- | --- |
@@ -106,7 +113,7 @@ Its local implementation and fixture checks do not update the deployed PR16 clai
 | CI | PR16 exact-head local workflow reproduction PASS: PHP 8.2.34, MariaDB 10.6/10.11 and both host-shaped lanes at 5,552/0/0; hosted runner allocation blocked by account billing/spending. The workflow's steps now live in `ops/ci/qualify-release.sh`, whose `local` route reproduces them from an exact-commit export and writes a self-reported receipt |
 | runbook | `DEPLOYMENT_RUNBOOK.md` for the mechanics, `BETA_RUNBOOK.md` for the sequence |
 | rollback | PR16 to PR15 to PR16 drill PASS for named immutable history and request-log prefix; no populated M10 stream or full database restore exercised |
-| host qualification | PR16 actual Loopia strict suite 5,552/0/0, probes, N/O/P and browser checks PASS under the staging deviation; E.1 FAIL_READABLE, E.3 UNVERIFIED |
+| host qualification | PR16 actual Loopia strict suite 5,552/0/0, probes, N/O/P and browser checks PASS under the staging deviation; **current P10 filesystem-flock/native backup-import capabilities are not yet host-qualified**; E.1 FAIL_READABLE, E.3 UNVERIFIED |
 | evidence | `deployment-evidence.json`, validated on every commit; **12 reviewed records; PR16 inert staging qualified under the recorded staging deviation** |
 
 ## 5. Measured staging state and uncompleted transitions
@@ -141,9 +148,11 @@ The following remain uncompleted or unauthorized:
 - **Technical cross-site isolation has not passed.** E.1 remains FAIL_READABLE; E.3 web-PHP
   isolation remains UNVERIFIED. The owner-directed staging deviation and WordPress maintenance
   exclusion are not isolation or hygiene proof. Production cannot inherit the staging exception.
-- **A complete database backup/import restore has not been proved.** Gate Q preserved the named
-  immutable history rows and prior request-log prefix. All phases had no M10 streams; it did not
-  test a populated-ledger rollback or full database restore.
+- **A complete database backup/import restore has not been proved.** P10 now implements the
+  quiescence/export/manifest/clean-target verification machinery, including populated M10/Monitor
+  and retained-output test cases, but that implementation is not host evidence. Gate Q preserved
+  named immutable history rows and a request-log prefix; it did not exercise P10's encrypted native
+  dump/import path, filesystem lock behavior, trigger definers, or a populated disposable restore.
 - **Credential rotation is not established by this evidence.** Preflight verified that the staging
   master key is set without disclosing it; that does not prove a rotation exercise or resolve the
   historical credential-log hygiene item.

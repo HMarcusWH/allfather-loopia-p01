@@ -33,6 +33,7 @@ use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Jobs\JobMachine;
 use Allfather\Loopia\Jobs\SchedulerAuth;
 use Allfather\Loopia\Jobs\SchedulerRunner;
+use Allfather\Loopia\Ops\MaintenanceGate;
 use Allfather\Loopia\Support\Bootstrap;
 
 /** Every response from this endpoint. No HTML, no template, no session. */
@@ -55,6 +56,13 @@ if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
 }
 
 $root = dirname(__DIR__);
+
+$maintenance = (new MaintenanceGate($root))->acquireRuntimeLease();
+if (!$maintenance->isOk()) {
+    $respond(503, ['status' => 'MAINTENANCE', 'reason_code' => $maintenance->reasonCode()]);
+    return;
+}
+$maintenanceLease = $maintenance->value()['lease'];
 
 try {
     $boot = Bootstrap::load($root);

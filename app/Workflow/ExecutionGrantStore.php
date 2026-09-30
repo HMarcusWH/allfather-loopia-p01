@@ -124,7 +124,7 @@ final class ExecutionGrantStore
     /** Stand-down: stops further use. It never refunds consumed budget or rewrites history. */
     public function suspend(array $scope, string $grantId, string $reasonCode): Outcome
     {
-        return $this->standDown($scope, $grantId, 'SUSPENDED', ['ADMITTED'], $reasonCode);
+        return $this->standDown($scope, $grantId, 'SUSPENDED', ['ADMITTED', 'NOT_YET_VALID'], $reasonCode);
     }
 
     public function revoke(array $scope, string $grantId, string $reasonCode): Outcome

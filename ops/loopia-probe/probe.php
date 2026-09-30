@@ -54,6 +54,7 @@ require __DIR__ . '/../../app/autoload.php';
 
 use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Db\Database;
+use Allfather\Loopia\Ops\MaintenanceGate;
 use Allfather\Loopia\Support\Env;
 
 /**
@@ -306,6 +307,43 @@ $record('atomic_rename', $atomicRename && $readBack ? 'PRESENT' : 'MISSING',
     'The evidence store writes to a temp file in the same directory and renames into place, so a '
     . 'reader never observes a partial payload.');
 
+
+// P10 maintenance is a FILESYSTEM lock, not a MariaDB advisory lock. Demonstrate the exact shared /
+// exclusive geometry MaintenanceGate depends on: two readers coexist, an exclusive contender is
+// refused while either reader exists, and it succeeds after both shared leases are released.
+$flockWorks = false;
+$flockDetail = ['shared_one' => false, 'shared_two' => false, 'exclusive_blocked' => false, 'exclusive_after_release' => false];
+if ($privateWritable && function_exists('flock')) {
+    $path = $storage . '/probe-flock-' . bin2hex(random_bytes(4));
+    $first = @fopen($path, 'c+b');
+    $second = @fopen($path, 'c+b');
+    $exclusive = @fopen($path, 'c+b');
+    if (is_resource($first) && is_resource($second) && is_resource($exclusive)) {
+        $flockDetail['shared_one'] = @flock($first, LOCK_SH | LOCK_NB);
+        $flockDetail['shared_two'] = $flockDetail['shared_one'] && @flock($second, LOCK_SH | LOCK_NB);
+        $flockDetail['exclusive_blocked'] = $flockDetail['shared_two'] && !@flock($exclusive, LOCK_EX | LOCK_NB);
+        @flock($second, LOCK_UN);
+        @flock($first, LOCK_UN);
+        $flockDetail['exclusive_after_release'] = @flock($exclusive, LOCK_EX | LOCK_NB);
+        if ($flockDetail['exclusive_after_release']) {
+            @flock($exclusive, LOCK_UN);
+        }
+        $flockWorks = !in_array(false, $flockDetail, true);
+    }
+    foreach ([$first ?? null, $second ?? null, $exclusive ?? null] as $handle) {
+        if (is_resource($handle)) {
+            fclose($handle);
+        }
+    }
+    @unlink($path);
+}
+$record(
+    'filesystem_advisory_locking',
+    $flockWorks ? 'PRESENT' : 'MISSING',
+    $flockDetail,
+    'P10 maintenance requires shared runtime leases and an exclusive drain lock on storage/.',
+);
+
 // The layout claim, checked as a real path relationship rather than as a directory existing. A
 // `storage/` INSIDE the served tree would satisfy "the directory exists" and would be served.
 $publicReal = realpath($root . '/public_html');
@@ -352,6 +390,13 @@ $dbFacts = [
 ];
 
 if ($env->has('DB_NAME')) {
+    $maintenance = (new MaintenanceGate($root))->acquireRuntimeLease();
+    if (!$maintenance->isOk()) {
+        fwrite(STDERR, 'probe: database mutation refused by maintenance gate: ' . $maintenance->reasonCode() . PHP_EOL);
+        exit(4);
+    }
+    $maintenanceLease = $maintenance->value()['lease'];
+
     $connect = static fn (): Database => Database::connect(
         $env->get('DB_HOST', '127.0.0.1') ?? '127.0.0.1',
         $env->int('DB_PORT', 3306),
@@ -755,7 +800,7 @@ $stagingRequired = [
     'php_version',
     'ext_pdo', 'ext_pdo_mysql', 'ext_curl', 'ext_openssl', 'ext_json', 'ext_mbstring', 'ext_hash',
     'aes_256_gcm', 'csprng',
-    'private_storage_writable', 'atomic_rename', 'public_root_separation',
+    'private_storage_writable', 'atomic_rename', 'filesystem_advisory_locking', 'public_root_separation',
     'mariadb', 'mariadb_version_floor', 'innodb_available',
     'check_constraints_enforced', 'transaction_rollback', 'foreign_keys_enforced',
     'row_locking', 'named_advisory_locking', 'trigger_support', 'probe_cleanup',
