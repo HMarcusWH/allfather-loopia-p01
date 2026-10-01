@@ -24,6 +24,7 @@ use Allfather\Loopia\Ops\MaintenanceGate;
 use Allfather\Loopia\Ops\SourceFingerprint;
 use Allfather\Loopia\Ops\StandDownPosture;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
+use Allfather\Loopia\Workflow\RunJournal;
 
 $fail = static function (string $message, int $code = 2): never {
     fwrite(STDERR, 'verify-stand-down: ' . $message . PHP_EOL);
@@ -188,6 +189,43 @@ foreach ($streams as $stream) {
 }
 $observed['failing_stream_ids'] = $failingStreamIds;
 
+$monitorIntegrity = ['runs_checked' => 0, 'passed' => 0, 'failed' => 0, 'failing_runs' => []];
+$failingMonitorRunIds = [];
+try {
+    $journal = new RunJournal($db, $clock);
+    foreach ($db->all(
+        'SELECT monitor_run_id,tenant_id,workspace_id,initiated_by_operator_id
+         FROM monitor_runs ORDER BY monitor_run_id'
+    ) as $row) {
+        $monitorIntegrity['runs_checked']++;
+        $scope = [
+            'tenant_id' => (string) $row['tenant_id'],
+            'workspace_id' => (string) $row['workspace_id'],
+            'operator_id' => (string) $row['initiated_by_operator_id'],
+        ];
+        try {
+            $replayed = $journal->replay($scope, (string) $row['monitor_run_id']);
+            if ($replayed->isOk() && ($replayed->value()['integrity'] ?? '') === 'PASS') {
+                $monitorIntegrity['passed']++;
+                continue;
+            }
+            $reason = $replayed->isOk() ? 'MONITOR_REPLAY_NOT_PASS' : $replayed->reasonCode();
+        } catch (\Throwable) {
+            // Corrupt JSON/shape must make stand-down fail closed, not crash before the verdict.
+            $reason = 'MONITOR_REPLAY_EXCEPTION';
+        }
+        $monitorIntegrity['failed']++;
+        $monitorIntegrity['failing_runs'][] = [
+            'monitor_run_id' => (string) $row['monitor_run_id'],
+            'reason_code' => $reason,
+        ];
+        $failingMonitorRunIds[] = (string) $row['monitor_run_id'];
+    }
+} catch (\PDOException) {
+    // Older rollback targets may predate monitor_runs. Absence means there is no Monitor journal to replay.
+}
+$observed['failing_monitor_run_ids'] = $failingMonitorRunIds;
+
 $findings = StandDownPosture::findings($observed);
 $status = $findings === [] ? 'STAND_DOWN_VERIFIED' : 'STAND_DOWN_NOT_VERIFIED';
 
@@ -209,6 +247,7 @@ BetaCli::emit([
     'evidence_supported_claims' => $supported,
     'account' => $accountState,
     'm10_integrity' => $integrity,
+    'monitor_integrity' => $monitorIntegrity,
     'admitted_execution_grants' => $observed['admitted_execution_grants'],
     'maintenance' => $maintenance,
     'maintenance_operation' => $maintenanceOperation,

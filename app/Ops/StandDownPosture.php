@@ -30,6 +30,7 @@ final class StandDownPosture
      *     evidence_problems: list<string>,
      *     unsupported_claims: list<string>,
      *     failing_stream_ids: list<string>,
+     *     failing_monitor_run_ids?: list<string>,
      *     admitted_execution_grants?: int,
      *     maintenance_state?: string,
      *     maintenance_operation_state?: string,
@@ -116,6 +117,9 @@ final class StandDownPosture
         foreach ($observed['failing_stream_ids'] as $streamId) {
             $findings[] = "M10 stream {$streamId} does not verify";
         }
+        foreach (($observed['failing_monitor_run_ids'] ?? []) as $runId) {
+            $findings[] = "Monitor run {$runId} does not replay with integrity PASS";
+        }
 
         return $findings;
     }
@@ -140,6 +144,7 @@ final class StandDownPosture
             'evidence_problems' => [],
             'unsupported_claims' => [],
             'failing_stream_ids' => [],
+            'failing_monitor_run_ids' => [],
             'admitted_execution_grants' => 0,
             'maintenance_state' => 'OPEN',
             'maintenance_operation_state' => 'OPEN',

@@ -133,7 +133,7 @@ BEGIN
       SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'refused provider result shape invalid';
     END IF;
   END IF;
-END$
+END$$
 
 CREATE TRIGGER trg_monitor_attempt_bindings_consistent BEFORE INSERT ON monitor_model_attempt_bindings FOR EACH ROW
 BEGIN

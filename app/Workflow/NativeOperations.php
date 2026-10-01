@@ -96,7 +96,7 @@ final class NativeOperations
                 }
                 $access = new AccessGuard($this->db, $this->clock);
                 foreach (['mission.read','mission.transition','evidence.read','tool.invoke','company_signal.review','distribution.route'] as $permission) {
-                    if ($access->evaluate('OPERATOR', $g['principal_operator_id'], $tenantId, $workspaceId, $permission, 'MONITOR_PREFLIGHT', null, null, true)['decision'] !== 'ALLOW') {
+                    if ($access->evaluate('OPERATOR', $g['principal_operator_id'], $tenantId, $workspaceId, $permission, 'MONITOR_PREFLIGHT')['decision'] !== 'ALLOW') {
                         $reasons[] = 'PRINCIPAL_PERMISSION_NOT_CURRENT:' . $permission;
                     }
                 }

@@ -252,3 +252,23 @@ state under the exact protected release tree. It does not deploy that target or 
 
 Neither the encrypted archive nor its private recovery key belongs under `docs/`,
 `deployment-evidence.json`, the release tree, or any `public_html/` path.
+
+## ROAD_TEST_001 evidence tooling (P06)
+
+ops/road-test/export-monitor-evidence.php is a read-only summary tool for one exact Monitor run. On
+a successful authorized path it emits only identifiers, digests, states, counts and current-reliance
+facts. It deliberately does not emit source bodies, model candidate text, human assessment text,
+credentials, cookies/session values or private paths.
+
+The exporter is not an evidence writer. Its output states records_evidence=false,
+decides_road_test_result=false and grants_runtime_authority=false. A human-reviewed filing still
+decides whether a ROAD_TEST_001 registry record says PASS or FAIL.
+
+P06 also keeps execution and success separate. A ROAD_TEST_001 record can prove that the road test
+was executed even when the result is FAIL. LIVE_READ_ACTIVATION and LIVE_READ_STAND_DOWN remain
+separate timeline observations, and neither creates owner GO.
+
+The deployed Monitor smoke is likewise only an observation. ops/staging-monitor-smoke.php delegates
+to the existing hardened staging-smoke client and performs negative boundary checks; it does not
+fetch a source, call a model, submit either human review or modify either governed repository file.
+

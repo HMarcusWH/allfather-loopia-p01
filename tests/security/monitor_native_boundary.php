@@ -42,6 +42,14 @@ $second->scalar('SELECT RELEASE_LOCK(?)', [$lock]);
 $eventsBefore = (int) $db->scalar('SELECT COUNT(*) FROM monitor_run_events WHERE monitor_run_id=?', [$id]);
 $captures = $fx['grants']->consumed($grant['execution_grant_id'], 'SOURCE_CAPTURE');
 $native = new NativeOperations($db, $clock, $fx['grants'], $fx['approvals'], $fx['decisions'], X::FINGERPRINT, $fx['decision_dir']);
+$accessBeforeReadiness = (int) $db->scalar('SELECT COUNT(*) FROM access_evaluation_records');
+$readiness = $native->readiness($scope['tenant_id'], $scope['workspace_id'], $fx['mission_id']);
+Assert::true(in_array($readiness['posture'], [NativeOperations::READY, NativeOperations::BLOCKED], true), 'an admitted manual mission is inspected as ready or explicitly blocked');
+Assert::same(
+    $accessBeforeReadiness,
+    (int) $db->scalar('SELECT COUNT(*) FROM access_evaluation_records'),
+    'a successful current-permission readiness inspection does not append ALLOW audit rows',
+);
 $down = X::value($native->standDown($scope, 'suspend', 'OPERATOR_STAND_DOWN', null, $service));
 Assert::same([$id], $down['stopped_runs'], 'the unfinished native run was stopped through its journal');
 Assert::same('STOPPED', $db->scalar('SELECT stage FROM monitor_runs WHERE monitor_run_id=?', [$id]), 'and is terminal');
@@ -67,3 +75,12 @@ Assert::contains("'workspace_id' => (string) \$session['active_workspace_id']", 
 $index = (string) file_get_contents(dirname(__DIR__, 2) . '/public_html/index.php');
 Assert::contains("\$scope['tenant_id'], \$scope['workspace_id'],", $index, 'the composition is built for the session scope the controller resolved');
 Assert::false(str_contains($index, 'MonitorFactory::forFixture'), 'the deployed entry point never composes fixtures');
+
+// ---------------------------------------------------------------- readiness inspection is not a write permission
+$nativeSource = (string) file_get_contents(dirname(__DIR__, 2) . '/app/Workflow/NativeOperations.php');
+Assert::contains("'MONITOR_PREFLIGHT'", $nativeSource, 'native readiness still evaluates current M02 permissions');
+Assert::false(
+    str_contains($nativeSource, "'MONITOR_PREFLIGHT', null, null, true"),
+    'successful Monitor readiness does not retain ALLOW audit rows while claiming to be read-only',
+);
+

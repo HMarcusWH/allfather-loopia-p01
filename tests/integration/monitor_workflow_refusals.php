@@ -122,7 +122,7 @@ $noRelease($role,'revoked role');
 
 $source=$setup('source-revoked',MonitorModelFixture::response(...));
 $db->run("UPDATE source_references SET status='REVOKED' WHERE source_ref_id=?",[$source['f']['card']['source_ref_id']]);
-Assert::same('CONTEXT_SOURCE_NOT_ADMISSIBLE',$source['service']->advance($source['scope'],$source['id'],$source['detail']['preview_request']['request_digest'])->reasonCode(),'revoked source invalidates the inspected request before dispatch');
+Assert::same('SOURCE_REFERENCE_NOT_ACTIVE_FOR_CAPTURE',$source['service']->advance($source['scope'],$source['id'],$source['detail']['preview_request']['request_digest'])->reasonCode(),'revoked source invalidates the inspected request before dispatch with the exact source-currentness refusal');
 Assert::same(0,$source['model']->calls,'source revocation invokes no provider');
 Assert::same(0,(int)$db->scalar('SELECT COUNT(*) FROM provider_model_attempts WHERE tenant_id=?',[$source['scope']['tenant_id']]),'source refusal reserves no model attempt');
 $replay=$value((new RunJournal($db,$clock))->replay($source['scope'],$source['id']),'source revocation integrity check');

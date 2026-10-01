@@ -632,17 +632,17 @@ final class Capture
 
     private static function instantMs(string $iso): int
     {
-        $timestamp = strtotime($iso);
+        $parsed = Clock::parse($iso);
 
-        // A capture clock that cannot be read must not produce a cadence answer. Zero makes every
-        // interval comparison read as "long ago", which would be the WRONG direction — so this
-        // throws instead: the governed clock produces canonical instants, and one that does not
-        // parse is a fault in this projection, not an ordinary condition to absorb.
-        if ($timestamp === false) {
+        // The governed clock is millisecond-precise. strtotime() returns whole seconds and silently
+        // erased the .sss component, which made a declared 0-ms source-policy recheck remain current
+        // for the rest of that second and made sub-second capture cadence unenforceable. Parse the
+        // canonical instant and preserve its milliseconds explicitly.
+        if ($parsed === null) {
             throw new \RuntimeException("uninterpretable governed instant: {$iso}");
         }
 
-        return $timestamp * 1000;
+        return ((int) $parsed->format('U') * 1000) + (int) $parsed->format('v');
     }
 
     private static function msToInstant(int $ms): string
