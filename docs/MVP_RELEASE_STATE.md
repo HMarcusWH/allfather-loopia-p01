@@ -6,8 +6,8 @@ described as deployed or a deployment gets described as activated:
 
 | Question | Current answer | Evidence |
 | --- | --- | --- |
-| **Source** — what application code is in this release tree? | P00–P05 and P10 are merged through the PR25 baseline; this tree also contains P06 deployed-Monitor qualification and ROAD_TEST_001 tooling | Git history; [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) |
-| **Tested** — which exact commit was qualified, and how? | from this change on: a receipt from `ops/ci/qualify-release.sh` per commit. Latest registry-backed qualification: PR16 | §2; `deployment-evidence.json` |
+| **Source** — what application code is in this release tree? | P00–P06 and P10 are merged through PR26 at `26b92c82`; P11 is not implemented | Git history; [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) |
+| **Tested** — which exact commit was qualified, and how? | merged PR26 `26b92c82` passed hosted CI push run 36847557585; both MariaDB lanes were 7,508/0/0 | §2; `deployment-evidence.json` |
 | **Deployed** — which application runs on staging? | PR16 `392f48de`, inert. **None of the Monitor work is deployed** | §3; [Gate R filing](STAGING_GATE_R_EVIDENCE_2026-09-26.md) |
 | **Activated** — what may run against the world? | nothing: no live read, no native model call, no scheduler handler, no external action | §4; `upstream.lock.json` |
 
@@ -17,9 +17,9 @@ stop matching `upstream.lock.json`, `deployment-evidence.json` and `database/mig
 
 ```text
 canonical_pin                      = c6d9cf9a7a1001b001ca6118999e9cb75c831c4d
-implementation_baseline_merge      = 887658d80fd49acbf84ee61743482e63ab492ce5
+implementation_baseline_merge      = 26b92c8293ea3c1dd6f579e79aa500b97da07f7d
 deployed_staging_release           = 392f48deef11380f6dccfe88f2a47ba1fd94575c
-evidence_records                   = 12
+evidence_records                   = 13
 candidate_migrations               = 27
 ```
 
@@ -40,16 +40,19 @@ candidate_migrations               = 27
   [`reconciliation/`](reconciliation/monitor-scoped-extension-2026-09-27.json); the latest canonical
   main inspected for them is `1c40306c22e15b2ad3049e8d32abff47450c8921` (canonical PR 368).
   Inspecting a newer canonical head does not advance the pin.
-- **Implementation baseline merge:** `887658d80fd49acbf84ee61743482e63ab492ce5` (PR25), completing
-  **P00–P05 plus P10 source implementation**: durable provider-candidate recovery, deployment-wide
-  quiescence, encrypted native backup packaging and clean-target restore verification tooling.
-- **Qualification caveat:** PR23, PR24 and PR25 were merged by owner decision while exact-head
-  qualification remained incomplete because hosted runners executed no useful steps. P10's actual
-  native/off-host/clean-target rehearsal also remains operational acceptance work. These are source
-  facts, not retroactive PASS claims.
-- **P06 source in this tree:** deployed-Monitor qualification, `ROAD_TEST_001` protocol/evidence
-  tooling and stronger post-pilot stand-down verification are present. Their presence is not a
-  qualification, deployment, funded evaluation, road-test result or activation claim.
+- **Implementation baseline merge:** `26b92c8293ea3c1dd6f579e79aa500b97da07f7d` (PR26), completing
+  **P00–P06 plus P10 source implementation**. PR26 adds deployed-Monitor qualification,
+  `ROAD_TEST_001` protocol/evidence tooling, stronger post-pilot stand-down verification and the
+  qualification repairs surfaced when hosted runners resumed.
+- **Qualification history:** PR23, PR24 and PR25 were merged by owner decision while hosted runner
+  execution was unavailable. Hosted CI resumed for PR26. Push run `36847557585` qualified merged
+  main `26b92c8293ea3c1dd6f579e79aa500b97da07f7d` directly: MariaDB 10.6 and 10.11 both reported
+  **7,508/0/0**, and foundation, release preparation and aggregate release qualification all passed.
+  This does not retroactively qualify PR23–PR25, and it is not Loopia host evidence.
+- **P06 operational state:** source/tooling is merged and CI-qualified, but no newer Monitor release
+  has been deployed to Loopia, no funded model evaluation or MANUAL_MONITOR grant has been applied,
+  and `ROAD_TEST_001` has not executed. P10's real native/off-host/clean-target rehearsal also
+  remains operational acceptance work.
 - **Candidate schema:** 27 migration files, including `210_monitor_execution_controls`,
   `220_monitor_evaluation_records`, `225_monitor_setup_receipts` and `230_monitor_attempt_recovery`.
   The deployed PR16 release has 19.
@@ -78,17 +81,17 @@ A receipt is **self-reported**. A `LOCAL` receipt says `hosted_ci: false` and th
 that says otherwise; it may be filed only as `CONFORMANCE` evidence with `environment: "ci"`. It is
 never GitHub green and never a host result.
 
-**Hosted CI.** Runner allocation has failed for account billing since PR13 (runs 35525291974 and
-36197550928 failed before any step). Billing and branch protection are repository settings; nothing in
-this repository changes them. See the
-[owner-directed deviation](STAGING_OWNER_DIRECTED_DEVIATION_2026-09-25.md) §4 for how a complete
-local reproduction was accepted for inert staging.
+**Hosted CI.** Runner allocation was unavailable through PR25, which is why the earlier inert-staging
+path used complete local reproductions under the owner-directed deviation. Hosted runners resumed for
+PR26. Pull-request run 36798285760 passed the PR merge tree, and the subsequent **push run 36847557585
+qualified the actual merged-main commit `26b92c8293ea3c1dd6f579e79aa500b97da07f7d` directly**.
+Repository billing/branch-protection settings remain outside application code.
 
-**Latest registry-backed qualification:** PR16 `392f48de` — `CONFORMANCE` (`ci`, local exact-head
-reproduction) and `CONFORMANCE` (`staging`, the real Loopia host), both 5,552/0/0. The PR18–PR22
-qualification reports are held in the operator evidence workspace and have no registry record, so
-this file makes no claim from them. The next deployment candidate needs its own receipt at its exact
-SHA.
+**Latest registry-backed code qualification:** merged PR26
+`26b92c8293ea3c1dd6f579e79aa500b97da07f7d` — hosted `CONFORMANCE` (`ci`) from push run
+`36847557585`, with strict MariaDB 10.6 and 10.11 lanes both **7,508/0/0**. The committed receipt is
+self-reported hosted-CI evidence and establishes no Loopia host claim. **Latest registry-backed host
+qualification remains PR16 `392f48de`** at 5,552/0/0 on Loopia. PR18–PR22 reports remain unfiled.
 
 ## 3. Deployed
 
@@ -97,11 +100,11 @@ SHA.
   PHP 8.5.9, MariaDB 10.11.19, 19 migrations, strict host suite 5,552/0/0, rollback drill
   PR16→PR15→PR16 passed. E.1 remains `FAIL_READABLE` and E.3 `UNVERIFIED`; neither is an isolation
   pass.
-- **The merged Monitor work through PR25 and the current P06 candidate are not deployed.** The
-  deployed PR16 tree predates `/console/monitor`, the bounded model/admission path and P04/P05/P10/P06 tooling.
+- **The merged Monitor work through PR26 is not deployed.** The deployed PR16 tree predates
+  `/console/monitor`, the bounded model/admission path and P04/P05/P10/P06 tooling.
 - **Production** is neither deployed nor authorized.
-- **Evidence registry:** 12 reviewed records, preserving the PR13 host failure and the PR15 isolation
-  failure alongside current PR16 evidence.
+- **Evidence registry:** 13 reviewed records, adding PR26 merged-main hosted CI conformance while
+  preserving the PR13 host failure and PR15 isolation failure alongside current PR16 host evidence.
 
 ## 4. Activated
 
@@ -136,11 +139,11 @@ road_test_001_executed             = false
 ## 5. What comes next
 
 The [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) sequences the rest as three releases.
-PR25 is the **P00–P05 plus P10 source baseline**. This tree adds **P06 — deployed-Monitor
-qualification and `ROAD_TEST_001` evidence tooling**. P10 operational acceptance
-(real native backup, off-host retention and clean disposable restore) still gates the live P06 road
-test even though its source dependency is merged. P11 may proceed separately. No code merge creates
-execution authority, deployment evidence or owner GO.
+PR26 is the **P00–P06 plus P10 source baseline**, now hosted-CI qualified on merged main. P10
+operational acceptance (real native backup, off-host retention and clean disposable restore) still
+gates the live P06 road test. P11 may proceed as the next independent engineering package while that
+operator work remains pending. No code merge or CI result creates execution authority, deployment
+evidence or owner GO.
 
 ## 6. Superseded narrative
 
@@ -152,4 +155,4 @@ note pointing here rather than being rewritten:
 | P02 and P03 are `WEB_SURFACE_NOT_INCLUDED` | `PORT_SCOPE_MATRIX.md` §3.7 and the P03 console-panel classification | superseded: their **index** reads are wired into the authenticated React console (`/console/api/v1/p02/entities`, `/p02/relationships`, `/p03/priority-queue`, `/p03/monitored`). Detail reads (P02 entity detail, P03 battlecards) remain `NEEDS_READ_MODEL`, and the scriptless SSR surfaces still serve neither product |
 | P02 "web surface not included" | `LOOPIA_CAPABILITY_REPORT.md` §1 | corrected in place |
 | "Nothing has run on Loopia", the canary "has never been run on a real host", the probe "has only ever run in CI" | `LOOPIA_HOST_MODEL.md` §5 | historical as of 2026-09-06; PR13–PR16 ran all three on Loopia |
-| MariaDB 10.6 "verified in CI, on every commit" | `LOOPIA_HOST_MODEL.md` §5 | hosted CI has not executed since PR13; 10.6 is verified by complete local reproductions |
+| MariaDB 10.6 "verified in CI, on every commit" | `LOOPIA_HOST_MODEL.md` §5 | historical interruption: hosted CI was unavailable through PR25; PR26 merged main is now directly hosted-qualified on both 10.6 and 10.11 |

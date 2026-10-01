@@ -1,5 +1,5 @@
 {
-  "status": "P00_P05_P10_MERGED_P06_SOURCE_IMPLEMENTED_PR26_OPERATIONS_PENDING",
+  "status": "P00_P06_P10_MERGED_PR26_MAIN_HOSTED_CI_QUALIFIED_P06_OPERATIONS_PENDING",
   "baseline": {
     "loopia_main": "8dbea16b262df7b6d40fe945f34e301eedf2aba6",
     "canonical_main": "1c40306c22e15b2ad3049e8d32abff47450c8921"
@@ -254,7 +254,7 @@
         "database/migrations/230_monitor_attempt_recovery.sql",
         "tests/foundation/beta_operations_boundary.php"
       ],
-      "implementation": "Existing PR22 inert deployment may proceed as a separate operation now, without waiting for all this new code. After new controls merge, freeze and deploy that newer exact candidate; never continue citing 8dbea16 as the tested application if its code changed.\n\nPreserve private env/storage, prepare from Git, publish generated assets manifest-last, apply only additive migrations, prove second application is a no-op, and run the strict host suite against the disposable qualification DB only. Add advisory-lock host checks and native-only transport/version checks in a separately authorized diagnostic lane. Production/main static-site files remain untouched.\n\nExtend the existing hardened HTTPS smoke with a Monitor-specific negative mode rather than adding a second HTTP client. The deployed smoke proves workbench reachability, session-scoped workspace behavior, body-only mutation identity and CSRF/missing-run refusals without ever holding a valid run that could fetch or call a model. Existing offline security/integration tests continue to pin stale request/review digests, cross-workspace scope, escaping and authority revocation. The actual authorized ROAD_TEST_001 exercises the four inspected requests and both review forms manually.\n\nOnce actual prompt/model evaluation passes and the owner admits the exact manual-pilot grant, run baseline and changed captures, four inspected inference requests, two human decisions, P01/P04 releases and read-only replay. Validate the baseline is retained under the approved policy; do not mistake fixture pages or a provider authentication diagnostic for the full road test.\n\nThe exporter reads the run, grant/prompt identities, provider receipts, human-review event/artifact identities, M10 references and P01/P04 release references; it emits a sanitized summary of execution mode, digests, counts and current reliance without source/model/review text. It never auto-files a PASS or changes the upstream lock/evidence registry. Human-reviewed evidence-only commits file observations, including failures and stand-down. Extend the registry vocabulary only through a versioned reviewed schema if evaluation/restore/key-rotation record kinds are added; observed events still grant no authority.\n\nPR26 deliberately reuses the existing Loopia probe and existing ROAD_TEST_001/LIVE_READ evidence vocabulary. It does not edit deployment-evidence.json or upstream.lock.json before observations exist, and it does not add a second HTTP smoke transport.\n\nHosted CI resumed during PR26 and exposed two merged qualification blockers: the unapplied P05 migration 230 contained a malformed trigger delimiter, and the beta-operations structural test still counted two expected pre-Kernel refusals after P10 added maintenance as a third. PR26 repairs both. No new migration is added; a database left in a partial-DDL state by a prior failed 230 attempt must be recreated or explicitly recovered.",
+      "implementation": "Existing PR22 inert deployment may proceed as a separate operation now, without waiting for all this new code. After new controls merge, freeze and deploy that newer exact candidate; never continue citing 8dbea16 as the tested application if its code changed.\n\nPreserve private env/storage, prepare from Git, publish generated assets manifest-last, apply only additive migrations, prove second application is a no-op, and run the strict host suite against the disposable qualification DB only. Add advisory-lock host checks and native-only transport/version checks in a separately authorized diagnostic lane. Production/main static-site files remain untouched.\n\nExtend the existing hardened HTTPS smoke with a Monitor-specific negative mode rather than adding a second HTTP client. The deployed smoke proves workbench reachability, session-scoped workspace behavior, body-only mutation identity and CSRF/missing-run refusals without ever holding a valid run that could fetch or call a model. Existing offline security/integration tests continue to pin stale request/review digests, cross-workspace scope, escaping and authority revocation. The actual authorized ROAD_TEST_001 exercises the four inspected requests and both review forms manually.\n\nOnce actual prompt/model evaluation passes and the owner admits the exact manual-pilot grant, run baseline and changed captures, four inspected inference requests, two human decisions, P01/P04 releases and read-only replay. Validate the baseline is retained under the approved policy; do not mistake fixture pages or a provider authentication diagnostic for the full road test.\n\nThe exporter reads the run, grant/prompt identities, provider receipts, human-review event/artifact identities, M10 references and P01/P04 release references; it emits a sanitized summary of execution mode, digests, counts and current reliance without source/model/review text. It never auto-files a PASS or changes the upstream lock/evidence registry. Human-reviewed evidence-only commits file observations, including failures and stand-down. Extend the registry vocabulary only through a versioned reviewed schema if evaluation/restore/key-rotation record kinds are added; observed events still grant no authority.\n\nPR26 deliberately reuses the existing Loopia probe and existing ROAD_TEST_001/LIVE_READ evidence vocabulary. It does not edit deployment-evidence.json or upstream.lock.json before observations exist, and it does not add a second HTTP smoke transport.\n\nHosted CI resumed during PR26 and exposed two merged qualification blockers: the unapplied P05 migration 230 contained a malformed trigger delimiter, and the beta-operations structural test still counted two expected pre-Kernel refusals after P10 added maintenance as a third. PR26 repairs both. No new migration is added; a database left in a partial-DDL state by a prior failed 230 attempt must be recreated or explicitly recovered.\n\nPR26 is merged on main as 26b92c8293ea3c1dd6f579e79aa500b97da07f7d. Hosted push run 36847557585 qualified that exact merged-main commit on MariaDB 10.6 and 10.11 with 7,508/0/0 in both lanes. This is CI evidence only; Loopia deployment, P10 operational rehearsal, funded evaluation and ROAD_TEST_001 remain pending.",
       "tests": [
         "Real-host strict suite and Monitor HTTPS negatives at the final exact candidate.",
         "Real browser inspection on desktop/mobile for both review boundaries.",
@@ -278,7 +278,7 @@
         "app/Jobs/MonitorStepHandler.php",
         "ops/monitor/schedule.php",
         "ops/scheduler/invoke-remote.sh",
-        "database/migrations/240_monitor_schedule_control.sql",
+        "database/migrations/250_monitor_schedule_control.sql",
         "docs/MONITOR_SCHEDULING.md",
         "tests/integration/monitor_schedule.php",
         "tests/security/monitor_schedule_concurrency.php",
@@ -436,7 +436,7 @@
         "app/Provider/KeyRing.php",
         "app/Provider/CredentialRotation.php",
         "ops/provider/rotate-master-key.php",
-        "database/migrations/250_provider_rotation_events.sql",
+        "database/migrations/240_provider_rotation_events.sql",
         "docs/CREDENTIAL_ROTATION_RUNBOOK.md",
         "tests/integration/provider_key_rotation.php",
         "tests/security/provider_rotation_boundary.php"
@@ -448,15 +448,28 @@
         "app/Workflow/MonitorFactory.php",
         ".env.example",
         "tests/fixtures/schema_table_inventory.json",
-        "tests/integration/schema_invariants.php"
+        "tests/integration/schema_invariants.php",
+        "app/Support/Env.php",
+        "public_html/index.php",
+        "ops/evaluation/monitor.php",
+        "ops/provider/credential.php",
+        "app/Workflow/ExecutionGrantStore.php",
+        "app/Workflow/ExecutionAdmission.php",
+        "docs/BACKUP_RESTORE_RUNBOOK.md",
+        "docs/SCHEMA_REACHABILITY.md",
+        "docs/MVP_RELEASE_STATE.md",
+        "docs/MONITOR_COMPLETION_PLAN.md",
+        "docs/MONITOR_COMPLETION_WORK_PACKAGES.json"
       ],
-      "implementation": "CredentialStore already saves/replaces/revokes provider credentials. Do not rebuild those operations. Its current dispatch read does not select key_version and uses one injected SecretBox; add version-aware selection around the existing encryption implementation. Keep a legacy one-key configuration supported for existing rows. Unknown key version refuses, never tries all keys until something decrypts.\n\nKeyRing holds only operator-provided private key material; rows store key-version IDs. CredentialRotation first verifies old-key availability, seals using the new version, compares decrypted plaintext privately and commits a bounded batch plus append-only rotation evidence. Preserve tenant/provider additional-authenticated-data binding. Resume is idempotent and a partial failure is visible. Do not change algorithms or derive entropy from passwords.\n\nProvider-key replacement creates a new credential identity; frozen mission/grant bindings refuse until explicitly superseded. Master-key rewrapping may also change the keyed fingerprint: preserve old/new identity relationships in the rotation receipt, and re-admit any grant whose bound material actually changed. Do not silently rewrite historical request provenance.\n\nKeep old recovery keys securely available for retained old backups under the chosen retention policy, then retire them only after a tested recovery plan. New production secrets are distinct from staging. Resolving the historical credential-like shell token still requires operator confirmation/revocation; code cannot prove that a past exposure was harmless.",
+      "implementation": "CredentialStore already saves/replaces/revokes provider credentials. Do not rebuild those operations. Its current dispatch read does not select key_version and uses one injected SecretBox; add a version-aware KeyRing around the existing AES-256-GCM implementation. Keep legacy APP_MASTER_KEY as version 1 for existing deployments. Versioned configuration must be validated by one shared KeyRing::fromEnv path used by Bootstrap, HTTP Monitor composition and every provider/evaluation CLI. Unknown key versions refuse; never try keys sequentially until one happens to decrypt.\n\nKeyRing holds only operator-provided private key material and one explicit active write version. SecretBox remains one key/one version and keeps tenant+provider AAD. CredentialStore save seals with the active version; withCredential selects key_version and credential_digest, decrypts under exactly that version, recomputes the keyed credential fingerprint and refuses if it no longer matches the stored digest.\n\nMaster-key rewrap rotates every ciphertext-bearing credential row selected for the tenant, including ACTIVE, ROTATED and REVOKED rows. Before a batch writes, it locks the tenant then credential rows in deterministic order and refuses while any current or future-admitted execution grant names an affected credential. Rewrap preserves provider_credential_id and lifecycle status but, because credential_digest is keyed by the master key, recomputes credential_digest under the target version. Existing immutable grants therefore become stale by design; rotation never rewrites or re-admits them. A later successor grant must carry the new digest. Replacing the provider secret remains a different operation: it creates a new credential identity, so frozen mission configuration and grant bindings require explicit successors.\n\nCredentialRotation uses plan -> exact plan digest -> bounded apply/status semantics. For each row it verifies old-key availability and old credential_digest, seals with the target version, reopens and privately compares plaintext, updates ciphertext/nonce/tag/key_version/credential_digest, and appends an immutable rotation event containing only safe identities/digests/version metadata. A batch commits atomically; repeated invocation resumes remaining old-version rows. No network call occurs inside the transaction and no plaintext/key material appears in argv, logs, exceptions, receipts or database events.\n\nP10 recovery is proved under the same P11 release: take/retain a backup while version 1 is still active, rotate the live database to version 2, then restore the pre-rotation backup into a clean target. The restored v1 ciphertext must open only when the retained v1 recovery key is supplied. Removing v1 from the live runtime ring and destroying the retained v1 recovery key are separate operator acts. Provider replacement/history provenance is never silently rewritten.",
       "tests": [
-        "Old/new version decrypt, wrong version refusal, cross-tenant/provider ciphertext refusal and tamper checks.",
-        "Crash midway through rewrap and repeated invocation.",
-        "Provider replacement invalidates affected execution bindings without losing historical replay.",
-        "No plaintext/key material in logs, exceptions, command arguments or receipts.",
-        "A restored older encrypted backup can be recovered using the retained appropriate key."
+        "Legacy APP_MASTER_KEY remains version 1; versioned key-ring configuration validates one active write version and rejects ambiguous/missing/malformed versions.",
+        "Old/new version decrypt, exact unknown-version refusal, wrong-version refusal, cross-tenant/provider ciphertext refusal, stored-digest mismatch and tamper checks.",
+        "Master-key rewrap includes ACTIVE/ROTATED/REVOKED ciphertext rows, preserves credential identity/status, changes key_version and keyed credential_digest, and is idempotent across repeated bounded batches.",
+        "Current/future-admitted grants referencing selected credentials block rotation; completed rewrap leaves existing immutable grants stale until a separately proposed/admitted successor grant carries the new digest.",
+        "Provider-secret replacement still creates a new credential identity and requires successor mission/grant bindings.",
+        "No plaintext/key material in logs, exceptions, argv, request logs or rotation receipts.",
+        "A P11-release backup taken before rewrap can be restored later and its v1 credential recovered only with retained v1 key material."
       ],
       "exit_criteria": "Credential lifecycle is tested, including recovery; presence of a key is no longer the only proven property.",
       "authority_gate": "Implementation and offline testing only; activation is separate."
@@ -505,11 +518,11 @@
     }
   ],
   "implementation_cutoff": {
-    "through": "P04",
-    "pull_request": 23,
-    "merge_state": "OPEN_DRAFT_NOT_MERGED",
-    "qualification_state": "NOT_REGISTRY_QUALIFIED",
-    "deployment_state": "NOT_DEPLOYED",
+    "through": "P06",
+    "pull_request": 26,
+    "merge_state": "MERGED",
+    "qualification_state": "MERGED_MAIN_HOSTED_CI_PASS_36847557585",
+    "deployment_state": "LATEST_DEPLOYED_PR16_INERT",
     "activation_state": "NOT_ACTIVATED"
   }
 }
