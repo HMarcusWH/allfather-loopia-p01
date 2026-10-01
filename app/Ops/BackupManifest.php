@@ -806,6 +806,12 @@ final class BackupManifest
                  ORDER BY table_name"
             ),
         );
+        // The manifest verifier sorts restored table names with PHP SORT_STRING before comparing the
+        // names digest. MariaDB ORDER BY follows the server/database collation and can order
+        // punctuation (notably underscores) differently, so normalize the source side the same way.
+        // Without this, build() can write a perfectly complete package that its own verifier rejects
+        // as BACKUP_MANIFEST_INVALID on a real MariaDB lane.
+        sort($tables, SORT_STRING);
         $creates = [];
         foreach ($tables as $table) {
             $row = $this->db->one('SHOW CREATE TABLE ' . Database::identifier($table));

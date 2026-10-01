@@ -64,6 +64,10 @@ $fail = static function (string $message, int $code = 2): never {
  *     --base-url=https://staging.allfatherbi.com --mode=authenticated \
  *     --email=partner@example.test --password-stdin
  *
+ *   # monitor-boundary reuses the same hardened client and adds Monitor-specific negative checks.
+ *   read -rs PW; printf '%s\n' "$PW" | php ops/staging-monitor-smoke.php \
+ *     --base-url=https://staging.allfatherbi.com --email=partner@example.test --password-stdin
+ *
  *   # beta-journey reads TWO lines: the operator-issued password, then the replacement.
  *   read -rs PW; read -rs NEW; printf '%s\n%s\n' "$PW" "$NEW" | php ops/staging-smoke.php \
  *     --base-url=https://staging.allfatherbi.com --mode=beta-journey \
@@ -73,7 +77,7 @@ $fail = static function (string $message, int $code = 2): never {
  * make the tool unusable against the host it is being qualified on before DNS is pointed, and would
  * invite somebody to edit the constant rather than pass the flag.
  */
-$modes = ['anonymous', 'authenticated', 'beta-journey'];
+$modes = ['anonymous', 'authenticated', 'beta-journey', 'monitor-boundary'];
 $args = BetaCli::parseArgs($argv, ['base-url', 'mode', 'email', 'password-stdin'], $fail);
 
 $mode = $args['mode'] ?? '';
@@ -861,6 +865,61 @@ if ($mode !== 'anonymous') {
         [...$injectedDecision, 'identical_to_unscoped_request' => $identical],
         $identical,
     );
+
+    if ($mode === 'monitor-boundary') {
+        // P06 reuses this hardened transport rather than maintaining a second cookie/redirect/CSRF
+        // client. These are negative and read-only boundary checks: none names a real run or can
+        // satisfy the controller fields required to reach source/model/release work.
+        $monitor = $send('GET', '/console/monitor');
+        $monitorPage = $monitor['status'] === 200
+            && str_contains($monitor['body'], 'Monitor workbench')
+            && str_contains($monitor['body'], 'Internal workflow.');
+        $record('Monitor workbench is reachable', 'GET', '/console/monitor', $monitor, [200], [
+            'monitor_workbench_present' => $monitorPage,
+        ], $monitorPage);
+
+        $scopeProbe = [
+            'tenant_id' => '00000000-0000-4000-8000-000000000010',
+            'workspace_id' => '00000000-0000-4000-8000-000000000011',
+            'operator_id' => '00000000-0000-4000-8000-000000000012',
+            'environment_class' => 'PRODUCTION',
+        ];
+        $monitorInjectedPath = '/console/monitor?' . http_build_query($scopeProbe);
+        $monitorInjected = $send('GET', $monitorInjectedPath);
+        $scopeNotReflected = $monitorInjected['status'] === 200
+            && str_contains($monitorInjected['body'], 'Monitor workbench');
+        foreach ($scopeProbe as $value) {
+            $scopeNotReflected = $scopeNotReflected && !str_contains($monitorInjected['body'], $value);
+        }
+        $record('caller-supplied Monitor scope is ignored', 'GET', '/console/monitor', $monitorInjected, [200], [
+            'scope_values_not_reflected' => $scopeNotReflected,
+        ], $scopeNotReflected);
+
+        $monitorNoCsrf = $send('POST', '/console/monitor', ['action' => 'advance']);
+        $record('Monitor POST without CSRF is refused', 'POST', '/console/monitor', $monitorNoCsrf, [403]);
+
+        $monitorMissingRun = $send('POST', '/console/monitor', [
+            'csrf_token' => $csrfToken(),
+            'action' => 'advance',
+        ]);
+        $record('Monitor advance requires a body run id', 'POST', '/console/monitor', $monitorMissingRun, [409]);
+
+        $queryOnlyRun = '/console/monitor?action=advance&run_id=00000000-0000-4000-8000-000000000099';
+        $monitorQueryOnly = $send('POST', $queryOnlyRun, [
+            'csrf_token' => $csrfToken(),
+            'action' => 'advance',
+        ]);
+        $record('Monitor query run id cannot authorize advance', 'POST', '/console/monitor', $monitorQueryOnly, [409]);
+
+        $monitorReviewMissingRun = $send('POST', '/console/monitor', [
+            'csrf_token' => $csrfToken(),
+            'action' => 'review',
+            'decision' => 'APPROVE',
+            'assessment' => 'Boundary smoke deliberately has no candidate to approve.',
+            'candidate_digest' => str_repeat('0', 64),
+        ]);
+        $record('Monitor review requires a body run id', 'POST', '/console/monitor', $monitorReviewMissingRun, [409]);
+    }
 
     foreach (['/support', '/account'] as $surface) {
         $response = $send('GET', $surface);

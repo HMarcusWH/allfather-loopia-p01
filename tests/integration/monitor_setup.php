@@ -132,7 +132,7 @@ Assert::same(['CONFLICT','ARBITER_POLICY_DEFINITION_CHANGED'],[$driftedPolicySte
 Assert::same('MONITOR_POLICY_NOT_CURRENT',(new MissionConfiguration($db,$clock))->validate($scope,$definition,'NATIVE')->reasonCode(),'a frozen mission refuses a mutated ACTIVE policy');
 $db->run("UPDATE arbiter_policy_sets SET default_fail_closed_verdict='HOLD' WHERE arbiter_policy_set_id=?",[$definition['p01_policy_id']]);
 $wrongUrl=$definition;$wrongUrl['capture_url']='https://sources.example/not-authorized';
-Assert::same('MONITOR_CAPTURE_URL_OUTSIDE_SOURCE_SCOPE',(new MissionConfiguration($db,$clock))->validate($scope,$wrongUrl,'NATIVE')->reasonCode(),'the frozen capture URL must stay inside the reviewed source-card scope');
+Assert::same('CAPTURE_URL_OUTSIDE_SOURCE_SCOPE',(new MissionConfiguration($db,$clock))->validate($scope,$wrongUrl,'NATIVE')->reasonCode(),'the frozen capture URL must stay inside the reviewed source-card scope and preserves the source-policy refusal');
 
 $missionToolsOriginal=(string)$db->scalar('SELECT allowed_tool_ids FROM missions WHERE mission_id=?',[$applied['mission_id']]);
 $missionToolsBroadened=json_decode($missionToolsOriginal,true,32,JSON_THROW_ON_ERROR);$missionToolsBroadened[]=Ids::new();
@@ -151,8 +151,13 @@ $criticOutputsOriginal=(string)$db->scalar('SELECT assigned_output_classes FROM 
 $db->run('UPDATE mission_assignments SET assigned_output_classes=? WHERE assignment_id=?',[json_encode(['INTERNAL_INFORMATIONAL','CRM_OUTREACH_PROPOSAL'],JSON_THROW_ON_ERROR),$criticAssignment]);
 Assert::same('MONITOR_ASSIGNMENT_SCOPE_CHANGED',(new MissionConfiguration($db,$clock))->validate($scope,$definition,'NATIVE')->reasonCode(),'a broadened assignment output scope is not current Monitor authority');
 $db->run('UPDATE mission_assignments SET assigned_output_classes=? WHERE assignment_id=?',[$criticOutputsOriginal,$criticAssignment]);
+// The review and the fixed clock start at the same millisecond. A zero-ms recheck window becomes
+// overdue only once time has actually advanced; prove that boundary rather than calling reasonCode()
+// on an intentionally still-current policy.
+$clock->advanceMs(1);
 $db->run('UPDATE source_license_cards SET recheck_terms_after_ms=0 WHERE source_license_card_id=?',[$applied['objects']['source_license_card_id']]);
-Assert::same('TERMS_RECHECK_OVERDUE_AT_CAPTURE',(new MissionConfiguration($db,$clock))->validate($scope,$definition,'NATIVE')->reasonCode(),'frozen mission currentness uses the same latest source-policy compiler as capture');
+$termsCurrent=(new MissionConfiguration($db,$clock))->validate($scope,$definition,'NATIVE');
+Assert::same('TERMS_RECHECK_OVERDUE_AT_CAPTURE',$termsCurrent->isOk()?'OK':$termsCurrent->reasonCode(),'frozen mission currentness uses the same latest source-policy compiler as capture');
 $db->run('UPDATE source_license_cards SET recheck_terms_after_ms=NULL WHERE source_license_card_id=?',[$applied['objects']['source_license_card_id']]);
 $orgConflict=$request([$a['evidence_id']],$credential['provider_credential_id'],['competitor'=>['organization_number'=>'556000-0000']]);
 $orgPlan=X::value($setup->plan($scope,$orgConflict));
@@ -272,7 +277,8 @@ $db->run("UPDATE tool_rights SET maximum_action_class='ANALYZE' WHERE tool_right
 $widenedRegistration=X::value($setup->plan($scope,$reqB));
 Assert::same(['REFUSE','P01_REGISTRATION_STATE_CHANGED'],[$steps($widenedRegistration)['P01_REGISTRATION'],$widenedRegistration['blocked_by'][0]['reason_code']],'a widened P01 source-read right is not silently reused');
 $successorDefinition=json_decode((string)$db->scalar('SELECT definition_json FROM monitor_mission_configs WHERE mission_id=?',[$successor['mission_id']]),true,64,JSON_THROW_ON_ERROR);
-Assert::same('MISSION_BROADENS_CONTRACT',(new MissionConfiguration($db,$clock))->validate($scope,$successorDefinition,'NATIVE')->reasonCode(),'an already-frozen mission also fails currentness when its M03 right is widened');
+$widenedCurrent=(new MissionConfiguration($db,$clock))->validate($scope,$successorDefinition,'NATIVE');
+Assert::same('MISSION_BROADENS_CONTRACT',$widenedCurrent->isOk()?'OK':$widenedCurrent->reasonCode(),'an already-frozen mission also fails currentness when its M03 right is widened');
 $db->run("UPDATE tool_rights SET maximum_action_class='OBSERVE' WHERE tool_right_id=?",[$sourceRight]);
 
 $modelRight=(string)$db->scalar('SELECT tool_right_id FROM tool_rights WHERE capability_contract_id=? AND governed_tool_id=?',[$successor['objects']['critic_contract_id'],$successor['objects']['model_governed_tool_id']]);
@@ -293,7 +299,11 @@ Assert::same('PROVIDER_CREDENTIAL_ROTATION_NOT_ACKNOWLEDGED', $credentials->save
 Assert::same('PROVIDER_CREDENTIAL_ROTATION_NOT_ACKNOWLEDGED',$credentials->save($scope,'sk-synthetic-setup-key-0002','Monitor OpenAI')->reasonCode(),'omitting the acknowledgement also refuses at the service boundary');
 $described = X::value($credentials->describe($scope));
 Assert::same([$credential['provider_credential_id']], $described['save_would_rotate'], 'describe says what a save would rotate');
-Assert::equalsList([$applied['mission_id'], $successor['mission_id']], $described['credentials'][0]['bound_mission_ids'], 'and which frozen missions still name each key');
+$expectedBoundMissionIds=[$applied['mission_id'],$successor['mission_id']];
+$actualBoundMissionIds=$described['credentials'][0]['bound_mission_ids'];
+sort($expectedBoundMissionIds,SORT_STRING);
+sort($actualBoundMissionIds,SORT_STRING);
+Assert::equalsList($expectedBoundMissionIds,$actualBoundMissionIds,'and which frozen missions still name each key, independent of UUID insertion order');
 $rotated = X::value($credentials->save($scope, 'sk-synthetic-setup-key-0002', 'Monitor OpenAI', $described['save_would_rotate']));
 Assert::same([$credential['provider_credential_id']], $rotated['rotated_credential_ids'], 'the acknowledged key is rotated');
 Assert::same($credential['provider_credential_id'], json_decode((string) $db->scalar('SELECT definition_json FROM monitor_mission_configs WHERE mission_id=?', [$successor['mission_id']]), true)['credential_id'], 'the frozen definition still names the old key');

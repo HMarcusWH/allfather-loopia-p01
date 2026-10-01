@@ -69,8 +69,8 @@ Assert::same(
     'the prose candidate-schema count matches the load-bearing currentness block',
 );
 Assert::true(
-    preg_match('/^[0-9a-f]{40}$/', $declared['last_reviewed_application_merge'] ?? '') === 1,
-    'the last reviewed application merge is named by its full commit id',
+    preg_match('/^[0-9a-f]{40}$/', $declared['implementation_baseline_merge'] ?? '') === 1,
+    'the implementation baseline merge is named by its full commit id',
 );
 
 // Every claim flag, with the lock's own value. A flag the document forgot or restated wrongly fails.

@@ -70,7 +70,7 @@ $other = X::create($db, $clock);
 Assert::same(NoNetworkTransport::class, $leaves(MonitorFactory::forWorkspace($db, $clock, $other['evidence_store'], $other['secret_box'], $other['decisions'], X::FINGERPRINT, $other['scope']['tenant_id'], $other['scope']['workspace_id']))['source'], 'admission in one workspace wires nothing in another');
 
 // ---------------------------------------------------------------- stand-down returns it to inert
-Assert::true(in_array('1 execution grant(s) are still ADMITTED — suspend or revoke them with ops/monitor/stand-down.php', StandDownPosture::findings(['admitted_execution_grants' => 1] + StandDownPosture::stoodDown(str_repeat('a', 40))), true), 'the stand-down verifier refuses while a grant is admitted');
+Assert::true(in_array('1 execution grant(s) are still admitted or future-admitted — suspend or revoke them with ops/monitor/stand-down.php', StandDownPosture::findings(['admitted_execution_grants' => 1] + StandDownPosture::stoodDown(str_repeat('a', 40))), true), 'the stand-down verifier refuses while a grant is admitted');
 $down = X::value($native->standDown($scope, 'suspend', 'TEST_STAND_DOWN', null, null));
 Assert::same(2, count($down['grants']), 'every admitted grant in the workspace was suspended');
 Assert::same(false, $down['refunds_budget'], 'stand-down refunds nothing');

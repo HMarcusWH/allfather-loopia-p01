@@ -294,6 +294,16 @@ if ($served !== ['.htaccess', 'assets', 'index.php', 'scheduler.php']) {
     $note('public_html/ holds something other than the two entry points, assets/ and .htaccess: '
         . implode(', ', $served));
 }
+foreach ([
+    'ops/staging-monitor-smoke.php',
+    'ops/road-test/export-monitor-evidence.php',
+    'docs/ROAD_TEST_001_MONITOR.md',
+] as $p06Required) {
+    if (!is_file($root . '/' . $p06Required)) {
+        $note("P06 operator tooling is missing from the release tree: {$p06Required}");
+    }
+}
+
 foreach (['app', 'database', 'docs', 'frontend', 'ops', 'storage', 'tests', 'worker'] as $private) {
     if (!is_dir($root . '/' . $private)) {
         $note("{$private}/ is missing from the release tree");

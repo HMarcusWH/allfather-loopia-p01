@@ -141,6 +141,17 @@ Assert::same(
 );
 
 Assert::equalsList(
+    ['Monitor run 0f9b-run does not replay with integrity PASS'],
+    $with(['failing_monitor_run_ids' => ['0f9b-run']]),
+    'a Monitor journal that does not replay cannot verify stand-down',
+);
+Assert::same(
+    2,
+    count($with(['failing_monitor_run_ids' => ['run-a', 'run-b']])),
+    'every failing Monitor journal is named, not just the first',
+);
+
+Assert::equalsList(
     ['1 execution grant(s) are still admitted or future-admitted — suspend or revoke them with ops/monitor/stand-down.php'],
     $with(['admitted_execution_grants' => 1]),
     'a current or future-admitted execution grant prevents stand-down verification',
@@ -201,6 +212,17 @@ Assert::contains(
     "'maintenance_operation' => \$maintenanceOperation",
     $command,
     'and reports that operation state beside the maintenance marker',
+);
+
+Assert::contains(
+    "'monitor_integrity' => \$monitorIntegrity",
+    $command,
+    'stand-down reports the Monitor replay summary beside M10 integrity',
+);
+Assert::contains(
+    "\$observed['failing_monitor_run_ids'] = \$failingMonitorRunIds;",
+    $command,
+    'failing Monitor journals reach the single StandDownPosture decision rule',
 );
 
 // ============================================================ the manifest check is the runtime's

@@ -498,9 +498,10 @@ Assert::true(
     'and the re-verify happens BEFORE the session insert, inside the same transaction',
 );
 
-// The front controller's two pre-Kernel failures record through the SAME sink, not just the header.
-// They return before `Kernel::handle`, so a reference stamped there and recorded nowhere would be
-// unresolvable for exactly the startup failures the reference exists for.
+// The front controller's expected pre-Kernel refusals record through the SAME sink, not just the
+// header. P10 added maintenance/quiescence before Bootstrap, alongside configuration and database
+// startup refusals. They all return before `Kernel::handle`, so a reference stamped there and
+// recorded nowhere would be unresolvable for exactly the startup failures the reference exists for.
 $frontController = $code($root . '/public_html/index.php');
 Assert::contains('RequestLog::record(', $frontController, 'pre-Kernel failures record their reference too');
 Assert::true(
@@ -508,9 +509,9 @@ Assert::true(
     'the request is built before configuration is read, so those branches have one to record',
 );
 Assert::same(
-    2,
+    3,
     substr_count($frontController, '$earlyFailure('),
-    'both pre-Kernel failure branches go through the one stamped-and-recorded path',
+    'maintenance, bootstrap and database pre-Kernel refusals use the one stamped-and-recorded path',
 );
 
 // ============================================================ the support surface holds no secret

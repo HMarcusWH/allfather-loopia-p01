@@ -4,12 +4,16 @@ namespace Allfather\Loopia\Tests;
 
 use Allfather\Loopia\Core\{Clock,Ids};
 use Allfather\Loopia\Db\Database;
-use Allfather\Loopia\Product\P01\{SourceCards,Registry as P01Registry};
+use Allfather\Loopia\Product\P01\{Entitlements,Registration,Registry as P01Registry,SourceCards,SourceReadRegistration};
 use Allfather\Loopia\Provider\{CredentialStore,ModelRegistration,ModelResponse,PreparedModelRequest,SecretBox};
 use Allfather\Loopia\Storage\EvidenceStore;
 use Allfather\Loopia\Substrate\M03\{Eligibility,Registry as AgentRegistry};
 use Allfather\Loopia\Substrate\M04\Proposals;
 use Allfather\Loopia\Substrate\M05\EvidenceSpine;
+use Allfather\Loopia\Substrate\M06\Registry as ToolRegistry;
+use Allfather\Loopia\Substrate\M08\PolicySets;
+use Allfather\Loopia\Substrate\M10\DecisionLedger;
+use Allfather\Loopia\Substrate\M16\ReleaseOutput;
 
 /** Explicit setup for offline composition tests. Does not capture, invoke, approve or release. */
 final class MonitorModelFixture
@@ -22,16 +26,48 @@ final class MonitorModelFixture
         $role=Seed::role($db,$clock,'fixture-monitor-'.substr(Ids::new(),0,8),['tool.invoke','evidence.read','tenant.administer','runtime_host_binding.administer']);
         Seed::membership($db,$clock,$scope['tenant_id'],$scope['workspace_id'],$scope['operator_id'],$role['role_id']);
         $capture=Seed::governedToolChain($db,$clock,$scope);
-        // This fixture predates P04 setup, so normalize its generic Seed chain to the exact Monitor
-        // authority envelope before any MissionConfiguration is frozen.
-        $db->run('UPDATE missions SET requested_action_classes=? WHERE mission_id=?',[
-            json_encode(['OBSERVE','ANALYZE','RELEASE_INTELLIGENCE'],JSON_THROW_ON_ERROR),$capture['mission_id']
+        // Seed gives us a convenient mission skeleton, but native Monitor validation intentionally
+        // accepts only the real shared P01 source descriptor. Reuse the actual descriptor/registration
+        // owners here rather than renaming a per-fixture tool: several ExecutionFixture instances may
+        // coexist in one test database and the shared tool key must still have one global identity.
+        $sourceRead=new SourceReadRegistration($db,$clock);
+        $binding=self::value($sourceRead->ensureBinding($scope));
+        $agentRegistry=new AgentRegistry($db,$clock);
+        $eligibility=new Eligibility($db,$clock);
+        $ledger=new DecisionLedger($db,$clock);
+        $registration=self::value((new Registration(
+            $db,$clock,$agentRegistry,$eligibility,new ToolRegistry($db,$clock),
+            new PolicySets($db,$clock),new ReleaseOutput($db,$clock,$ledger),new Entitlements($db,$clock)
+        ))->registerCompetitionMonitor([
+            'tenant_id'=>$scope['tenant_id'],'workspace_id'=>$scope['workspace_id'],'operator_id'=>$scope['operator_id'],
+            'runtime_binding_id'=>$binding['binding_id'],'runtime_host_tool_ref'=>SourceReadRegistration::TOOL_REF,
+        ]));
+        self::value($sourceRead->bindTool($binding['binding_id'],$registration['governed_tool_id']));
+
+        // Keep the Seed-created mission/assignment IDs used throughout older fixtures, but point that
+        // skeleton at the exact P01 owner objects before adding the model stages.
+        $db->run('UPDATE missions SET requested_action_classes=?,allowed_tool_ids=? WHERE mission_id=?',[
+            json_encode(['OBSERVE','ANALYZE','RELEASE_INTELLIGENCE'],JSON_THROW_ON_ERROR),
+            json_encode([$registration['governed_tool_id']],JSON_THROW_ON_ERROR),
+            $capture['mission_id'],
         ]);
-        $db->run('UPDATE capability_contracts SET purpose_summary=?,allowed_action_classes=? WHERE capability_contract_id=?',[
-            'p01.competition_monitoring',json_encode(['OBSERVE','ANALYZE','RELEASE_INTELLIGENCE'],JSON_THROW_ON_ERROR),$capture['capability_contract_id']
+        $db->run('UPDATE mission_assignments SET valkyrie_id=?,capability_contract_id=?,assigned_tool_ids=? WHERE assignment_id=?',[
+            $registration['valkyrie_id'],$registration['capability_contract_id'],
+            json_encode([$registration['governed_tool_id']],JSON_THROW_ON_ERROR),$capture['assignment_id'],
         ]);
+        $capture=array_replace($capture,[
+            'valkyrie_id'=>$registration['valkyrie_id'],
+            'capability_contract_id'=>$registration['capability_contract_id'],
+            'tool_right_id'=>$registration['tool_right_id'],
+            'governed_tool_id'=>$registration['governed_tool_id'],
+            'governed_tool_operation_id'=>$registration['governed_tool_operation_id'],
+            'arbiter_policy_set_id'=>$registration['arbiter_policy_set_id'],
+            'subscription_tier_id'=>$registration['subscription_tier_id'],
+            'runtime_binding_id'=>$binding['binding_id'],
+        ]);
+
         $model=self::value((new ModelRegistration($db,$clock))->ensure($scope));
-        $m03=new Eligibility($db,$clock);$m04=new Proposals($db,$clock);
+        $m03=$eligibility;$m04=new Proposals($db,$clock);
         $m03->grantToolRight($capture['capability_contract_id'],$model['governed_tool_id'],[ModelRegistration::OPERATION_KEY],'INTERNAL_TRANSFORM','ANALYZE');
         $authorAssignment=self::value($m04->assignToMission($capture['mission_id'],$capture['valkyrie_id'],$capture['capability_contract_id'],'MODEL_AUTHOR',[$model['governed_tool_id']],['ANALYZE'],$scope['operator_id']));
         $agents=new AgentRegistry($db,$clock);

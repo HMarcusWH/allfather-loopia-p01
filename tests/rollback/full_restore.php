@@ -213,7 +213,11 @@ $stoodDown = $nativeOps->standDown($futureFx['scope'], 'suspend', 'BACKUP_QUIESC
 Assert::true($stoodDown->isOk(), 'deployment stand-down discovers a future admitted grant without naming it individually');
 Assert::same('SUSPENDED', $futureFx['grants']->status($futureGrant['execution_grant_id']), 'future grant is inert after stand-down');
 $built = $manifest->build($root . '/dump.sql', $root . '/package');
-Assert::true($built->isOk(), 'backup manifest packages dump, referenced blobs and request-log prefix');
+$builtReason = $built->isOk() ? 'OK' : $built->reasonCode();
+Assert::true($built->isOk(), 'backup manifest packages dump, referenced blobs and request-log prefix: ' . $builtReason);
+if (!$built->isOk()) {
+    return;
+}
 $value = $built->value()['manifest'];
 Assert::same(str_repeat('a', 40), $value['source']['release_ref'], 'manifest binds the exact release identity supplied by the deployment');
 Assert::true($manifest->verifyRuntimeIdentity($value)->isOk(), 'restore verifier accepts the exact backup release identity');

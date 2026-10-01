@@ -569,3 +569,30 @@ invited. No production/customer identity has been invented.
 
 The next phase, after independent review of the exact merged SHA, is a separately reviewed
 `ROAD_TEST_001` activation change — not part of this runbook.
+
+## P06 — ROAD_TEST_001 remains a separate manual phase
+
+Gate S closes the inert staging deployment only. P06 code may be present on main without making
+ROAD_TEST_001 executed.
+
+Before the first manual native Monitor mission:
+
+- complete exact-head qualification and inert deployment for that candidate;
+- pass ordinary staging smoke and ops/staging-monitor-smoke.php;
+- complete the real P10 backup/off-host/clean-restore proof on the intended Loopia path;
+- run the bounded synthetic MODEL_EVALUATION lane;
+- separately approve the exact four MANUAL_MONITOR prompt identities;
+- configure the mission through ops/monitor/setup.php;
+- admit one bounded MANUAL_MONITOR grant through the reviewed owner-decision path.
+
+Follow docs/ROAD_TEST_001_MONITOR.md for the mission itself. Both release decisions remain explicit
+human reviews in /console/monitor; a model critic is not a substitute.
+
+When the run ends, stand execution down immediately, verify M10 plus every Monitor journal, produce
+the sanitized ROAD_TEST_001 summary only after stand-down, then rerun P10 over the populated
+history. Only after those observations
+exist should a separate reviewed evidence PR file LIVE_READ_ACTIVATION, ROAD_TEST_001,
+LIVE_READ_STAND_DOWN or related records.
+
+No scheduler, external action, customer-visible output or production authority is implied.
+

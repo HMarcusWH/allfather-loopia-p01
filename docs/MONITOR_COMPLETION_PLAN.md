@@ -1,8 +1,8 @@
 # Monitor completion plan — three releases
 
-**Adopted as the engineering plan of record:** 27 September 2026. **Status:** **P00–P05 are merged**
-through PR24; draft PR25 candidate-implements **P10**; P06–P09 and P11–P12 remain
-proposed/conditional as stated below. A candidate implementation is not a merge, qualification,
+**Adopted as the engineering plan of record:** 27 September 2026. **Status:** **P00–P05 and P10 are
+merged** through PR25; PR26 implements **P06** qualification/ROAD_TEST tooling while its live
+operational evidence remains pending; P07–P09 and P11–P12 remain proposed/conditional as stated below. A candidate implementation is not a merge, qualification,
 deployment, funded model evaluation, activation or authority grant. The current state of the
 application is
 [`MVP_RELEASE_STATE.md`](MVP_RELEASE_STATE.md), not this plan.
@@ -34,11 +34,11 @@ provider transport, the four prompts and the existing M01–M12/M15/M16 and prod
 | P03 | Native manual Monitor wiring and stand-down | P01, P02 | **merged in PR23; not deployed/admitted** |
 | P04 | Repeatable operator-supported mission setup | P01 | **merged in PR23; setup grants no execution** |
 | P05 | Recoverable model results and explicit interruption handling | P01, P03 | **merged in PR24; not deployed/activated** |
-| P06 | Deploy, requalify and run the first approved manual road test | P00, P02, P03, P04, P05, P10 | proposed; its operator acts each need their own authorization |
+| P06 | Deploy, requalify and run the first approved manual road test | P00, P02, P03, P04, P05, P10 | **PR26 source implements qualification/ROAD_TEST tooling; no deployment/evaluation/road test evidence yet** |
 | P07 | Recurring observation with bounded per-occurrence authority | P06 | proposed |
 | P08 | P03 assurance port and broader product-scope validation | P00 | proposed |
 | P09 | Operator administration and richer views | P04, P05 | proposed |
-| P10 | Independent backup and full restore | P00 | **candidate-implemented in draft PR25; native/off-host/clean-target proof pending** |
+| P10 | Independent backup and full restore | P00 | **merged in PR25; native/off-host/clean-target operational proof pending** |
 | P11 | Version-aware master-key rotation | P00, P01, P10 | proposed |
 | P12 | Production identity and visibility through the canonical owners | P06, P10, P11 | conditional on canonical decisions not yet taken |
 
@@ -474,28 +474,56 @@ tests/security/monitor_deployed_surface.php
 
 ```text
 ops/staging-smoke.php
-ops/loopia-probe/probe.php
+database/migrations/230_monitor_attempt_recovery.sql
 ops/deploy/preflight.php
 ops/rollback/verify-stand-down.php
-app/Ops/DeploymentEvidence.php
+app/Workflow/NativeOperations.php
+app/Ops/StandDownPosture.php
 docs/DEPLOYMENT_EVIDENCE_MODEL.md
 docs/BETA_RUNBOOK.md
 docs/DEPLOYMENT_RUNBOOK.md
 docs/MVP_RELEASE_STATE.md
-deployment-evidence.json
+docs/MONITOR_COMPLETION_PLAN.md
+docs/MONITOR_COMPLETION_WORK_PACKAGES.json
+tests/foundation/release_state_currentness.php
+tests/foundation/beta_operations_boundary.php
+tests/rollback/stand_down_verifier.php
+tests/security/monitor_native_boundary.php
 ```
+
+PR26 deliberately reuses the existing Loopia probe and existing deployment-evidence vocabulary. It
+does not edit `deployment-evidence.json`, `upstream.lock.json` or
+`app/Ops/DeploymentEvidence.php` before new observations exist.
+
+Hosted CI resumed during PR26 and exposed two merged qualification blockers outside P06's new
+runtime surface. PR26 therefore also repairs them rather than hiding them behind a local-only run:
+`230_monitor_attempt_recovery.sql` had a malformed trigger delimiter and could never complete, and
+the beta-operations structural test still counted two pre-Kernel refusals after P10 added the third
+maintenance refusal. No new migration number is introduced; the 230 edit repairs SQL that cannot be
+recorded as successfully applied in its broken form. Any database left in a partial-DDL state by an
+earlier failed 230 attempt must be discarded/recreated or explicitly recovered; do not pretend DDL
+rolled back.
 
 ### Implementation and wiring
 
-Existing PR22 inert deployment may proceed as a separate operation now, without waiting for all this new code. After new controls merge, freeze and deploy that newer exact candidate; never continue citing 8dbea16 as the tested application if its code changed.
+PR16 remains the last evidenced inert staging deployment while this source work is reviewed. After
+P06 source merges, freeze and deploy that newer exact candidate; do not inherit PR16 host evidence
+or cite the old PR22 planning SHA as qualification for changed code.
 
-Preserve private env/storage, prepare from Git, publish generated assets manifest-last, apply only additive migrations, prove second application is a no-op, and run the strict host suite against the disposable qualification DB only. Add advisory-lock host checks and native-only transport/version checks in a separately authorized diagnostic lane. Production/main static-site files remain untouched.
+Preserve private env/storage, prepare from Git, publish generated assets manifest-last, apply the
+candidate migration set on the disposable qualification DB first, and prove the second application
+is a no-op. Migration 230 is the one exceptional repair in this PR because its merged delimiter
+error made successful application impossible; staging PR16 has never applied it. Any database that
+experienced a failed partial 230 DDL attempt is not treated as rolled back. Run the strict host suite
+against the disposable qualification DB only. Reuse the existing advisory-lock and filesystem-lock
+host checks; native/network diagnostics remain separately authorized. Production/main static-site
+files remain untouched.
 
-Extend real HTTPS tests to Monitor request inspection, body-only mutations, current grant refusal, stale digests, unauthorized profiles/requests, cross-workspace access, escaped source/model text, request-ID lookup and both review forms. Use disposable identities and synthetic data for destructive tests; these are not live product claims.
+Extend the existing hardened HTTPS smoke with a Monitor-specific negative mode rather than adding a second HTTP client. The deployed smoke proves workbench reachability, session-scoped workspace behavior, body-only mutation identity and CSRF/missing-run refusals without ever holding a valid run that could fetch or call a model. Existing offline security/integration tests continue to pin stale request/review digests, cross-workspace scope, model/source escaping and authority revocation. The actual authorized ROAD_TEST_001 then exercises the four inspected requests and both review forms manually.
 
 Once actual prompt/model evaluation passes and the owner admits the exact manual-pilot grant, run baseline and changed captures, four inspected inference requests, two human decisions, P01/P04 releases and read-only replay. Validate the baseline is retained under the approved policy; do not mistake fixture pages or a provider authentication diagnostic for the full road test.
 
-The exporter reads the run, grants, evidence, provider receipts, human decisions, M10 references, M16 P01 artifact and P04 projection; emits a sanitized manifest with explicit actual/synthetic provenance and private-artifact digests. It never auto-files a PASS or changes the upstream lock/evidence registry. Human-reviewed evidence-only commits file observations, including failures and stand-down. Extend the registry vocabulary only through a versioned reviewed schema if evaluation/restore/key-rotation record kinds are added; observed events still grant no authority.
+The exporter reads the run, grant/prompt identities, provider receipts, human-review event/artifact identities, M10 references, M16/P01 release references and P04 release references; it emits a sanitized summary of execution mode, digests, counts and current reliance without emitting source/model/review text. It never auto-files a PASS or changes the upstream lock/evidence registry. Human-reviewed evidence-only commits file observations, including failures and stand-down. Extend the registry vocabulary only through a versioned reviewed schema if evaluation/restore/key-rotation record kinds are added; observed events still grant no authority.
 
 ### Acceptance tests
 

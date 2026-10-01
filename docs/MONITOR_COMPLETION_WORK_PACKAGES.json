@@ -1,5 +1,5 @@
 {
-  "status": "P00_P04_IMPLEMENTED_IN_PR23_CANDIDATE_REMAINDER_PROPOSED",
+  "status": "P00_P05_P10_MERGED_P06_SOURCE_IMPLEMENTED_PR26_OPERATIONS_PENDING",
   "baseline": {
     "loopia_main": "8dbea16b262df7b6d40fe945f34e301eedf2aba6",
     "canonical_main": "1c40306c22e15b2ad3049e8d32abff47450c8921"
@@ -238,17 +238,23 @@
       ],
       "change": [
         "ops/staging-smoke.php",
-        "ops/loopia-probe/probe.php",
         "ops/deploy/preflight.php",
         "ops/rollback/verify-stand-down.php",
-        "app/Ops/DeploymentEvidence.php",
+        "app/Workflow/NativeOperations.php",
+        "app/Ops/StandDownPosture.php",
         "docs/DEPLOYMENT_EVIDENCE_MODEL.md",
         "docs/BETA_RUNBOOK.md",
         "docs/DEPLOYMENT_RUNBOOK.md",
         "docs/MVP_RELEASE_STATE.md",
-        "deployment-evidence.json"
+        "docs/MONITOR_COMPLETION_PLAN.md",
+        "docs/MONITOR_COMPLETION_WORK_PACKAGES.json",
+        "tests/rollback/stand_down_verifier.php",
+        "tests/security/monitor_native_boundary.php",
+        "tests/foundation/release_state_currentness.php",
+        "database/migrations/230_monitor_attempt_recovery.sql",
+        "tests/foundation/beta_operations_boundary.php"
       ],
-      "implementation": "Existing PR22 inert deployment may proceed as a separate operation now, without waiting for all this new code. After new controls merge, freeze and deploy that newer exact candidate; never continue citing 8dbea16 as the tested application if its code changed.\n\nPreserve private env/storage, prepare from Git, publish generated assets manifest-last, apply only additive migrations, prove second application is a no-op, and run the strict host suite against the disposable qualification DB only. Add advisory-lock host checks and native-only transport/version checks in a separately authorized diagnostic lane. Production/main static-site files remain untouched.\n\nExtend real HTTPS tests to Monitor request inspection, body-only mutations, current grant refusal, stale digests, unauthorized profiles/requests, cross-workspace access, escaped source/model text, request-ID lookup and both review forms. Use disposable identities and synthetic data for destructive tests; these are not live product claims.\n\nOnce actual prompt/model evaluation passes and the owner admits the exact manual-pilot grant, run baseline and changed captures, four inspected inference requests, two human decisions, P01/P04 releases and read-only replay. Validate the baseline is retained under the approved policy; do not mistake fixture pages or a provider authentication diagnostic for the full road test.\n\nThe exporter reads the run, grants, evidence, provider receipts, human decisions, M10 references, M16 P01 artifact and P04 projection; emits a sanitized manifest with explicit actual/synthetic provenance and private-artifact digests. It never auto-files a PASS or changes the upstream lock/evidence registry. Human-reviewed evidence-only commits file observations, including failures and stand-down. Extend the registry vocabulary only through a versioned reviewed schema if evaluation/restore/key-rotation record kinds are added; observed events still grant no authority.",
+      "implementation": "Existing PR22 inert deployment may proceed as a separate operation now, without waiting for all this new code. After new controls merge, freeze and deploy that newer exact candidate; never continue citing 8dbea16 as the tested application if its code changed.\n\nPreserve private env/storage, prepare from Git, publish generated assets manifest-last, apply only additive migrations, prove second application is a no-op, and run the strict host suite against the disposable qualification DB only. Add advisory-lock host checks and native-only transport/version checks in a separately authorized diagnostic lane. Production/main static-site files remain untouched.\n\nExtend the existing hardened HTTPS smoke with a Monitor-specific negative mode rather than adding a second HTTP client. The deployed smoke proves workbench reachability, session-scoped workspace behavior, body-only mutation identity and CSRF/missing-run refusals without ever holding a valid run that could fetch or call a model. Existing offline security/integration tests continue to pin stale request/review digests, cross-workspace scope, escaping and authority revocation. The actual authorized ROAD_TEST_001 exercises the four inspected requests and both review forms manually.\n\nOnce actual prompt/model evaluation passes and the owner admits the exact manual-pilot grant, run baseline and changed captures, four inspected inference requests, two human decisions, P01/P04 releases and read-only replay. Validate the baseline is retained under the approved policy; do not mistake fixture pages or a provider authentication diagnostic for the full road test.\n\nThe exporter reads the run, grant/prompt identities, provider receipts, human-review event/artifact identities, M10 references and P01/P04 release references; it emits a sanitized summary of execution mode, digests, counts and current reliance without source/model/review text. It never auto-files a PASS or changes the upstream lock/evidence registry. Human-reviewed evidence-only commits file observations, including failures and stand-down. Extend the registry vocabulary only through a versioned reviewed schema if evaluation/restore/key-rotation record kinds are added; observed events still grant no authority.\n\nPR26 deliberately reuses the existing Loopia probe and existing ROAD_TEST_001/LIVE_READ evidence vocabulary. It does not edit deployment-evidence.json or upstream.lock.json before observations exist, and it does not add a second HTTP smoke transport.\n\nHosted CI resumed during PR26 and exposed two merged qualification blockers: the unapplied P05 migration 230 contained a malformed trigger delimiter, and the beta-operations structural test still counted two expected pre-Kernel refusals after P10 added maintenance as a third. PR26 repairs both. No new migration is added; a database left in a partial-DDL state by a prior failed 230 attempt must be recreated or explicitly recovered.",
       "tests": [
         "Real-host strict suite and Monitor HTTPS negatives at the final exact candidate.",
         "Real browser inspection on desktop/mobile for both review boundaries.",

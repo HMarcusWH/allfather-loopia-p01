@@ -367,3 +367,35 @@ php ops/backup/maintenance.php leave ... --maintenance-id=<exact-id>
 Never restore an old dump into the live append-only database and never use a down-migration as a
 rollback substitute. If old application code is not explicitly compatible with the expanded schema,
 stand down and roll forward to a repaired release.
+
+## P06 deployed Monitor qualification
+
+P06 does not change the inert-copy rule. Deploy the exact prepared release first, then prove the
+deployed Monitor boundary separately.
+
+After ordinary staging smoke, run:
+
+    read -rs PW
+    printf '%s\n' "$PW" | php ops/staging-monitor-smoke.php \
+      --base-url=https://staging.allfatherbi.com \
+      --email=<operator-email> --password-stdin
+    unset PW
+
+This is a negative boundary smoke. It reuses the ordinary staging-smoke HTTPS implementation and
+does not hold a valid Monitor run identity, source grant or model grant.
+
+Before any real ROAD_TEST_001 activity, P10 must have passed operationally on the intended Loopia
+path: actual native encrypted backup, independent off-host retention and clean disposable restore.
+In particular prove the real trigger/DEFINER/database-principal behavior instead of assuming a local
+MariaDB account model applies to Loopia.
+
+The live ROAD_TEST_001 sequence is governed by docs/ROAD_TEST_001_MONITOR.md. Model evaluation,
+prompt approval, mission setup, MANUAL_MONITOR admission and both human reviews are separate acts.
+No scheduler handler is enabled for the road test.
+
+After the road test, stand down all current/future-admitted execution grants first and verify M10
+and Monitor journal integrity. Only then export the sanitized evidence summary with
+ops/road-test/export-monitor-evidence.php and rerun P10 over the populated state. Evidence filing is
+a later reviewed repository change; neither operator command edits deployment-evidence.json or
+upstream.lock.json.
+
