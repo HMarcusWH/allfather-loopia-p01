@@ -157,9 +157,10 @@ this deployment phase**, and the inert staging configuration therefore leaves `S
 > 6 September and is kept as written. Since then PR13, PR15 and PR16 were deployed to Loopia staging:
 > the probe (`LOOPIA_PROBE_001`) and the SSH/CLI isolation canary have run on the real host, E.1
 > measured `FAIL_READABLE`, and E.3 web-PHP isolation remains `UNVERIFIED` (blocker 4 below is still
-> open). Blockers 2, 3 and 5 are therefore historical as worded. Hosted CI has not executed since PR13
-> (account billing), so MariaDB 10.6 is verified by complete local reproductions rather than "in CI,
-> on every commit". Blocker 1 — the Kundzon scheduler transport — is unchanged. Current state:
+> open). Blockers 2, 3 and 5 are therefore historical as worded. Hosted CI was unavailable through
+> PR25 but resumed for PR26 and remains active; merged PR28/main `1a99f72b` is directly hosted-qualified
+> on both MariaDB 10.6 and 10.11 at 7,689/0/0. Blocker 1 — the Kundzon scheduler transport — is
+> unchanged. Current state:
 > [`MVP_RELEASE_STATE.md`](MVP_RELEASE_STATE.md); evidence: `deployment-evidence.json`.
 
 1. **`LOOPIA_SCHEDULER_TRANSPORT_BLOCKER`** — the question above is unanswered. A Kundzon schedule

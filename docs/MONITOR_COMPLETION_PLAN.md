@@ -1,8 +1,8 @@
 # Monitor completion plan — three releases
 
-**Adopted as the engineering plan of record:** 27 September 2026. **Status:** **P00–P06 and P10 are
-merged** through PR26; merged main is hosted-CI qualified, while P06 live operational evidence remains
-pending. P11 is the current source candidate in draft PR28; P07–P09 and P12 remain proposed/conditional as stated below. A candidate implementation is not a merge, qualification,
+**Adopted as the engineering plan of record:** 27 September 2026. **Status:** **P00–P06, P10 and P11 are
+merged** through PR28; merged main is hosted-CI qualified, while P06 live operational evidence remains
+pending. P07–P09 and P12 remain proposed/conditional as stated below. A candidate implementation is not a merge, qualification,
 deployment, funded model evaluation, activation or authority grant. The current state of the
 application is
 [`MVP_RELEASE_STATE.md`](MVP_RELEASE_STATE.md), not this plan.
@@ -39,7 +39,7 @@ provider transport, the four prompts and the existing M01–M12/M15/M16 and prod
 | P08 | P03 assurance port and broader product-scope validation | P00 | proposed |
 | P09 | Operator administration and richer views | P04, P05 | proposed |
 | P10 | Independent backup and full restore | P00 | **merged in PR25; native/off-host/clean-target operational proof pending** |
-| P11 | Version-aware master-key rotation | P00, P01, P10 | **candidate-implemented in draft PR28; no real staging rewrap performed** |
+| P11 | Version-aware master-key rotation | P00, P01, P10 | **merged in PR28; merged main hosted-CI qualified; no real staging rewrap performed** |
 | P12 | Production identity and visibility through the canonical owners | P06, P10, P11 | conditional on canonical decisions not yet taken |
 
 ### What P00 delivered, and where it differs from the proposal
@@ -789,7 +789,6 @@ app/Support/Bootstrap.php
 app/Support/Env.php
 app/Workflow/MonitorFactory.php
 app/Workflow/ExecutionGrantStore.php
-app/Workflow/ExecutionAdmission.php
 public_html/index.php
 ops/evaluation/monitor.php
 ops/provider/credential.php
@@ -812,7 +811,7 @@ CredentialStore already saves/replaces/revokes provider credentials. Do not rebu
 
 KeyRing holds only operator-provided private key material and one explicit active write version. SecretBox remains one key/one version and keeps tenant+provider AAD. CredentialStore save seals with the active version; `withCredential` selects `key_version` and `credential_digest`, decrypts under exactly that version, recomputes the keyed fingerprint and refuses if it no longer matches the stored digest.
 
-Master-key rewrap rotates every ciphertext-bearing credential row selected for the tenant, including ACTIVE, ROTATED and REVOKED rows. Before a batch writes, it locks the tenant then credential rows in deterministic order and refuses while any current or future-admitted execution grant names an affected credential. Rewrap preserves `provider_credential_id` and lifecycle status but, because `credential_digest` is keyed by the master key, recomputes `credential_digest` under the target version. Existing immutable grants therefore become stale by design; rotation never rewrites or re-admits them. ExecutionGrantStore admission takes the same tenant-row mutex as credential save/rewrap and performs its final currentness validation while holding it, closing the grant-admission/rotation race. A later successor grant must carry the new digest. Replacing the provider secret remains a different operation: it creates a new credential identity, so frozen mission configuration and grant bindings require explicit successors.
+Master-key rewrap rotates every ciphertext-bearing credential row selected for the tenant, including ACTIVE, ROTATED and REVOKED rows. Before a batch writes, it locks the tenant then credential rows in deterministic order and refuses while any current or future-admitted execution grant names an affected credential. Rewrap preserves `provider_credential_id` and lifecycle status but, because `credential_digest` is keyed by the master key, recomputes `credential_digest` under the target version. Existing immutable grants therefore become stale by design; rotation never rewrites or re-admits them. ExecutionGrantStore admission takes the same tenant-row mutex as credential save/rewrap/revoke and performs its final currentness validation while holding it, closing the grant-admission/credential-mutation races. A later successor grant must carry the new digest. Replacing the provider secret remains a different operation: it creates a new credential identity, so frozen mission configuration and grant bindings require explicit successors.
 
 CredentialRotation uses status → plan → exact plan digest → bounded apply semantics. Rotation is tenant-wide even though tenant.administer is checked through the supplied workspace: every ciphertext-bearing credential and every current/future-admitted grant in the tenant is considered. The configured active version is the only rewrap target; there is no --to-version escape hatch. For each row it verifies old-key availability and old `credential_digest`, seals with the target version, reopens and privately compares plaintext, updates ciphertext/nonce/tag/key_version/credential_digest, and appends an immutable rotation event containing only safe identities/digests/version metadata. A batch commits atomically; repeated invocation of the same completed plan is idempotent and later plans resume remaining old-version rows. The upgrade test explicitly proves migration 240 can be introduced after historical migration 900 is already ledgered on an existing database. No network call occurs inside the transaction and no plaintext/key material appears in argv, logs, exceptions, receipts or database events.
 
@@ -827,6 +826,8 @@ P10 recovery is proved under the same P11 release: take and retain a backup whil
 - Provider-secret replacement still creates a new credential identity and requires successor mission/grant bindings.
 - No plaintext/key material in logs, exceptions, argv, request logs or rotation receipts.
 - A P11-release backup taken before rewrap can be restored later and its v1 credential recovered only with retained v1 key material.
+- An existing database with historical migration 900 already ledgered can add migration 240 without replaying or drifting 900.
+- Real MariaDB contention exercises master-key rewrap, credential revoke and grant admission on the shared tenant mutex. Credential save uses that same mutex in the implementation, but PR28 does not claim a separate two-connection save-contention test.
 
 **Completion:** Credential lifecycle is tested, including recovery; presence of a key is no longer the only proven property.
 
