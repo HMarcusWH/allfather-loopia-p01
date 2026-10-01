@@ -98,27 +98,97 @@ final class ExecutionGrantStore
         if (!$this->may($scope, ['tenant.administer', 'mission.activate'])) {
             return Outcome::refuse('EXECUTION_GRANT_ADMINISTRATION_DENIED');
         }
+
+        // Resolve the immutable human decision before holding DB locks. The exact grant digest is
+        // rechecked again inside the tenant-locked transaction below.
         $grant = $this->find($scope['tenant_id'], $scope['workspace_id'], $grantId);
         if ($grant === null) {
             return Outcome::refuse('EXECUTION_GRANT_NOT_FOUND');
-        }
-        if ($this->clock->now() >= $grant['valid_until']) {
-            return Outcome::refuse('EXECUTION_GRANT_EXPIRED');
         }
         $decision = $this->decisions->resolve($decisionRef, $decisionSha256);
         if (!$decision->isOk()) {
             return $decision;
         }
-        if (!OwnerDecisionRegistry::authorizesGrant($decision->value(), $grant['tenant_id'], $grant['workspace_id'], $grant['purpose'], $grant['grant_digest'])) {
+        $decisionValue = $decision->value();
+        if (!OwnerDecisionRegistry::authorizesGrant(
+            $decisionValue,
+            $grant['tenant_id'],
+            $grant['workspace_id'],
+            $grant['purpose'],
+            $grant['grant_digest'],
+        )) {
             return Outcome::refuse('OWNER_DECISION_DOES_NOT_AUTHORIZE_GRANT');
         }
-        // What was reviewed must still be true now: the approvals it names, and its configuration.
-        $still = $this->normalize($scope, $grant['definition']);
-        if (!$still->isOk()) {
-            return $still;
-        }
 
-        return $this->event($scope, $grantId, 'ADMITTED', ['PROPOSED', 'SUSPENDED'], 'OWNER_DECISION_ADMITTED', $decisionRef, $decisionSha256);
+        try {
+            return $this->db->transaction(function (Database $tx) use (
+                $scope,
+                $grantId,
+                $decisionRef,
+                $decisionSha256,
+                $decisionValue,
+            ): Outcome {
+                // Shared credential/admission mutex. CredentialStore::save and P11 rewrap take the
+                // same tenant row before changing credential identity, so admission cannot slip
+                // between "rotation saw no live grant" and "rotation changed credential_digest".
+                $tenant = $tx->one(
+                    'SELECT tenant_id FROM tenants WHERE tenant_id=? FOR UPDATE',
+                    [$scope['tenant_id']],
+                );
+                if ($tenant === null) {
+                    return Outcome::refuse('EXECUTION_GRANT_TENANT_NOT_FOUND');
+                }
+                $locked = $tx->one(
+                    'SELECT execution_grant_id
+                     FROM monitor_execution_grants
+                     WHERE execution_grant_id=? AND tenant_id=? AND workspace_id=?
+                     FOR UPDATE',
+                    [$grantId, $scope['tenant_id'], $scope['workspace_id']],
+                );
+                if ($locked === null) {
+                    return Outcome::refuse('EXECUTION_GRANT_NOT_FOUND');
+                }
+
+                $current = $this->find($scope['tenant_id'], $scope['workspace_id'], $grantId);
+                if ($current === null) {
+                    return Outcome::refuse('EXECUTION_GRANT_NOT_FOUND');
+                }
+                if ($this->clock->now() >= $current['valid_until']) {
+                    return Outcome::refuse('EXECUTION_GRANT_EXPIRED');
+                }
+                if (!OwnerDecisionRegistry::authorizesGrant(
+                    $decisionValue,
+                    $current['tenant_id'],
+                    $current['workspace_id'],
+                    $current['purpose'],
+                    $current['grant_digest'],
+                )) {
+                    return Outcome::refuse('OWNER_DECISION_DOES_NOT_AUTHORIZE_GRANT');
+                }
+
+                // What was reviewed must still be true while the shared tenant mutex is held:
+                // especially the current credential id/digest that P11 rewrap or provider save may
+                // otherwise change concurrently.
+                $still = $this->normalize($scope, $current['definition']);
+                if (!$still->isOk()) {
+                    return $still;
+                }
+
+                return $this->eventLocked(
+                    $tx,
+                    $scope,
+                    $grantId,
+                    'ADMITTED',
+                    ['PROPOSED', 'SUSPENDED'],
+                    'OWNER_DECISION_ADMITTED',
+                    $decisionRef,
+                    $decisionSha256,
+                    false,
+                );
+            });
+        } catch (\PDOException $error) {
+            return Database::classify($error, 'EXECUTION_GRANT_TRANSITION_RACED');
+        }
     }
 
     /** Stand-down: stops further use. It never refunds consumed budget or rewrites history. */
@@ -232,28 +302,78 @@ final class ExecutionGrantStore
     private function event(array $scope, string $grantId, string $kind, array $from, string $reason, ?string $decisionRef, ?string $decisionSha256): Outcome
     {
         try {
-            return $this->db->transaction(function (Database $tx) use ($scope, $grantId, $kind, $from, $reason, $decisionRef, $decisionSha256): Outcome {
-                // Serialize lifecycle changes on the (immutable) grant row.
-                $tx->one('SELECT execution_grant_id FROM monitor_execution_grants WHERE execution_grant_id=? FOR UPDATE', [$grantId]);
-                $status = $this->status($grantId);
-                if ($kind === 'REVOKED' && $status === 'REVOKED') {
-                    return Outcome::ok(['execution_grant_id' => $grantId, 'status' => 'REVOKED']);
-                }
-                if (!in_array($status, $from, true)) {
-                    return Outcome::refuse('EXECUTION_GRANT_TRANSITION_INVALID', ['status' => $status]);
-                }
-                $sequence = 1 + (int) $tx->scalar('SELECT COALESCE(MAX(sequence_no),0) FROM monitor_execution_grant_events WHERE execution_grant_id=?', [$grantId]);
-                $tx->insert('monitor_execution_grant_events', [
-                    'execution_grant_event_id' => Ids::new(), 'execution_grant_id' => $grantId, 'sequence_no' => $sequence,
-                    'event_kind' => $kind, 'owner_decision_ref' => $decisionRef, 'owner_decision_sha256' => $decisionSha256,
-                    'reason_code' => $reason, 'recorded_by_operator_id' => $scope['operator_id'], 'recorded_at' => $this->clock->now(),
-                ]);
-
-                return Outcome::ok(['execution_grant_id' => $grantId, 'status' => $this->status($grantId)]);
-            });
+            return $this->db->transaction(fn (Database $tx): Outcome => $this->eventLocked(
+                $tx,
+                $scope,
+                $grantId,
+                $kind,
+                $from,
+                $reason,
+                $decisionRef,
+                $decisionSha256,
+                true,
+            ));
         } catch (\PDOException $error) {
             return Database::classify($error, 'EXECUTION_GRANT_TRANSITION_RACED');
         }
+    }
+
+    /**
+     * Append one lifecycle event inside the caller's transaction.
+     *
+     * @param list<string> $from
+     */
+    private function eventLocked(
+        Database $tx,
+        array $scope,
+        string $grantId,
+        string $kind,
+        array $from,
+        string $reason,
+        ?string $decisionRef,
+        ?string $decisionSha256,
+        bool $lockGrant,
+    ): Outcome {
+        if ($lockGrant) {
+            // Serialize lifecycle changes on the immutable grant row.
+            $tx->one(
+                'SELECT execution_grant_id
+                 FROM monitor_execution_grants
+                 WHERE execution_grant_id=? FOR UPDATE',
+                [$grantId],
+            );
+        }
+
+        $status = $this->status($grantId);
+        if ($kind === 'REVOKED' && $status === 'REVOKED') {
+            return Outcome::ok(['execution_grant_id' => $grantId, 'status' => 'REVOKED']);
+        }
+        if (!in_array($status, $from, true)) {
+            return Outcome::refuse('EXECUTION_GRANT_TRANSITION_INVALID', ['status' => $status]);
+        }
+
+        $sequence = 1 + (int) $tx->scalar(
+            'SELECT COALESCE(MAX(sequence_no),0)
+             FROM monitor_execution_grant_events
+             WHERE execution_grant_id=?',
+            [$grantId],
+        );
+        $tx->insert('monitor_execution_grant_events', [
+            'execution_grant_event_id' => Ids::new(),
+            'execution_grant_id' => $grantId,
+            'sequence_no' => $sequence,
+            'event_kind' => $kind,
+            'owner_decision_ref' => $decisionRef,
+            'owner_decision_sha256' => $decisionSha256,
+            'reason_code' => $reason,
+            'recorded_by_operator_id' => $scope['operator_id'],
+            'recorded_at' => $this->clock->now(),
+        ]);
+
+        return Outcome::ok([
+            'execution_grant_id' => $grantId,
+            'status' => $this->status($grantId),
+        ]);
     }
 
     private function normalize(array $scope, array $d): Outcome

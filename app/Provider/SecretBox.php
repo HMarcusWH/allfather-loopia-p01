@@ -15,7 +15,7 @@ use Allfather\Loopia\Core\Outcome;
  *  - the database stores ciphertext + nonce + auth tag + key version, so rotation can re-wrap
  *    without guessing which key sealed a row;
  *  - a key is never echoed after save — the UI shows a fingerprint, and the fingerprint is a
- *    salted hash, not a prefix or a suffix of the secret.
+ *    keyed HMAC, not a prefix or a suffix of the secret.
  *
  * GCM is authenticated encryption: a tampered ciphertext, nonce or tag fails to open rather than
  * decrypting to garbage the caller might then send to a provider. Additional authenticated data
@@ -43,6 +43,9 @@ final class SecretBox
      */
     public static function fromMasterKey(string $encoded, int $keyVersion = 1): self
     {
+        if ($keyVersion < 1) {
+            throw new \RuntimeException('credential key version must be a positive integer');
+        }
         $raw = self::decodeKey($encoded);
         if ($raw === null || strlen($raw) !== self::KEY_BYTES) {
             throw new \RuntimeException(
@@ -57,6 +60,11 @@ final class SecretBox
     public static function generateMasterKey(): string
     {
         return base64_encode(random_bytes(self::KEY_BYTES));
+    }
+
+    public function keyVersion(): int
+    {
+        return $this->keyVersion;
     }
 
     /**
@@ -125,7 +133,7 @@ final class SecretBox
     }
 
     /**
-     * A non-reversible fingerprint for display. It is a keyed hash of the WHOLE secret, so it
+     * A non-reversible fingerprint for identity/currentness. It is a keyed HMAC of the WHOLE secret, so it
      * reveals no part of it — showing "sk-ant-…3f9a" would leak both the provider and a suffix.
      */
     public function fingerprint(string $plaintext): string

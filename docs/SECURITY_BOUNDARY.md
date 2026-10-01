@@ -149,10 +149,11 @@ no-op.
 | a staging or production environment may only be configured from `.env` | silently loading the test file beside it and running on test credentials |
 | no configuration file at all refuses to start | an empty configuration in which every default reads as a choice somebody made |
 
-Staging and production additionally require `DB_NAME`, `DB_USER` and an `APP_MASTER_KEY` that
-DECODES to 32 bytes, all at boot — so a missing key is met at startup rather than at the first
-credential the deployment tries to seal. A refusal names the missing keys, which are public, and
-never a value.
+Staging and production additionally require `DB_NAME`, `DB_USER` and one valid provider master-key
+configuration at boot. Legacy `APP_MASTER_KEY` is version 1; P11's versioned mode declares a closed
+version set plus one active write version. Every configured key still decodes to exactly 32 bytes.
+Missing, ambiguous, malformed or stray versioned configuration is refused before the first credential
+is touched. Refusals name configuration keys/versions only, never values.
 
 Errors are never displayed in a strict environment: a notice rendered into a response carries
 absolute paths and a fatal carries a stack trace naming every layer it passed through. They are
@@ -216,7 +217,7 @@ Gate G is the check.
 ### 5.3 Cross-site isolation is proved before secrets are placed
 
 On shared hosting an account may hold several sites, and whether one site's PHP can read another's
-private files decides whether `APP_MASTER_KEY` and the database password may be placed there at all.
+private files decides whether provider master-key/keyring material and the database password may be placed there at all.
 That question is answered **before** the secrets are uploaded, not after: a secret that turns out to
 be readable from a sibling site has already been exposed for however long it took to find out.
 
@@ -236,7 +237,7 @@ asserts each of those is present. Cross-site isolation of the web PHP identity r
 blocker in `LOOPIA_HOST_MODEL.md` §5 rather than something a green canary run closes.
 
 That blocker is a **non-waivable pre-secret prerequisite**. `WEB_PHP_ISOLATION_REQUIRED_BEFORE_SECRETS`
-means Gate F may place `DB_PASSWORD` and `APP_MASTER_KEY` on the host only after
+means Gate F may place `DB_PASSWORD` and provider master-key/keyring material on the host only after
 `LOOPIA_WEB_PHP_CROSS_SITE_ISOLATION_BLOCKER` has been closed by one of two things: Loopia's written
 assurance about per-site web-PHP isolation, or an equivalent host proof of the web identity that
 does not require adding a file-reading endpoint. SSH/CLI canary success, HTTP private-path refusal,
@@ -284,9 +285,11 @@ tenant's object is either a bug worth finding or an attack worth recording.
 ## 7. Secrets
 
 Provider credentials (`database/migrations/130_provider_credentials.sql`) are stored as
-AES-256-GCM ciphertext with the nonce, auth tag and key version alongside. The master key lives in
-server-private configuration and never in the database. Credentials are never logged and never
-echoed back after save; rotation and deletion are supported, and every credential is tenant-scoped.
+AES-256-GCM ciphertext with nonce, auth tag, key version and a keyed credential digest alongside.
+Master-key material lives only in server-private configuration and never in the database. P11 resolves
+exactly the row's key version, verifies the keyed digest after decrypt, and rewraps bounded tenant-wide
+batches to the configured active version. It never tries all keys, mints authority or rewrites an
+immutable execution grant. Credentials and key material are never logged or echoed after save.
 
 ## 8. Privacy
 

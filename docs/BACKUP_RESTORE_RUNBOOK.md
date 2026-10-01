@@ -15,9 +15,9 @@ Before touching runtime data:
    directory, mode `0600` or `0400`. They may contain credentials; they never appear on argv.
 3. Keep the age recovery identity in a separate protected store. The export machine needs only the
    public `age1...` recipient.
-4. Retain the application master-key recovery material separately under the chosen retention policy.
-   P10 preserves credential ciphertext exactly but deliberately does **not** package `APP_MASTER_KEY`;
-   decryptability/rewrap across key versions is P11's responsibility.
+4. Retain application master-key recovery material separately under the chosen retention policy.
+   P10 preserves provider credential ciphertext/key_version exactly but deliberately packages **no**
+   `APP_MASTER_KEY` / `APP_MASTER_KEY_V<n>` value. P11 owns version-aware decrypt/rewrap and recovery.
 5. Choose an off-host output path. `export.sh` refuses output under a served `public_html/`.
 6. The operator entering maintenance must currently hold `tenant.administer` in the named
    workspace. This is the narrow MVP deployment-operator boundary; it is not a future production
@@ -219,6 +219,26 @@ After import it restores the packaged evidence tree into the disposable rehearsa
 The rehearsal **does not start a web runtime or scheduler**. Restored data may contain historical
 grant records; history is not activation. A later runtime requires its separately reviewed
 re-admission/activation path.
+
+## 5.1 P11 credential-key recovery check
+
+P10 proves the database/artifact snapshot. P11 separately proves that encrypted credential rows in an
+older retained backup remain decryptable by the appropriate retained master-key version.
+
+Under one exact P11 release:
+
+1. keep a versioned keyring with v1 active and create a populated P10 backup;
+2. change the configured active write version to v2 and use the reviewed P11 rewrap procedure on the
+   live database;
+3. restore the **pre-rewrap** backup to the ordinary empty disposable P10 target;
+4. using the restored row's exact `key_version=1`, prove the credential opens with retained v1
+   recovery material;
+5. prove it refuses when only v2 is available.
+
+Removing v1 from the live runtime ring after all live rows are on v2 is **not** permission to destroy
+v1 recovery material while any retained backup still contains v1 ciphertext.
+
+Neither P10 nor P11 stores a recovery key in the archive, manifest, repository or deployment evidence.
 
 ## 6. Failure handling
 

@@ -29,7 +29,7 @@ require __DIR__ . '/../../app/autoload.php';
 use Allfather\Loopia\Core\{Clock,Outcome};
 use Allfather\Loopia\Evaluation\{EvaluationFactory,EvaluationManifest,EvaluationReport};
 use Allfather\Loopia\Ops\{BetaCli,SourceFingerprint};
-use Allfather\Loopia\Provider\{CredentialStore,SecretBox};
+use Allfather\Loopia\Provider\{CredentialStore,KeyRing};
 use Allfather\Loopia\Storage\EvidenceStore;
 use Allfather\Loopia\PromptOps\PromptApprovalStore;
 use Allfather\Loopia\Workflow\{ExecutionGrantStore,MonitorFactory,OwnerDecisionRegistry};
@@ -72,8 +72,8 @@ if (!$manifest->isOk()) {
 }
 // The same private store the web composition uses; candidates are content-addressed there.
 $storage = $root . '/storage/evidence';
-$box = SecretBox::fromMasterKey($env->require('APP_MASTER_KEY'));
-$credentials = new CredentialStore($db, $clock, $box);
+$keys = KeyRing::fromEnv($env);
+$credentials = new CredentialStore($db, $clock, $keys);
 $decisions = OwnerDecisionRegistry::forRoot($root);
 $fingerprint = SourceFingerprint::compute($root);
 $scope = ['tenant_id' => $need('tenant-id'), 'workspace_id' => $need('workspace-id'), 'operator_id' => $need('operator-id')];

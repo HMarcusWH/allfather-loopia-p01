@@ -118,6 +118,30 @@ final class Env
     }
 
     /**
+     * Return configuration NAMES only for one reviewed prefix.
+     *
+     * P11 needs to refuse an undeclared APP_MASTER_KEY_V<n> without exposing the private value
+     * behind it. There is deliberately no all-values accessor: callers may discover that a key name
+     * exists, never enumerate secret contents.
+     *
+     * @return list<string>
+     */
+    public function keysWithPrefix(string $prefix): array
+    {
+        if ($prefix === '') {
+            return [];
+        }
+
+        $keys = array_values(array_filter(
+            array_keys($this->values),
+            static fn (string $key): bool => str_starts_with($key, $prefix),
+        ));
+        sort($keys, SORT_STRING);
+
+        return $keys;
+    }
+
+    /**
      * Configuration rendered for a diagnostic surface. Secret keys report only whether they are
      * SET or MISSING — never their value, never a prefix, never a length.
      *

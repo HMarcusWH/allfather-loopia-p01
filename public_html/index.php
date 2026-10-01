@@ -167,7 +167,7 @@ $kernel->route('GET', '/console/app', $operatorConsole->shell(...));
 if ($request->path === '/console/monitor') {
 $monitorFor = static fn (array $scope): \Allfather\Loopia\Workflow\MonitorOperations => \Allfather\Loopia\Workflow\MonitorFactory::forWorkspace(
     $db, $clock, new \Allfather\Loopia\Storage\EvidenceStore($root . '/storage/evidence'),
-    \Allfather\Loopia\Provider\SecretBox::fromMasterKey($env->require('APP_MASTER_KEY')),
+    \Allfather\Loopia\Provider\KeyRing::fromEnv($env),
     \Allfather\Loopia\Workflow\OwnerDecisionRegistry::forRoot($root),
     static fn (): string => \Allfather\Loopia\Ops\SourceFingerprint::compute($root),
     $scope['tenant_id'], $scope['workspace_id'],

@@ -21,7 +21,8 @@
       "database/migrations/210_monitor_execution_controls.sql",
       "database/migrations/220_monitor_evaluation_records.sql",
       "database/migrations/225_monitor_setup_receipts.sql",
-      "database/migrations/230_monitor_attempt_recovery.sql"
+      "database/migrations/230_monitor_attempt_recovery.sql",
+      "database/migrations/240_provider_rotation_events.sql"
     ]
   },
   "baseline_canonical_tables": [
@@ -257,6 +258,9 @@
       "monitor_model_attempt_bindings",
       "monitor_run_reconciliations",
       "provider_model_candidate_artifacts"
+    ],
+    "240_provider_rotation_events.sql": [
+      "provider_credential_rotation_events"
     ]
   }
 }

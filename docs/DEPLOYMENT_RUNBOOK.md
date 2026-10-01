@@ -16,10 +16,10 @@ launch.
 - private domain directory whose only served child is `public_html/`;
 - two databases: staging runtime and disposable qualification.
 
-For the **Loopia staging profile**, preflight requires `DB_NAME`, `DB_USER`, `DB_PASSWORD` and a valid
-32-byte `APP_MASTER_KEY`. The generic Bootstrap class deliberately allows a passwordless/socket-
-authenticated database in principle; that generic possibility is not the staging qualification
-profile.
+For the **Loopia staging profile**, preflight requires `DB_NAME`, `DB_USER`, `DB_PASSWORD` and one
+valid provider master-key mode: either legacy `APP_MASTER_KEY` (version 1) or a complete versioned
+KeyRing. The generic Bootstrap class deliberately allows a passwordless/socket-authenticated database
+in principle; that generic possibility is not the staging qualification profile.
 
 ## 2. Host layout
 
@@ -160,7 +160,7 @@ literal sibling layout above.
 
 ## 4. Verify the public/private boundary before secrets
 
-The initial copy contains no `.env`, DB password, master key or scheduler credential. From outside,
+The initial copy contains no `.env`, DB password, provider master-key/keyring material or scheduler credential. From outside,
 run the mechanically-enforced Gate E.2 check rather than reading a transcript of codes — its own
 exit code is the result, require 0:
 
@@ -201,7 +201,16 @@ DB_PORT=3306
 DB_NAME=<runtime db>
 DB_USER=<runtime user>
 DB_PASSWORD=<runtime password>
+
+# Choose exactly one provider master-key mode.
+# Legacy:
 APP_MASTER_KEY=<base64 32-byte key>
+# OR versioned P11 mode:
+# APP_MASTER_KEY_VERSIONS=1,2
+# APP_MASTER_KEY_ACTIVE_VERSION=2
+# APP_MASTER_KEY_V1=<retained recovery/read key>
+# APP_MASTER_KEY_V2=<active write key>
+
 SUPPORT_CONTACT_TEXT=<monitored support route>
 APP_RELEASE_REF=<exact release SHA>
 SCHEDULER_TOKEN=

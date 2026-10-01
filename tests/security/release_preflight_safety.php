@@ -146,6 +146,15 @@ Assert::contains(
 Assert::contains("'db_password' => \$env->has('DB_PASSWORD') ? 'SET' : 'MISSING'", $code, 'the password is reported as a state');
 Assert::false(str_contains($code, "\$env->get('DB_PASSWORD')"), 'and its value is never read');
 Assert::false(str_contains($code, "\$env->get('APP_MASTER_KEY')") && str_contains($code, "'app_master_key' => \$env->get"), 'nor the master key rendered');
+Assert::contains(
+    'KeyRing::fromEnv($env)',
+    $code,
+    'preflight validates the same legacy-or-versioned keyring grammar as runtime',
+);
+Assert::false(
+    str_contains($code, 'SecretBox::fromMasterKey'),
+    'preflight has no legacy-only master-key validation path',
+);
 foreach (['curl_init(', 'fsockopen(', 'file_put_contents(', 'rename(', 'unlink(', 'Database::'] as $absent) {
     Assert::false(str_contains($code, $absent), "the preflight performs no {$absent} — it is not a deployer");
 }

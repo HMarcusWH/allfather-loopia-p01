@@ -6,7 +6,7 @@ described as deployed or a deployment gets described as activated:
 
 | Question | Current answer | Evidence |
 | --- | --- | --- |
-| **Source** — what application code is in this release tree? | P00–P06 and P10 are merged through PR26 at `26b92c82`; P11 is not implemented | Git history; [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) |
+| **Source** — what application code is in this release tree? | P00–P06 and P10 are merged; this tree adds the P11 version-aware provider keyring/rewrap/recovery candidate | Git history; [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) |
 | **Tested** — which exact commit was qualified, and how? | merged PR26 `26b92c82` passed hosted CI push run 36847557585; both MariaDB lanes were 7,508/0/0 | §2; `deployment-evidence.json` |
 | **Deployed** — which application runs on staging? | PR16 `392f48de`, inert. **None of the Monitor work is deployed** | §3; [Gate R filing](STAGING_GATE_R_EVIDENCE_2026-09-26.md) |
 | **Activated** — what may run against the world? | nothing: no live read, no native model call, no scheduler handler, no external action | §4; `upstream.lock.json` |
@@ -20,7 +20,7 @@ canonical_pin                      = c6d9cf9a7a1001b001ca6118999e9cb75c831c4d
 implementation_baseline_merge      = 26b92c8293ea3c1dd6f579e79aa500b97da07f7d
 deployed_staging_release           = 392f48deef11380f6dccfe88f2a47ba1fd94575c
 evidence_records                   = 13
-candidate_migrations               = 27
+candidate_migrations               = 28
 ```
 
 ## What the words mean here
@@ -53,9 +53,13 @@ candidate_migrations               = 27
   has been deployed to Loopia, no funded model evaluation or MANUAL_MONITOR grant has been applied,
   and `ROAD_TEST_001` has not executed. P10's real native/off-host/clean-target rehearsal also
   remains operational acceptance work.
-- **Candidate schema:** 27 migration files, including `210_monitor_execution_controls`,
-  `220_monitor_evaluation_records`, `225_monitor_setup_receipts` and `230_monitor_attempt_recovery`.
-  The deployed PR16 release has 19.
+- **P11 candidate in this tree:** adds exact-version credential decryption, legacy/versioned
+  keyring configuration, bounded tenant-wide master-key rewrap, append-only rotation receipts,
+  tenant-mutex serialization with grant admission, and retained-old-key recovery tests. It does not
+  rotate staging key material or change deployment/activation/owner authority.
+- **Candidate schema:** 28 migration files, including `210_monitor_execution_controls`,
+  `220_monitor_evaluation_records`, `225_monitor_setup_receipts`, `230_monitor_attempt_recovery` and
+  P11 `240_provider_rotation_events`. The deployed PR16 release has 19.
 
 ## 2. Tested
 
@@ -139,11 +143,11 @@ road_test_001_executed             = false
 ## 5. What comes next
 
 The [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) sequences the rest as three releases.
-PR26 is the **P00–P06 plus P10 source baseline**, now hosted-CI qualified on merged main. P10
-operational acceptance (real native backup, off-host retention and clean disposable restore) still
-gates the live P06 road test. P11 may proceed as the next independent engineering package while that
-operator work remains pending. No code merge or CI result creates execution authority, deployment
-evidence or owner GO.
+PR26 remains the **P00–P06 plus P10 application baseline**; PR27 filed its hosted merged-main
+qualification evidence. This tree implements the P11 source candidate while P10 operational
+acceptance (real native backup, off-host retention and clean disposable restore) still gates the live
+P06 road test. P07 remains after that road test. No code merge or CI result creates execution
+authority, deployment evidence or owner GO.
 
 ## 6. Superseded narrative
 
