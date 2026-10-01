@@ -89,14 +89,14 @@ Working end to end today, given seeded authority:
 
 ## 4. Operational readiness
 
-The current working candidate has additional migrations and operational controls. PR16 staging
+The current merged implementation baseline has additional migrations and operational controls. PR16 staging
 evidence proves the prior 19-migration release only; candidate migration execution, repeatability
 and host qualification must be evidenced for the new exact release before claiming deployment
 readiness. P05 made named MariaDB advisory locking load-bearing for Monitor run/source serialization.
 P10 now also makes **filesystem advisory locking (`flock`) load-bearing** for backup quiescence:
 ordinary runtime holds shared leases and maintenance takes an exclusive drain lease. The P10 probe
 therefore demonstrates both lock families separately. PR16 host evidence predates both additions,
-so it does not prove the current candidate's lock capabilities.
+so it does not prove the current merged baseline's lock capabilities.
 
 P10 also depends on operator-side native `mariadb-dump`/`mariadb` and `age`, same-account trigger
 DEFINER behavior, and a real empty disposable restore target. Those are not inferred from PHP,
@@ -110,11 +110,11 @@ Its implementation and static/fixture checks do not update the deployed PR16 cla
 | schema migrations | 28 files in candidate; deployed-release count is recorded separately |
 | authority seeding | `Permissions` vocabulary + role seeds; product registrations provision their selected tenant capabilities |
 | audit profiles | created on demand per category |
-| CI | PR16 exact-head local workflow reproduction PASS: PHP 8.2.34, MariaDB 10.6/10.11 and both host-shaped lanes at 5,552/0/0; hosted runner allocation blocked by account billing/spending. The workflow's steps now live in `ops/ci/qualify-release.sh`, whose `local` route reproduces them from an exact-commit export and writes a self-reported receipt |
+| CI | latest merged-main code qualification: PR28 `1a99f72b`, hosted push run 36861689735, PHP 8.2.34, MariaDB 10.6/10.11 both 7,689/0/0; foundation, release preparation and aggregate qualification PASS. This is CI evidence only, not Loopia host proof. |
 | runbook | `DEPLOYMENT_RUNBOOK.md` for the mechanics, `BETA_RUNBOOK.md` for the sequence |
 | rollback | PR16 to PR15 to PR16 drill PASS for named immutable history and request-log prefix; no populated M10 stream or full database restore exercised |
 | host qualification | PR16 actual Loopia strict suite 5,552/0/0, probes, N/O/P and browser checks PASS under the staging deviation; **current P10 filesystem-flock/native backup-import capabilities are not yet host-qualified**; E.1 FAIL_READABLE, E.3 UNVERIFIED |
-| evidence | `deployment-evidence.json`, validated on every commit; **12 reviewed records; PR16 inert staging qualified under the recorded staging deviation** |
+| evidence | `deployment-evidence.json`, validated on every commit; **14 reviewed records; PR28 merged-main CI conformance filed, while PR16 remains the latest inert staging qualification under the recorded staging deviation** |
 
 ## 5. Measured staging state and uncompleted transitions
 
