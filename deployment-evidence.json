@@ -144,6 +144,17 @@
       "evidence_sha256": "f3e8c8dd76acebf877e5b559db4042a8b0e949b336366ade11fd7bf97c2b8356",
       "target": "staging.allfatherbi.com",
       "note": "PR16 to PR15 to PR16 verified; named history preserved. No populated M10 chain or full DB restore claim."
+    },
+    {
+      "record_id": "PR26_HOSTED_CONFORMANCE_PASS",
+      "kind": "CONFORMANCE",
+      "result": "PASS",
+      "release_ref": "26b92c8293ea3c1dd6f579e79aa500b97da07f7d",
+      "environment": "ci",
+      "recorded_at": "2026-10-01T10:40:25.000Z",
+      "evidence_ref": "docs/deployment-evidence/2026-10-01/26b92c82/release-qualification-receipt.json",
+      "evidence_sha256": "4fbd8787843e7cc9349f67be7b4297532492578b235237e08febe050de31306c",
+      "note": "GitHub Actions push run 36847557585 qualified merged main 26b92c82 directly, with MariaDB 10.6 and 10.11 both 7508/0/0. This is CI evidence only, not Loopia host/deployment/activation evidence."
     }
   ]
 }

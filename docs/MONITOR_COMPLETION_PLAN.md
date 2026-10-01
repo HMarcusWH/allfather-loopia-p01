@@ -1,8 +1,8 @@
 # Monitor completion plan — three releases
 
-**Adopted as the engineering plan of record:** 27 September 2026. **Status:** **P00–P05 and P10 are
-merged** through PR25; PR26 implements **P06** qualification/ROAD_TEST tooling while its live
-operational evidence remains pending; P07–P09 and P11–P12 remain proposed/conditional as stated below. A candidate implementation is not a merge, qualification,
+**Adopted as the engineering plan of record:** 27 September 2026. **Status:** **P00–P06 and P10 are
+merged** through PR26; merged main is hosted-CI qualified, while P06 live operational evidence remains
+pending. P07–P09 and P11–P12 remain proposed/conditional as stated below. A candidate implementation is not a merge, qualification,
 deployment, funded model evaluation, activation or authority grant. The current state of the
 application is
 [`MVP_RELEASE_STATE.md`](MVP_RELEASE_STATE.md), not this plan.
@@ -34,7 +34,7 @@ provider transport, the four prompts and the existing M01–M12/M15/M16 and prod
 | P03 | Native manual Monitor wiring and stand-down | P01, P02 | **merged in PR23; not deployed/admitted** |
 | P04 | Repeatable operator-supported mission setup | P01 | **merged in PR23; setup grants no execution** |
 | P05 | Recoverable model results and explicit interruption handling | P01, P03 | **merged in PR24; not deployed/activated** |
-| P06 | Deploy, requalify and run the first approved manual road test | P00, P02, P03, P04, P05, P10 | **PR26 source implements qualification/ROAD_TEST tooling; no deployment/evaluation/road test evidence yet** |
+| P06 | Deploy, requalify and run the first approved manual road test | P00, P02, P03, P04, P05, P10 | **merged in PR26; merged main hosted-CI qualified; no newer Loopia deployment/evaluation/road-test evidence yet** |
 | P07 | Recurring observation with bounded per-occurrence authority | P06 | proposed |
 | P08 | P03 assurance port and broader product-scope validation | P00 | proposed |
 | P09 | Operator administration and richer views | P04, P05 | proposed |
@@ -551,7 +551,7 @@ app/Workflow/ScheduleDispatcher.php
 app/Jobs/MonitorStepHandler.php
 ops/monitor/schedule.php
 ops/scheduler/invoke-remote.sh
-database/migrations/240_monitor_schedule_control.sql
+database/migrations/250_monitor_schedule_control.sql
 docs/MONITOR_SCHEDULING.md
 tests/integration/monitor_schedule.php
 tests/security/monitor_schedule_concurrency.php
@@ -772,7 +772,7 @@ Never call a code rollback a full restore. No down-migration or history deletion
 app/Provider/KeyRing.php
 app/Provider/CredentialRotation.php
 ops/provider/rotate-master-key.php
-database/migrations/250_provider_rotation_events.sql
+database/migrations/240_provider_rotation_events.sql
 docs/CREDENTIAL_ROTATION_RUNBOOK.md
 tests/integration/provider_key_rotation.php
 tests/security/provider_rotation_boundary.php
@@ -784,29 +784,44 @@ tests/security/provider_rotation_boundary.php
 app/Provider/CredentialStore.php
 app/Provider/SecretBox.php
 app/Support/Bootstrap.php
+app/Support/Env.php
 app/Workflow/MonitorFactory.php
+app/Workflow/ExecutionGrantStore.php
+app/Workflow/ExecutionAdmission.php
+public_html/index.php
+ops/evaluation/monitor.php
+ops/provider/credential.php
 .env.example
+docs/BACKUP_RESTORE_RUNBOOK.md
+docs/SCHEMA_REACHABILITY.md
+docs/MVP_RELEASE_STATE.md
+docs/MONITOR_COMPLETION_PLAN.md
+docs/MONITOR_COMPLETION_WORK_PACKAGES.json
 tests/fixtures/schema_table_inventory.json
 tests/integration/schema_invariants.php
 ```
 
 ### Implementation and wiring
 
-CredentialStore already saves/replaces/revokes provider credentials. Do not rebuild those operations. Its current dispatch read does not select key_version and uses one injected SecretBox; add version-aware selection around the existing encryption implementation. Keep a legacy one-key configuration supported for existing rows. Unknown key version refuses, never tries all keys until something decrypts.
+CredentialStore already saves/replaces/revokes provider credentials. Do not rebuild those operations. Its current dispatch read does not select `key_version` and uses one injected SecretBox; add a version-aware `KeyRing` around the existing AES-256-GCM implementation. Keep legacy `APP_MASTER_KEY` as version 1 for existing deployments. Versioned configuration must be validated by one shared `KeyRing::fromEnv` path used by Bootstrap, HTTP Monitor composition and every provider/evaluation CLI. Unknown key versions refuse; never try keys sequentially until one happens to decrypt.
 
-KeyRing holds only operator-provided private key material; rows store key-version IDs. CredentialRotation first verifies old-key availability, seals using the new version, compares decrypted plaintext privately and commits a bounded batch plus append-only rotation evidence. Preserve tenant/provider additional-authenticated-data binding. Resume is idempotent and a partial failure is visible. Do not change algorithms or derive entropy from passwords.
+KeyRing holds only operator-provided private key material and one explicit active write version. SecretBox remains one key/one version and keeps tenant+provider AAD. CredentialStore save seals with the active version; `withCredential` selects `key_version` and `credential_digest`, decrypts under exactly that version, recomputes the keyed fingerprint and refuses if it no longer matches the stored digest.
 
-Provider-key replacement creates a new credential identity; frozen mission/grant bindings refuse until explicitly superseded. Master-key rewrapping may also change the keyed fingerprint: preserve old/new identity relationships in the rotation receipt, and re-admit any grant whose bound material actually changed. Do not silently rewrite historical request provenance.
+Master-key rewrap rotates every ciphertext-bearing credential row selected for the tenant, including ACTIVE, ROTATED and REVOKED rows. Before a batch writes, it locks the tenant then credential rows in deterministic order and refuses while any current or future-admitted execution grant names an affected credential. Rewrap preserves `provider_credential_id` and lifecycle status but, because `credential_digest` is keyed by the master key, recomputes `credential_digest` under the target version. Existing immutable grants therefore become stale by design; rotation never rewrites or re-admits them. A later successor grant must carry the new digest. Replacing the provider secret remains a different operation: it creates a new credential identity, so frozen mission configuration and grant bindings require explicit successors.
 
-Keep old recovery keys securely available for retained old backups under the chosen retention policy, then retire them only after a tested recovery plan. New production secrets are distinct from staging. Resolving the historical credential-like shell token still requires operator confirmation/revocation; code cannot prove that a past exposure was harmless.
+CredentialRotation uses plan → exact plan digest → bounded apply/status semantics. For each row it verifies old-key availability and old `credential_digest`, seals with the target version, reopens and privately compares plaintext, updates ciphertext/nonce/tag/key_version/credential_digest, and appends an immutable rotation event containing only safe identities/digests/version metadata. A batch commits atomically; repeated invocation resumes remaining old-version rows. No network call occurs inside the transaction and no plaintext/key material appears in argv, logs, exceptions, receipts or database events.
+
+P10 recovery is proved under the same P11 release: take and retain a backup while version 1 is still active, rotate the live database to version 2, then restore the pre-rotation backup into a clean target. The restored v1 ciphertext must open only when the retained v1 recovery key is supplied. Removing v1 from the live runtime ring and destroying the retained v1 recovery key are separate operator acts. Provider replacement/history provenance is never silently rewritten.
 
 ### Acceptance tests
 
-- Old/new version decrypt, wrong version refusal, cross-tenant/provider ciphertext refusal and tamper checks.
-- Crash midway through rewrap and repeated invocation.
-- Provider replacement invalidates affected execution bindings without losing historical replay.
-- No plaintext/key material in logs, exceptions, command arguments or receipts.
-- A restored older encrypted backup can be recovered using the retained appropriate key.
+- Legacy `APP_MASTER_KEY` remains version 1; versioned key-ring configuration validates one active write version and rejects ambiguous/missing/malformed versions.
+- Old/new version decrypt, exact unknown-version refusal, wrong-version refusal, cross-tenant/provider ciphertext refusal, stored-digest mismatch and tamper checks.
+- Master-key rewrap includes ACTIVE/ROTATED/REVOKED ciphertext rows, preserves credential identity/status, changes key_version and keyed credential_digest, and is idempotent across repeated bounded batches.
+- Current/future-admitted grants referencing selected credentials block rotation; completed rewrap leaves existing immutable grants stale until a separately proposed/admitted successor grant carries the new digest.
+- Provider-secret replacement still creates a new credential identity and requires successor mission/grant bindings.
+- No plaintext/key material in logs, exceptions, argv, request logs or rotation receipts.
+- A P11-release backup taken before rewrap can be restored later and its v1 credential recovered only with retained v1 key material.
 
 **Completion:** Credential lifecycle is tested, including recovery; presence of a key is no longer the only proven property.
 
@@ -873,15 +888,15 @@ production-preflight.php validates the exact application/schema, adopted authori
 
 ## Proposed additive database sequence
 
-These numbers are proposed against the inspected tree, not reservations. Recheck pending branches before creating them. The repository also has the historical `900_deferred_foreign_keys.sql`; do not edit or renumber it. Prove both a clean install in lexical file order and an upgrade where 900 has already run.
+These numbers are proposed against the inspected tree, not permanent reservations. Allocate in the order packages are actually implemented and recheck pending branches before creating them. The repository also has the historical `900_deferred_foreign_keys.sql`; do not edit or renumber it. Prove both a clean install in lexical file order and an upgrade where 900 has already run.
 
 | Proposed migration | New ownership / purpose |
 |---|---|
 | `210_monitor_execution_controls.sql` | Exact deployment execution grants, prompt approvals, append-only status events; authority references, not new M10 release types. |
 | `220_monitor_evaluation_records.sql` | Evaluation run/human assessment identities and explicit evaluation-purpose linkage to existing provider attempts. |
 | `230_monitor_attempt_recovery.sql` | Durable attempt/artifact references and append-only reconciliation records; versioned continuation semantics where needed. |
-| `240_monitor_schedule_control.sql` | Schedule versions, occurrence reservations, bounded delegation and typed Monitor jobs; journal actor-v2 support with v1 compatibility. |
-| `250_provider_rotation_events.sql` | Append-only credential/key-rotation receipts; private key material never stored here. |
+| `240_provider_rotation_events.sql` | Append-only credential/key-rotation receipts; private key material never stored here. P11 is the next engineering package, so it takes the next free number. |
+| `250_monitor_schedule_control.sql` | Schedule versions, occurrence reservations, bounded delegation and typed Monitor jobs; journal actor-v2 support with v1 compatibility. P07 remains blocked on the operational P06 road test. |
 | Production successors | Unallocated until canonical identity/audience/hosting decisions are approved. |
 
 Every schema change updates `tests/fixtures/schema_table_inventory.json`, `tests/integration/schema_invariants.php` and `docs/SCHEMA_REACHABILITY.md`. Do not weaken the exact inventory to make the count pass. Apply a new migration, never edit applied SQL. Prove constraints on direct writes as well as service-level refusal. Record partial-DDL recovery explicitly; an application transaction is not a rollback of MariaDB DDL.
