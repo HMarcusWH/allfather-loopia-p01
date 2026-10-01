@@ -28,7 +28,7 @@ require __DIR__ . '/../../app/autoload.php';
 
 use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Ops\BetaCli;
-use Allfather\Loopia\Provider\{CredentialStore,SecretBox};
+use Allfather\Loopia\Provider\{CredentialStore,KeyRing};
 
 $fail = static function (string $message, int $code = 2): never {
     fwrite(STDERR, 'credential: ' . $message . PHP_EOL);
@@ -60,7 +60,7 @@ if ($command === 'save') {
 $root = dirname(__DIR__, 2);
 $config = BetaCli::configuration($root, $args, $fail);
 $db = BetaCli::connect($config['env'], $fail);
-$store = new CredentialStore($db, new Clock(), SecretBox::fromMasterKey($config['env']->require('APP_MASTER_KEY')));
+$store = new CredentialStore($db, new Clock(), KeyRing::fromEnv($config['env']));
 
 $result = match ($command) {
     'describe' => $store->describe($scope),

@@ -542,13 +542,15 @@ repin the whole projection or infer canonical authority from tables found in a r
 | Monitor evaluation records (completion plan P02) | 4 | `monitor_evaluation_runs`, `monitor_evaluation_results`, `monitor_evaluation_assessments`, `provider_attempt_purposes`; migration `220_monitor_evaluation_records.sql` |
 | Monitor setup receipts (completion plan P04) | 1 | `monitor_setup_receipts`; migration `225_monitor_setup_receipts.sql` |
 | Monitor attempt recovery (completion plan P05) | 3 | `monitor_model_attempt_bindings`, `provider_model_candidate_artifacts`, `monitor_run_reconciliations`; migration `230_monitor_attempt_recovery.sql` |
-| **Current application total** | **217** | **189 canonical + 28 Loopia adapters** |
+| Provider key rotation receipts (completion plan P11) | 1 | `provider_credential_rotation_events`; migration `240_provider_rotation_events.sql`; append-only operational evidence, no key/plaintext material |
+| **Current application total** | **218** | **189 canonical + 29 Loopia adapters** |
 
 The completion-plan tables are Loopia-local deployment controls, not canonical law: immutable grant
-and approval definitions, append-only lifecycle events, budget consumption and an admission trail.
-They reference reviewed owner decisions under `docs/decisions/` and grant nothing by existing. P05's
-candidate-artifact binding and reconciliation ledger add durability only: neither creates execution
-permission nor release authority. They are declared per migration in `completion_plan_tables` of the
+and approval definitions, append-only lifecycle events, budget consumption, an admission trail and
+P11's credential-rotation receipts. They reference reviewed owner decisions where applicable and
+grant nothing by existing. P05's candidate-artifact binding/reconciliation ledger and P11's
+ciphertext-rewrap receipt add durability only: neither creates execution permission nor release
+authority. They are declared per migration in `completion_plan_tables` of the
 inventory fixture.
 
 The single additional canonical table comes from the reviewed repeatable P01 registration repair
@@ -557,7 +559,7 @@ at `af5992c58bdb653f6ca8be905a17ddab992c5702` and merged as
 `1c40306c22e15b2ad3049e8d32abff47450c8921`. It is a curated extension to the retained baseline,
 not evidence that all current canonical schema has been projected. The original six bounded-model/
 Monitor host-extension tables remain deployment furniture, and the completion-plan migrations add
-fourteen more local control/durability tables through P05. None of those local tables introduces
+fifteen more local control/durability tables through P11. None of those local tables introduces
 separate canonical product law. The projection's `schema_migrations` ledger is excluded from every
 application-table count above.
 
@@ -565,6 +567,6 @@ application-table count above.
 application-table names returned by MariaDB with the explicit fixture. It separately checks group
 counts and disjointness. A missing, renamed or unexpected table therefore fails even when the
 overall count stays the same; tables outside the declared adapter list are no longer classified
-as canonical by taking a complement. Existing constraint, engine and excluded-family checks remain in force. P05 deliberately extends
-that inventory with migration `230_monitor_attempt_recovery.sql`; the older baseline classifications
-remain unchanged.
+as canonical by taking a complement. Existing constraint, engine and excluded-family checks remain in force. P05 and P11 deliberately
+extend that inventory with migrations `230_monitor_attempt_recovery.sql` and
+`240_provider_rotation_events.sql`; the older baseline classifications remain unchanged.

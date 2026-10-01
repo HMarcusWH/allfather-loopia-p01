@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Allfather\Loopia\Support;
 
-use Allfather\Loopia\Provider\SecretBox;
+use Allfather\Loopia\Provider\KeyRing;
 
 /**
  * The one place configuration is loaded, and the one place a deployment is allowed to refuse to
@@ -32,10 +32,9 @@ use Allfather\Loopia\Provider\SecretBox;
  *   an environment that came from it may not declare itself production. So "the production host
  *   quietly ran on test credentials" has no path.
  *
- *   PRODUCTION REQUIRES ITS KEYS AT BOOT. Missing ones are named and the deployment refuses to
- *   start, rather than starting and failing at whichever request first needed them. The master key
- *   is DECODED here too, because a key that is present but 31 bytes is a configuration error a
- *   deployment should meet at boot and not at the first credential it tries to seal.
+ *   PRODUCTION REQUIRES ITS KEYRING AT BOOT. Missing/ambiguous/malformed legacy-or-versioned
+ *   configuration refuses before the first credential is touched. The key bytes are decoded here
+ *   too, because a 31-byte configured key is a deployment error, not a runtime surprise.
  */
 final class Bootstrap
 {
@@ -50,14 +49,15 @@ final class Bootstrap
     public const STRICT_ENVIRONMENTS = ['staging', 'production'];
 
     /**
-     * Keys a strict environment cannot start without.
+     * Non-key configuration a strict environment cannot start without.
      *
-     * `DB_PASSWORD` is deliberately absent: a socket-authenticated MariaDB user legitimately has
-     * none, and requiring it would refuse a correct deployment.
+     * Master-key configuration is validated separately by KeyRing because P11 supports either the
+     * legacy APP_MASTER_KEY or one complete versioned ring. `DB_PASSWORD` is deliberately absent:
+     * a socket-authenticated MariaDB user legitimately has none.
      *
      * @var list<string>
      */
-    public const REQUIRED_IN_STRICT = ['DB_NAME', 'DB_USER', 'APP_MASTER_KEY'];
+    public const REQUIRED_IN_STRICT = ['DB_NAME', 'DB_USER'];
 
     /**
      * Load configuration for a deployment, or explain why it may not start.
@@ -119,9 +119,14 @@ final class Bootstrap
                 ));
             }
 
-            // Decoded, not merely present. A key that is present but 31 bytes is a configuration
-            // error a deployment should meet at boot rather than at the first credential it seals.
-            SecretBox::fromMasterKey((string) $env->get('APP_MASTER_KEY'));
+            // Validate the entire legacy-or-versioned ring, not merely one key name. A malformed,
+            // ambiguous or incomplete ring is a deployment error to meet at boot rather than at
+            // the first credential it tries to open.
+            KeyRing::fromEnv($env);
+        } elseif (KeyRing::hasConfiguration($env)) {
+            // Non-strict environments may omit provider credentials entirely, but if they do carry
+            // a keyring it must obey the same closed configuration grammar as staging/production.
+            KeyRing::fromEnv($env);
         }
 
         return ['env' => $env, 'environment' => $environment, 'strict' => $strict, 'source' => $source];

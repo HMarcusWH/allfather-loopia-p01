@@ -140,7 +140,7 @@ $both = Bootstrap::load($scratch);
 Assert::same('production', $both['environment'], '.env wins when both files exist');
 Assert::same($scratch . '/.env', $both['source'], 'and a stale test file beside it is not read');
 
-// ============================================================ production requires its keys AT BOOT
+// ============================================================ production requires DB identity + one keyring AT BOOT
 
 foreach (Bootstrap::REQUIRED_IN_STRICT as $omitted) {
     $clear();
@@ -168,6 +168,38 @@ Assert::false(
     in_array('DB_PASSWORD', Bootstrap::REQUIRED_IN_STRICT, true),
     'DB_PASSWORD is not required — a socket-authenticated user legitimately has none',
 );
+
+// Master-key configuration is a legacy-or-versioned grammar, not one required literal name.
+Assert::false(
+    in_array('APP_MASTER_KEY', Bootstrap::REQUIRED_IN_STRICT, true),
+    'APP_MASTER_KEY is not a literal strict requirement because versioned keyring mode is valid too',
+);
+$clear();
+$write('.env', "APP_ENV=production\nDB_NAME=live\nDB_USER=live\n");
+$noKeyring = $fails(static fn () => Bootstrap::load($scratch));
+Assert::true($noKeyring !== null, 'production with no master-key mode refuses to start');
+Assert::contains('master-key configuration missing', (string) $noKeyring, 'and names the missing keyring contract');
+
+$versionedKey2 = base64_encode(random_bytes(32));
+$clear();
+$write(
+    '.env',
+    "APP_ENV=production\nDB_NAME=live\nDB_USER=live\n"
+    . "APP_MASTER_KEY_VERSIONS=1,2\nAPP_MASTER_KEY_ACTIVE_VERSION=2\n"
+    . "APP_MASTER_KEY_V1={$masterKey}\nAPP_MASTER_KEY_V2={$versionedKey2}\n",
+);
+$versionedBoot = Bootstrap::load($scratch);
+Assert::same('production', $versionedBoot['environment'], 'a complete versioned production keyring boots');
+
+$clear();
+$write(
+    '.env',
+    "APP_ENV=production\nDB_NAME=live\nDB_USER=live\nAPP_MASTER_KEY={$masterKey}\n"
+    . "APP_MASTER_KEY_VERSIONS=1,2\nAPP_MASTER_KEY_ACTIVE_VERSION=2\n"
+    . "APP_MASTER_KEY_V1={$masterKey}\nAPP_MASTER_KEY_V2={$versionedKey2}\n",
+);
+$mixedMode = $fails(static fn () => Bootstrap::load($scratch));
+Assert::contains('ambiguous master-key configuration', (string) $mixedMode, 'legacy + versioned key configuration refuses at boot');
 
 // A master key that is PRESENT but not 32 bytes is a configuration error the deployment meets at
 // boot, not at the first credential it tries to seal.

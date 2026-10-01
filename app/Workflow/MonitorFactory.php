@@ -7,7 +7,7 @@ use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Evaluation\EvaluationReport;
 use Allfather\Loopia\Ingestion\{CurlHttpsTransport,DnsHostResolver,FetchTransport,HostResolver,NoNetworkTransport,FixedHostResolver};
 use Allfather\Loopia\PromptOps\{PromptApprovalStore,PromptSelectionResolver};
-use Allfather\Loopia\Provider\{CredentialStore,ModelArtifactStore,ModelExecutor,ModelTransport,OpenAIResponsesTransport,SecretBox};
+use Allfather\Loopia\Provider\{CredentialStore,KeyRing,ModelArtifactStore,ModelExecutor,ModelTransport,OpenAIResponsesTransport,SecretBox};
 use Allfather\Loopia\Product\P01\{Capture,ChangeDetection};
 use Allfather\Loopia\Storage\EvidenceStore;
 use Allfather\Loopia\Substrate\M01\Invocation;
@@ -19,9 +19,9 @@ use Allfather\Loopia\Substrate\M06\Gateway;
 /** Deployment composition defaults to inert. Fixture injection is explicit and TEST-scoped. */
 final class MonitorFactory
 {
-    public static function inactive(Database $db,Clock $clock,EvidenceStore $store,SecretBox $box): MonitorService
+    public static function inactive(Database $db,Clock $clock,EvidenceStore $store,SecretBox|KeyRing $keys): MonitorService
     {
-        return self::build($db,$clock,$store,new CredentialStore($db,$clock,$box),new NoNetworkTransport(),new FixedHostResolver([]),self::modelTransport(false),false);
+        return self::build($db,$clock,$store,new CredentialStore($db,$clock,$keys),new NoNetworkTransport(),new FixedHostResolver([]),self::modelTransport(false),false);
     }
 
     /**
@@ -33,14 +33,14 @@ final class MonitorFactory
      * run's own grant through ExecutionAdmission. An unadmitted workspace still inspects runs,
      * previews requests and receives explicit refusals.
      */
-    public static function forWorkspace(Database $db,Clock $clock,EvidenceStore $store,SecretBox $box,OwnerDecisionRegistry $decisions,string|\Closure $applicationFingerprint,string $tenantId,string $workspaceId): MonitorService
+    public static function forWorkspace(Database $db,Clock $clock,EvidenceStore $store,SecretBox|KeyRing $keys,OwnerDecisionRegistry $decisions,string|\Closure $applicationFingerprint,string $tenantId,string $workspaceId): MonitorService
     {
         $approvals=new PromptApprovalStore($db,$clock,$decisions,EvaluationReport::approvalEvidence($db,dirname(__DIR__,2)));
         $grants=new ExecutionGrantStore($db,$clock,$approvals,$decisions);
         $admission=new ExecutionAdmission($db,$clock,$grants,$approvals,$decisions,$applicationFingerprint);
         $admitted=$grants->admittedIn($tenantId,$workspaceId,'MANUAL_MONITOR')!==[];
         [$source,$resolver]=self::liveSource($admitted);
-        return self::build($db,$clock,$store,new CredentialStore($db,$clock,$box),$source,$resolver,self::modelTransport($admitted),false,$admitted,PromptSelectionResolver::governed($approvals,$grants),$admission);
+        return self::build($db,$clock,$store,new CredentialStore($db,$clock,$keys),$source,$resolver,self::modelTransport($admitted),false,$admitted,PromptSelectionResolver::governed($approvals,$grants),$admission);
     }
 
     /** THE one place live read is constructed; `$admitted` is the workspace admission computed above. */

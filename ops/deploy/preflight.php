@@ -19,8 +19,8 @@ declare(strict_types=1);
  * EVERY PROBLEM, NOT THE FIRST. An operator fixing a release wants the whole list. A preflight that
  * stopped at the first fault would turn one pass into five.
  *
- * IT PRINTS NO SECRET. `APP_MASTER_KEY` is validated by DECODING it and reported as SET or MISSING;
- * the value, its length and its prefix never appear. The same for the database password.
+ * IT PRINTS NO SECRET. The legacy-or-versioned provider keyring is validated and reported only as
+ * SET/MISSING/INVALID; key values, lengths and prefixes never appear. The same for the DB password.
  */
 
 // CLI ONLY, refused BEFORE anything is loaded. This command reads the deployment's private
@@ -36,7 +36,7 @@ use Allfather\Loopia\Http\ConsoleAssetManifest;
 use Allfather\Loopia\Ops\BetaCli;
 use Allfather\Loopia\Ops\DeploymentEvidence;
 use Allfather\Loopia\Ops\SourceFingerprint;
-use Allfather\Loopia\Provider\SecretBox;
+use Allfather\Loopia\Provider\KeyRing;
 use Allfather\Loopia\Support\Bootstrap;
 use Allfather\Loopia\Support\Env;
 
@@ -179,17 +179,17 @@ foreach (['DB_NAME', 'DB_USER', 'DB_PASSWORD'] as $key) {
 }
 
 $masterKeyState = 'MISSING';
-if (!$env->has('APP_MASTER_KEY')) {
-    $note('APP_MASTER_KEY is not set — a strict environment refuses to start without it');
+if (!KeyRing::hasConfiguration($env)) {
+    $note('provider master-key configuration is not set — a strict environment refuses to start without it');
 } else {
     try {
-        // DECODED, not merely present. A key that is present but 31 bytes is a configuration error
-        // a deployment should meet here rather than at the first credential it tries to seal.
-        SecretBox::fromMasterKey((string) $env->get('APP_MASTER_KEY'));
+        // Validate the SAME closed legacy-or-versioned grammar Bootstrap/runtime use. Preflight does
+        // not print which keys exist or any values; SET means only that the ring is internally valid.
+        KeyRing::fromEnv($env);
         $masterKeyState = 'SET';
     } catch (\RuntimeException) {
         $masterKeyState = 'INVALID';
-        $note('APP_MASTER_KEY does not decode to 32 bytes');
+        $note('provider master-key configuration is invalid');
     }
 }
 

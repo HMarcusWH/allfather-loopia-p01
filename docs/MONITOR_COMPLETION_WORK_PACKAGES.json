@@ -1,5 +1,5 @@
 {
-  "status": "P00_P06_P10_MERGED_PR26_MAIN_HOSTED_CI_QUALIFIED_P06_OPERATIONS_PENDING",
+  "status": "P00_P06_P10_MERGED_P11_SOURCE_IMPLEMENTED_PR28_CANDIDATE_P06_OPERATIONS_PENDING",
   "baseline": {
     "loopia_main": "8dbea16b262df7b6d40fe945f34e301eedf2aba6",
     "canonical_main": "1c40306c22e15b2ad3049e8d32abff47450c8921"
@@ -439,7 +439,10 @@
         "database/migrations/240_provider_rotation_events.sql",
         "docs/CREDENTIAL_ROTATION_RUNBOOK.md",
         "tests/integration/provider_key_rotation.php",
-        "tests/security/provider_rotation_boundary.php"
+        "tests/security/provider_rotation_boundary.php",
+        "tests/unit/provider_key_ring.php",
+        "tests/integration/p11_migration_order.php",
+        "tests/rollback/provider_key_recovery.php"
       ],
       "change": [
         "app/Provider/CredentialStore.php",
@@ -454,14 +457,16 @@
         "ops/evaluation/monitor.php",
         "ops/provider/credential.php",
         "app/Workflow/ExecutionGrantStore.php",
-        "app/Workflow/ExecutionAdmission.php",
         "docs/BACKUP_RESTORE_RUNBOOK.md",
         "docs/SCHEMA_REACHABILITY.md",
         "docs/MVP_RELEASE_STATE.md",
         "docs/MONITOR_COMPLETION_PLAN.md",
-        "docs/MONITOR_COMPLETION_WORK_PACKAGES.json"
+        "docs/MONITOR_COMPLETION_WORK_PACKAGES.json",
+        "ops/deploy/preflight.php",
+        "docs/DEPLOYMENT_RUNBOOK.md",
+        "docs/SECURITY_BOUNDARY.md"
       ],
-      "implementation": "CredentialStore already saves/replaces/revokes provider credentials. Do not rebuild those operations. Its current dispatch read does not select key_version and uses one injected SecretBox; add a version-aware KeyRing around the existing AES-256-GCM implementation. Keep legacy APP_MASTER_KEY as version 1 for existing deployments. Versioned configuration must be validated by one shared KeyRing::fromEnv path used by Bootstrap, HTTP Monitor composition and every provider/evaluation CLI. Unknown key versions refuse; never try keys sequentially until one happens to decrypt.\n\nKeyRing holds only operator-provided private key material and one explicit active write version. SecretBox remains one key/one version and keeps tenant+provider AAD. CredentialStore save seals with the active version; withCredential selects key_version and credential_digest, decrypts under exactly that version, recomputes the keyed credential fingerprint and refuses if it no longer matches the stored digest.\n\nMaster-key rewrap rotates every ciphertext-bearing credential row selected for the tenant, including ACTIVE, ROTATED and REVOKED rows. Before a batch writes, it locks the tenant then credential rows in deterministic order and refuses while any current or future-admitted execution grant names an affected credential. Rewrap preserves provider_credential_id and lifecycle status but, because credential_digest is keyed by the master key, recomputes credential_digest under the target version. Existing immutable grants therefore become stale by design; rotation never rewrites or re-admits them. A later successor grant must carry the new digest. Replacing the provider secret remains a different operation: it creates a new credential identity, so frozen mission configuration and grant bindings require explicit successors.\n\nCredentialRotation uses plan -> exact plan digest -> bounded apply/status semantics. For each row it verifies old-key availability and old credential_digest, seals with the target version, reopens and privately compares plaintext, updates ciphertext/nonce/tag/key_version/credential_digest, and appends an immutable rotation event containing only safe identities/digests/version metadata. A batch commits atomically; repeated invocation resumes remaining old-version rows. No network call occurs inside the transaction and no plaintext/key material appears in argv, logs, exceptions, receipts or database events.\n\nP10 recovery is proved under the same P11 release: take/retain a backup while version 1 is still active, rotate the live database to version 2, then restore the pre-rotation backup into a clean target. The restored v1 ciphertext must open only when the retained v1 recovery key is supplied. Removing v1 from the live runtime ring and destroying the retained v1 recovery key are separate operator acts. Provider replacement/history provenance is never silently rewritten.",
+      "implementation": "CredentialStore already saves/replaces/revokes provider credentials. Do not rebuild those operations. Its current dispatch read does not select key_version and uses one injected SecretBox; add a version-aware KeyRing around the existing AES-256-GCM implementation. Keep legacy APP_MASTER_KEY as version 1 for existing deployments. Versioned configuration must be validated by one shared KeyRing::fromEnv path used by Bootstrap, HTTP Monitor composition and every provider/evaluation CLI. Unknown key versions refuse; never try keys sequentially until one happens to decrypt.\n\nKeyRing holds only operator-provided private key material and one explicit active write version. SecretBox remains one key/one version and keeps tenant+provider AAD. CredentialStore save seals with the active version; withCredential selects key_version and credential_digest, decrypts under exactly that version, recomputes the keyed credential fingerprint and refuses if it no longer matches the stored digest.\n\nMaster-key rewrap rotates every ciphertext-bearing credential row selected for the tenant, including ACTIVE, ROTATED and REVOKED rows. Before a batch writes, it locks the tenant then credential rows in deterministic order and refuses while any current or future-admitted execution grant names an affected credential. Rewrap preserves provider_credential_id and lifecycle status but, because credential_digest is keyed by the master key, recomputes credential_digest under the target version. Existing immutable grants therefore become stale by design; rotation never rewrites or re-admits them. A later successor grant must carry the new digest. Replacing the provider secret remains a different operation: it creates a new credential identity, so frozen mission configuration and grant bindings require explicit successors.\n\nCredentialRotation uses plan -> exact plan digest -> bounded apply/status semantics. For each row it verifies old-key availability and old credential_digest, seals with the target version, reopens and privately compares plaintext, updates ciphertext/nonce/tag/key_version/credential_digest, and appends an immutable rotation event containing only safe identities/digests/version metadata. A batch commits atomically; repeated invocation resumes remaining old-version rows. No network call occurs inside the transaction and no plaintext/key material appears in argv, logs, exceptions, receipts or database events.\n\nP10 recovery is proved under the same P11 release: take/retain a backup while version 1 is still active, rotate the live database to version 2, then restore the pre-rotation backup into a clean target. The restored v1 ciphertext must open only when the retained v1 recovery key is supplied. Removing v1 from the live runtime ring and destroying the retained v1 recovery key are separate operator acts. Provider replacement/history provenance is never silently rewritten.\n\nPR28 implementation correction: rewrap scope is tenant-wide even though operator permission is checked from one workspace. The configured active key version is the only write/rewrap target; no arbitrary target-version CLI is accepted. ExecutionGrantStore admission takes the same tenant-row mutex as CredentialStore save and P11 rewrap and performs its final credential/currentness validation while holding it. The migration-order test proves a new 240 migration applies safely to an existing database that already has historical 900_deferred_foreign_keys ledgered.",
       "tests": [
         "Legacy APP_MASTER_KEY remains version 1; versioned key-ring configuration validates one active write version and rejects ambiguous/missing/malformed versions.",
         "Old/new version decrypt, exact unknown-version refusal, wrong-version refusal, cross-tenant/provider ciphertext refusal, stored-digest mismatch and tamper checks.",
@@ -469,7 +474,9 @@
         "Current/future-admitted grants referencing selected credentials block rotation; completed rewrap leaves existing immutable grants stale until a separately proposed/admitted successor grant carries the new digest.",
         "Provider-secret replacement still creates a new credential identity and requires successor mission/grant bindings.",
         "No plaintext/key material in logs, exceptions, argv, request logs or rotation receipts.",
-        "A P11-release backup taken before rewrap can be restored later and its v1 credential recovered only with retained v1 key material."
+        "A P11-release backup taken before rewrap can be restored later and its v1 credential recovered only with retained v1 key material.",
+        "An existing database with 900_deferred_foreign_keys already applied can add 240_provider_rotation_events without replaying or drifting 900.",
+        "Grant admission and master-key rewrap contend on the same tenant mutex under two real MariaDB connections."
       ],
       "exit_criteria": "Credential lifecycle is tested, including recovery; presence of a key is no longer the only proven property.",
       "authority_gate": "Implementation and offline testing only; activation is separate."
@@ -523,6 +530,7 @@
     "merge_state": "MERGED",
     "qualification_state": "MERGED_MAIN_HOSTED_CI_PASS_36847557585",
     "deployment_state": "LATEST_DEPLOYED_PR16_INERT",
-    "activation_state": "NOT_ACTIVATED"
+    "activation_state": "NOT_ACTIVATED",
+    "current_candidate": "P11_PR28_SOURCE_IMPLEMENTED_NOT_MERGED_NOT_ACTIVATED"
   }
 }
