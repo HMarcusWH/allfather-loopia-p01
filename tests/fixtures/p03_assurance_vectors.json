@@ -1,0 +1,3278 @@
+{
+  "canonical_commit": "1c40306c22e15b2ad3049e8d32abff47450c8921",
+  "source": "packages/allfather-control-substrate/src/p03/assurance.ts",
+  "source_sha256": "0992a457afed4a921b5d3ce1cb6aa87d131dca04405a794b809090e3566bf3a1",
+  "generator": "tests/fixtures/p03-assurance-golden-generator.mts",
+  "as_of_default": "2026-07-01T00:00:00.000Z",
+  "cases": [
+    {
+      "name": "catalogue-fresh-passes",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-suspended",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "SUSPENDED",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_NOT_ACTIVE"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_NOT_ACTIVE"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_NOT_ACTIVE)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_NOT_ACTIVE"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_NOT_ACTIVE"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "catalogue-retired-and-review-expired",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "RETIRED",
+          "review_status": "expired",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_NOT_ACTIVE",
+          "CATALOGUE_REVIEW_EXPIRED"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_NOT_ACTIVE",
+            "CATALOGUE_REVIEW_EXPIRED"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_NOT_ACTIVE, CATALOGUE_REVIEW_EXPIRED)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_NOT_ACTIVE",
+            "CATALOGUE_REVIEW_EXPIRED"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_NOT_ACTIVE",
+            "CATALOGUE_REVIEW_EXPIRED"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "catalogue-review-draft",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "draft",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_REVIEW_NOT_APPROVED"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_REVIEW_NOT_APPROVED"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_REVIEW_NOT_APPROVED)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_REVIEW_NOT_APPROVED"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_REVIEW_NOT_APPROVED"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "catalogue-review-blocked",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "blocked",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_REVIEW_NOT_APPROVED"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_REVIEW_NOT_APPROVED"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_REVIEW_NOT_APPROVED)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_REVIEW_NOT_APPROVED"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_REVIEW_NOT_APPROVED"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "catalogue-review-past-expiry",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": "2026-06-15T00:00:00.000Z",
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_REVIEW_PAST_EXPIRY"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_REVIEW_PAST_EXPIRY"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_REVIEW_PAST_EXPIRY)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_REVIEW_PAST_EXPIRY"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_REVIEW_PAST_EXPIRY"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "catalogue-review-expiry-in-future",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": "2026-08-01T00:00:00.000Z",
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-error-window-never-captured",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": 86400000,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "NO_CAPTURE_FOR_FRESHNESS_WINDOW"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "NO_CAPTURE_FOR_FRESHNESS_WINDOW"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (NO_CAPTURE_FOR_FRESHNESS_WINDOW)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "NO_CAPTURE_FOR_FRESHNESS_WINDOW"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "NO_CAPTURE_FOR_FRESHNESS_WINDOW"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "catalogue-error-window-stale-capture",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": 86400000,
+          "recheck_terms_after_ms": null,
+          "captures": [
+            {
+              "captured_at": "2026-06-01T00:00:00.000Z"
+            }
+          ],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_CAPTURE_STALE"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_CAPTURE_STALE"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_CAPTURE_STALE)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_CAPTURE_STALE"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_CAPTURE_STALE"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "catalogue-error-window-latest-capture-fresh",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": 86400000,
+          "recheck_terms_after_ms": null,
+          "captures": [
+            {
+              "captured_at": "2026-01-01T00:00:00.000Z"
+            },
+            {
+              "captured_at": "2026-06-30T12:00:00.000Z"
+            }
+          ],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-capture-age-equal-to-window-is-fresh",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": 86400000,
+          "recheck_terms_after_ms": null,
+          "captures": [
+            {
+              "captured_at": "2026-06-30T00:00:00.000Z"
+            }
+          ],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-caller-window-overrides-card",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": 86400000,
+          "recheck_terms_after_ms": null,
+          "captures": [
+            {
+              "captured_at": "2026-06-20T00:00:00.000Z"
+            }
+          ],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "freshnessWindowMs": 2592000000
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-caller-window-without-card-window",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [
+            {
+              "captured_at": "2026-06-01T00:00:00.000Z"
+            }
+          ],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "freshnessWindowMs": 86400000
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_CAPTURE_STALE"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_CAPTURE_STALE"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_CAPTURE_STALE)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_CAPTURE_STALE"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_CAPTURE_STALE"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "catalogue-non-upload-capture-ignored",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": 86400000,
+          "recheck_terms_after_ms": null,
+          "captures": [
+            {
+              "captured_at": "2026-06-30T12:00:00.000Z",
+              "evidence_type": "TEST_FIXTURE_EVIDENCE"
+            }
+          ],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "NO_CAPTURE_FOR_FRESHNESS_WINDOW"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "NO_CAPTURE_FOR_FRESHNESS_WINDOW"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (NO_CAPTURE_FOR_FRESHNESS_WINDOW)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "NO_CAPTURE_FOR_FRESHNESS_WINDOW"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "NO_CAPTURE_FOR_FRESHNESS_WINDOW"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "catalogue-other-source-capture-ignored",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": 86400000,
+          "recheck_terms_after_ms": null,
+          "captures": [
+            {
+              "captured_at": "2026-06-30T12:00:00.000Z",
+              "other_source": true
+            }
+          ],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "NO_CAPTURE_FOR_FRESHNESS_WINDOW"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "NO_CAPTURE_FOR_FRESHNESS_WINDOW"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (NO_CAPTURE_FOR_FRESHNESS_WINDOW)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "NO_CAPTURE_FOR_FRESHNESS_WINDOW"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "NO_CAPTURE_FOR_FRESHNESS_WINDOW"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "catalogue-terms-recheck-never-reviewed",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": 2592000000,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_TERMS_RECHECK_OVERDUE"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_TERMS_RECHECK_OVERDUE)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "catalogue-terms-recheck-recent",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": 2592000000,
+          "captures": [],
+          "terms_reviews": [
+            "2026-01-01T00:00:00.000Z",
+            "2026-06-20T00:00:00.000Z"
+          ]
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-terms-recheck-overdue",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": 2592000000,
+          "captures": [],
+          "terms_reviews": [
+            "2026-01-01T00:00:00.000Z"
+          ]
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_TERMS_RECHECK_OVERDUE"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_TERMS_RECHECK_OVERDUE)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "catalogue-every-reason-in-order",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "SUSPENDED",
+          "review_status": "draft",
+          "review_expires_at": "2026-06-15T00:00:00.000Z",
+          "error_after_ms": 86400000,
+          "recheck_terms_after_ms": 86400000,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_NOT_ACTIVE",
+          "CATALOGUE_REVIEW_NOT_APPROVED",
+          "CATALOGUE_REVIEW_PAST_EXPIRY",
+          "NO_CAPTURE_FOR_FRESHNESS_WINDOW",
+          "CATALOGUE_TERMS_RECHECK_OVERDUE"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_NOT_ACTIVE",
+            "CATALOGUE_REVIEW_NOT_APPROVED",
+            "CATALOGUE_REVIEW_PAST_EXPIRY",
+            "NO_CAPTURE_FOR_FRESHNESS_WINDOW",
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_NOT_ACTIVE, CATALOGUE_REVIEW_NOT_APPROVED, CATALOGUE_REVIEW_PAST_EXPIRY, NO_CAPTURE_FOR_FRESHNESS_WINDOW, CATALOGUE_TERMS_RECHECK_OVERDUE)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_NOT_ACTIVE",
+            "CATALOGUE_REVIEW_NOT_APPROVED",
+            "CATALOGUE_REVIEW_PAST_EXPIRY",
+            "NO_CAPTURE_FOR_FRESHNESS_WINDOW",
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_NOT_ACTIVE",
+            "CATALOGUE_REVIEW_NOT_APPROVED",
+            "CATALOGUE_REVIEW_PAST_EXPIRY",
+            "NO_CAPTURE_FOR_FRESHNESS_WINDOW",
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "catalogue-operator-requested",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "SUSPENDED",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "requestedByActorType": "OPERATOR"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_NOT_ACTIVE"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "OPERATOR",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_NOT_ACTIVE"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_NOT_ACTIVE)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_NOT_ACTIVE"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_NOT_ACTIVE"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "catalogue-tenant-level-from-sibling-workspace",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS",
+          "scope": "sibling"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": null,
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-workspace-owned-from-sibling-workspace",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS",
+          "scope": "sibling"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "SUSPENDED",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_NOT_ACTIVE"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_NOT_ACTIVE"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_NOT_ACTIVE)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_NOT_ACTIVE"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_NOT_ACTIVE"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "catalogue-wrong-category-profile",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "SIGNAL_PAIRING_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "REJECTED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 0,
+          "audit_check_records": 0,
+          "audit_findings": 0,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "reason_code": "AUDIT_PROFILE_WRONG_CATEGORY"
+      }
+    },
+    {
+      "name": "catalogue-inactive-profile",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS",
+          "status": "SUSPENDED"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "REJECTED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 0,
+          "audit_check_records": 0,
+          "audit_findings": 0,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "reason_code": "AUDIT_PROFILE_INACTIVE"
+      }
+    },
+    {
+      "name": "catalogue-target-missing",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": null
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "REJECTED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 0,
+          "audit_check_records": 0,
+          "audit_findings": 0,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "reason_code": "TARGET_NOT_FOUND"
+      }
+    },
+    {
+      "name": "catalogue-foreign-tenant",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "foreign",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "REJECTED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 0,
+          "audit_check_records": 0,
+          "audit_findings": 0,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "reason_code": "TARGET_SCOPE_MISMATCH"
+      }
+    },
+    {
+      "name": "pairing-released-in-window-passes",
+      "family": "SIGNAL_PAIRING_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "SIGNAL_PAIRING_FRESHNESS"
+        },
+        "hypothesis": {
+          "scope": "home",
+          "signal_status": "RELEASED",
+          "signal_created_at": "2026-06-30T00:00:00.000Z"
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "signalPairingFreshnessWindowMs": 604800000
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "SIGNAL_PAIRING_FRESHNESS",
+          "target_object_refs": [
+            "fit_hypothesis"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_SIGNAL_PAIRING_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_SIGNAL_PAIRING_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Signal-pairing freshness audit: the cited signal is RELEASED and within the freshness window."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "The cited signal is fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "pairing-stale",
+      "family": "SIGNAL_PAIRING_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "SIGNAL_PAIRING_FRESHNESS"
+        },
+        "hypothesis": {
+          "scope": "home",
+          "signal_status": "RELEASED",
+          "signal_created_at": "2026-06-01T00:00:00.000Z"
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "signalPairingFreshnessWindowMs": 604800000
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "SIGNAL_PAIRING_STALE"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "SIGNAL_PAIRING_FRESHNESS",
+          "target_object_refs": [
+            "fit_hypothesis"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_SIGNAL_PAIRING_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_SIGNAL_PAIRING_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "SIGNAL_PAIRING_STALE"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Signal-pairing freshness audit: stale (SIGNAL_PAIRING_STALE)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Signal-pairing freshness gap: a stale signal pairing must not back a queue admission.",
+          "reason_codes": [
+            "SIGNAL_PAIRING_STALE"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "SIGNAL_PAIRING_STALE"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "fit_hypothesis",
+            "signal"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 signal-pairing freshness: a stale pairing must not back a queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "pairing-age-equal-to-window-is-fresh",
+      "family": "SIGNAL_PAIRING_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "SIGNAL_PAIRING_FRESHNESS"
+        },
+        "hypothesis": {
+          "scope": "home",
+          "signal_status": "RELEASED",
+          "signal_created_at": "2026-06-24T00:00:00.000Z"
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "signalPairingFreshnessWindowMs": 604800000
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "SIGNAL_PAIRING_FRESHNESS",
+          "target_object_refs": [
+            "fit_hypothesis"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_SIGNAL_PAIRING_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_SIGNAL_PAIRING_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Signal-pairing freshness audit: the cited signal is RELEASED and within the freshness window."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "The cited signal is fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "pairing-signal-superseded",
+      "family": "SIGNAL_PAIRING_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "SIGNAL_PAIRING_FRESHNESS"
+        },
+        "hypothesis": {
+          "scope": "home",
+          "signal_status": "SUPERSEDED",
+          "signal_created_at": "2026-06-30T00:00:00.000Z"
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "signalPairingFreshnessWindowMs": 604800000
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "SIGNAL_NO_LONGER_RELEASED"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "SIGNAL_PAIRING_FRESHNESS",
+          "target_object_refs": [
+            "fit_hypothesis"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_SIGNAL_PAIRING_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_SIGNAL_PAIRING_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "SIGNAL_NO_LONGER_RELEASED"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Signal-pairing freshness audit: stale (SIGNAL_NO_LONGER_RELEASED)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Signal-pairing freshness gap: a stale signal pairing must not back a queue admission.",
+          "reason_codes": [
+            "SIGNAL_NO_LONGER_RELEASED"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "SIGNAL_NO_LONGER_RELEASED"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "fit_hypothesis",
+            "signal"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 signal-pairing freshness: a stale pairing must not back a queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "pairing-signal-withdrawn-and-stale",
+      "family": "SIGNAL_PAIRING_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "SIGNAL_PAIRING_FRESHNESS"
+        },
+        "hypothesis": {
+          "scope": "home",
+          "signal_status": "WITHDRAWN",
+          "signal_created_at": "2026-06-01T00:00:00.000Z"
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "signalPairingFreshnessWindowMs": 604800000
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "SIGNAL_NO_LONGER_RELEASED",
+          "SIGNAL_PAIRING_STALE"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "SIGNAL_PAIRING_FRESHNESS",
+          "target_object_refs": [
+            "fit_hypothesis"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_SIGNAL_PAIRING_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_SIGNAL_PAIRING_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "SIGNAL_NO_LONGER_RELEASED",
+            "SIGNAL_PAIRING_STALE"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Signal-pairing freshness audit: stale (SIGNAL_NO_LONGER_RELEASED, SIGNAL_PAIRING_STALE)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Signal-pairing freshness gap: a stale signal pairing must not back a queue admission.",
+          "reason_codes": [
+            "SIGNAL_NO_LONGER_RELEASED",
+            "SIGNAL_PAIRING_STALE"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "SIGNAL_NO_LONGER_RELEASED",
+            "SIGNAL_PAIRING_STALE"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "fit_hypothesis",
+            "signal"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 signal-pairing freshness: a stale pairing must not back a queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "pairing-operator-requested",
+      "family": "SIGNAL_PAIRING_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "SIGNAL_PAIRING_FRESHNESS"
+        },
+        "hypothesis": {
+          "scope": "home",
+          "signal_status": "REJECTED",
+          "signal_created_at": "2026-06-30T00:00:00.000Z"
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "signalPairingFreshnessWindowMs": 604800000,
+        "requestedByActorType": "OPERATOR"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "SIGNAL_NO_LONGER_RELEASED"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "SIGNAL_PAIRING_FRESHNESS",
+          "target_object_refs": [
+            "fit_hypothesis"
+          ],
+          "requested_by_actor_type": "OPERATOR",
+          "status": "COMPLETED",
+          "summary": "P03_SIGNAL_PAIRING_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_SIGNAL_PAIRING_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "SIGNAL_NO_LONGER_RELEASED"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Signal-pairing freshness audit: stale (SIGNAL_NO_LONGER_RELEASED)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Signal-pairing freshness gap: a stale signal pairing must not back a queue admission.",
+          "reason_codes": [
+            "SIGNAL_NO_LONGER_RELEASED"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "SIGNAL_NO_LONGER_RELEASED"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "fit_hypothesis",
+            "signal"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 signal-pairing freshness: a stale pairing must not back a queue admission.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "pairing-sibling-workspace",
+      "family": "SIGNAL_PAIRING_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "SIGNAL_PAIRING_FRESHNESS"
+        },
+        "hypothesis": {
+          "scope": "sibling",
+          "signal_status": "RELEASED",
+          "signal_created_at": "2026-06-30T00:00:00.000Z"
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "signalPairingFreshnessWindowMs": 604800000
+      },
+      "expected": {
+        "outcome": "REJECTED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 0,
+          "audit_check_records": 0,
+          "audit_findings": 0,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "reason_code": "TARGET_SCOPE_MISMATCH"
+      }
+    },
+    {
+      "name": "pairing-foreign-tenant",
+      "family": "SIGNAL_PAIRING_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "SIGNAL_PAIRING_FRESHNESS"
+        },
+        "hypothesis": {
+          "scope": "foreign",
+          "signal_status": "RELEASED",
+          "signal_created_at": "2026-06-30T00:00:00.000Z"
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "signalPairingFreshnessWindowMs": 604800000
+      },
+      "expected": {
+        "outcome": "REJECTED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 0,
+          "audit_check_records": 0,
+          "audit_findings": 0,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "reason_code": "TARGET_SCOPE_MISMATCH"
+      }
+    },
+    {
+      "name": "pairing-target-missing",
+      "family": "SIGNAL_PAIRING_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "SIGNAL_PAIRING_FRESHNESS"
+        },
+        "hypothesis": null
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "signalPairingFreshnessWindowMs": 604800000
+      },
+      "expected": {
+        "outcome": "REJECTED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 0,
+          "audit_check_records": 0,
+          "audit_findings": 0,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "reason_code": "TARGET_NOT_FOUND"
+      }
+    },
+    {
+      "name": "pairing-wrong-category-profile",
+      "family": "SIGNAL_PAIRING_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "BUYER_INTENT_INVARIANT"
+        },
+        "hypothesis": {
+          "scope": "home",
+          "signal_status": "RELEASED",
+          "signal_created_at": "2026-06-30T00:00:00.000Z"
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "signalPairingFreshnessWindowMs": 604800000
+      },
+      "expected": {
+        "outcome": "REJECTED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 0,
+          "audit_check_records": 0,
+          "audit_findings": 0,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "reason_code": "AUDIT_PROFILE_WRONG_CATEGORY"
+      }
+    },
+    {
+      "name": "pairing-inactive-profile",
+      "family": "SIGNAL_PAIRING_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "SIGNAL_PAIRING_FRESHNESS",
+          "status": "REVOKED"
+        },
+        "hypothesis": {
+          "scope": "home",
+          "signal_status": "RELEASED",
+          "signal_created_at": "2026-06-30T00:00:00.000Z"
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "signalPairingFreshnessWindowMs": 604800000
+      },
+      "expected": {
+        "outcome": "REJECTED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 0,
+          "audit_check_records": 0,
+          "audit_findings": 0,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "reason_code": "AUDIT_PROFILE_INACTIVE"
+      }
+    },
+    {
+      "name": "buyer-intent-empty-scope-passes",
+      "family": "BUYER_INTENT_INVARIANT",
+      "setup": {
+        "profile": {
+          "category": "BUYER_INTENT_INVARIANT"
+        },
+        "queue_items": []
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "violation_count": 0,
+        "violating_queue_items": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "BUYER_INTENT_INVARIANT",
+          "target_object_refs": [],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_BUYER_INTENT_INVARIANT PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_BUYER_INTENT_INVARIANT",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Buyer-intent invariant audit: every queue item cites a valid buying trigger."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Every queue item's triggering signal is a buying-trigger FACT.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "buyer-intent-every-trigger-class-fact-passes",
+      "family": "BUYER_INTENT_INVARIANT",
+      "setup": {
+        "profile": {
+          "category": "BUYER_INTENT_INVARIANT"
+        },
+        "queue_items": [
+          {
+            "label": "pricing",
+            "scope": "home",
+            "signal_class": "PRICING_CHANGE_SIGNAL",
+            "interpretation_kind": "FACT_OBSERVED",
+            "queue_status": "OPEN"
+          },
+          {
+            "label": "launch",
+            "scope": "home",
+            "signal_class": "PRODUCT_LAUNCH_SIGNAL",
+            "interpretation_kind": "FACT_OBSERVED",
+            "queue_status": "OPEN"
+          },
+          {
+            "label": "hiring",
+            "scope": "home",
+            "signal_class": "HIRING_OR_EXPANSION_SIGNAL",
+            "interpretation_kind": "FACT_OBSERVED",
+            "queue_status": "OPEN"
+          },
+          {
+            "label": "regulatory",
+            "scope": "home",
+            "signal_class": "REGULATORY_OR_COMPLIANCE_SIGNAL",
+            "interpretation_kind": "FACT_OBSERVED",
+            "queue_status": "OPEN"
+          }
+        ]
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "violation_count": 0,
+        "violating_queue_items": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "BUYER_INTENT_INVARIANT",
+          "target_object_refs": [],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_BUYER_INTENT_INVARIANT PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_BUYER_INTENT_INVARIANT",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Buyer-intent invariant audit: every queue item cites a valid buying trigger."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Every queue item's triggering signal is a buying-trigger FACT.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "buyer-intent-class-and-interpretation-violations",
+      "family": "BUYER_INTENT_INVARIANT",
+      "setup": {
+        "profile": {
+          "category": "BUYER_INTENT_INVARIANT"
+        },
+        "queue_items": [
+          {
+            "label": "ok",
+            "scope": "home",
+            "signal_class": "PRICING_CHANGE_SIGNAL",
+            "interpretation_kind": "FACT_OBSERVED",
+            "queue_status": "OPEN"
+          },
+          {
+            "label": "bad-class",
+            "scope": "home",
+            "signal_class": "MARKET_CONTEXT_SIGNAL",
+            "interpretation_kind": "FACT_OBSERVED",
+            "queue_status": "OPEN"
+          },
+          {
+            "label": "bad-interpretation",
+            "scope": "home",
+            "signal_class": "PRICING_CHANGE_SIGNAL",
+            "interpretation_kind": "HYPOTHESIS",
+            "queue_status": "OPEN"
+          }
+        ]
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "OVERCLAIM_OR_UI_MISREPRESENTATION",
+        "failed": true,
+        "violation_count": 2,
+        "violating_queue_items": [
+          "queue:bad-class",
+          "queue:bad-interpretation"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "BUYER_INTENT_INVARIANT",
+          "target_object_refs": [
+            "queue:bad-class",
+            "queue:bad-interpretation"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_BUYER_INTENT_INVARIANT FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_BUYER_INTENT_INVARIANT",
+          "decision": "FAIL",
+          "reason_codes": [
+            "BUYER_INTENT_OVERCLAIM_PERSISTED"
+          ],
+          "severity_if_failed": "S2",
+          "safe_summary": "Buyer-intent invariant audit: 2 queue item(s) lack a valid buying-trigger citation."
+        },
+        "finding": {
+          "finding_type": "OVERCLAIM_OR_UI_MISREPRESENTATION",
+          "finding_status": "OPEN",
+          "severity": "S2",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "A priority outreach queue item asserts buyer intent without a buying-trigger (class + FACT_OBSERVED) citation.",
+          "reason_codes": [
+            "BUYER_INTENT_OVERCLAIM_PERSISTED"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M08",
+          "trigger_reason_codes": [
+            "BUYER_INTENT_OVERCLAIM_PERSISTED"
+          ],
+          "trigger_severity": "S2",
+          "related_object_refs": [
+            "queue:bad-class",
+            "queue:bad-interpretation"
+          ],
+          "incident_class": "DISCLOSURE_OR_OVERCLAIM",
+          "severity": "S2",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 buyer-intent invariant: a queue item asserts buyer intent without a valid trigger.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "buyer-intent-every-non-trigger-class",
+      "family": "BUYER_INTENT_INVARIANT",
+      "setup": {
+        "profile": {
+          "category": "BUYER_INTENT_INVARIANT"
+        },
+        "queue_items": [
+          {
+            "label": "positioning",
+            "scope": "home",
+            "signal_class": "POSITIONING_CHANGE_SIGNAL",
+            "interpretation_kind": "FACT_OBSERVED",
+            "queue_status": "OPEN"
+          },
+          {
+            "label": "campaign",
+            "scope": "home",
+            "signal_class": "CAMPAIGN_CHANGE_SIGNAL",
+            "interpretation_kind": "FACT_OBSERVED",
+            "queue_status": "OPEN"
+          },
+          {
+            "label": "partnership",
+            "scope": "home",
+            "signal_class": "PARTNERSHIP_SIGNAL",
+            "interpretation_kind": "FACT_OBSERVED",
+            "queue_status": "OPEN"
+          },
+          {
+            "label": "negative-feedback",
+            "scope": "home",
+            "signal_class": "NEGATIVE_FEEDBACK_SIGNAL",
+            "interpretation_kind": "FACT_OBSERVED",
+            "queue_status": "OPEN"
+          }
+        ]
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "OVERCLAIM_OR_UI_MISREPRESENTATION",
+        "failed": true,
+        "violation_count": 4,
+        "violating_queue_items": [
+          "queue:campaign",
+          "queue:negative-feedback",
+          "queue:partnership",
+          "queue:positioning"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "BUYER_INTENT_INVARIANT",
+          "target_object_refs": [
+            "queue:campaign",
+            "queue:negative-feedback",
+            "queue:partnership",
+            "queue:positioning"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_BUYER_INTENT_INVARIANT FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_BUYER_INTENT_INVARIANT",
+          "decision": "FAIL",
+          "reason_codes": [
+            "BUYER_INTENT_OVERCLAIM_PERSISTED"
+          ],
+          "severity_if_failed": "S2",
+          "safe_summary": "Buyer-intent invariant audit: 4 queue item(s) lack a valid buying-trigger citation."
+        },
+        "finding": {
+          "finding_type": "OVERCLAIM_OR_UI_MISREPRESENTATION",
+          "finding_status": "OPEN",
+          "severity": "S2",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "A priority outreach queue item asserts buyer intent without a buying-trigger (class + FACT_OBSERVED) citation.",
+          "reason_codes": [
+            "BUYER_INTENT_OVERCLAIM_PERSISTED"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M08",
+          "trigger_reason_codes": [
+            "BUYER_INTENT_OVERCLAIM_PERSISTED"
+          ],
+          "trigger_severity": "S2",
+          "related_object_refs": [
+            "queue:campaign",
+            "queue:negative-feedback",
+            "queue:partnership",
+            "queue:positioning"
+          ],
+          "incident_class": "DISCLOSURE_OR_OVERCLAIM",
+          "severity": "S2",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 buyer-intent invariant: a queue item asserts buyer intent without a valid trigger.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "buyer-intent-closed-queue-items-still-scanned",
+      "family": "BUYER_INTENT_INVARIANT",
+      "setup": {
+        "profile": {
+          "category": "BUYER_INTENT_INVARIANT"
+        },
+        "queue_items": [
+          {
+            "label": "withdrawn",
+            "scope": "home",
+            "signal_class": "MARKET_CONTEXT_SIGNAL",
+            "interpretation_kind": "HYPOTHESIS",
+            "queue_status": "EXIT_WITHDRAWN"
+          }
+        ]
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "OVERCLAIM_OR_UI_MISREPRESENTATION",
+        "failed": true,
+        "violation_count": 1,
+        "violating_queue_items": [
+          "queue:withdrawn"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "BUYER_INTENT_INVARIANT",
+          "target_object_refs": [
+            "queue:withdrawn"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_BUYER_INTENT_INVARIANT FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_BUYER_INTENT_INVARIANT",
+          "decision": "FAIL",
+          "reason_codes": [
+            "BUYER_INTENT_OVERCLAIM_PERSISTED"
+          ],
+          "severity_if_failed": "S2",
+          "safe_summary": "Buyer-intent invariant audit: 1 queue item(s) lack a valid buying-trigger citation."
+        },
+        "finding": {
+          "finding_type": "OVERCLAIM_OR_UI_MISREPRESENTATION",
+          "finding_status": "OPEN",
+          "severity": "S2",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "A priority outreach queue item asserts buyer intent without a buying-trigger (class + FACT_OBSERVED) citation.",
+          "reason_codes": [
+            "BUYER_INTENT_OVERCLAIM_PERSISTED"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M08",
+          "trigger_reason_codes": [
+            "BUYER_INTENT_OVERCLAIM_PERSISTED"
+          ],
+          "trigger_severity": "S2",
+          "related_object_refs": [
+            "queue:withdrawn"
+          ],
+          "incident_class": "DISCLOSURE_OR_OVERCLAIM",
+          "severity": "S2",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 buyer-intent invariant: a queue item asserts buyer intent without a valid trigger.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "buyer-intent-out-of-scope-items-ignored",
+      "family": "BUYER_INTENT_INVARIANT",
+      "setup": {
+        "profile": {
+          "category": "BUYER_INTENT_INVARIANT"
+        },
+        "queue_items": [
+          {
+            "label": "home-ok",
+            "scope": "home",
+            "signal_class": "PRODUCT_LAUNCH_SIGNAL",
+            "interpretation_kind": "FACT_OBSERVED",
+            "queue_status": "OPEN"
+          },
+          {
+            "label": "sibling-bad",
+            "scope": "sibling",
+            "signal_class": "MARKET_CONTEXT_SIGNAL",
+            "interpretation_kind": "HYPOTHESIS",
+            "queue_status": "OPEN"
+          },
+          {
+            "label": "foreign-bad",
+            "scope": "foreign",
+            "signal_class": "MARKET_CONTEXT_SIGNAL",
+            "interpretation_kind": "HYPOTHESIS",
+            "queue_status": "OPEN"
+          }
+        ]
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "violation_count": 0,
+        "violating_queue_items": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "BUYER_INTENT_INVARIANT",
+          "target_object_refs": [],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_BUYER_INTENT_INVARIANT PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_BUYER_INTENT_INVARIANT",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Buyer-intent invariant audit: every queue item cites a valid buying trigger."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Every queue item's triggering signal is a buying-trigger FACT.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "buyer-intent-operator-requested",
+      "family": "BUYER_INTENT_INVARIANT",
+      "setup": {
+        "profile": {
+          "category": "BUYER_INTENT_INVARIANT"
+        },
+        "queue_items": [
+          {
+            "label": "bad",
+            "scope": "home",
+            "signal_class": "PARTNERSHIP_SIGNAL",
+            "interpretation_kind": "FACT_OBSERVED",
+            "queue_status": "OPEN"
+          }
+        ]
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "requestedByActorType": "OPERATOR"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "OVERCLAIM_OR_UI_MISREPRESENTATION",
+        "failed": true,
+        "violation_count": 1,
+        "violating_queue_items": [
+          "queue:bad"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "BUYER_INTENT_INVARIANT",
+          "target_object_refs": [
+            "queue:bad"
+          ],
+          "requested_by_actor_type": "OPERATOR",
+          "status": "COMPLETED",
+          "summary": "P03_BUYER_INTENT_INVARIANT FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_BUYER_INTENT_INVARIANT",
+          "decision": "FAIL",
+          "reason_codes": [
+            "BUYER_INTENT_OVERCLAIM_PERSISTED"
+          ],
+          "severity_if_failed": "S2",
+          "safe_summary": "Buyer-intent invariant audit: 1 queue item(s) lack a valid buying-trigger citation."
+        },
+        "finding": {
+          "finding_type": "OVERCLAIM_OR_UI_MISREPRESENTATION",
+          "finding_status": "OPEN",
+          "severity": "S2",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "A priority outreach queue item asserts buyer intent without a buying-trigger (class + FACT_OBSERVED) citation.",
+          "reason_codes": [
+            "BUYER_INTENT_OVERCLAIM_PERSISTED"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M08",
+          "trigger_reason_codes": [
+            "BUYER_INTENT_OVERCLAIM_PERSISTED"
+          ],
+          "trigger_severity": "S2",
+          "related_object_refs": [
+            "queue:bad"
+          ],
+          "incident_class": "DISCLOSURE_OR_OVERCLAIM",
+          "severity": "S2",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 buyer-intent invariant: a queue item asserts buyer intent without a valid trigger.",
+          "scope": "profile"
+        }
+      }
+    },
+    {
+      "name": "buyer-intent-inactive-profile",
+      "family": "BUYER_INTENT_INVARIANT",
+      "setup": {
+        "profile": {
+          "category": "BUYER_INTENT_INVARIANT",
+          "status": "SUSPENDED"
+        },
+        "queue_items": [
+          {
+            "label": "bad",
+            "scope": "home",
+            "signal_class": "PARTNERSHIP_SIGNAL",
+            "interpretation_kind": "HYPOTHESIS",
+            "queue_status": "OPEN"
+          }
+        ]
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "REJECTED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 0,
+          "audit_check_records": 0,
+          "audit_findings": 0,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "reason_code": "AUDIT_PROFILE_INACTIVE"
+      }
+    },
+    {
+      "name": "buyer-intent-wrong-category-profile",
+      "family": "BUYER_INTENT_INVARIANT",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "queue_items": []
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "REJECTED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 0,
+          "audit_check_records": 0,
+          "audit_findings": 0,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "reason_code": "AUDIT_PROFILE_WRONG_CATEGORY"
+      }
+    }
+  ]
+}

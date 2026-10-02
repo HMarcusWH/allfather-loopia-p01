@@ -153,7 +153,7 @@ actually got rather than the one it asked for.
 
 ## 2. Conformance cases
 
-Six files, answering six different questions.
+Seven files, answering seven different questions.
 
 | File | Compares | Against |
 | --- | --- | --- |
@@ -163,8 +163,10 @@ Six files, answering six different questions.
 | `m10_release_conformance.php` | CONF-M10-001 … CONF-M10-010: the release path's outcome and its EXACT reason code for every branch — valid ALLOW, missing verdict, non-ALLOW verdict, ALLOW routed elsewhere, invalidated verdict, unsatisfied conditions, satisfied conditions, proposal not releasable, scope mismatch, digest mismatch | `appendInternalReleaseDecisionRecord` in `m10/ledger.ts` |
 | `m10_stream_identity.php` | that a ledger scope is (tenant, workspace, **environment**): idempotency per environment, TEST/DEMO/LOCAL_DEV coexisting, the canonical default stream keys, and genesis anchors against **fixed vectors produced by the canonical TypeScript encoder** | `createDecisionLedgerStream` / `ensureActiveDecisionLedgerStream` in `m10/ledger.ts`, and `digest.ts` |
 | `p07a_delivery_conformance.php` | the P07-A synthetic dispatch end to end — dispatch outcome, final authorization and artifact state, the delivery row, every M10 record field, the reference SET by role (owner module, object type character for character, version-or-digest, verification status), the writer identity, and the `record_payload_digest` itself against **a vector produced by RUNNING canonical `dispatchOutreachSynthetic`**. Plus the port-wide object-type vocabulary | `p07/outreach-delivery.ts`, and `computeRecordPayloadDigest` in `m10/ledger.ts` |
+| `p03_assurance.php` | the three P03 post-outcome audits (P08) over 46 declared fixtures — refusal codes, reason codes in canonical order, every run/check/finding field the audit sets, the incident request and case, row-count effects, and that the audited rows did not change — against **vectors produced by RUNNING canonical `assurance.ts`** | `p03/assurance.ts` @ `1c40306c`, with its source SHA-256 recorded in the fixture |
 
-The sixth is the only one whose expected values were not written by hand.
+The sixth and seventh are the only ones whose expected values were not written by hand (the seventh's
+generator is `tests/fixtures/p03-assurance-golden-generator.mts`; see `P03_ASSURANCE_PORT.md` §3).
 `ops/conformance/p07a-canonical-vectors.ts` opens a real canonical SQLite database, drives a real
 outreach through the real canonical governed path, calls the real `dispatchOutreachSynthetic`, and
 reads back what the canonical ledger recorded; the pinned digest comes out of canonical's own

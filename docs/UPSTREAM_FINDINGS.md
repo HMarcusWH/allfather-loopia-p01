@@ -114,3 +114,57 @@ canonical's own comments named the invariant the port had missed — "the no-eff
 records the truthful outcome or leaves the authorization unconsumed", and "The partial UNIQUE index
 enforces 'at most one ACTIVE contract per valkyrie'". No new upstream finding was opened, and no
 canonical file was modified.
+
+---
+
+## UF-003 — P03 assurance audits fail OPEN on a malformed `asOf`
+
+**Where:** `packages/allfather-control-substrate/src/p03/assurance.ts` @ `1c40306c22e15b2ad3049e8d32abff47450c8921`,
+all three `run*Audit` functions. **Recorded:** 2026-10-02 (completion plan P08).
+**Status:** REPORTED — not fixed upstream; narrowed at this port's input boundary.
+
+### Observation
+
+Each audit computes `asOfMs = Date.parse(input.asOf ?? now)`. A malformed `asOf` yields `NaN`, and
+every subsequent `x < asOfMs` / `asOfMs - y > window` comparison is then false. The catalogue and
+signal-pairing audits therefore record `CONTROL_PASS` for a stale target, and no incident opens. The
+terms-recheck branch alone stays closed, because it tests `!Number.isFinite(reviewedMs)` on the
+REVIEW instant, not on `asOfMs`.
+
+### What this port did
+
+`app/Product/P03/Assurance.php` refuses a non-canonical `as_of` (`AS_OF_NOT_CANONICAL`), a negative
+or non-integer window (`FRESHNESS_WINDOW_INVALID`) and an unknown requester type before any row is
+read or written. Valid inputs keep canonical semantics; the 46 parity vectors use only valid inputs.
+`tests/integration/p03_assurance.php` pins the refusals.
+
+### Suggested upstream remedy
+
+Validate `asOf` (and the window numbers) at entry and reject rather than compute with `NaN`.
+
+---
+
+## UF-004 — the P03 catalogue audit compares tenant only, even for a workspace-owned catalogue
+
+**Where:** `runCatalogueFreshnessAudit` in the same file. **Recorded:** 2026-10-02 (P08).
+**Status:** REPORTED — parity kept; pinned by vector `catalogue-workspace-owned-from-sibling-workspace`.
+
+### Observation
+
+The sibling signal-pairing audit compares tenant AND workspace because `fit_hypotheses.workspace_id`
+is NOT NULL, and its comment says the catalogue audit compares tenant alone "lawfully because ITS
+target carries a nullable workspace". That reasoning holds for a tenant-level catalogue
+(`workspace_id IS NULL`). It does not hold for a catalogue that HAS a workspace: a profile in a
+sibling workspace of the same tenant can audit it, record the catalogue's status in its own
+reason codes and open an incident in its own workspace citing the catalogue id.
+
+### What this port did
+
+Kept canonical behaviour (the plan requires shared defects to be repaired upstream first) and pinned
+it with a parity vector, so a canonical repair regenerates the vector and the port follows. The
+port's own **sweep** does not reach across: it audits only tenant-level and this-workspace catalogues.
+
+### Suggested upstream remedy
+
+Compare `workspace_id` when the catalogue carries one; keep tenant-only comparison for a NULL
+workspace.

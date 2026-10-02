@@ -32,6 +32,9 @@ use Allfather\Loopia\Substrate\M08\PolicySets;
  * because naming one would be requesting it and M02 treats a request for an excluded permission as
  * the event itself.
  *
+ * P08 adds one composition canonical registration does not perform: when the P03 assurance owner is
+ * supplied, the three post-outcome audit profiles are seeded in the same unit. They grant nothing.
+ *
  * IDEMPOTENT WHERE CANONICAL IS. The tier is a PLATFORM row and is created once per deployment: two
  * tiers with one key would make "what does this product include?" a question with two answers.
  */
@@ -76,6 +79,7 @@ final class Registration
         private readonly ToolRegistry $tools,
         private readonly PolicySets $policySets,
         private readonly Entitlements $entitlements,
+        private readonly ?Assurance $assurance = null,
     ) {
     }
 
@@ -177,6 +181,13 @@ final class Registration
                 $tierIds[$tierKey] = $tier->value()['subscription_tier_id'];
             }
 
+            // --- M11: the three P03 post-outcome audit profiles (P08) ---------------------------------
+            // An audit profile grants nothing (`does_not_grant_authority` is CHECK-pinned to 1), so
+            // seeding it here adds no authority; it only means an operator sweep has a profile to cite
+            // instead of hand-written SQL. Idempotent per scope, and it never reactivates a profile an
+            // operator suspended. Composed only where the caller supplies the assurance owner.
+            $auditProfileIds = $this->assurance?->seedProfiles($input['tenant_id'], $input['workspace_id']) ?? [];
+
             return Outcome::ok([
                 'valkyrie_id' => $valkyrieId,
                 'capability_contract_id' => $contractId,
@@ -185,6 +196,7 @@ final class Registration
                 'governed_tool_operation_id' => $operationId,
                 'arbiter_policy_set_id' => $policySet->value()['arbiter_policy_set_id'],
                 'subscription_tier_ids' => $tierIds,
+                'audit_profile_ids' => $auditProfileIds,
             ]);
         });
     }
