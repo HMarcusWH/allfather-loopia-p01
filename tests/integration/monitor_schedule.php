@@ -44,11 +44,14 @@ Assert::same('SCHEDULE_ADMINISTRATION_DENIED', $schedules->plan(['operator_id' =
 
 // ============================================================ proposal is not admission
 
-$plan = S::value($schedules->plan($scope, S::input($sx, $clock)));
+$firstInput = S::input($sx, $clock);
+$plan = S::value($schedules->plan($scope, $firstInput));
 Assert::same(false, $plan['grants_execution'], 'a plan grants nothing');
 Assert::same(['OBSERVE_AND_QUEUE', 'LATEST_ONLY', $scope['operator_id']], [$plan['definition']['observation_mode'], $plan['definition']['catch_up_policy'], $plan['definition']['delegating_operator_id']], 'observe-and-queue only, latest-only catch-up, delegated by the grant principal');
-$proposed = S::value($schedules->propose($scope, S::input($sx, $clock)));
+$proposed = S::value($schedules->propose($scope, $firstInput));
 Assert::same('PROPOSED', $schedules->status($proposed['monitor_schedule_version_id']), 'a proposed schedule is PROPOSED');
+Assert::same([$plan['schedule_digest'], $plan['definition']['monitor_schedule_id']], [$proposed['schedule_digest'], $proposed['monitor_schedule_id']], 'the digest reviewed at plan is the digest propose records, for a new series too');
+Assert::same($proposed['monitor_schedule_version_id'], S::value($schedules->propose($scope, $firstInput))['monitor_schedule_version_id'], 'and proposing the same first version again is idempotent');
 Assert::same(['considered' => 0, 'reserved' => [], 'skipped' => []], $sx['dispatcher']->dispatch(), 'nothing is dispatched before admission');
 Assert::false(ScheduleDispatcher::admittedIn($schedules), 'and no schedule counts as admitted');
 

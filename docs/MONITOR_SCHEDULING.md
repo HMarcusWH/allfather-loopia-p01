@@ -46,7 +46,13 @@ principal (`MONITOR_SERVICE_DELEGATION_NOT_ADMITTED`).
 
 Immutable versions plus append-only lifecycle (`ADMITTED`, `SUSPENDED`, `REVOKED`); `EXPIRED` and
 `NOT_YET_VALID` are computed. A changed cadence, window, grant or cap is a successor version with its
-own digest and admission; only one version of a series may be admitted.
+own digest and admission; only one version of a series may be admitted. A new series is named by its
+first version's reviewed input, so the digest `plan` shows is exactly the digest `propose` records,
+and proposing the same first version again is idempotent.
+
+Besides the CLI below, the scriptless console page `/console/monitor/schedule` (P09) can plan,
+propose (bound to the digest the operator reviewed), suspend and revoke. It cannot admit: admission
+stays the CLI act below.
 
 | Bound | Rule |
 | --- | --- |

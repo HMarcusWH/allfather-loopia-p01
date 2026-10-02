@@ -125,6 +125,18 @@ the membership is re-decided from scratch, because a workspace id in a form fiel
 input whoever rendered the page before it. A cross-tenant id answers NOT_FOUND rather than
 FORBIDDEN, so the form cannot be used to probe another tenant.
 
+**Detail selectors are not scope (P09).** The four P09 console reads
+(`/console/api/v1/p02/entity-detail`, `/p03/prospect-detail`, `/monitor/runs`, `/monitor/run`) take
+one identifier each. Scope still comes only from the session; the owner decides the read permission
+first, then checks the object against the session's tenant and workspace, and another workspace's id
+answers 404 `NOT_FOUND` byte-for-byte like an id that never existed (a malformed selector likewise
+names nothing). The Monitor JSON reads carry metadata only — no candidate text, prompt, exact request
+or review assessment. The two P09 administration pages (`/console/monitor/setup`,
+`/console/monitor/schedule`) are ordinary CSRF-checked console forms over the same owners the CLIs
+use; they can plan, propose and stand down, and **cannot admit** anything — admission needs a
+reviewed owner decision and stays a private CLI act, pinned per file in
+`tests/foundation/execution_authority_boundary.php`.
+
 ## 5. Deployment and configuration
 
 **The served directory is the boundary.** Loopia serves a domain from `<domän>/public_html/` and

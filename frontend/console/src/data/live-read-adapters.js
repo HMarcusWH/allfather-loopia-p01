@@ -23,6 +23,9 @@ const columns = Object.freeze({
   [READS.P05_DRAFTS]: [
     {key:"released_at",label:"Released"},{key:"asset_kind",label:"Kind"},{key:"title_safe",label:"Title"},{key:"draft_content_safe",label:"Draft"}
   ],
+  [READS.MONITOR_RUNS]: [
+    {key:"updated_at",label:"Updated"},{key:"stage",label:"Stage"},{key:"execution_mode",label:"Mode"},{key:"monitor_run_id",label:"Run"}
+  ],
   [READS.LEDGER]: [
     {key:"record_sequence_number",label:"Seq"},{key:"record_type",label:"Type"},{key:"primary_outcome_status",label:"Outcome"},{key:"current_reliance_status",label:"Reliance"},{key:"safe_decision_summary",label:"Decision"},{key:"recorded_at",label:"Recorded"}
   ]
@@ -42,6 +45,11 @@ export function adaptLiveRead(readId,envelope){
 
   if(state!==PROJECTION.READY) return envelope;
   if(readId===READS.CONTEXT) return envelope;
+  // Monitor runs carry the human queue beside the rows; keep both, and add the table columns.
+  if(readId===READS.MONITOR_RUNS){
+    const data=envelope.data??{};
+    return {...envelope,data:{rows:Array.isArray(data.rows)?data.rows:[],columns:columns[readId],scheduled_queue:Array.isArray(data.scheduled_queue)?data.scheduled_queue:[]}};
+  }
   if(Array.isArray(envelope.data)) return {...envelope,data:{rows:envelope.data,columns:columns[readId]??[]}};
   return envelope;
 }

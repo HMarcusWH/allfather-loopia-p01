@@ -59,13 +59,39 @@ foreach (glob($root . '/docs/decisions/*.json') ?: [] as $file) {
 Assert::true(is_file($root . '/docs/decisions/README.md'), 'the decisions directory documents its contract');
 
 // ---------------------------------------------------------------- no web surface administers authority
+// P09 adds exactly two scriptless administration pages, and this is their whole allowance:
+//   - the schedule page may PLAN (read-only), PROPOSE (a PROPOSED version grants nothing) and STAND
+//     DOWN (suspend/revoke, which only ever removes recurrence) a ScheduleService version;
+//   - the setup page may PLAN a MonitorSetup (its apply grants no role and no execution).
+// Nothing on the web may ADMIT anything, APPROVE or WITHDRAW a prompt, or touch an execution grant's
+// lifecycle: admission is a reviewed owner decision used from the private CLI.
 $web = [...$phpFiles($root . '/public_html'), ...$phpFiles($root . '/app/Http')];
+$webAllowance = [
+    'app/Http/Controllers/MonitorScheduleController.php' => ['plan', 'propose', 'suspend', 'revoke'],
+    'app/Http/Controllers/MonitorSetupController.php' => ['plan'],
+];
 foreach ($web as $file) {
+    $relative = str_replace($root . '/', '', $file);
+    preg_match_all('/->(propose|admit|approve|withdraw|suspend|revoke|plan)\s*\(/', $code($file), $calls);
+    $unexpected = array_values(array_unique(array_diff($calls[1], $webAllowance[$relative] ?? [])));
     Assert::same(
-        0,
-        preg_match('/->(propose|admit|approve|withdraw|suspend|revoke|plan)\s*\(/', $code($file)),
-        str_replace($root . '/', '', $file) . ' cannot propose, admit, approve, withdraw, suspend or revoke execution authority',
+        [],
+        $unexpected,
+        $relative . ' cannot propose, admit, approve, withdraw, suspend or revoke execution authority beyond its P09 allowance',
     );
+    Assert::same(0, preg_match('/->(admit|approve|withdraw)\s*\(/', $code($file)), "{$relative} never admits, approves or withdraws anything");
+    if ($relative !== 'public_html/index.php') {
+        Assert::false(
+            str_contains($code($file), 'ExecutionGrantStore') || str_contains($code($file), 'PromptApprovalStore'),
+            "{$relative} does not reach the grant or prompt-approval stores (only the composition root builds them, for ScheduleService)",
+        );
+    }
+}
+foreach ($webAllowance as $relative => $allowed) {
+    Assert::true(is_file($root . '/' . $relative), "{$relative} exists as the allowance names it");
+    // The allowance is for the owning service only: every allowed call is on `$this->service()`.
+    preg_match_all('/(\S+)->(?:' . implode('|', $allowed) . ')\s*\(/', $code($root . '/' . $relative), $receivers);
+    Assert::same(['$this->service()'], array_values(array_unique($receivers[1])), "{$relative} calls its allowance only on its own owner service");
 }
 
 // ---------------------------------------------------------------- execution asks the trusted resolver
