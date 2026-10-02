@@ -105,20 +105,26 @@ re-runs the scenarios the canonical parity baseline named and pins **current** b
 DEFECT assertion pins the defect so that a repair has to flip it deliberately. None of them is
 repaired here: the plan requires verified shared defects to be repaired upstream first, then ported.
 
-| Scenario | Classification | Current behaviour |
-| --- | --- | --- |
-| P03 three canonical post-outcome audits | HOLDS | ported with parity vectors (this package) |
-| P05 English comparative / forbidden markers | HOLDS | detected |
-| P05 Swedish comparative markers (`snabbare än`, `jämfört med`, `bättre än`) | KNOWN_DEFECT | not detected, so an uncited Swedish comparison passes the citation rule |
-| P05 Swedish urgency and trait targeting | KNOWN_DEFECT | not detected |
-| P05 title scan | KNOWN_DEFECT | the M08 P05 context carries the body only; a comparative or forbidden **title** passes both content rules |
-| P05 citation entailment | NO_SEMANTIC_EVALUATION | a citation's presence and comparative wording are checked; whether the evidence supports the claim is not. A syntactically present citation does not prove entailment |
-| P05 negated comparison | NO_SEMANTIC_EVALUATION | over-triggers the citation requirement (the safe direction) |
-| P05 unmarked comparison | NO_SEMANTIC_EVALUATION | invisible to deterministic markers |
-| P03 owner-upload licence mapping | KNOWN_DEFECT | a `TENANT_OWNED` card carrying a public web licence still backs a catalogue; canonical maps an upload to `LICENSED_INTERNAL_ONLY` / `customer_owned_tenant_scoped` |
-| P03 catalogue audit from a sibling workspace | canonical behaviour, reported upstream (UF-004) | a workspace-owned catalogue is auditable from a sibling workspace's profile; pinned by vector `catalogue-workspace-owned-from-sibling-workspace` |
-| P03 structured ICP size discrimination | not re-run here | remains as recorded in the parity baseline |
-| P02 foreign-scope working-state writes | not re-run here | remains as recorded in the parity baseline; P02 write expansion stays gated on it |
+**Register status** is OPEN for every row that is not HOLDS. A green suite means this register still
+describes the code; it does **not** mean the broader SME blockers are closed. A row leaves OPEN only
+when the repair has landed upstream first and been ported, and the pinned assertion is flipped on
+purpose in the same change. `tests/acceptance/product_expansion_regressions.php` fails if any OPEN
+row below disappears or stops reading OPEN.
+
+| Scenario | Classification | Register status | Current behaviour |
+| --- | --- | --- | --- |
+| P03 three canonical post-outcome audits | HOLDS | closed (P08) | ported with parity vectors (this package) |
+| P05 English comparative / forbidden markers | HOLDS | closed | detected |
+| P05 Swedish comparative markers (`snabbare än`, `jämfört med`, `bättre än`) | KNOWN_DEFECT | **OPEN** | not detected, so an uncited Swedish comparison passes the citation rule |
+| P05 Swedish urgency and trait targeting | KNOWN_DEFECT | **OPEN** | not detected |
+| P05 title scan | KNOWN_DEFECT | **OPEN** | the M08 P05 context carries the body only; a comparative or forbidden **title** passes both content rules |
+| P05 citation entailment | NO_SEMANTIC_EVALUATION | **OPEN** | a citation's presence and comparative wording are checked; whether the evidence supports the claim is not. A syntactically present citation does not prove entailment |
+| P05 negated comparison | NO_SEMANTIC_EVALUATION | **OPEN** | over-triggers the citation requirement (the safe direction) |
+| P05 unmarked comparison | NO_SEMANTIC_EVALUATION | **OPEN** | invisible to deterministic markers |
+| P03 owner-upload licence mapping | KNOWN_DEFECT | **OPEN** | a `TENANT_OWNED` card carrying a public web licence still backs a catalogue; canonical maps an upload to `LICENSED_INTERNAL_ONLY` / `customer_owned_tenant_scoped` |
+| P03 catalogue audit from a sibling workspace | canonical behaviour, reported upstream (UF-004) | **OPEN** | a workspace-owned catalogue is auditable from a sibling workspace's profile; pinned by vector `catalogue-workspace-owned-from-sibling-workspace` |
+| P03 structured ICP size discrimination | not re-run here | **OPEN** | remains as recorded in the parity baseline |
+| P02 foreign-scope working-state writes | not re-run here | **OPEN** | remains as recorded in the parity baseline; P02 write expansion stays gated on it |
 
 **Consequence.** P01-only manual piloting does not wait on this register. Exposing P03 to customers
 needs the audits (now present) **and** the owner-upload mapping repair; enabling generated P05 drafts

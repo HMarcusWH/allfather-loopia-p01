@@ -128,3 +128,30 @@ Assert::same(
     P03Assurance::CATEGORIES,
     'P03 assurance [HOLDS]: all three canonical audit families are ported',
 );
+
+// ============================================================ the register stays truthful
+
+// The register in docs/P03_ASSURANCE_PORT.md §5 is the claim this suite backs. Every scenario that
+// is not repaired must stay listed and read OPEN, so a green run can never be read as "the broader
+// SME blockers are closed". A row may leave OPEN only in the same change that flips its pinned
+// assertion above, after the repair has landed upstream and been ported.
+$register = (string) file_get_contents(dirname(__DIR__, 2) . '/docs/P03_ASSURANCE_PORT.md');
+foreach ([
+    'P05 Swedish comparative markers',
+    'P05 Swedish urgency and trait targeting',
+    'P05 title scan',
+    'P05 citation entailment',
+    'P03 owner-upload licence mapping',
+    'P03 catalogue audit from a sibling workspace',
+    'P02 foreign-scope working-state writes',
+] as $openRow) {
+    Assert::true(
+        preg_match('/^\| ' . preg_quote($openRow, '/') . '[^\n]*\| \*\*OPEN\*\* \|/m', $register) === 1,
+        "the expansion register still lists '{$openRow}' as OPEN",
+    );
+}
+$findings = (string) file_get_contents(dirname(__DIR__, 2) . '/docs/UPSTREAM_FINDINGS.md');
+$uf004 = substr($findings, (int) strpos($findings, '## UF-004'));
+$next = strpos($uf004, "\n## ", 1);
+$uf004 = $next === false ? $uf004 : substr($uf004, 0, $next);
+Assert::true(str_starts_with($uf004, '## UF-004') && str_contains($uf004, '**Status:** REPORTED'), 'UF-004 stays recorded as reported upstream, not resolved');

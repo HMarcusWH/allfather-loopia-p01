@@ -9,8 +9,10 @@
 -- windows and exposed it.
 --
 -- The repair widens the three columns to BIGINT. It is data-preserving: every value an INT could hold
--- is the same BIGINT value, nullability is unchanged, and no CHECK constraint names these columns.
--- Applied SQL in 020 is NOT edited; this successor migration carries the change.
+-- is the same BIGINT value and nullability is unchanged. The `>= 0` CHECK constraints migration 020
+-- declares on these columns are table-level and keep applying to the widened columns.
+-- Applied SQL in 020 is NOT edited; this successor migration carries the change. The in-place
+-- upgrade of an existing projection is proved by tests/integration/p08_migration_order.php.
 --
 -- The same translation class also applies to `ingestion_fetch_plans.cadence_min_interval_ms`
 -- (090). That column belongs to the inert M15 live-read plane, which no P08 path reads, so it is
