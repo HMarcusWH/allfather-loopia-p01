@@ -547,5 +547,48 @@
       "qualification_state": "MERGED_MAIN_HOSTED_CI_PASS_36861689735",
       "operational_state": "NO_REAL_STAGING_REWRAP_PERFORMED"
     }
-  ]
+  ],
+  "branch_candidate": {
+    "branch": "claude/gifted-wozniak-ooz1av",
+    "merge_state": "NOT_MERGED",
+    "qualification_state": "LOCAL_STRICT_SUITE_MARIADB_10_11_ONLY_NOT_HOSTED_CI",
+    "deployment_state": "NOT_DEPLOYED",
+    "activation_state": "NOT_ACTIVATED",
+    "packages": [
+      {
+        "id": "P07",
+        "state": "IMPLEMENTED_OFFLINE_TESTED",
+        "migration": "250_monitor_schedule_control.sql",
+        "blocked_on": [
+          "P06_ROAD_TEST",
+          "UPSTREAM_SERVICE_DELEGATION_DECISION",
+          "OWNER_SCHEDULE_DECISION"
+        ]
+      },
+      {
+        "id": "P08",
+        "state": "IMPLEMENTED_OFFLINE_TESTED",
+        "migration": "245_source_card_window_width.sql",
+        "note": "P02/P03/P05 expansion defects are characterized, not repaired"
+      },
+      {
+        "id": "P09",
+        "state": "IMPLEMENTED_OFFLINE_TESTED",
+        "migration": null,
+        "note": "no web admission; deployed-browser journeys not run"
+      },
+      {
+        "id": "P12",
+        "state": "INERT_SCAFFOLDING_ONLY",
+        "migration": null,
+        "blocked_on": [
+          "CANONICAL_IDENTITY_AUDIENCE_DECISIONS",
+          "HOSTING_ISOLATION_CLOSURE",
+          "PRODUCTION_RECOVERY_EVIDENCE",
+          "OWNER_PRODUCTION_GO"
+        ],
+        "note": "no enum, migration, lock or evidence change"
+      }
+    ]
+  }
 }

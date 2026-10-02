@@ -2,7 +2,9 @@
 
 **Adopted as the engineering plan of record:** 27 September 2026. **Status:** **P00–P06, P10 and P11 are
 merged** through PR28; merged main is hosted-CI qualified, while P06 live operational evidence remains
-pending. P07–P09 and P12 remain proposed/conditional as stated below. A candidate implementation is not a merge, qualification,
+pending. P07, P08 and P09 are implemented and offline-tested on the unmerged branch
+`claude/gifted-wozniak-ooz1av`; P12 is present there only as inert scaffolding (a read-only production
+preflight, documents and refusal tests), because its canonical decisions have not been taken. A candidate implementation is not a merge, qualification,
 deployment, funded model evaluation, activation or authority grant. The current state of the
 application is
 [`MVP_RELEASE_STATE.md`](MVP_RELEASE_STATE.md), not this plan.
@@ -35,12 +37,12 @@ provider transport, the four prompts and the existing M01–M12/M15/M16 and prod
 | P04 | Repeatable operator-supported mission setup | P01 | **merged in PR23; setup grants no execution** |
 | P05 | Recoverable model results and explicit interruption handling | P01, P03 | **merged in PR24; not deployed/activated** |
 | P06 | Deploy, requalify and run the first approved manual road test | P00, P02, P03, P04, P05, P10 | **merged in PR26; merged main hosted-CI qualified; no newer Loopia deployment/evaluation/road-test evidence yet** |
-| P07 | Recurring observation with bounded per-occurrence authority | P06 | proposed |
-| P08 | P03 assurance port and broader product-scope validation | P00 | proposed |
-| P09 | Operator administration and richer views | P04, P05 | proposed |
+| P07 | Recurring observation with bounded per-occurrence authority | P06 | **implemented on branch, offline-tested; not merged; no schedule admitted; blocked operationally on the P06 road test and an upstream service-delegation decision** ([MONITOR_SCHEDULING.md](MONITOR_SCHEDULING.md)) |
+| P08 | P03 assurance port and broader product-scope validation | P00 | **implemented on branch, offline-tested with canonical vectors; not merged; expansion defects recorded, not repaired** ([P03_ASSURANCE_PORT.md](P03_ASSURANCE_PORT.md)) |
+| P09 | Operator administration and richer views | P04, P05 | **implemented on branch, offline-tested; not merged or deployed; deployed-browser journeys not run; web pages cannot admit anything** |
 | P10 | Independent backup and full restore | P00 | **merged in PR25; native/off-host/clean-target operational proof pending** |
 | P11 | Version-aware master-key rotation | P00, P01, P10 | **merged in PR28; merged main hosted-CI qualified; no real staging rewrap performed** |
-| P12 | Production identity and visibility through the canonical owners | P06, P10, P11 | conditional on canonical decisions not yet taken |
+| P12 | Production identity and visibility through the canonical owners | P06, P10, P11 | conditional on canonical decisions not yet taken; **inert scaffolding only on branch** — read-only preflight that reports NOT_READY and cannot grant GO ([PRODUCTION_PROMOTION_PLAN.md](PRODUCTION_PROMOTION_PLAN.md)) |
 
 ### What P00 delivered, and where it differs from the proposal
 
