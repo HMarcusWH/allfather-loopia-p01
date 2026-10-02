@@ -84,6 +84,12 @@ overclaiming happens:
 - `declared_limitations` on every proposal — including, on every outreach and marketing proposal,
   the statement that this projection performs no external action.
 
+**Production is not a ceiling this projection can raise (P12).** No production identity class,
+customer audience or production GO contract exists canonically.
+`ops/deploy/production-preflight.php` reports what is missing and can at most say
+`READY_FOR_OWNER_DECISION`; it never grants GO, and `APP_ENV=production` is a strict posture, not an
+authority. See [`PRODUCTION_PROMOTION_PLAN.md`](PRODUCTION_PROMOTION_PLAN.md).
+
 ## 5. What this document does not license
 
 Nothing here is a claim about the CANONICAL Allfather runtime, whose ceilings are its own and are
