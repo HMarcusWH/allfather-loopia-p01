@@ -73,12 +73,18 @@ final class SchedulerRunner
     public const NO_HANDLER_REASON = 'STEP_HANDLER_NOT_REGISTERED';
 
     /**
-     * @param array<string, callable(array<string, mixed>): array{to_state: string, reason_code?: ?string, detail_safe?: ?string}> $handlers
-     *        Keyed by the job state the handler advances FROM. Empty in this projection.
+     * @param array<string, callable(array<string, mixed>): array{to_state?: string, reason_code?: ?string, detail_safe?: ?string, release?: bool}> $handlers
+     *        Keyed by the job state the handler advances FROM, or — for a typed job with its own graph
+     *        (JobMachine::TYPE_TRANSITIONS) — by `TYPE:STATE`. Empty unless an owner-admitted schedule
+     *        exists (see ScheduleDispatcher::runner). A handler may return `release => true` to hand a
+     *        claim back unattempted when the work could not even start (a busy source lock).
+     * @param null|\Closure(): array<string, mixed> $beforeClaim bounded pre-claim work (occurrence
+     *        reservation), reported in the receipt. It is the runner's own, never the caller's.
      */
     public function __construct(
         private readonly JobMachine $jobs,
         private readonly array $handlers = [],
+        private readonly ?\Closure $beforeClaim = null,
     ) {
     }
 
@@ -104,10 +110,25 @@ final class SchedulerRunner
 
         // THE STATES THIS TICK CAN ACTUALLY ADVANCE, derived from the registry rather than asked
         // for. `claim` intersects them with its own claimable set, so this can only ever narrow.
-        $executableStates = array_values(array_keys($this->handlers));
+        $executableStates = array_values(array_map('strval', array_keys($this->handlers)));
         sort($executableStates);
+        $legacyStates = [];
+        $typedStates = [];
+        foreach ($executableStates as $key) {
+            if (str_contains($key, ':')) {
+                [$type, $state] = explode(':', $key, 2);
+                $typedStates[$type][] = $state;
+            } else {
+                $legacyStates[] = $key;
+            }
+        }
 
-        $claimed = $this->jobs->claim($leaseOwner, $maxJobs, $leaseSeconds, $executableStates);
+        $dispatch = null;
+        if ($this->beforeClaim !== null && $executableStates !== []) {
+            $dispatch = ($this->beforeClaim)();
+        }
+
+        $claimed = $this->jobs->claim($leaseOwner, $maxJobs, $leaseSeconds, $legacyStates, $typedStates);
 
         $advanced = 0;
         $failed = 0;
@@ -123,7 +144,10 @@ final class SchedulerRunner
             }
 
             $state = (string) $job['state'];
-            $handler = $this->handlers[$state] ?? null;
+            $typedKey = (string) $job['job_type'] . ':' . $state;
+            $handler = array_key_exists((string) $job['job_type'], JobMachine::TYPE_TRANSITIONS)
+                ? ($this->handlers[$typedKey] ?? null)
+                : ($this->handlers[$state] ?? null);
             if ($handler === null) {
                 // Unreachable while the claim is bounded by the registry. If it ever fires, HAND
                 // THE JOB BACK: it was never tried, so it must not spend an attempt on having been
@@ -138,6 +162,13 @@ final class SchedulerRunner
             // otherwise be left dangling until it expired.
             try {
                 $step = $handler($job);
+                if (($step['release'] ?? false) === true) {
+                    // The work could not start (another holder has the source). Hand the claim back
+                    // unattempted: it did not happen, so it must not spend a retry.
+                    $this->jobs->releaseClaim((string) $job['job_id'], $leaseOwner);
+                    $released++;
+                    continue;
+                }
                 $outcome = $this->jobs->advance(
                     (string) $job['job_id'],
                     $leaseOwner,
@@ -176,6 +207,7 @@ final class SchedulerRunner
             'stopped_reason' => $stopped,
             'elapsed_ms' => $this->monotonicMs() - $startedAt,
             'lease_owner' => $leaseOwner,
+            'dispatch' => $dispatch,
         ];
     }
 

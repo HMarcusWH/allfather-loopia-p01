@@ -543,7 +543,8 @@ repin the whole projection or infer canonical authority from tables found in a r
 | Monitor setup receipts (completion plan P04) | 1 | `monitor_setup_receipts`; migration `225_monitor_setup_receipts.sql` |
 | Monitor attempt recovery (completion plan P05) | 3 | `monitor_model_attempt_bindings`, `provider_model_candidate_artifacts`, `monitor_run_reconciliations`; migration `230_monitor_attempt_recovery.sql` |
 | Provider key rotation receipts (completion plan P11) | 1 | `provider_credential_rotation_events`; migration `240_provider_rotation_events.sql`; append-only operational evidence, no key/plaintext material |
-| **Current application total** | **218** | **189 canonical + 29 Loopia adapters** |
+| Monitor schedule control (completion plan P07) | 4 | `monitor_schedules`, `monitor_schedule_events`, `monitor_schedule_occurrences`, `monitor_schedule_occurrence_outcomes`; migration `250_monitor_schedule_control.sql`; immutable schedule versions, append-only lifecycle, reservations and outcomes. The same migration adds v2 actor columns to `monitor_run_events`, the service initiator to `monitor_runs`, and the typed `MONITOR_STEP` vocabulary to `jobs` |
+| **Current application total** | **222** | **189 canonical + 33 Loopia adapters** |
 
 The completion-plan tables are Loopia-local deployment controls, not canonical law: immutable grant
 and approval definitions, append-only lifecycle events, budget consumption, an admission trail and
@@ -570,3 +571,14 @@ overall count stays the same; tables outside the declared adapter list are no lo
 as canonical by taking a complement. Existing constraint, engine and excluded-family checks remain in force. P05 and P11 deliberately
 extend that inventory with migrations `230_monitor_attempt_recovery.sql` and
 `240_provider_rotation_events.sql`; the older baseline classifications remain unchanged.
+
+**Translation repairs and column changes without new tables.** `245_source_card_window_width.sql`
+(P08) widens `source_license_cards.warn_after_ms`, `error_after_ms` and `recheck_terms_after_ms` from
+`INT` to `BIGINT`: canonical SQLite `INTEGER` is 64-bit, and the 32-bit translation in 020 could not
+store any window longer than about 24.86 days. The same class affects the inert M15 column
+`ingestion_fetch_plans.cadence_min_interval_ms` (090); it is recorded here and not widened, because no
+path reads it. `250_monitor_schedule_control.sql` (P07) replaces the three unnamed `jobs` vocabulary
+CHECKs from 110 — found by their clauses in `information_schema`, not by assumed `CONSTRAINT_n` names —
+with named ones that add only the typed `MONITOR_STEP` job, its two resting states and its subject
+kind, and replaces the `monitor_runs` definition-freeze trigger so it also freezes the new initiator
+column. Applied SQL in 020, 110 and 200 is not edited.

@@ -32,6 +32,10 @@ final class RunJournal
         if ($key === '' || strlen($key) > 191 || !in_array($mode, ['FIXTURE', 'NATIVE'], true)) {
             return Outcome::refuse('MONITOR_DEFINITION_INVALID');
         }
+        $principal = MonitorPrincipal::fromScope($scope);
+        if ($principal === null) {
+            return Outcome::refuse('MONITOR_PRINCIPAL_INVALID');
+        }
         $scopeRow = $this->db->one('SELECT w.environment_class FROM missions m JOIN workspaces w ON w.workspace_id = m.workspace_id AND w.tenant_id = m.tenant_id JOIN operators o ON o.tenant_id = m.tenant_id WHERE m.mission_id = ? AND m.tenant_id = ? AND m.workspace_id = ? AND m.status = ? AND w.status = ? AND o.operator_id = ? AND o.status = ?', [
             $definition['mission_id'] ?? '', $scope['tenant_id'], $scope['workspace_id'], 'ACTIVE', 'ACTIVE', $scope['operator_id'], 'ACTIVE',
         ]);
@@ -47,12 +51,15 @@ final class RunJournal
             return hash_equals((string) $existing['definition_digest'], $digest)
                 ? Outcome::ok($this->decode($existing)) : Outcome::refuse('MONITOR_IDEMPOTENCY_CONFLICT');
         }
-        try { return $this->db->transaction(function () use ($scope, $definition, $key, $mode, $digest): Outcome {
+        try { return $this->db->transaction(function () use ($scope, $definition, $key, $mode, $digest, $principal): Outcome {
             $id = Ids::new();
             $now = $this->clock->now();
             $this->db->insert('monitor_runs', [
                 'monitor_run_id' => $id, 'tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'],
+                // For a scheduled run the operator column names the DELEGATING operator and the
+                // service column names who actually started it; an operator run leaves it NULL.
                 'mission_id' => $definition['mission_id'], 'initiated_by_operator_id' => $scope['operator_id'],
+                'initiated_by_service_identity_id' => $principal->isService() ? $principal->actorId : null,
                 'idempotency_key' => $key, 'definition_json' => json_encode($definition, JSON_THROW_ON_ERROR),
                 'definition_digest' => $digest, 'execution_mode' => $mode, 'stage' => 'NEW', 'cursor_json' => '{}',
                 'revision' => 0, 'created_at' => $now, 'updated_at' => $now,
@@ -111,14 +118,16 @@ final class RunJournal
         if ($terminal || (!in_array($stage, self::NEXT[$run['stage']], true) && !in_array($stage, ['BLOCKED', 'FAILED', 'STOPPED'], true))) {
             return Outcome::refuse('MONITOR_TRANSITION_INVALID');
         }
-        return $this->db->transaction(function () use ($scope, $run, $stage, $cursor, $kind): Outcome {
+        $principal = MonitorPrincipal::fromScope($scope);
+        if ($principal === null) {
+            return Outcome::refuse('MONITOR_PRINCIPAL_INVALID');
+        }
+        $actor = $principal->journalColumns();
+        return $this->db->transaction(function () use ($scope, $run, $stage, $cursor, $kind, $actor): Outcome {
             $sequence = (int) $run['revision'] + 1;
             $at = $this->clock->now();
             $payload = ['from_stage' => $run['stage'], 'to_stage' => $stage, 'cursor' => $cursor];
-            $digest = Digest::canonicalDigest([
-                'run_id' => $run['monitor_run_id'], 'sequence' => $sequence, 'kind' => $kind,
-                'actor' => $scope['operator_id'], 'previous_digest' => $run['event_digest'], 'payload' => $payload, 'at' => $at,
-            ]);
+            $digest = self::eventDigest($actor, $run['monitor_run_id'], $sequence, $kind, $run['event_digest'], $payload, $at);
             $changed = $this->db->run('UPDATE monitor_runs SET stage = ?, cursor_json = ?, revision = ?, event_digest = ?, updated_at = ? WHERE monitor_run_id = ? AND tenant_id = ? AND workspace_id = ? AND revision = ?', [
                 $stage, json_encode($cursor, JSON_THROW_ON_ERROR), $sequence, $digest, $at,
                 $run['monitor_run_id'], $scope['tenant_id'], $scope['workspace_id'], $run['revision'],
@@ -128,7 +137,7 @@ final class RunJournal
             }
             $this->db->insert('monitor_run_events', [
                 'monitor_event_id' => Ids::new(), 'monitor_run_id' => $run['monitor_run_id'], 'sequence_no' => $sequence,
-                'event_kind' => $kind, 'actor_operator_id' => $scope['operator_id'], 'previous_digest' => $run['event_digest'],
+                'event_kind' => $kind, ...$actor, 'previous_digest' => $run['event_digest'],
                 'event_digest' => $digest, 'payload_json' => json_encode($payload, JSON_THROW_ON_ERROR), 'recorded_at' => $at,
             ]);
             return Outcome::ok($this->find($scope, $run['monitor_run_id']));
@@ -150,7 +159,14 @@ final class RunJournal
         $events = $this->db->all('SELECT * FROM monitor_run_events WHERE monitor_run_id = ? ORDER BY sequence_no', [$id]);
         foreach ($events as &$event) {
             $payload = json_decode($event['payload_json'], true, 512, JSON_THROW_ON_ERROR);
-            $digest = Digest::canonicalDigest(['run_id' => $id, 'sequence' => ++$sequence, 'kind' => $event['event_kind'], 'actor' => $event['actor_operator_id'], 'previous_digest' => $previous, 'payload' => $payload, 'at' => $event['recorded_at']]);
+            $actor = [
+                'event_version' => (int) ($event['event_version'] ?? 1), 'actor_operator_id' => $event['actor_operator_id'],
+                'actor_service_identity_id' => $event['actor_service_identity_id'] ?? null, 'delegating_operator_id' => $event['delegating_operator_id'] ?? null,
+            ];
+            if (!in_array($actor['event_version'], [1, 2], true)) {
+                return Outcome::refuse('MONITOR_EVENT_INTEGRITY_FAILED');
+            }
+            $digest = self::eventDigest($actor, $id, ++$sequence, $event['event_kind'], $previous, $payload, $event['recorded_at']);
             if ((int) $event['sequence_no'] !== $sequence || $event['previous_digest'] !== $previous || !hash_equals($digest, $event['event_digest'])) {
                 return Outcome::refuse('MONITOR_EVENT_INTEGRITY_FAILED');
             }
@@ -169,6 +185,30 @@ final class RunJournal
             return Outcome::refuse('MONITOR_CURSOR_INTEGRITY_FAILED');
         }
         return Outcome::ok(['run' => $run, 'events' => $events, 'integrity' => 'PASS', 'reexecutes_model' => false, 'grants_release' => false]);
+    }
+
+    /**
+     * One event's chained digest. v1 — every operator event, and every event written before P07 —
+     * digests exactly the fields it always has, so historical chains verify unchanged. v2 digests the
+     * service actor and the delegating operator as distinct fields, plus the version itself, so a v2
+     * event cannot be re-read as a v1 operator act without breaking the chain.
+     *
+     * @param array{event_version: int, actor_operator_id: ?string, actor_service_identity_id: ?string, delegating_operator_id: ?string} $actor
+     */
+    private static function eventDigest(array $actor, string $runId, int $sequence, string $kind, ?string $previous, array $payload, string $at): string
+    {
+        if ($actor['event_version'] === 1) {
+            return Digest::canonicalDigest([
+                'run_id' => $runId, 'sequence' => $sequence, 'kind' => $kind,
+                'actor' => $actor['actor_operator_id'], 'previous_digest' => $previous, 'payload' => $payload, 'at' => $at,
+            ]);
+        }
+
+        return Digest::canonicalDigest([
+            'event_version' => 2, 'run_id' => $runId, 'sequence' => $sequence, 'kind' => $kind,
+            'actor' => ['type' => MonitorPrincipal::SERVICE, 'service_identity_id' => $actor['actor_service_identity_id'], 'delegating_operator_id' => $actor['delegating_operator_id']],
+            'previous_digest' => $previous, 'payload' => $payload, 'at' => $at,
+        ]);
     }
 
     private function decode(array $row): array

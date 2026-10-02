@@ -365,6 +365,14 @@ foreach (['worker/tick.php' => $tick, 'public_html/scheduler.php' => $schedulerE
     ) {
         $note("{$where} does not construct the runner with an EMPTY handler registry");
     }
+    // P07: the ONLY non-empty composition is ScheduleDispatcher::runner(), reached only on the
+    // admitted-schedule branch of one ternary whose other branch is the empty registry. Any other
+    // SchedulerRunner construction, or the runner reached any other way, is not this reviewed shape.
+    if (preg_match_all('/new\s+SchedulerRunner\s*\(/', $source) !== 1
+        || preg_match('/\$runner\s*=\s*ScheduleDispatcher::admittedAnywhere\([^;?]*\)\s*\?\s*ScheduleDispatcher::runner\([^;?]*\)\s*:\s*new\s+SchedulerRunner\(new\s+JobMachine\(\$db,\s*(?:\$clock|new\s+Clock\(\))\),\s*\[\]\)\s*;/', $source) !== 1
+    ) {
+        $note("{$where} does not gate its only non-empty scheduler composition behind an admitted schedule");
+    }
 }
 if (!str_contains($schedulerEntry, "!== 'POST'")) {
     $note('public_html/scheduler.php is no longer POST-only');

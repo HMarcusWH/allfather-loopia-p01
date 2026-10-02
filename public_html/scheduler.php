@@ -35,6 +35,7 @@ use Allfather\Loopia\Jobs\SchedulerAuth;
 use Allfather\Loopia\Jobs\SchedulerRunner;
 use Allfather\Loopia\Ops\MaintenanceGate;
 use Allfather\Loopia\Support\Bootstrap;
+use Allfather\Loopia\Workflow\ScheduleDispatcher;
 
 /** Every response from this endpoint. No HTML, no template, no session. */
 $respond = static function (int $status, array $payload): void {
@@ -107,12 +108,16 @@ try {
 
 $clock = new Clock();
 
-// THE HANDLER REGISTRY IS EMPTY, and that is the current state of this projection rather than a
-// placeholder. `LIVE_READ_ACTIVATED` is false, so no step that performs an external read may be
-// registered; the internal steps are not wired either, because wiring them is a separate act with
-// its own review. A claimed job whose state has no handler FAILS by name, so the transition ledger
-// records why nothing ran instead of leaving jobs leased and silently going nowhere.
-$runner = new SchedulerRunner(new JobMachine($db, $clock), []);
+// THE HANDLER REGISTRY IS EMPTY unless this deployment holds an owner-admitted monitor schedule
+// (P07), and that is the current state of this projection rather than a placeholder: this
+// repository ships no owner decision, so no schedule can be admitted. With one, the only handler
+// advances MONITOR_STEP jobs — capture and compare under the schedule's admitted
+// SCHEDULED_OBSERVATION grant, then a queue for a human — through a Monitor composition with no live
+// model transport. The legacy source-monitoring states stay unregistered, so those jobs are never
+// claimed. See docs/MONITOR_SCHEDULING.md.
+$runner = ScheduleDispatcher::admittedAnywhere($db, $clock, $root)
+    ? ScheduleDispatcher::runner($db, $clock, $root, $env)
+    : new SchedulerRunner(new JobMachine($db, $clock), []);
 
 $result = $runner->tick(
     $env->int('SCHEDULER_MAX_JOBS_PER_TICK', 10),
