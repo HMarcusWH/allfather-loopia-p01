@@ -38,13 +38,13 @@ nowhere else. M15 governed ingestion is present with the guarded egress path.
 | Plane | What it does |
 | --- | --- |
 | P01 | competition monitoring: sources, capture, change detection, signals, battlecards, release, surfacing, usage metering, two audits |
-| P02 | entity and relationship twins with four privacy screens, governed state-change admission, M10 release, and M16 entity/relationship snapshot artifacts; the released entity and relationship indexes are readable in the React console, and since P09 one released entity snapshot's detail (state fields with value status, uncertainty, lineage and freshness, current reliance and supersession) through the owner getter `TwinRelease::visibleSnapshotDetail` |
-| P03 | catalogue, ICP, fit hypotheses, prospect queue admission, **M10 release and two-gate surfacing**; the priority-queue and monitored-prospect indexes are readable in the React console, and since P09 one released output's detail (fit hypothesis, signal while still released, latest P08 assurance findings, current reliance, battlecard reference) through `Release::visibleProspectOutputDetail`; there is still no prospect-battlecard list |
+| P02 | entity and relationship twins with four privacy screens, governed state-change admission, M10 release, and M16 entity/relationship snapshot artifacts; the released entity and relationship indexes are readable in the React console, entity detail is not built |
+| P03 | catalogue, ICP, fit hypotheses, prospect queue admission, **M10 release and two-gate surfacing**; the priority-queue and monitored-prospect indexes are readable in the React console, prospect detail is not built |
 | P04 | stakeholder roles, role distribution, admission, release, three-gate surfacing, four audits |
 | P05 | marketing drafts, claim citations, variants, admission, internal release, three audits |
 | P07-A | consent, PII firewall, outreach admission, approval, frozen artifacts, synthetic dispatch, five audits |
 
-**Storage** — 30 migrations in the current implementation candidate, MariaDB 10.6+ / InnoDB, with the invariants held as CHECK constraints,
+**Storage** — 29 migrations in the current implementation candidate, MariaDB 10.6+ / InnoDB, with the invariants held as CHECK constraints,
 append-only triggers and the database-enforced uniqueness translations named in
 `SCHEMA_REACHABILITY.md`. **Loopia Företag is MariaDB 10.6**; 10.11 is Företag Plus only. Both are
 verified against real servers in the test matrix — see `CONFORMANCE_MATRIX.md` §1.
@@ -107,7 +107,7 @@ Its implementation and static/fixture checks do not update the deployed PR16 cla
 
 | Area | State |
 | --- | --- |
-| schema migrations | 30 files in candidate; deployed-release count is recorded separately |
+| schema migrations | 29 files in candidate; deployed-release count is recorded separately |
 | authority seeding | `Permissions` vocabulary + role seeds; product registrations provision their selected tenant capabilities |
 | audit profiles | created on demand per category |
 | CI | latest merged-main code qualification: PR28 `1a99f72b`, hosted push run 36861689735, PHP 8.2.34, MariaDB 10.6/10.11 both 7,689/0/0; foundation, release preparation and aggregate qualification PASS. This is CI evidence only, not Loopia host proof. |
@@ -243,22 +243,6 @@ merely present:
 - **An owner denial is never an empty result.** A 403 carrying `DENIED` and a 200 carrying `EMPTY`
   are different answers to different questions, and a console that showed the first as the second
   would tell a partner there is nothing to see when the truth is that they may not look.
-
-**P09 operator administration (implemented and offline-tested; nothing activated).** Two scriptless
-pages sit beside the workbench: `/console/monitor/setup` plans and applies a `MonitorSetup` request
-(apply must carry the reviewed plan digest; profile import and credentials stay private CLI), and
-`/console/monitor/schedule` plans, proposes, suspends and revokes a `ScheduleService` version
-(a proposal is bound to the digest the operator reviewed). **Neither page can admit anything** —
-schedule and grant admission need a reviewed owner decision and stay CLI acts, which
-`tests/foundation/execution_authority_boundary.php` pins as an explicit per-file allowance. The
-workbench now shows structured sections (source basis, before/after evidence, findings, draft,
-critic concerns, request disclosure, review history, recorded-versus-current release) with the exact
-JSON behind expanders, and the React console gains four GET reads: `/console/api/v1/p02/entity-detail`,
-`/console/api/v1/p03/prospect-detail`, and metadata-only `/console/api/v1/monitor/runs` and
-`/console/api/v1/monitor/run`. A detail selector is never scope: permission is decided first, and
-another workspace's id answers exactly like an unknown one (404, distinct from a 403 denial).
-Tests: `tests/security/product_detail_reads.php`, `tests/security/monitor_administration.php`,
-`frontend/console/tests/monitor-reads.test.js`. Deployed-browser journeys remain to be run on a host.
 
 **Released-intelligence read surfaces use governed projections.** The new Monitor workbench has
 a different purpose: it reads the scoped run journal and private content-addressed request,

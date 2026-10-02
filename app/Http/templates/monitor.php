@@ -3,7 +3,7 @@ use Allfather\Loopia\Http\View;
 /** All service data is rendered as text. Payload inspectors never interpret HTML or instructions. */
 $json = static fn (mixed $data): string => json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 $csrf = $session['csrf_token'] ?? '';
-$missions = $listing['missions'] ?? []; $runs = $listing['runs'] ?? []; $scheduledQueue = $listing['scheduled_queue'] ?? [];
+$missions = $listing['missions'] ?? []; $runs = $listing['runs'] ?? [];
 $run = $detail['run'] ?? null; $preview = $detail['preview_request'] ?? null;
 $stage = (string) ($run['stage'] ?? '');
 $previewReason = (string) ($detail['preview_reason_code'] ?? '');
@@ -11,20 +11,6 @@ $terminal = in_array($stage, ['COMPLETE', 'BASELINE', 'NO_CHANGE', 'BLOCKED', 'F
 $needsReview = in_array($stage, ['REVIEW_REQUIRED', 'ROUTING_REVIEW'], true);
 $reviewDigest = (string) ($detail['review_digest'] ?? '');
 $requestDigest = is_array($preview) ? (string) ($preview['request_digest'] ?? $preview['digest'] ?? '') : '';
-// Structured reading of the recorded run. Every value below is model, source or operator supplied
-// text and goes through View::e; the exact JSON stays one expander away for anything not summarized.
-$candidate = static function (string $kind) use ($detail): ?array {
-    foreach (($detail['artifacts'] ?? []) as $artifact) {
-        if (is_array($artifact) && ($artifact['kind'] ?? null) === $kind && is_array($artifact['payload'] ?? null)) {
-            return is_array($artifact['payload']['candidate'] ?? null) ? $artifact['payload']['candidate'] : $artifact['payload'];
-        }
-    }
-    return null;
-};
-$list = static fn (mixed $v): array => is_array($v) && array_is_list($v) ? $v : [];
-$text = static fn (mixed $v): string => is_scalar($v) ? (string) $v : '';
-$definition = is_array($run['definition'] ?? null) ? $run['definition'] : [];
-$cursor = is_array($run['cursor'] ?? null) ? $run['cursor'] : [];
 ?>
 <header class="page__head">
   <h1 class="page__title">Monitor workbench</h1>
@@ -62,17 +48,6 @@ $cursor = is_array($run['cursor'] ?? null) ? $run['cursor'] : [];
 <?php endif; ?>
 </section>
 
-<?php if ($scheduledQueue !== []): ?>
-<section aria-labelledby="monitor-queue"><h2 id="monitor-queue">Scheduled observations waiting for you</h2>
-<p>A schedule captured and compared these sources and found a change. Nothing was sent to a model and nothing was released: each run waits at the request-inspection step until you open it, inspect the exact request and decide.</p>
-<div class="table-wrap"><table><thead><tr><th>Run</th><th>Scheduled for</th><th>Missed slots</th><th>Queued</th></tr></thead><tbody>
-<?php foreach ($scheduledQueue as $item): ?>
-<tr><td><a href="/console/monitor?run=<?= View::e(rawurlencode((string) $item['monitor_run_id'])) ?>"><?= View::e($item['monitor_run_id']) ?></a></td>
-<td><?= View::e($item['scheduled_for'] ?? '') ?></td><td><?= View::e((string) ($item['skipped_slots'] ?? 0)) ?></td><td><?= View::e($item['recorded_at'] ?? '') ?></td></tr>
-<?php endforeach; ?></tbody></table></div>
-</section>
-<?php endif; ?>
-
 <section aria-labelledby="monitor-runs"><h2 id="monitor-runs">Runs in this workspace</h2>
 <?php if ($runs === []): ?><p>No runs recorded.</p><?php else: ?>
 <div class="table-wrap"><table><thead><tr><th>Run</th><th>Mission</th><th>Mode</th><th>Stage</th><th>Updated</th></tr></thead><tbody>
@@ -93,67 +68,14 @@ $cursor = is_array($run['cursor'] ?? null) ? $run['cursor'] : [];
   <?php elseif (($admission['required'] ?? false) === true): ?>
   <p class="notice notice--denied">Native steps for this run are refused: <span class="mono"><?= View::e((string) ($admission['reason_code'] ?? 'EXECUTION_GRANT_NOT_ADMITTED')) ?></span>. You can still inspect it; nothing will be fetched or sent.</p>
   <?php endif; ?>
-  <h3>Source and company basis</h3>
-  <?php $selection = is_array($definition['context_selection'] ?? null) ? $definition['context_selection'] : []; ?>
-  <dl class="facts">
-    <dt>Observed page</dt><dd class="mono"><?= View::e($text($definition['capture_url'] ?? '')) ?: 'not recorded' ?></dd>
-    <dt>Internal audience</dt><dd><?= View::e($text($selection['audience'] ?? '')) ?> → <?= View::e($text($definition['target_org_role'] ?? '')) ?></dd>
-    <dt>Owner-provided company profile</dt><dd class="mono"><?= View::e(implode(', ', array_map($text, $list($selection['profile_evidence_ids'] ?? [])))) ?></dd>
-    <dt>Purpose</dt><dd><?= View::e($text($selection['purpose'] ?? '')) ?></dd>
-  </dl>
-
-  <?php if (isset($cursor['capture']) && is_array($cursor['capture'])): $capture = $cursor['capture']; $diff = is_array($cursor['diff'] ?? null) ? $cursor['diff'] : null; ?>
-  <h3>Before and after evidence</h3>
-  <dl class="facts">
-    <dt>Before</dt><dd class="mono"><?= ($capture['before_snapshot_id'] ?? null) === null ? 'none — the first observation is a baseline, not a change' : View::e($text($capture['before_snapshot_id'])) ?></dd>
-    <dt>After</dt><dd class="mono"><?= View::e($text($capture['after_snapshot_id'] ?? '')) ?> (evidence <?= View::e($text($capture['after_evidence_id'] ?? '')) ?>)</dd>
-    <?php if ($diff !== null): ?><dt>Compared</dt><dd><?= View::e($text($diff['outcome'] ?? '')) ?> · significance <?= View::e($text($diff['change_significance'] ?? '')) ?> · change evidence <span class="mono"><?= View::e($text($diff['change_evidence_id'] ?? '')) ?></span></dd><?php endif; ?>
-  </dl>
-  <?php endif; ?>
-
-  <?php $finding = $candidate('classifier'); if (is_array($finding)): ?>
-  <h3>Model findings</h3>
-  <p><?= View::e($text($finding['status'] ?? '')) ?> · <?= View::e($text($finding['signal_class'] ?? '')) ?> · significance <?= View::e($text($finding['significance'] ?? '')) ?><?= ($finding['source_injection_detected'] ?? false) === true ? ' · <strong>the source contained instructions aimed at the model</strong>' : '' ?></p>
-  <ul>
-  <?php foreach ($list($finding['observed_changes'] ?? []) as $change): ?><li><?= View::e($text($change['statement'] ?? '')) ?> <span class="mono">[<?= View::e($text($change['confidence'] ?? '')) ?>]</span></li><?php endforeach; ?>
-  <?php foreach ($list($finding['relevance_hypotheses'] ?? []) as $h): ?><li>Hypothesis: <?= View::e($text($h['hypothesis'] ?? '')) ?> — uncertainty: <?= View::e($text($h['uncertainty'] ?? '')) ?></li><?php endforeach; ?>
-  <?php foreach ($list($finding['limitations'] ?? []) as $limit): ?><li>Limitation: <?= View::e($text($limit)) ?></li><?php endforeach; ?>
-  </ul>
-  <?php endif; ?>
-
-  <?php $draft = $candidate('draft'); if (is_array($draft)): ?>
-  <h3>Draft (unreleased)</h3>
-  <ul>
-  <?php foreach ($list($draft['claims'] ?? []) as $claim): ?><li><span class="mono"><?= View::e($text($claim['kind'] ?? '')) ?></span> <?= View::e($text($claim['text'] ?? '')) ?> <span class="mono">[<?= View::e($text($claim['confidence'] ?? '')) ?>]</span></li><?php endforeach; ?>
-  </ul>
-  <?php if (is_array($draft['content'] ?? null)): ?><dl class="facts"><?php foreach ($draft['content'] as $field => $value): ?><dt><?= View::e(str_replace('_', ' ', preg_replace('/_safe$/', '', (string) $field))) ?></dt><dd><?= View::e($text($value)) ?></dd><?php endforeach; ?></dl><?php endif; ?>
-  <?php endif; ?>
-
-  <?php foreach (['critic' => 'Critic concerns', 'routing_critic' => 'Routing critic concerns'] as $criticKind => $criticTitle): $critic = $candidate($criticKind); if (!is_array($critic)) { continue; } ?>
-  <h3><?= View::e($criticTitle) ?></h3>
-  <p>Verdict <?= View::e($text($critic['verdict'] ?? '')) ?><?= ($critic['requires_human_review'] ?? false) === true ? ' · human review required' : '' ?><?= ($critic['source_injection_detected'] ?? false) === true ? ' · <strong>source injection detected</strong>' : '' ?></p>
-  <ul><?php foreach ($list($critic['findings'] ?? []) as $f): ?><li><span class="mono"><?= View::e($text($f['severity'] ?? '')) ?> <?= View::e($text($f['code'] ?? '')) ?></span> <?= View::e($text($f['explanation'] ?? '')) ?></li><?php endforeach; ?></ul>
-  <?php endforeach; ?>
-
-  <?php $reviews = array_filter([$candidate('human_review'), $candidate('routing_review')], 'is_array'); if ($reviews !== []): ?>
-  <h3>Review history</h3>
-  <ul><?php foreach ($reviews as $review): ?><li><?= View::e($text($review['decision'] ?? '')) ?> by <span class="mono"><?= View::e($text($review['operator_id'] ?? '')) ?></span> at <?= View::e($text($review['reviewed_at'] ?? '')) ?>: <?= View::e($text($review['assessment'] ?? '')) ?></li><?php endforeach; ?></ul>
-  <?php endif; ?>
-
-  <details><summary>Run configuration and progress (exact)</summary><pre class="monitor-json"><?= View::e($json($run)) ?></pre></details>
+  <details><summary>Run configuration and progress</summary><pre class="monitor-json"><?= View::e($json($run)) ?></pre></details>
 
   <?php if ($previewReason !== ''): ?><p class="notice notice--denied" role="alert">The next request could not be prepared: <?= View::e($previewReason) ?>. This step cannot be submitted.</p><?php endif; ?>
 
-  <?php if (is_array($preview)): $provenance = is_array($preview['provenance'] ?? null) ? $preview['provenance'] : []; ?>
+  <?php if (is_array($preview)): ?>
   <h3>Request to review before the next step</h3>
   <p>This is the exact proposed request and prompt context. Continuing is bound to its digest; changed inputs must be inspected again.</p>
-  <dl class="facts">
-    <dt>Request digest</dt><dd class="mono"><?= View::e($requestDigest) ?></dd>
-    <dt>Sent to</dt><dd class="mono"><?= View::e($text($preview['method'] ?? '')) ?> <?= View::e($text($preview['endpoint'] ?? '')) ?></dd>
-    <dt>Prompt binding</dt><dd class="mono"><?= View::e($text($provenance['binding_id'] ?? '')) ?></dd>
-    <dt>Context disclosed</dt><dd class="mono"><?= View::e($text($provenance['context']['digest'] ?? '')) ?></dd>
-  </dl>
-  <details open><summary>Exact request</summary><pre class="monitor-json"><?= View::e($json($preview)) ?></pre></details>
+  <pre class="monitor-json"><?= View::e($json($preview)) ?></pre>
   <?php endif; ?>
 
   <?php if (!$terminal && !$needsReview && $previewReason === '' && (!is_array($preview) || $requestDigest !== '')): ?>
@@ -195,13 +117,9 @@ $cursor = is_array($run['cursor'] ?? null) ? $run['cursor'] : [];
   <?php endif; ?>
 
   <?php if (($detail['current_reliance'] ?? []) !== []): ?>
-  <h3>Release: recorded then, current now</h3>
-  <p>The run records what happened when it released. Whether that release may be relied on is read from the decision ledger now: a completed run stays historical if its release is later withdrawn or superseded.</p>
-  <div class="table-wrap"><table><thead><tr><th>Release</th><th>Recorded by the run</th><th>Current reliance</th></tr></thead><tbody>
-  <?php foreach ($detail['current_reliance'] as $releaseKey => $reliance): ?>
-  <tr><td><?= View::e(str_replace('_', ' ', (string) $releaseKey)) ?></td><td><?= View::e($text($cursor[$releaseKey]['outcome'] ?? '')) ?> <span class="mono"><?= View::e($text($cursor[$releaseKey]['decision_record_id'] ?? '')) ?></span></td>
-  <td><span class="tag <?= View::e(View::tone($text($reliance))) ?>"><?= View::e(is_scalar($reliance) ? (string) $reliance : $json($reliance)) ?></span></td></tr>
-  <?php endforeach; ?></tbody></table></div>
+  <h3>Current release status</h3>
+  <p>This is read from the decision ledger now. A completed run remains historical if its release is later withdrawn or superseded.</p>
+  <pre class="monitor-json"><?= View::e($json($detail['current_reliance'])) ?></pre>
   <?php endif; ?>
 
   <details><summary>Recorded event history</summary><pre class="monitor-json"><?= View::e($json($detail['events'] ?? [])) ?></pre></details>

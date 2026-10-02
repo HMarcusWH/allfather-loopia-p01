@@ -164,7 +164,7 @@ $kernel->route('GET', '/console/app', $operatorConsole->shell(...));
 // Inspection and manual composition UI. The composition is built for the session's workspace:
 // live read and the provider wire exist only when that workspace holds an ADMITTED MANUAL_MONITOR
 // grant, which needs a reviewed owner decision under docs/decisions/. None ships, so this is inert.
-// The closure composes nothing until a Monitor route actually calls it.
+if ($request->path === '/console/monitor') {
 $monitorFor = static fn (array $scope): \Allfather\Loopia\Workflow\MonitorOperations => \Allfather\Loopia\Workflow\MonitorFactory::forWorkspace(
     $db, $clock, new \Allfather\Loopia\Storage\EvidenceStore($root . '/storage/evidence'),
     \Allfather\Loopia\Provider\KeyRing::fromEnv($env),
@@ -172,31 +172,9 @@ $monitorFor = static fn (array $scope): \Allfather\Loopia\Workflow\MonitorOperat
     static fn (): string => \Allfather\Loopia\Ops\SourceFingerprint::compute($root),
     $scope['tenant_id'], $scope['workspace_id'],
 );
-if ($request->path === '/console/monitor') {
 $monitorController = new \Allfather\Loopia\Http\Controllers\MonitorController($monitorFor, $view);
 $kernel->route('GET', '/console/monitor', $monitorController->show(...));
 $kernel->route('POST', '/console/monitor', $monitorController->submit(...));
-}
-
-// P09 administration forms over the same owners the private CLIs use. Admission of a schedule or a
-// grant is NOT here: it needs a reviewed owner decision file and stays a command-line act.
-if ($request->path === '/console/monitor/schedule') {
-$scheduleFor = static function () use ($db, $clock, $root): \Allfather\Loopia\Workflow\ScheduleService {
-    $decisions = \Allfather\Loopia\Workflow\OwnerDecisionRegistry::forRoot($root);
-    $grants = new \Allfather\Loopia\Workflow\ExecutionGrantStore($db, $clock, new \Allfather\Loopia\PromptOps\PromptApprovalStore($db, $clock, $decisions), $decisions);
-    return new \Allfather\Loopia\Workflow\ScheduleService($db, $clock, $grants, $decisions, new \Allfather\Loopia\Workflow\MissionConfiguration($db, $clock));
-};
-$scheduleController = new \Allfather\Loopia\Http\Controllers\MonitorScheduleController($scheduleFor, $view);
-$kernel->route('GET', '/console/monitor/schedule', $scheduleController->show(...));
-$kernel->route('POST', '/console/monitor/schedule', $scheduleController->submit(...));
-}
-if ($request->path === '/console/monitor/setup') {
-$setupController = new \Allfather\Loopia\Http\Controllers\MonitorSetupController(
-    static fn (): \Allfather\Loopia\Workflow\MonitorSetup => new \Allfather\Loopia\Workflow\MonitorSetup($db, $clock, new \Allfather\Loopia\Storage\EvidenceStore($root . '/storage/evidence')),
-    $view,
-);
-$kernel->route('GET', '/console/monitor/setup', $setupController->show(...));
-$kernel->route('POST', '/console/monitor/setup', $setupController->submit(...));
 }
 
 $p01Surfacing = new Surfacing($db, $access, $ledger, $entitlements);
@@ -213,7 +191,7 @@ $p02TwinRelease = new TwinRelease($db, $clock, $ledger, new EntityTwins($db, $cl
 $p02RelationshipRelease = new RelationshipRelease($db, $clock, $ledger, new RelationshipTwins($db, $clock), $access, $entitlements, $p02M16);
 $p03Release = new P03Release($db, $clock, $ledger, $access, $entitlements);
 
-$reads = new ConsoleReadController($contextAdapter, $decisionAdapter, $p01Surfacing, $p02TwinRelease, $p02RelationshipRelease, $p03Release, $p04Release, $p05Release, new \Allfather\Loopia\Http\ReadAdapters\MonitorReadAdapter($monitorFor));
+$reads = new ConsoleReadController($contextAdapter, $decisionAdapter, $p01Surfacing, $p02TwinRelease, $p02RelationshipRelease, $p03Release, $p04Release, $p05Release);
 $kernel->route('GET', '/console/api/v1/context', $reads->context(...), 'JSON_401');
 $kernel->route('GET', '/console/api/v1/p01/battlecards', $reads->p01Battlecards(...), 'JSON_401');
 $kernel->route('GET', '/console/api/v1/p02/entities', $reads->p02Entities(...), 'JSON_401');
@@ -223,10 +201,6 @@ $kernel->route('GET', '/console/api/v1/p03/monitored', $reads->p03Monitored(...)
 $kernel->route('GET', '/console/api/v1/p04/distributions', $reads->p04Distributions(...), 'JSON_401');
 $kernel->route('GET', '/console/api/v1/p05/drafts', $reads->p05Drafts(...), 'JSON_401');
 $kernel->route('GET', '/console/api/v1/m10/decisions', $reads->decisions(...), 'JSON_401');
-$kernel->route('GET', '/console/api/v1/p02/entity-detail', $reads->p02EntityDetail(...), 'JSON_401');
-$kernel->route('GET', '/console/api/v1/p03/prospect-detail', $reads->p03ProspectDetail(...), 'JSON_401');
-$kernel->route('GET', '/console/api/v1/monitor/runs', $reads->monitorRuns(...), 'JSON_401');
-$kernel->route('GET', '/console/api/v1/monitor/run', $reads->monitorRun(...), 'JSON_401');
 
 $kernel->route('GET', '/healthz', static fn (): Response => Response::json([
     'service' => 'allfather-loopia',

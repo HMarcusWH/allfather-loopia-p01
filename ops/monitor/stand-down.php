@@ -11,9 +11,6 @@ declare(strict_types=1);
  * so no further capture, model call or release is admitted. `--stop-runs` also stops native runs that
  * have not finished, through the ordinary journal, so their history records the stop.
  *
- * Without --grant-id it also suspends (or revokes) every live monitor schedule in the workspace, so
- * the scheduler reserves no further occurrence.
- *
  * It does NOT delete artifacts, alter recorded reviews, refund consumed budget or retract released
  * intelligence: retraction is the explicit M10 correction/withdrawal operation. A call already in
  * flight cannot be unsent; its response will not become an accepted candidate.
@@ -31,7 +28,7 @@ use Allfather\Loopia\Ops\{BetaCli,MaintenanceGate,SourceFingerprint};
 use Allfather\Loopia\PromptOps\PromptApprovalStore;
 use Allfather\Loopia\Provider\SecretBox;
 use Allfather\Loopia\Storage\EvidenceStore;
-use Allfather\Loopia\Workflow\{ExecutionGrantStore,MissionConfiguration,MonitorFactory,NativeOperations,OwnerDecisionRegistry,ScheduleService};
+use Allfather\Loopia\Workflow\{ExecutionGrantStore,MonitorFactory,NativeOperations,OwnerDecisionRegistry};
 
 $fail = static function (string $message, int $code = 2): never {
     fwrite(STDERR, 'stand-down: ' . $message . PHP_EOL);
@@ -79,13 +76,6 @@ $stopper = isset($args['stop-runs'])
     ? MonitorFactory::inactive($db, $clock, new EvidenceStore($root . '/storage/evidence'), SecretBox::fromMasterKey($env->require('APP_MASTER_KEY')))
     : null;
 $out = $native->standDown($scope, $args['mode'] ?? 'suspend', $args['reason'], ($args['grant-id'] ?? '') !== '' ? $args['grant-id'] : null, $stopper);
-// P07: every live monitor schedule in the workspace stands down too, so no tick reserves a new
-// occurrence. Suspending the parent SCHEDULED_OBSERVATION grant above already stops captures; this
-// also removes the delegation itself. Occurrences and their outcomes are history and stay.
-if ($out->isOk() && ($args['grant-id'] ?? '') === '') {
-    $schedules = (new ScheduleService($db, $clock, $grants, $decisions, new MissionConfiguration($db, $clock)))->standDown($scope, $args['mode'] ?? 'suspend', $args['reason']);
-    $out = $schedules->isOk() ? \Allfather\Loopia\Core\Outcome::ok($out->value() + $schedules->value()) : $schedules;
-}
 if ($maintenanceOperationId !== null) {
     $ended = $maintenanceGate->endOperation($maintenanceOperationId, (string) $args['operator-id']);
     if (!$ended->isOk()) {

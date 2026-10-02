@@ -56,8 +56,7 @@ final class SourceCaptureStage
             'tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'],
             'monitored_source_id' => $definition['monitored_source_id'], 'capture_url' => $definition['capture_url'],
             'idempotency_key' => 'monitor.capture.' . $run['monitor_run_id'], 'correlation_id' => $run['monitor_run_id'],
-            // The M06 tool request names who actually acts: the operator, or the scheduler's service.
-            'governance' => array_merge($definition['capture_governance'], self::callingActor($scope)),
+            'governance' => array_merge($definition['capture_governance'], ['calling_actor_type'=>'OPERATOR','calling_actor_id'=>$scope['operator_id']]),
         ], $transport, $this->resolver, $beforeFetch);
         if (!$captured->isOk()) {
             return $transport->failureCode === null ? $captured : Outcome::refuse($transport->failureCode);
@@ -112,21 +111,6 @@ final class SourceCaptureStage
 
     public static function contextScope(array $scope): array
     {
-        $actor = self::callingActor($scope);
-
-        return ['tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'], 'actor_type' => $actor['calling_actor_type'], 'actor_id' => $actor['calling_actor_id']];
-    }
-
-    /** @return array{calling_actor_type: string, calling_actor_id: string} */
-    private static function callingActor(array $scope): array
-    {
-        $principal = MonitorPrincipal::fromScope($scope);
-        // A malformed principal is evaluated as an unmapped identity and refused by M02, never
-        // quietly treated as the operator it rode in with.
-        if ($principal === null) {
-            return ['calling_actor_type' => 'SERVICE', 'calling_actor_id' => 'invalid-principal'];
-        }
-
-        return ['calling_actor_type' => $principal->actorType(), 'calling_actor_id' => $principal->actorId];
+        return ['tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'], 'actor_type' => 'OPERATOR', 'actor_id' => $scope['operator_id']];
     }
 }

@@ -55,8 +55,6 @@ $fail = static function (string $message, int $code = 2): never {
  * deployment is not authorized, the pinned canonical identity vocabulary defines no production
  * tenant/workspace/environment class, and a preflight that offered the mode would be the first
  * half of a deployment path nobody has granted. See docs/LOOPIA_CAPABILITY_REPORT.md §5.
- * `ops/deploy/production-preflight.php` (P12) is a separate, read-only REPORT of every missing
- * production prerequisite; it has no deployment path and cannot grant GO.
  */
 $args = BetaCli::parseArgs($argv, ['env', 'release-ref', 'mode'], $fail);
 
@@ -366,14 +364,6 @@ foreach (['worker/tick.php' => $tick, 'public_html/scheduler.php' => $schedulerE
         && !str_contains($source, 'new SchedulerRunner(new JobMachine($db, new Clock()), [])')
     ) {
         $note("{$where} does not construct the runner with an EMPTY handler registry");
-    }
-    // P07: the ONLY non-empty composition is ScheduleDispatcher::runner(), reached only on the
-    // admitted-schedule branch of one ternary whose other branch is the empty registry. Any other
-    // SchedulerRunner construction, or the runner reached any other way, is not this reviewed shape.
-    if (preg_match_all('/new\s+SchedulerRunner\s*\(/', $source) !== 1
-        || preg_match('/\$runner\s*=\s*ScheduleDispatcher::admittedAnywhere\([^;?]*\)\s*\?\s*ScheduleDispatcher::runner\([^;?]*\)\s*:\s*new\s+SchedulerRunner\(new\s+JobMachine\(\$db,\s*(?:\$clock|new\s+Clock\(\))\),\s*\[\]\)\s*;/', $source) !== 1
-    ) {
-        $note("{$where} does not gate its only non-empty scheduler composition behind an admitted schedule");
     }
 }
 if (!str_contains($schedulerEntry, "!== 'POST'")) {

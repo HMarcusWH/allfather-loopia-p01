@@ -6,7 +6,7 @@ described as deployed or a deployment gets described as activated:
 
 | Question | Current answer | Evidence |
 | --- | --- | --- |
-| **Source** — what application code is in this release tree? | P00–P06, P10 and P11 are merged through PR28 at `1a99f72b`; P07, P08, P09 and inert P12 scaffolding exist only on the unmerged branch `claude/gifted-wozniak-ooz1av` | Git history; [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) |
+| **Source** — what application code is in this release tree? | P00–P06, P10 and P11 are merged through PR28 at `1a99f72b` | Git history; [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) |
 | **Tested** — which exact commit was qualified, and how? | merged PR28 `1a99f72b` passed hosted CI push run 36861689735; both MariaDB lanes were 7,689/0/0 | §2; `deployment-evidence.json` |
 | **Deployed** — which application runs on staging? | PR16 `392f48de`, inert. **None of the Monitor work is deployed** | §3; [Gate R filing](STAGING_GATE_R_EVIDENCE_2026-09-26.md) |
 | **Activated** — what may run against the world? | nothing: no live read, no native model call, no scheduler handler, no external action | §4; `upstream.lock.json` |
@@ -20,7 +20,7 @@ canonical_pin                      = c6d9cf9a7a1001b001ca6118999e9cb75c831c4d
 implementation_baseline_merge      = 1a99f72b3e25e8e69c0e36d6de9f8de44901772a
 deployed_staging_release           = 392f48deef11380f6dccfe88f2a47ba1fd94575c
 evidence_records                   = 14
-candidate_migrations               = 30
+candidate_migrations               = 29
 ```
 
 ## What the words mean here
@@ -58,21 +58,10 @@ candidate_migrations               = 30
 - **P11 operational state:** source/tooling is merged and hosted-CI-qualified, but no real staging
   master-key rewrap has been performed. No Loopia key material, provider credential ciphertext or
   immutable execution-grant history has been changed by the merge.
-- **Unmerged branch candidate (`claude/gifted-wozniak-ooz1av`):** P08 (P03 assurance port with
-  canonical vectors, migration 245), P07 (recurring observation: `MonitorPrincipal`, schedules,
-  occurrences, the typed `MONITOR_STEP` job, migration 250), P09 (setup and schedule console pages
-  that cannot admit anything, structured workbench sections, owner-safe P02/P03 detail reads,
-  metadata-only Monitor reads for the React console) and P12 inert scaffolding (a read-only
-  production preflight that reports `NOT_READY`, two documents, refusal tests). It is qualified only
-  by a **local** strict run on MariaDB 10.11 (8,736/0/0, plus 44/44 console frontend tests and a clean
-  console build) — not hosted CI, not MariaDB 10.6, not a host — and it
-  changes none of the four answers for merged `main`. See [`MONITOR_SCHEDULING.md`](MONITOR_SCHEDULING.md),
-  [`P03_ASSURANCE_PORT.md`](P03_ASSURANCE_PORT.md) and [`PRODUCTION_PROMOTION_PLAN.md`](PRODUCTION_PROMOTION_PLAN.md).
-- **Candidate schema:** 30 migration files, including `210_monitor_execution_controls`,
+- **Candidate schema:** 29 migration files, including `210_monitor_execution_controls`,
   `220_monitor_evaluation_records`, `225_monitor_setup_receipts`, `230_monitor_attempt_recovery`,
-  P11 `240_provider_rotation_events`, P08 `245_source_card_window_width` (a column-width
-  translation repair; no new table) and P07 `250_monitor_schedule_control`. The deployed PR16
-  release has 19.
+  P11 `240_provider_rotation_events` and P08 `245_source_card_window_width` (a column-width
+  translation repair; no new table). The deployed PR16 release has 19.
 
 ## 2. Tested
 
@@ -133,7 +122,7 @@ is held by a named test:
 | Live source read | `CurlHttpsTransport` and `DnsHostResolver` are constructed only on `MonitorFactory::forWorkspace`'s admitted branch — an ADMITTED `MANUAL_MONITOR` grant, which needs a reviewed owner decision. None exists | `tests/foundation/no_external_action_surface.php`, `tests/integration/monitor_native_composition.php` |
 | Native model execution | one provider-transport constructor, `MonitorFactory::modelTransport($admitted)`; HTTP composes `MonitorFactory::forWorkspace()`, which without an ADMITTED grant is the inactive composition and refuses `NATIVE` steps with `MONITOR_NATIVE_EXECUTION_INACTIVE`; with one, every stage is re-admitted | the same tests; `tests/security/monitor_grant_revocation.php` |
 | Product prompts | pack `2026-09-27.monitor.v1`: `activation_status: INACTIVE`, approval `DRAFT`, evaluation `OFFLINE_CONTRACT_TESTED`, `model_evaluated: false` | `app/PromptOps/ProductPromptPack.php` refuses any other state |
-| Scheduler | on `main`, the handler registry is `[]` in `worker/tick.php` and `public_html/scheduler.php`. On the P07 branch both entry points build that same empty runner unless a schedule is ADMITTED by an owner decision in the deployed tree's `docs/decisions/` (none ships); even then the only handlers are `MONITOR_STEP` capture/compare, with the inactive model transport | `ops/deploy/preflight.php`, `ops/rollback/verify-stand-down.php`, `tests/foundation/no_external_action_surface.php` |
+| Scheduler | handler registry is `[]` in `worker/tick.php` and `public_html/scheduler.php` | `ops/deploy/preflight.php`, `ops/rollback/verify-stand-down.php` |
 | External action, publish, send, charge | no transport exists | `tests/foundation/no_external_action_surface.php` |
 | ROAD_TEST_001 | not executed | no `ROAD_TEST_001` record exists |
 
@@ -158,9 +147,7 @@ road_test_001_executed             = false
 The [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) sequences the rest as three releases.
 PR28 is the **P00–P06 plus P10/P11 source baseline**, and this evidence/current-state change files its
 merged-main hosted qualification. P10 operational acceptance (real native backup, off-host retention
-and clean disposable restore) still gates the live P06 road test. P07's code now exists on the
-branch, but admitting any schedule still waits for that road test and for an upstream
-service-delegation decision; P12 waits for canonical identity/audience decisions.
+and clean disposable restore) still gates the live P06 road test. P07 remains after that road test.
 No code merge or CI result creates execution authority, deployment evidence or owner GO.
 
 ## 6. Superseded narrative

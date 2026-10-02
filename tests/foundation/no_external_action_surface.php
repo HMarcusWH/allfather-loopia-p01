@@ -146,33 +146,7 @@ if ($factoryExists) {
     Assert::same(['$admitted'], array_values(array_unique($liveArgs[1])), 'live read is requested only as the result of the admission check');
     Assert::same(1, preg_match('/\$admitted\s*=\s*\$grants->admittedIn\(\$tenantId\s*,\s*\$workspaceId\s*,\s*\'MANUAL_MONITOR\'\)\s*!==\s*\[\]\s*;/', $factoryCode), 'the admission check is an ADMITTED MANUAL_MONITOR grant in this workspace');
     Assert::false(str_contains($factoryCode, 'liveSource(true)'), 'nothing asks for live read by fiat');
-
-    // P07: the scheduler's composition is the ONE other place `$admitted` is computed, and it is the
-    // current-schedule check. Its model transport is ALWAYS the inactive one — a scheduled occurrence
-    // captures and compares and never calls a model, whatever is admitted.
-    Assert::same(3, preg_match_all('/\$admitted\s*=/', $factoryCode), 'exactly three admission computations exist: the manual grant (live read), the per-grant model transport, and the admitted schedule');
-    Assert::same(1, preg_match('/\$admitted\s*=\s*ScheduleDispatcher::admittedIn\(\$schedules\)\s*;/', $factoryCode), 'the scheduled composition gates live read on a currently admitted schedule');
-    preg_match('/function forScheduledObservation\(.*?\n    \}/s', $factoryCode, $scheduledBody);
-    Assert::true(($scheduledBody[0] ?? '') !== '', 'the scheduled composition is found');
-    Assert::same(1, preg_match_all('/self::modelTransport\(\s*false\s*\)/', $scheduledBody[0] ?? ''), 'and asks only for the inactive model transport');
-    Assert::false(str_contains($scheduledBody[0] ?? '', 'modelTransport($admitted)'), 'never an admitted one');
 }
-
-// ============================================================ the scheduler's one gated composition
-
-// Both scheduler entry points construct exactly ONE SchedulerRunner — the empty registry — and reach
-// the only non-empty registry (ScheduleDispatcher::runner, MONITOR_STEP only) solely on the
-// admitted-schedule branch of a single ternary. No other path hands the tick a handler.
-foreach (['worker/tick.php', 'public_html/scheduler.php'] as $entry) {
-    $entryCode = $code($root . '/' . $entry);
-    Assert::same(1, preg_match_all('/new\s+SchedulerRunner\s*\(/', $entryCode), "{$entry} constructs one runner, and it is the empty registry");
-    Assert::same(1, preg_match('/\$runner\s*=\s*ScheduleDispatcher::admittedAnywhere\([^;?]*\)\s*\?\s*ScheduleDispatcher::runner\([^;?]*\)\s*:\s*new\s+SchedulerRunner\(new\s+JobMachine\(\$db,\s*(?:\$clock|new\s+Clock\(\))\),\s*\[\]\)\s*;/', $entryCode), "{$entry} reaches handlers only behind an admitted schedule");
-}
-$dispatcherCode = $code($root . '/app/Workflow/ScheduleDispatcher.php');
-preg_match('/public static function runner\(.*?\n    \}/s', $dispatcherCode, $runnerBody);
-preg_match_all("/'([A-Z_]+:[A-Z_]+)'\s*=>/", $runnerBody[0] ?? '', $registryKeys);
-Assert::same(['MONITOR_STEP:FAILED', 'MONITOR_STEP:PENDING'], (static function (array $k): array { sort($k); return $k; })($registryKeys[1]), 'the non-empty registry advances MONITOR_STEP jobs and nothing else');
-Assert::true(str_contains($runnerBody[0] ?? '', 'MonitorFactory::forScheduledObservation('), 'through the scheduled composition, which has no live model transport');
 
 // The claim-boundary flags live in a file no code writes. They are changed by a human editing
 // `upstream.lock.json`, which is what "operator-assisted" means here: this build cannot record

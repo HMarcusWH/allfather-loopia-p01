@@ -27,8 +27,7 @@ narrowing or deleting the file withdraws what it authorized on the next check.
        "binding_id": "loopia.monitor.P01_SIGNAL_CLASSIFIER@2026-09-27.monitor.v1",
        "prompt_sha256": "<hex>", "schema_sha256": "<hex>", "model_policy_digest": "<hex>"}
     ],
-    "execution_grants": ["<grant digest printed by ops/monitor/authorization.php plan>"],
-    "monitor_schedules": ["optional: <schedule digest printed by ops/monitor/schedule.php plan>"]
+    "execution_grants": ["<grant digest printed by ops/monitor/authorization.php plan>"]
   },
   "disclosure_scope": "what may be sent to the provider, and what may not",
   "retention_scope": "what is retained, where, and for how long",
@@ -36,10 +35,7 @@ narrowing or deleting the file withdraws what it authorized on the next check.
 }
 ```
 
-Purposes are `MODEL_EVALUATION`, `MANUAL_MONITOR` and `SCHEDULED_OBSERVATION`. `monitor_schedules`
-is optional and is read only for `SCHEDULED_OBSERVATION`: admitting a scheduled-observation grant's
-capture budget does not admit a recurrence, and a schedule needs its own listed digest (see
-[`../MONITOR_SCHEDULING.md`](../MONITOR_SCHEDULING.md)). A decision authorizes
+Purposes are `MODEL_EVALUATION`, `MANUAL_MONITOR` and `SCHEDULED_OBSERVATION`. A decision authorizes
 exactly the digests and identities it lists — nothing broader — and it does not replace canonical
 authority: where canonical does not yet cover an operation, the decision belongs upstream first.
 See [`../MONITOR_EXECUTION_AUTHORIZATION.md`](../MONITOR_EXECUTION_AUTHORIZATION.md).

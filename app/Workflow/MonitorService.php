@@ -9,23 +9,13 @@ use Allfather\Loopia\PromptOps\PromptSelectionResolver;
 use Allfather\Loopia\Provider\{ModelExecutor,ModelRequestBuilder};
 use Allfather\Loopia\Substrate\M02\AccessGuard;
 
-/**
- * Manual, bounded composition. No stage creates activation, a permission, or a scheduler job.
- *
- * Two principals may act (see MonitorPrincipal). A human OPERATOR may do everything this class
- * offers. The scheduler's SERVICE principal (P07) may only start the run its admitted schedule
- * occurrence names and advance it through capture and compare; every model stage, both human
- * reviews, routing and stop refuse it before anything is prepared, read or sent. Automatically
- * supplying a request digest is not human inspection, so a service never reaches the stage that asks.
- */
+/** Manual, bounded composition. No stage creates activation, a permission, or a scheduler job. */
 final class MonitorService implements MonitorOperations
 {
     private const ROLES=['DIFFED'=>'P01_SIGNAL_CLASSIFIER','ANALYZED'=>'BATTLECARD_GENERATOR','DRAFTED'=>'MONITOR_REVIEW_CRITIC','ROUTING_PREPARED'=>'MONITOR_ROUTING_CRITIC'];
     private const OUTPUTS=['DIFFED'=>['classifier','ANALYZED'],'ANALYZED'=>['draft','DRAFTED'],'DRAFTED'=>['critic','REVIEW_REQUIRED'],'ROUTING_PREPARED'=>['routing_critic','ROUTING_REVIEW']];
     /** Refusals that mean "not admitted yet", not "this run failed": nothing was spent, so the run waits. */
     private const ADMISSION_PREFIXES=['EXECUTION_','MODEL_EXECUTION_NOT_ADMITTED','OWNER_DECISION_','PROMPT_APPROVAL_','PROMPT_NOT_APPROVED'];
-    /** The only stages a scheduled SERVICE principal may advance: capture, then compare. */
-    private const SERVICE_STAGES=['NEW','CAPTURED'];
     /** Post-dispatch states that do not establish whether usable provider output exists. */
     private const RECONCILIATION_REASONS=['MODEL_NETWORK_OUTCOME_UNKNOWN','MODEL_TIMEOUT','MODEL_ADAPTER_EXCEPTION'];
     private readonly PromptSelectionResolver $prompts;
@@ -37,21 +27,12 @@ final class MonitorService implements MonitorOperations
         private readonly ContextEnvelope $context,
         private readonly bool $fixtureRuntime=false,private readonly bool $nativeEnabled=false,
         ?PromptSelectionResolver $prompts=null,private readonly ?ExecutionAdmission $admission=null,
-        private readonly ?ScheduleService $schedules=null,
     ) { $this->prompts=$prompts??PromptSelectionResolver::inert(); }
 
     public function list(array $scope): Outcome
     {
-        $human=$this->requireOperator($scope); if (!$human->isOk()) { return $human; }
         $access=$this->authorize($scope,['mission.read']); if (!$access->isOk()) { return $access; }
         return Outcome::ok([
-            // Scheduled observations queued for a human: the run waits at the model-request
-            // inspection boundary until an operator inspects the exact request and advances it.
-            'scheduled_queue'=>$this->db->all("SELECT o.monitor_schedule_id,o.schedule_version,o.scheduled_for,o.skipped_slots,x.monitor_run_id,x.run_revision,x.recorded_at
-                FROM monitor_schedule_occurrence_outcomes x JOIN monitor_schedule_occurrences o ON o.monitor_schedule_occurrence_id=x.monitor_schedule_occurrence_id
-                JOIN monitor_runs r ON r.monitor_run_id=x.monitor_run_id
-                WHERE o.tenant_id=? AND o.workspace_id=? AND x.outcome='WAITING_FOR_OPERATOR' AND r.stage='DIFFED'
-                ORDER BY x.recorded_at,x.monitor_run_id LIMIT 50",[$scope['tenant_id'],$scope['workspace_id']]),
             'missions'=>$this->db->all('SELECT m.mission_id,m.title,m.status,c.execution_mode FROM monitor_mission_configs c JOIN missions m ON m.mission_id=c.mission_id WHERE c.tenant_id=? AND c.workspace_id=? ORDER BY c.created_at DESC,c.mission_id',[$scope['tenant_id'],$scope['workspace_id']]),
             'runs'=>$this->db->all('SELECT monitor_run_id,mission_id,execution_mode,stage,revision,created_at,updated_at FROM monitor_runs WHERE tenant_id=? AND workspace_id=? ORDER BY created_at DESC,monitor_run_id LIMIT 100',[$scope['tenant_id'],$scope['workspace_id']]),
         ]);
@@ -59,7 +40,6 @@ final class MonitorService implements MonitorOperations
 
     public function detail(array $scope,string $runId): Outcome
     {
-        $human=$this->requireOperator($scope); if (!$human->isOk()) { return $human; }
         $access=$this->authorize($scope,['mission.read','evidence.read']); if (!$access->isOk()) { return $access; }
         $replay=$this->journal->replay($scope,$runId); if (!$replay->isOk()) { return $replay; }
         $result=$replay->value(); $run=$result['run']; $result['artifacts']=[];
@@ -93,17 +73,6 @@ final class MonitorService implements MonitorOperations
         $access=$this->authorize($scope,['mission.read','mission.transition','evidence.read']); if (!$access->isOk()) { return $access; }
         $row=$this->db->one('SELECT * FROM monitor_mission_configs WHERE mission_id=? AND tenant_id=? AND workspace_id=?',[$missionId,$scope['tenant_id'],$scope['workspace_id']]);
         if ($row===null) { return Outcome::refuse('MONITOR_MISSION_NOT_CONFIGURED'); }
-        $principal=MonitorPrincipal::fromScope($scope);
-        if ($principal!==null && $principal->isService()) {
-            // A service starts exactly one run: the one its admitted occurrence names, for the frozen
-            // configuration the schedule binds, under the occurrence's own idempotency key.
-            $delegation=$this->delegation($scope,$principal); if (!$delegation->isOk()) { return $delegation; }
-            $d=$delegation->value();
-            if ($row['execution_mode']!=='NATIVE' || $missionId!==$d['mission_id'] || !hash_equals($d['definition_digest'],(string)$row['definition_digest'])
-                || $idempotencyKey!==ScheduleService::runKey((string)$principal->occurrenceId)) {
-                return Outcome::refuse('MONITOR_SERVICE_RUN_OUT_OF_DELEGATION');
-            }
-        }
         $definition=json_decode($row['definition_json'],true,64,JSON_THROW_ON_ERROR);
         if (!hash_equals($row['definition_digest'],Digest::canonicalDigest(['definition'=>$definition,'mode'=>$row['execution_mode']]))) { return Outcome::refuse('MONITOR_CONFIGURATION_INTEGRITY_FAILED'); }
         $valid=$this->configuration->validate($scope,$definition,$row['execution_mode']); if (!$valid->isOk()) { return $valid; }
@@ -114,15 +83,6 @@ final class MonitorService implements MonitorOperations
     {
         $access=$this->authorize($scope,['mission.transition','evidence.read','tool.invoke']); if (!$access->isOk()) { return $access; }
         return $this->journal->exclusive($scope,$runId,function(array $run) use($scope,$expectedRequestDigest):Outcome {
-            $principal=MonitorPrincipal::fromScope($scope);
-            if ($principal!==null && $principal->isService()) {
-                // Refused before anything is validated, prepared or read: a service never reaches a
-                // model stage, so it can never supply (or be asked for) a request digest.
-                if (!in_array($run['stage'],self::SERVICE_STAGES,true)) { return Outcome::refuse('MONITOR_STAGE_REQUIRES_HUMAN_OPERATOR'); }
-                if ($run['execution_mode']!=='NATIVE' || $run['idempotency_key']!==ScheduleService::runKey((string)$principal->occurrenceId)
-                    || $run['initiated_by_service_identity_id']!==$principal->actorId) { return Outcome::refuse('MONITOR_SERVICE_RUN_OUT_OF_DELEGATION'); }
-                $delegation=$this->delegation($scope,$principal); if (!$delegation->isOk()) { return $delegation; }
-            }
             $valid=$this->validateRun($scope,$run); if (!$valid->isOk()) { return $valid; }
             if ($run['execution_mode']==='NATIVE' && !$this->nativeEnabled) { return Outcome::refuse('MONITOR_NATIVE_EXECUTION_INACTIVE'); }
             if (($run['execution_mode']==='FIXTURE')!==$this->fixtureRuntime) { return Outcome::refuse('MONITOR_RUNTIME_MODE_MISMATCH'); }
@@ -135,14 +95,6 @@ final class MonitorService implements MonitorOperations
                         // Acquire SourceCaptureStage's source-scoped lock BEFORE spending the capture
                         // unit. Local contention is not a source attempt and must not burn budget.
                         $beforeCapture=fn():Outcome=>$this->admitCapture($scope,$run,$grant->value(),$facts);
-                        if ($principal!==null && $principal->isService()) {
-                            // Re-check the schedule itself under the source lock, immediately before the
-                            // capture unit is spent: revocation between ticks stops the next fetch.
-                            $beforeCapture=function() use($scope,$run,$grant,$facts,$principal):Outcome {
-                                $still=$this->delegation($scope,$principal); if (!$still->isOk()) { return $still; }
-                                return $this->admitCapture($scope,$run,$grant->value(),$facts);
-                            };
-                        }
                         $beforeFetch=fn():Outcome=>$this->admission->check('SOURCE_BEFORE_DISPATCH',$facts);
                     }
                     $captured=$this->capture->execute($scope,$run,$beforeFetch,$beforeCapture);
@@ -184,8 +136,6 @@ final class MonitorService implements MonitorOperations
 
     public function review(array $scope,string $runId,array $review): Outcome
     {
-        // Human review accepts a human OPERATOR only. A scheduler cannot record a decision.
-        $human=$this->requireOperator($scope,'MONITOR_REVIEW_REQUIRES_HUMAN_OPERATOR'); if (!$human->isOk()) { return $human; }
         $access=$this->authorize($scope,['company_signal.review','evidence.read','mission.transition']); if (!$access->isOk()) { return $access; }
         return $this->journal->exclusive($scope,$runId,function(array $run) use($scope,$review):Outcome {
             $valid=$this->validateRun($scope,$run); if (!$valid->isOk()) { return $valid; }
@@ -232,7 +182,6 @@ final class MonitorService implements MonitorOperations
 
     public function stop(array $scope,string $runId): Outcome
     {
-        $human=$this->requireOperator($scope); if (!$human->isOk()) { return $human; }
         $access=$this->authorize($scope,['mission.transition']); if (!$access->isOk()) { return $access; }
         return $this->journal->exclusive($scope,$runId,function(array $run) use($scope):Outcome {
             $integrity=$this->journal->replay($scope,$run['monitor_run_id']); if (!$integrity->isOk()) { return $integrity; }
@@ -305,19 +254,11 @@ final class MonitorService implements MonitorOperations
     private function currentGrant(array $scope,array $run): Outcome
     {
         if ($this->admission===null) { return Outcome::refuse('MODEL_EXECUTION_NOT_ADMITTED'); }
-        if (self::purposeFor($scope)==='SCHEDULED_OBSERVATION') {
-            // A scheduled capture spends the SCHEDULED_OBSERVATION grant the schedule binds — that
-            // exact grant, not whichever one happens to be admitted for the configuration.
-            $delegation=$this->delegation($scope,MonitorPrincipal::fromScope($scope)); if (!$delegation->isOk()) { return $delegation; }
-            $grant=$this->admission->grants()->find($scope['tenant_id'],$scope['workspace_id'],$delegation->value()['execution_grant_id']);
-            if ($grant===null || $this->admission->grants()->status($grant['execution_grant_id'])!=='ADMITTED') { return Outcome::refuse('EXECUTION_GRANT_NOT_ADMITTED'); }
-            return Outcome::ok($grant);
-        }
         return $this->admission->grants()->currentFor($scope['tenant_id'],$scope['workspace_id'],'MANUAL_MONITOR',$run['mission_id'],$run['definition_digest']);
     }
     private function runFacts(array $scope,array $run,array $grant): array
     {
-        return ['tenant_id'=>$scope['tenant_id'],'workspace_id'=>$scope['workspace_id'],'operator_id'=>$scope['operator_id'],'execution_grant_id'=>$grant['execution_grant_id'],'purpose'=>self::purposeFor($scope),'mission_id'=>$run['mission_id'],'definition_digest'=>$run['definition_digest'],'monitored_source_id'=>$run['definition']['monitored_source_id'],'capture_url'=>$run['definition']['capture_url'],'target_org_role'=>$run['definition']['target_org_role'],'monitor_run_id'=>$run['monitor_run_id']];
+        return ['tenant_id'=>$scope['tenant_id'],'workspace_id'=>$scope['workspace_id'],'operator_id'=>$scope['operator_id'],'execution_grant_id'=>$grant['execution_grant_id'],'purpose'=>'MANUAL_MONITOR','mission_id'=>$run['mission_id'],'definition_digest'=>$run['definition_digest'],'monitored_source_id'=>$run['definition']['monitored_source_id'],'capture_url'=>$run['definition']['capture_url'],'target_org_role'=>$run['definition']['target_org_role'],'monitor_run_id'=>$run['monitor_run_id']];
     }
     /** What the workbench shows about admission. Read-only: it records no decision. */
     private function admissionSummary(array $scope,array $run): array
@@ -376,27 +317,9 @@ final class MonitorService implements MonitorOperations
     private function authorize(array $scope,array $permissions): Outcome
     {
         foreach (['tenant_id','workspace_id','operator_id'] as $key) { if (empty($scope[$key]) || !is_string($scope[$key])) { return Outcome::refuse('MONITOR_SCOPE_REQUIRED'); } }
-        $principal=MonitorPrincipal::fromScope($scope);
-        if ($principal===null) { return Outcome::refuse('MONITOR_SCOPE_REQUIRED'); }
-        return $principal->authorize($this->db,$this->clock,$scope['tenant_id'],$scope['workspace_id'],$permissions,'MONITOR_RUN');
-    }
-    /** Operator-only surfaces refuse a service principal before any permission is evaluated. */
-    private function requireOperator(array $scope,string $reason='MONITOR_OPERATOR_REQUIRED'): Outcome
-    {
-        $principal=MonitorPrincipal::fromScope($scope);
-        return $principal!==null && $principal->isService() ? Outcome::refuse($reason) : Outcome::ok();
-    }
-    /** The schedule delegation a service act rests on, re-read now. Without a schedule owner: none. */
-    private function delegation(array $scope,?MonitorPrincipal $principal): Outcome
-    {
-        if ($principal===null || !$principal->isService()) { return Outcome::refuse('MONITOR_SERVICE_PRINCIPAL_INVALID'); }
-        if ($this->schedules===null) { return Outcome::refuse('MONITOR_SERVICE_DELEGATION_NOT_ADMITTED'); }
-        return $this->schedules->delegation($scope['tenant_id'],$scope['workspace_id'],$principal);
-    }
-    private static function purposeFor(array $scope): string
-    {
-        $principal=MonitorPrincipal::fromScope($scope);
-        return $principal!==null && $principal->isService() ? 'SCHEDULED_OBSERVATION' : 'MANUAL_MONITOR';
+        $access=new AccessGuard($this->db,$this->clock);
+        foreach ($permissions as $permission) { if ($access->evaluate('OPERATOR',$scope['operator_id'],$scope['tenant_id'],$scope['workspace_id'],$permission,'MONITOR_RUN')['decision']!=='ALLOW') { return Outcome::refuse('MONITOR_ACCESS_DENIED'); } }
+        return Outcome::ok();
     }
     private static function reviewDigest(array $run): string
     {

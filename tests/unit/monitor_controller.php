@@ -117,32 +117,3 @@ $service->calls = [];
 $response = $controller->submit($request('POST', [], ['action' => 'review', 'run_id' => 'run-1', 'decision' => 'APPROVE', 'assessment' => str_repeat('å', 2001), 'candidate_digest' => 'candidate-reviewed']), $session);
 Assert::contains('MONITOR_REVIEW_ASSESSMENT_TOO_LONG', $response->body, 'byte bound applies to Swedish assessment');
 Assert::false(in_array('review', array_column($service->calls, 0), true), 'overlong assessment never reaches review');
-
-// P09: the structured sections read the recorded run as TEXT. Model, source and operator strings
-// are escaped in every section, the exact request stays one (open) expander away, and the release
-// table separates what the run recorded from what the ledger says now.
-$hostile = '<img src=x onerror=alert(1)>';
-$service->record['run'] = ['monitor_run_id' => 'run-1', 'mission_id' => 'mission-1', 'stage' => 'DIFFED', 'execution_mode' => 'FIXTURE',
-    'definition' => ['capture_url' => 'https://sources.example/' . $hostile, 'target_org_role' => 'SALES', 'context_selection' => ['audience' => 'SALES', 'profile_evidence_ids' => ['profile-1'], 'purpose' => $hostile]],
-    'cursor' => ['capture' => ['before_snapshot_id' => null, 'after_snapshot_id' => 'snap-2', 'after_evidence_id' => 'ev-2'], 'p01_release' => ['outcome' => 'RELEASED', 'decision_record_id' => 'dr-1']]];
-$service->record['preview_request'] = ['request_digest' => 'digest-reviewed', 'method' => 'POST', 'endpoint' => 'https://api.example/v1/responses', 'provenance' => ['binding_id' => 'binding-1', 'context' => ['digest' => 'ctx-1']], 'body' => ['input' => $hostile]];
-$service->record['artifacts'] = [
-    ['kind' => 'classifier', 'digest' => 'a1', 'payload' => ['candidate' => ['status' => 'FINDING', 'signal_class' => 'MARKET_CONTEXT_SIGNAL', 'significance' => 'MINOR', 'source_injection_detected' => true,
-        'observed_changes' => [['statement' => $hostile, 'confidence' => 'HIGH']], 'relevance_hypotheses' => [['hypothesis' => 'Planning may shift.', 'uncertainty' => $hostile]], 'limitations' => [$hostile]]]],
-    ['kind' => 'draft', 'digest' => 'a2', 'payload' => ['candidate' => ['claims' => [['kind' => 'OBSERVATION', 'text' => $hostile, 'confidence' => 'HIGH']], 'content' => ['why_it_matters_safe' => $hostile]]]],
-    ['kind' => 'critic', 'digest' => 'a3', 'payload' => ['candidate' => ['verdict' => 'ACCEPT_FOR_HUMAN_REVIEW', 'requires_human_review' => true, 'findings' => [['severity' => 'INFO', 'code' => 'CLEAN', 'explanation' => $hostile]]]]],
-    ['kind' => 'human_review', 'digest' => 'a4', 'payload' => ['decision' => 'APPROVE', 'operator_id' => 'op-1', 'reviewed_at' => '2026-01-02T00:00:00.000Z', 'assessment' => $hostile]],
-];
-$service->record['current_reliance'] = ['p01_release' => 'WITHDRAWN'];
-$response = $controller->show($request('GET', ['run' => 'run-1']), $session);
-Assert::same(200, $response->status, 'a fully populated run renders');
-foreach (['Source and company basis', 'Before and after evidence', 'Model findings', 'Draft (unreleased)', 'Critic concerns', 'Review history', 'Release: recorded then, current now'] as $section) {
-    Assert::contains($section, $response->body, "the workbench has a structured section: {$section}");
-}
-Assert::false(str_contains($response->body, '<img src=x'), 'no source, model or operator string becomes markup in any section');
-Assert::true(substr_count($response->body, '&lt;img src=x onerror=alert(1)&gt;') >= 8, 'each one is shown escaped as text');
-Assert::contains('none — the first observation is a baseline', $response->body, 'a missing before-snapshot is explained, not shown as a change');
-Assert::contains('source contained instructions aimed at the model', $response->body, 'detected source injection is called out');
-Assert::contains('<details open><summary>Exact request</summary>', $response->body, 'the exact request is still on the page, open by default, behind its expander');
-Assert::contains('value="digest-reviewed"', $response->body, 'and the advance form is still bound to its digest');
-Assert::true(preg_match('#<td>RELEASED <span class="mono">dr-1</span></td>\s*<td><span class="tag [^"]+">WITHDRAWN</span></td>#', $response->body) === 1, 'recorded RELEASED and current WITHDRAWN appear side by side');

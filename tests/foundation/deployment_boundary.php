@@ -481,8 +481,8 @@ foreach (["'identity_measured' => 'SSH_CLI'", "'web_php_cross_site_isolation' =>
 
 // ---------------------------------------------------------------- the web surface, as classified
 
-// `PORT_SCOPE_MATRIX.md` classifies P02 and P03 as INDEX_AND_DETAIL_READS_WIRED (P09). Before that it
-// said INDEX_READS_WIRED / DETAIL_READS_NOT_INCLUDED, and before PR6 WEB_SURFACE_NOT_INCLUDED; this block used to pin that — against the SSR surface
+// `PORT_SCOPE_MATRIX.md` classifies P02 and P03 as INDEX_READS_WIRED / DETAIL_READS_NOT_INCLUDED.
+// It used to say WEB_SURFACE_NOT_INCLUDED, and this block used to pin that — against the SSR surface
 // controller only. PR6 then wired the P02/P03 index reads into the React console through
 // ConsoleReadController, the SSR pin stayed green, and the document went on describing a product
 // that no longer matched. So the pin now covers BOTH halves of the classification, on every surface
@@ -504,8 +504,7 @@ foreach (['P02\\TwinRelease', 'P02\\RelationshipRelease', 'P03\\Release'] as $no
     );
 }
 
-// INDEX_AND_DETAIL_READS_WIRED (P09): the four index reads plus exactly one owner-safe detail read
-// per product are registered, and nothing else for P02/P03 is — no second list endpoint.
+// INDEX_READS_WIRED: the four index reads are registered, and nothing else for P02/P03 is.
 $frontController = (string) file_get_contents(dirname(__DIR__, 2) . '/public_html/index.php');
 preg_match_all('#\$kernel->route\(\'GET\', \'(/console/api/v1/p0[23]/[a-z-]+)\'#', $frontController, $productRoutes);
 Assert::equalsList(
@@ -514,31 +513,18 @@ Assert::equalsList(
         '/console/api/v1/p02/relationships',
         '/console/api/v1/p03/priority-queue',
         '/console/api/v1/p03/monitored',
-        '/console/api/v1/p02/entity-detail',
-        '/console/api/v1/p03/prospect-detail',
     ],
     $productRoutes[1],
-    'P02/P03 are served as their four index reads and one detail read each — INDEX_AND_DETAIL_READS_WIRED',
+    'P02/P03 are served as exactly their four index reads — INDEX_READS_WIRED, and no detail route',
 );
 
-// Each detail read asks its OWNER's scoped getter; no adapter selects rows itself.
-foreach ([
-    'P02SnapshotDetailAdapter' => 'visibleSnapshotDetail(',
-    'P03ProspectDetailAdapter' => 'visibleProspectOutputDetail(',
-] as $adapter => $getter) {
-    $source = (string) file_get_contents(dirname(__DIR__, 2) . "/app/Http/ReadAdapters/{$adapter}.php");
-    Assert::contains($getter, $source, "{$adapter} reads through the owner getter {$getter}");
-    Assert::false(preg_match('/\b(SELECT|INSERT|UPDATE|DELETE)\b/', $source) === 1, "{$adapter} contains no SQL of its own");
-}
-
-// The console declares the P02 detail read as wired, and still declares no prospect-battlecard LIST:
-// a released prospect's battlecard reference rides on its detail read instead.
+// DETAIL_READS_NOT_INCLUDED: the console still marks both detail reads as needing a read model.
 $surfaceReads = (string) file_get_contents(dirname(__DIR__, 2) . '/frontend/console/src/data/surface-reads.js');
-foreach (['READS.P02_ENTITY_DETAIL,"P02","OWNER_READ_WIRED"', 'READS.P03_PROSPECT_DETAIL,"P03","OWNER_READ_WIRED"', 'READS.P03_BATTLECARDS,"P03","NEEDS_READ_MODEL"'] as $declared) {
-    Assert::contains($declared, $surfaceReads, "the console declares {$declared}");
+foreach (['READS.P02_ENTITY_DETAIL,"P02","NEEDS_READ_MODEL"', 'READS.P03_BATTLECARDS,"P03","NEEDS_READ_MODEL"'] as $detail) {
+    Assert::contains($detail, $surfaceReads, "the console still declares {$detail} — DETAIL_READS_NOT_INCLUDED, and still true");
 }
 
 $scopeMatrix = (string) file_get_contents(dirname(__DIR__, 2) . '/docs/PORT_SCOPE_MATRIX.md');
-foreach (['| P02 web surface | **INDEX_AND_DETAIL_READS_WIRED**', '| P03 web surface | **INDEX_AND_DETAIL_READS_WIRED**'] as $row) {
+foreach (['| P02 web surface | **INDEX_READS_WIRED / DETAIL_READS_NOT_INCLUDED**', '| P03 web surface | **INDEX_READS_WIRED / DETAIL_READS_NOT_INCLUDED**'] as $row) {
     Assert::contains($row, $scopeMatrix, 'the scope matrix states the classification the code has');
 }

@@ -1,7 +1,6 @@
 import { OverviewView } from "../views/operator/overview.jsx";
 import { NeedsYouView } from "../views/operator/needs-you.jsx";
 import { CompetitionMonitorView } from "../views/p01/competition-monitor.jsx";
-import { MonitorRunsView } from "../views/p01/monitor-runs.jsx";
 import { EntityContextView } from "../views/p02/entity-context.jsx";
 import { ProspectQueueView } from "../views/p03/prospect-queue.jsx";
 import { DistributionView } from "../views/p04/distribution.jsx";
@@ -25,7 +24,6 @@ export const ROUTES = Object.freeze({
   "overview": OverviewView,
   "needs-you": NeedsYouView,
   "p01": CompetitionMonitorView,
-  "monitor-runs": MonitorRunsView,
   "p02": EntityContextView,
   "p03": ProspectQueueView,
   "p04": DistributionView,

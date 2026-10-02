@@ -18,9 +18,6 @@ final class ConsoleReadEnvelope
         $decision = (string) ($ownerResult['decision'] ?? 'DENIED');
         $reasons = array_values(array_map('strval', (array) ($ownerResult['reason_codes'] ?? [])));
         $requiredPermission = $ownerResult['required_permission'] ?? null;
-        if ($decision === 'NOT_FOUND') {
-            return self::notFound($source, $requiredPermission === null ? null : (string) $requiredPermission, $reasons);
-        }
 
         if ($decision !== 'VISIBLE') {
             return Response::json(self::payload(
@@ -76,13 +73,6 @@ final class ConsoleReadEnvelope
                 null,
             ), 403);
         }
-        if ($decision === 'NOT_FOUND') {
-            return self::notFound(
-                $source,
-                isset($read['required_permission']) ? (string) $read['required_permission'] : null,
-                array_values(array_map('strval', (array) ($read['reason_codes'] ?? ['NOT_FOUND']))),
-            );
-        }
         if ($decision !== 'VISIBLE') {
             return self::unavailable($source);
         }
@@ -119,30 +109,6 @@ final class ConsoleReadEnvelope
             ['NO_ACTIVE_WORKSPACE'],
             null,
         ), 409);
-    }
-
-    /**
-     * A detail selector that names nothing the caller may see. Either the caller HOLDS the read
-     * permission (the owner decided that first) or the selector is malformed and so names nothing
-     * anywhere; neither is a denial. An unknown id and another workspace's id give the same answer,
-     * so a selector cannot be used to learn what exists elsewhere.
-     *
-     * @param list<string> $reasons
-     */
-    public static function notFound(string $source, ?string $requiredPermission, array $reasons): Response
-    {
-        return Response::json(self::payload(
-            $source,
-            null,
-            'VISIBLE',
-            $requiredPermission,
-            $reasons,
-            'EMPTY',
-            'UNKNOWN',
-            'NOT_FOUND',
-            $reasons,
-            null,
-        ), 404);
     }
 
     public static function unavailable(string $source): Response

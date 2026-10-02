@@ -86,13 +86,8 @@ $observed['console_unexpected_entries'] = $consoleUnexpected;
 
 $tick = (string) @file_get_contents($root . '/worker/tick.php');
 $schedulerEntry = (string) @file_get_contents($root . '/public_html/scheduler.php');
-// The empty registry is the composition whenever no schedule is admitted (P07): the literal must
-// still be there, and it must be the only SchedulerRunner either entry point constructs. Whether a
-// schedule IS admitted is observed from the database below — a stood-down deployment holds none.
 $emptyRegistry = str_contains($tick, 'new SchedulerRunner(new JobMachine($db, new Clock()), [])')
-    && str_contains($schedulerEntry, 'new SchedulerRunner(new JobMachine($db, $clock), [])')
-    && preg_match_all('/new\s+SchedulerRunner\s*\(/', $tick) === 1
-    && preg_match_all('/new\s+SchedulerRunner\s*\(/', $schedulerEntry) === 1;
+    && str_contains($schedulerEntry, 'new SchedulerRunner(new JobMachine($db, $clock), [])');
 $emptyCredentialAttempt = SchedulerAuth::verify($env, '');
 $postOnly = str_contains($schedulerEntry, "!== 'POST'");
 $credentialConfigured = $env->has('SCHEDULER_TOKEN') || $env->has('SCHEDULER_TOKEN_HASH');
@@ -160,19 +155,6 @@ try {
     }
 } catch (\PDOException) {
     // A release older than migration 210 has no grants table, and therefore no grant.
-}
-
-// Monitor schedules still ADMITTED or future-admitted anywhere in this runtime database (P07). Each
-// one would make the scheduler compose its MONITOR_STEP handler on the next tick. Read-only.
-$observed['admitted_monitor_schedules'] = 0;
-try {
-    $scheduleStore = new \Allfather\Loopia\Workflow\ScheduleService($db, $clock, $grantStore, $decisions, new \Allfather\Loopia\Workflow\MissionConfiguration($db, $clock));
-    foreach ($db->all('SELECT monitor_schedule_version_id FROM monitor_schedules') as $row) {
-        $status = $scheduleStore->status((string) $row['monitor_schedule_version_id']);
-        $observed['admitted_monitor_schedules'] += in_array($status, ['ADMITTED', 'NOT_YET_VALID'], true) ? 1 : 0;
-    }
-} catch (\PDOException) {
-    // A release older than migration 250 has no schedule table, and therefore no schedule.
 }
 
 $ledger = new DecisionLedger($db, $clock);

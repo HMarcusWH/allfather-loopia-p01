@@ -25,10 +25,6 @@ $routes = [
     '/console/api/v1/p04/distributions',
     '/console/api/v1/p05/drafts',
     '/console/api/v1/m10/decisions',
-    '/console/api/v1/p02/entity-detail',
-    '/console/api/v1/p03/prospect-detail',
-    '/console/api/v1/monitor/runs',
-    '/console/api/v1/monitor/run',
 ];
 foreach ($routes as $route) {
     Assert::contains("\$kernel->route('GET', '{$route}'", $index, "PR6 registers exact GET read route {$route}");
@@ -70,25 +66,12 @@ foreach ((new ReflectionClass(\Allfather\Loopia\Http\Controllers\ConsoleReadCont
 sort($readMethods, SORT_STRING);
 Assert::equalsList(
     [
-        'context', 'decisions', 'monitorRun', 'monitorRuns', 'p01Battlecards', 'p02Entities', 'p02EntityDetail', 'p02Relationships',
-        'p03Monitored', 'p03PriorityQueue', 'p03ProspectDetail', 'p04Distributions', 'p05Drafts',
+        'context', 'decisions', 'p01Battlecards', 'p02Entities', 'p02Relationships',
+        'p03Monitored', 'p03PriorityQueue', 'p04Distributions', 'p05Drafts',
     ],
     $readMethods,
-    'the browser read controller exposes exactly the thirteen registered reads (nine PR6 + four P09) and nothing else',
+    'the browser read controller exposes exactly the nine registered reads and nothing else',
 );
-// P09 detail selectors are the only other query values a read accepts, and each is a SELECTOR the
-// owner re-checks against the session scope — never scope itself.
-foreach (["\$request->query['snapshot']", "\$request->query['output']", "\$request->query['run']"] as $selector) {
-    Assert::contains($selector, $controller, "a P09 detail read takes only its selector {$selector}");
-}
-// Every /console/api/v1 route the front controller registers is a GET with JSON authentication.
-preg_match_all('#\$kernel->route\(\'([A-Z]+)\', \'(/console/api/v1/[^\']+)\'[^;]*;#', $index, $apiRoutes, PREG_SET_ORDER);
-Assert::same(count($routes), count($apiRoutes), 'no API route exists beyond the explicit list');
-foreach ($apiRoutes as [$whole, $method, $path]) {
-    Assert::same('GET', $method, "{$path} is a read");
-    Assert::contains("'JSON_401'", $whole, "{$path} answers an anonymous caller with JSON 401");
-}
-Assert::same(count($apiRoutes), count(array_unique(array_column($apiRoutes, 2))), 'and no API route is registered twice');
 // ASSERTED PER METHOD, not by counting call sites. The two P03 siblings delegate to one private
 // helper, so there are eight `safe()` sites for nine reads — and a count would therefore have to
 // encode that arithmetic, which is exactly the kind of assertion that gets "fixed" by bumping the
@@ -131,7 +114,7 @@ Assert::contains('verifyStream', $ledgerAdapter, 'ledger integrity is recomputed
 
 Assert::contains('HttpConsoleDataSource', $entry, 'production React entry uses the governed HTTP datasource');
 Assert::false(str_contains($entry, 'CanonicalConsoleDataSource'), 'production entry no longer uses the inert Phase-1 datasource');
-foreach (['P01_BATTLECARDS','P02_ENTITY_INDEX','P02_RELATION_INDEX','P02_ENTITY_DETAIL','P03_QUEUE','P03_WATCH','P03_PROSPECT_DETAIL','P04_DISTRIBUTIONS','P05_DRAFTS','LEDGER','MONITOR_RUNS','MONITOR_RUN'] as $read) {
+foreach (['P01_BATTLECARDS','P02_ENTITY_INDEX','P02_RELATION_INDEX','P03_QUEUE','P03_WATCH','P04_DISTRIBUTIONS','P05_DRAFTS','LEDGER'] as $read) {
     Assert::contains("READS.{$read}", $httpDatasource, "HTTP datasource explicitly maps {$read}");
 }
 Assert::false(str_contains($httpDatasource, 'P03_BATTLECARDS]:'), 'HTTP datasource contains no P03 battlecard endpoint mapping');

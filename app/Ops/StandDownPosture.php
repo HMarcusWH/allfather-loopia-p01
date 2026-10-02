@@ -32,7 +32,6 @@ final class StandDownPosture
      *     failing_stream_ids: list<string>,
      *     failing_monitor_run_ids?: list<string>,
      *     admitted_execution_grants?: int,
-     *     admitted_monitor_schedules?: int,
      *     maintenance_state?: string,
      *     maintenance_operation_state?: string,
      *     maintenance_operation_kind?: ?string
@@ -97,12 +96,6 @@ final class StandDownPosture
             $findings[] = "{$admitted} execution grant(s) are still admitted or future-admitted — suspend or revoke them with ops/monitor/stand-down.php";
         }
 
-        // An admitted schedule makes the next tick compose the MONITOR_STEP handler (P07).
-        $schedules = (int) ($observed['admitted_monitor_schedules'] ?? 0);
-        if ($schedules > 0) {
-            $findings[] = "{$schedules} monitor schedule(s) are still admitted or future-admitted — suspend or revoke them with ops/monitor/stand-down.php";
-        }
-
         if (($observed['maintenance_state'] ?? 'OPEN') === 'INVALID') {
             $findings[] = 'the deployment maintenance marker is invalid — runtime fails closed until an operator repairs it';
         }
@@ -153,7 +146,6 @@ final class StandDownPosture
             'failing_stream_ids' => [],
             'failing_monitor_run_ids' => [],
             'admitted_execution_grants' => 0,
-            'admitted_monitor_schedules' => 0,
             'maintenance_state' => 'OPEN',
             'maintenance_operation_state' => 'OPEN',
             'maintenance_operation_kind' => null,

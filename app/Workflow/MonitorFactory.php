@@ -43,24 +43,6 @@ final class MonitorFactory
         return self::build($db,$clock,$store,new CredentialStore($db,$clock,$keys),$source,$resolver,self::modelTransport($admitted),false,$admitted,PromptSelectionResolver::governed($approvals,$grants),$admission);
     }
 
-    /**
-     * The scheduler's Monitor composition (P07). Live source read exists only while at least one
-     * schedule is currently admitted (owner decision re-read, parent SCHEDULED_OBSERVATION grant
-     * ADMITTED); otherwise this is the inactive composition. The provider transport is ALWAYS the
-     * inactive one: a scheduled occurrence captures and compares and never calls a model, and the
-     * service principal is refused every model stage before a request is even prepared. Every
-     * capture still re-checks its own occurrence's schedule and grant through ExecutionAdmission.
-     */
-    public static function forScheduledObservation(Database $db,Clock $clock,EvidenceStore $store,SecretBox|KeyRing $keys,OwnerDecisionRegistry $decisions,string|\Closure $applicationFingerprint,ScheduleService $schedules): MonitorService
-    {
-        $approvals=new PromptApprovalStore($db,$clock,$decisions,EvaluationReport::approvalEvidence($db,dirname(__DIR__,2)));
-        $grants=new ExecutionGrantStore($db,$clock,$approvals,$decisions);
-        $admission=new ExecutionAdmission($db,$clock,$grants,$approvals,$decisions,$applicationFingerprint);
-        $admitted=ScheduleDispatcher::admittedIn($schedules);
-        [$source,$resolver]=self::liveSource($admitted);
-        return self::build($db,$clock,$store,new CredentialStore($db,$clock,$keys),$source,$resolver,self::modelTransport(false),false,$admitted,PromptSelectionResolver::governed($approvals,$grants),$admission,$schedules);
-    }
-
     /** THE one place live read is constructed; `$admitted` is the workspace admission computed above. */
     private static function liveSource(bool $admitted): array
     {
@@ -90,13 +72,13 @@ final class MonitorFactory
         if ($model->isLive()) { throw new \InvalidArgumentException('Fixture runtime cannot use a live model transport'); }
         return self::build($db,$clock,$store,$credentials,$source,$resolver,$model,true);
     }
-    private static function build(Database $db,Clock $clock,EvidenceStore $store,CredentialStore $credentials,FetchTransport $source,HostResolver $resolver,ModelTransport $model,bool $fixture,bool $native=false,?PromptSelectionResolver $prompts=null,?ExecutionAdmission $admission=null,?ScheduleService $schedules=null): MonitorService
+    private static function build(Database $db,Clock $clock,EvidenceStore $store,CredentialStore $credentials,FetchTransport $source,HostResolver $resolver,ModelTransport $model,bool $fixture,bool $native=false,?PromptSelectionResolver $prompts=null,?ExecutionAdmission $admission=null): MonitorService
     {
         $gateway=new Gateway($db,$clock,new AccessGuard($db,$clock),new Eligibility($db,$clock),new Invocation($db,$clock));
         $evidence=new EvidenceSpine($db,$clock); $context=new ContextEnvelope($db,$clock,$store);
         return new MonitorService($db,$clock,new RunJournal($db,$clock),new MissionConfiguration($db,$clock),
             new SourceCaptureStage($db,$clock,new Capture($db,$clock,$gateway,$evidence),$evidence,$store,$context,$source,$resolver),
             new ChangeDetection($db,$clock,$evidence),new ModelExecutor($db,$clock,$gateway,$credentials,$model,$context,new ModelArtifactStore($db,$clock,$store),$prompts,$admission),
-            new RunArtifacts($store),new ReleaseStages($db,$clock),$context,$fixture,$native,$prompts,$admission,$schedules);
+            new RunArtifacts($store),new ReleaseStages($db,$clock),$context,$fixture,$native,$prompts,$admission);
     }
 }
