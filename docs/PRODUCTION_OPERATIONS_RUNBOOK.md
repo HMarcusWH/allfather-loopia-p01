@@ -41,9 +41,10 @@
   (`ops/backup/export.sh`, `restore-rehearsal.sh`, `verify-restore.php`), with an off-host encrypted
   destination and a disposable restore target the operator owns.
 - Key rotation follows [`CREDENTIAL_ROTATION_RUNBOOK.md`](CREDENTIAL_ROTATION_RUNBOOK.md).
-- **Gap:** the evidence registry has no kind for a production full-restore or rotation drill, so the
-  preflight cannot pass its `RECOVERY_READINESS` check yet. Adding those kinds is a reviewed change to
-  `app/Ops/DeploymentEvidence.php` and its foundation tests, made together with the first real drill.
+- The evidence registry has explicit `FULL_RESTORE_DRILL` and `KEY_ROTATION_DRILL` kinds, but they
+  grant no authority and currently have no production records. `RECOVERY_READINESS` therefore stays
+  failed until real production drills are performed, sanitized evidence is retained, and reviewed
+  records name that exact production host/release.
 
 ## 4. Stand-down and incidents
 
