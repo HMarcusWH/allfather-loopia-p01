@@ -30,6 +30,9 @@ use Allfather\Loopia\Tests\ProductReleaseFixture;
 
 $root = dirname(__DIR__, 2);
 $preflight = static function (array $flags) use ($root): array {
+    // This acceptance fixture speaks about one explicit synthetic production host.
+    // Missing-target refusal is independently covered by tests/unit/production_preflight.php.
+    $flags[] = '--target=prod.example.test';
     $command = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($root . '/ops/deploy/production-preflight.php');
     foreach ($flags as $flag) {
         $command .= ' ' . escapeshellarg($flag);
