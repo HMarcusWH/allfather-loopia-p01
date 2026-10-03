@@ -29,6 +29,8 @@ final class MonitorPrincipal
     /** The only service class/role that may act on a scheduled Monitor run. */
     public const SERVICE_CLASS = 'SYSTEM_SCHEDULER';
     public const SERVICE_ROLE_KEY = 'ROLE_SYSTEM_SCHEDULER_OBSERVER';
+    /** Canonical PR369 adopted this exact v1 seat; later same-key versions are not implicit successors. */
+    public const SERVICE_ROLE_VERSION = 1;
     public const SERVICE_ROLE_PERMISSIONS = ['mission.read', 'mission.transition', 'evidence.read', 'tool.invoke'];
 
     private function __construct(
@@ -119,19 +121,22 @@ final class MonitorPrincipal
             // to the canonical scheduler role, and require that role's permission set to remain
             // byte-for-byte the adopted four-key set. Any drift stands scheduling down.
             $memberships = $db->all(
-                "SELECT m.workspace_id, m.role_id, r.role_key
+                "SELECT m.workspace_id, m.role_id, m.role_version AS membership_role_version,
+                        r.role_key, r.role_version
                  FROM workspace_memberships m
                  JOIN roles r ON r.role_id = m.role_id
                  WHERE m.tenant_id = ? AND m.principal_type = 'SERVICE' AND m.principal_id = ?
                    AND m.status = 'ACTIVE' AND m.valid_from <= ?
                    AND (m.valid_until IS NULL OR m.valid_until > ?)
-                 ORDER BY m.workspace_id, r.role_key, m.membership_id",
+                 ORDER BY m.workspace_id, r.role_key, r.role_version, m.membership_id",
                 [$tenantId, $this->actorId, $clock->now(), $clock->now()]
             );
             if ($memberships !== []) {
                 if (count($memberships) !== 1
                     || (string) $memberships[0]['workspace_id'] !== $workspaceId
-                    || (string) $memberships[0]['role_key'] !== self::SERVICE_ROLE_KEY) {
+                    || (string) $memberships[0]['role_key'] !== self::SERVICE_ROLE_KEY
+                    || (int) $memberships[0]['role_version'] !== self::SERVICE_ROLE_VERSION
+                    || (int) $memberships[0]['membership_role_version'] !== self::SERVICE_ROLE_VERSION) {
                     return Outcome::refuse('MONITOR_SERVICE_ROLE_BOUNDARY_VIOLATION');
                 }
                 $actual = array_map(
