@@ -18,7 +18,8 @@ model call still needs a human to inspect the exact request, and both human revi
 Admitting the grant's budget does not admit a recurrence, and the reverse cannot happen: a schedule is
 admitted only while its grant is ADMITTED, and every occurrence re-reads both decisions. A decision
 must cite the canonical authority it relies on. Canonical PR369, merged as `411aba91423265e578813afbc8f64318320ef08d`, defines the dedicated
-`ROLE_SYSTEM_SCHEDULER_OBSERVER` seat (see §8).
+`ROLE_SYSTEM_SCHEDULER_OBSERVER` **v1** seat (see §8). P07 resolves and authorizes that exact version;
+a later same-key role definition is not an implicit successor and fails closed until separately adopted.
 
 ## 2. Who acts
 
