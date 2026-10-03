@@ -55,6 +55,7 @@ use Allfather\Loopia\Ops\MaintenanceGate;
 use Allfather\Loopia\Product\P01\Entitlements;
 use Allfather\Loopia\Product\P01\Registration as P01Registration;
 use Allfather\Loopia\Product\P02\Registration as P02Registration;
+use Allfather\Loopia\Product\P03\Assurance as P03Assurance;
 use Allfather\Loopia\Product\P03\Registration as P03Registration;
 use Allfather\Loopia\Product\P04\Registration as P04Registration;
 use Allfather\Loopia\Product\P05\Registration as P05Registration;
@@ -64,6 +65,7 @@ use Allfather\Loopia\Substrate\M03\Registry as M03Registry;
 use Allfather\Loopia\Substrate\M06\Registry as ToolRegistry;
 use Allfather\Loopia\Substrate\M08\PolicySets;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
+use Allfather\Loopia\Substrate\M11\Assurance as M11Assurance;
 use Allfather\Loopia\Substrate\M16\ReleaseOutput;
 use Allfather\Loopia\Support\Bootstrap;
 use Allfather\Loopia\Support\Env;
@@ -277,7 +279,8 @@ $registrars = [
         $db, $clock, $m03, $eligibility, $tools, $policySets, $entitlements
     ))->registerEntityTwinCurator($scope),
     'P03' => static fn (): mixed => (new P03Registration(
-        $db, $clock, $m03, $eligibility, $tools, $policySets, $entitlements
+        $db, $clock, $m03, $eligibility, $tools, $policySets, $entitlements,
+        new P03Assurance($db, $clock, new M11Assurance($db, $clock, new DecisionLedger($db, $clock))),
     ))->registerLeadQualification($scope),
     'P04' => static fn (): mixed => (new P04Registration(
         $db, $clock, $m03, $eligibility, $tools, $policySets, $entitlements
@@ -330,6 +333,7 @@ echo json_encode([
             'capability_contract_id' => $r['capability_contract_id'] ?? null,
             'governed_tool_id' => $r['governed_tool_id'] ?? null,
             'arbiter_policy_set_id' => $r['arbiter_policy_set_id'] ?? null,
+            'audit_profile_ids' => $r['audit_profile_ids'] ?? [],
         ],
         $results
     ),

@@ -40,10 +40,11 @@ Every inclusion is bound to a recorded upstream owner gate. See
 
 **Inclusion is not uniform depth.** This is a vertical slice: deepest at P01, P04 and P05, and
 progressively shallower through P02 and P03 — P02 stops at the promoted entity/relationship twin
-slice and has released snapshot paths, while P03 includes governed released prospect outputs. P03
-still lacks the full assurance/audit profile used by the deeper slices. What is present and what is
-absent per object is in [`PORT_SCOPE_MATRIX.md`](./docs/PORT_SCOPE_MATRIX.md) §3, with the gaps
-collected in §3.7.
+slice and has released snapshot paths, while P03 includes governed released prospect outputs. P03's
+three canonical post-outcome audits are ported in source (P08, see
+[`P03_ASSURANCE_PORT.md`](./docs/P03_ASSURANCE_PORT.md)) but are not deployed, scheduled or run, so
+P03 does not yet have an assurance plane in operation. What is present and what is absent per object
+is in [`PORT_SCOPE_MATRIX.md`](./docs/PORT_SCOPE_MATRIX.md) §3, with the gaps collected in §3.7.
 
 ## Documentation
 
