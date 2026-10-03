@@ -549,9 +549,9 @@
     }
   ],
   "branch_candidate": {
-    "branch": "claude/gifted-wozniak-ooz1av",
+    "branch": "claude/p12-production-preflight",
     "merge_state": "NOT_MERGED",
-    "qualification_state": "LOCAL_STRICT_SUITE_MARIADB_10_11_ONLY_NOT_HOSTED_CI",
+    "qualification_state": "STACK_CODE_HOSTED_CI_PASS_37070098119_AT_B1854574_FOLLOW_UP_COMMITS_LOCAL_ONLY",
     "deployment_state": "NOT_DEPLOYED",
     "activation_state": "NOT_ACTIVATED",
     "packages": [
@@ -589,6 +589,14 @@
         ],
         "note": "no enum, migration, lock or evidence change"
       }
-    ]
+    ],
+    "stacked_on": [
+      "claude/p09-console-administration",
+      "claude/p07-monitor-scheduling"
+    ],
+    "p08_reviewed_separately_in": {
+      "pull_request": 30,
+      "branch": "claude/gifted-wozniak-ooz1av"
+    }
   }
 }

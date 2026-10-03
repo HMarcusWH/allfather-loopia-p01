@@ -2,9 +2,11 @@
 
 **Adopted as the engineering plan of record:** 27 September 2026. **Status:** **P00–P06, P10 and P11 are
 merged** through PR28; merged main is hosted-CI qualified, while P06 live operational evidence remains
-pending. P07, P08 and P09 are implemented and offline-tested on the unmerged branch
-`claude/gifted-wozniak-ooz1av`; P12 is present there only as inert scaffolding (a read-only production
-preflight, documents and refusal tests), because its canonical decisions have not been taken. A candidate implementation is not a merge, qualification,
+pending. P07, P08 and P09 are implemented and offline-tested on unmerged branches: P08 is reviewed in PR #30
+(`claude/gifted-wozniak-ooz1av`); P07, P09 and inert P12 scaffolding (a read-only production
+preflight, documents and refusal tests) are on the follow-up branches `claude/p07-monitor-scheduling`,
+`claude/p09-console-administration` and `claude/p12-production-preflight`. P12's canonical decisions have
+not been taken; P12 is not complete. A candidate implementation is not a merge, qualification,
 deployment, funded model evaluation, activation or authority grant. The current state of the
 application is
 [`MVP_RELEASE_STATE.md`](MVP_RELEASE_STATE.md), not this plan.

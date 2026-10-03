@@ -6,7 +6,7 @@ described as deployed or a deployment gets described as activated:
 
 | Question | Current answer | Evidence |
 | --- | --- | --- |
-| **Source** — what application code is in this release tree? | P00–P06, P10 and P11 are merged through PR28 at `1a99f72b`; P07, P08, P09 and inert P12 scaffolding exist only on the unmerged branch `claude/gifted-wozniak-ooz1av` | Git history; [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) |
+| **Source** — what application code is in this release tree? | P00–P06, P10 and P11 are merged through PR28 at `1a99f72b`; P07, P08, P09 and inert P12 scaffolding exist only as an unmerged follow-up stack (P08 is reviewed separately in PR #30 on `claude/gifted-wozniak-ooz1av`; P07, P09 and P12 are on `claude/p07-monitor-scheduling`, `claude/p09-console-administration` and `claude/p12-production-preflight`, each stacked on the previous) | Git history; [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) |
 | **Tested** — which exact commit was qualified, and how? | merged PR28 `1a99f72b` passed hosted CI push run 36861689735; both MariaDB lanes were 7,689/0/0 | §2; `deployment-evidence.json` |
 | **Deployed** — which application runs on staging? | PR16 `392f48de`, inert. **None of the Monitor work is deployed** | §3; [Gate R filing](STAGING_GATE_R_EVIDENCE_2026-09-26.md) |
 | **Activated** — what may run against the world? | nothing: no live read, no native model call, no scheduler handler, no external action | §4; `upstream.lock.json` |
@@ -58,15 +58,18 @@ candidate_migrations               = 30
 - **P11 operational state:** source/tooling is merged and hosted-CI-qualified, but no real staging
   master-key rewrap has been performed. No Loopia key material, provider credential ciphertext or
   immutable execution-grant history has been changed by the merge.
-- **Unmerged branch candidate (`claude/gifted-wozniak-ooz1av`):** P08 (P03 assurance port with
-  canonical vectors, migration 245), P07 (recurring observation: `MonitorPrincipal`, schedules,
-  occurrences, the typed `MONITOR_STEP` job, migration 250), P09 (setup and schedule console pages
-  that cannot admit anything, structured workbench sections, owner-safe P02/P03 detail reads,
-  metadata-only Monitor reads for the React console) and P12 inert scaffolding (a read-only
-  production preflight that reports `NOT_READY`, two documents, refusal tests). It is qualified only
-  by a **local** strict run on MariaDB 10.11 (8,736/0/0, plus 44/44 console frontend tests and a clean
-  console build) — not hosted CI, not MariaDB 10.6, not a host — and it
-  changes none of the four answers for merged `main`. See [`MONITOR_SCHEDULING.md`](MONITOR_SCHEDULING.md),
+- **Unmerged follow-up stack (this branch, `claude/p12-production-preflight`).** Stacked on
+  `claude/p09-console-administration` and `claude/p07-monitor-scheduling`, which sit on an early P08
+  commit; the reviewed P08 is PR #30 (`claude/gifted-wozniak-ooz1av`), and its later review fixes and
+  migration 246 are **not** in this stack. Contents: P07 (recurring observation: `MonitorPrincipal`,
+  schedules, occurrences, the typed `MONITOR_STEP` job, migration 250), P09 (setup and schedule
+  console pages that cannot admit anything, structured workbench sections, owner-safe P02/P03 detail
+  reads, metadata-only Monitor reads for the React console) and P12 inert scaffolding (a read-only
+  production preflight that reports `NOT_READY`, two documents, refusal tests). This stack's code
+  passed hosted CI pull-request run 37070098119 (run 398) at `b1854574` while it was PR #30's head;
+  the later follow-up commits on the P07 and P09 branches are qualified only by local strict runs.
+  None of it is merged, deployed or activated, and it changes none of the four answers for merged
+  `main`; **P12 is not complete**. See [`MONITOR_SCHEDULING.md`](MONITOR_SCHEDULING.md),
   [`P03_ASSURANCE_PORT.md`](P03_ASSURANCE_PORT.md) and [`PRODUCTION_PROMOTION_PLAN.md`](PRODUCTION_PROMOTION_PLAN.md).
 - **Candidate schema:** 30 migration files, including `210_monitor_execution_controls`,
   `220_monitor_evaluation_records`, `225_monitor_setup_receipts`, `230_monitor_attempt_recovery`,
