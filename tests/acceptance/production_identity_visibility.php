@@ -54,7 +54,7 @@ foreach ([
     'PRODUCTION_LAUNCH_NOT_AUTHORIZED',
     'HOSTING_ISOLATION_NOT_CLOSED',
     'PRODUCTION_RELEASE_NOT_QUALIFIED',
-    'RECOVERY_EVIDENCE_KIND_NOT_DEFINED',
+    'RECOVERY_NOT_EVIDENCED_ON_PRODUCTION',
 ] as $reason) {
     Assert::true(in_array($reason, $report['failed'] ?? [], true), "it names {$reason}");
 }
