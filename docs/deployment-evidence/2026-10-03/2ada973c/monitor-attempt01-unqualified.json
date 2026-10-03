@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0",
+  "status": "FAIL",
+  "release_ref": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+  "source_fingerprint": "6460ca1b44ab3147966037163e27e4f2c7e2e6a961cf06c4ec9ee0cdb084a21b",
+  "target": "staging.allfatherbi.com",
+  "failure_scope": "EXTERNAL_WRAPPER_REPORT_PARSER",
+  "run_id": "20261003-monitor01",
+  "actual_monitor_cli_executed": true,
+  "full_monitor_verdict_retained": false,
+  "application_failure_established": false,
+  "reason_code": "UNEXPECTED_MONITOR_STEP_NAME",
+  "explanation": "The wrapper allowlist recognized single-quoted literal names but omitted the smoke client's four exact double-quoted generated stylesheet/script labels. Parsing stopped at asset checks after the CLI had completed its requests.",
+  "original_report_status_correction": "monitor-status.json retains its original NOT_RUN default; this is inaccurate after invocation. Actual state is REPORT_RECEIVED_NOT_QUALIFIED. The original receipt is preserved unchanged.",
+  "gate_n_status": "SMOKE_PASS",
+  "cleanup_status": "RETIRED_AND_ZERO_LIVE_SESSIONS",
+  "runtime_counts_unchanged": true,
+  "source_and_model_and_grant_counts": {
+    "counts": {
+      "monitor_runs": 0,
+      "monitor_execution_grants": 0,
+      "monitor_execution_grant_events": 0,
+      "provider_model_attempts": 0,
+      "provider_model_results": 0,
+      "provider_call_records": 0,
+      "source_capture_reservations": 0,
+      "source_snapshots": 0,
+      "ingestion_capture_reservations": 0,
+      "ingestion_raw_captures": 0
+    },
+    "current_admitted_grants": 0,
+    "future_admitted_grants": 0
+  },
+  "sources": [
+    {
+      "local_observation": "monitor-smoke/20261003-monitor01/monitor-status.json",
+      "sha256": "7edbae3796f893035cd83ff0927acaf61e7aee6c8f742673dfc38ea0da09239c"
+    },
+    {
+      "local_observation": "monitor-smoke/20261003-monitor01/gate-no-status.json",
+      "sha256": "98687baa899e758087dc9f3f6ea7d88bf9cadeda7f1af023e79a663e7bc9932f"
+    },
+    {
+      "local_observation": "monitor-smoke/20261003-monitor01/attempt-reconciliation.json",
+      "sha256": "0c48f7f4d536a37a5a1133b9735137fee07f403fb8d484f809157b5ba144a530"
+    }
+  ]
+}

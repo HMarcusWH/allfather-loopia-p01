@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "status": "PASS",
+  "release_ref": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+  "source_fingerprint": "6460ca1b44ab3147966037163e27e4f2c7e2e6a961cf06c4ec9ee0cdb084a21b",
+  "target": "staging.allfatherbi.com",
+  "php_version": "8.5.9",
+  "mariadb_version": "10.11.19-MariaDB-log",
+  "baseline_verdict": "READY",
+  "network_verdict": "READY",
+  "live_read_host_capability": "READY",
+  "scheduler_transport": "UNVERIFIED",
+  "outbound_probe_target": "example.com",
+  "outbound_probe_http_status": 200,
+  "grants_runtime_authority": false,
+  "activates_live_read": false,
+  "sources": [
+    {
+      "local_observation": "host-qualification/main-20261003-qual01/probe-baseline.json",
+      "sha256": "be925a574df859de7458627f7a257b3f620fa05c44aed8323bde232ea3ca13f6"
+    },
+    {
+      "local_observation": "host-qualification/main-20261003-qual01/probe-network.json",
+      "sha256": "075685993a9bd322b7b8a99947e9c5a7e635a05cc8dbcf385ed42705b9ee4d44"
+    }
+  ]
+}
