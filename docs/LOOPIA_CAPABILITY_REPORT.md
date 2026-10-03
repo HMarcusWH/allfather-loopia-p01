@@ -249,8 +249,12 @@ pages sit beside the workbench: `/console/monitor/setup` plans and applies a `Mo
 (apply must carry the reviewed plan digest; profile import and credentials stay private CLI), and
 `/console/monitor/schedule` plans, proposes, suspends and revokes a `ScheduleService` version
 (a proposal is bound to the digest the operator reviewed). **Neither page can admit anything** —
-schedule and grant admission need a reviewed owner decision and stay CLI acts, which
-`tests/foundation/execution_authority_boundary.php` pins as an explicit per-file allowance. The
+schedule and grant admission need a reviewed owner decision and stay CLI acts.
+`tests/foundation/execution_authority_boundary.php` classifies every authority-bearing public method
+(admission, prompt approval/withdrawal, the grant lifecycle, owner decisions, role assignment,
+entitlement, credential creation/rotation) by reflection and pins the exact per-file web allowance:
+setup may call only `plan` and `apply` on `MonitorSetup`; schedules only `plan`, `propose`,
+`suspend` and `revoke` on `ScheduleService`; every other web file, none. The
 workbench now shows structured sections (source basis, before/after evidence, findings, draft,
 critic concerns, request disclosure, review history, recorded-versus-current release) with the exact
 JSON behind expanders, and the React console gains four GET reads: `/console/api/v1/p02/entity-detail`,
@@ -258,7 +262,11 @@ JSON behind expanders, and the React console gains four GET reads: `/console/api
 `/console/api/v1/monitor/run`. A detail selector is never scope: permission is decided first, and
 another workspace's id answers exactly like an unknown one (404, distinct from a 403 denial).
 Tests: `tests/security/product_detail_reads.php`, `tests/security/monitor_administration.php`,
-`frontend/console/tests/monitor-reads.test.js`. Deployed-browser journeys remain to be run on a host.
+`tests/security/monitor_setup_journey.php` (one successful setup through the real Kernel, with
+before/after row counts and content digests of every authority table and no secret in any response,
+log or stored row), `frontend/console/tests/monitor-reads.test.js`. **Deployed-browser journeys
+(desktop and mobile, on staging) remain an operational gate**; the offline journey does not satisfy
+it.
 
 **Released-intelligence read surfaces use governed projections.** The new Monitor workbench has
 a different purpose: it reads the scoped run journal and private content-addressed request,
