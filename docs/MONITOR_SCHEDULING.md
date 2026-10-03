@@ -142,6 +142,23 @@ new email or SMS channel.
   operator scope, and both read the actor or the delegating operator they always read.
 - Not done here: a qualified external scheduler identity on a real host, any admitted schedule, and
   bounded P08 audit jobs on the same machinery (they wait for an admitted scheduling policy).
+- **Blocked upstream: provisioning the scheduler identity.** Every schedule names a tenant-bound
+  `SYSTEM_SCHEDULER` service identity holding its **own** workspace membership. There is no governed
+  operator path that creates that identity or its membership: nothing under `app/` or `ops/` writes
+  `service_identities`, and only the offline fixture (`tests/support/ScheduleFixture.php`) inserts
+  one. That path must not be invented locally. In particular, giving the service
+  `ROLE_WORKSPACE_OPERATOR` (or any other existing role) is not a shortcut, because the role and exact
+  permission set a scheduler may hold is what the pending upstream service-delegation decision has to
+  fix. Until it lands, the code fails closed: no supported path can create the identity, so in any
+  real database planning refuses (`SCHEDULE_SERVICE_IDENTITY_INVALID`, or
+  `SCHEDULE_PRINCIPAL_NOT_AUTHORIZED` for an identity without its own authority) and nothing can be
+  scheduled. Once the decision lands, two things become the **P07 merge gate**:
+  1. a private plan → provision CLI for the identity and its membership, under that decision;
+  2. a fixture-free end-to-end test: provisioned scope → grant → proposed schedule → owner-admitted →
+     tick → exactly one occurrence → capture/diff → `WAITING_FOR_OPERATOR` at `DIFFED`. It must also
+     show no model call, no auto-submitted request digest, no review, no release, no duplicate
+     capture on repeated ticks, a stop on revocation and on expiry, and the service and its
+     delegator recorded separately.
 
 ## 9. Tests
 
@@ -155,3 +172,18 @@ new email or SMS channel.
   — two-connection reservation and claim races, a held source lock, two series on one source, forged
   principals and delegators, a withdrawn decision, and storage pins on every new table and the jobs
   vocabulary.
+- [`tests/integration/p07_migration_order.php`](../tests/integration/p07_migration_order.php) —
+  migration 250 as an in-place upgrade, run in both MariaDB lanes (10.6 and 10.11). It builds the
+  true pre-P07 projection: every migration except 250, so historical `900` is already applied and
+  ledgered. It writes v1 runs and events exactly as the pre-P07 `RunJournal` did, plus legacy jobs,
+  then runs the ordinary Migrator. It proves:
+  - 250 alone applies, once, with its file digest; 900 is neither replayed nor drifted;
+  - the historical v1 rows survive byte for byte and replay through the current journal with
+    identical digests;
+  - new v2 service events (including one appended to a v1 chain) replay, and the actor-version CHECK
+    and the recreated freeze trigger hold;
+  - over every job type × state × subject, the upgraded `jobs` table accepts exactly what it accepted
+    before plus the five `MONITOR_STEP`-over-an-occurrence combinations;
+  - a second pass is a no-op, and the upgraded schema and ledger equal a fresh install.
+
+  The test always leaves the database at the full current schema.
