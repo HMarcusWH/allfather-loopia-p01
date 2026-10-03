@@ -134,6 +134,8 @@ an anonymous host record speak for a host.
 | `STAGING_DEPLOYMENT` | a release copied to the staging host and answering |
 | `LOOPIA_PROBE_001` | the host capability probe run **on the actual host**, not in a container |
 | `CROSS_SITE_ISOLATION` | the pre-secret canary and HTTP private-path probes, run on the real host |
+| `FULL_RESTORE_DRILL` | a native encrypted backup restored into a different initially empty target and fully verified; operational recovery evidence only |
+| `KEY_ROTATION_DRILL` | a versioned credential-key rotation/recovery drill proving retained-backup decryptability and v2-only refusal; operational recovery evidence only |
 | `STAGING_SMOKE` | the deployed site exercised over HTTPS from outside |
 | `ROLLBACK_DRILL` | a rollback and stand-down actually performed and verified |
 | `LIVE_READ_ACTIVATION` | live read wired and a real fetch performed, for one exact release |
@@ -243,9 +245,11 @@ read-only retained-output render models. Those facts may establish what was back
 clean-target rehearsal reproduced; they may not make `production_launch_authorized`,
 `owner_go_granted`, `customer_visible_output_authorized` or any execution grant true.
 
-The repository evidence registry does not yet invent a BACKUP or RESTORE record kind. P10 tooling
-therefore emits its own sanitized manifest and verification result; adding a registry kind is a
-separate versioned schema review. The encrypted archive, plaintext dump/evidence tree and recovery
+The registry now has two deliberately non-authorizing recovery kinds: `FULL_RESTORE_DRILL` and
+`KEY_ROTATION_DRILL`. They support none of the five claim-boundary booleans; they exist so a later
+production preflight can require reviewed production recovery observations without confusing those
+observations with owner GO. P10/P11 tooling still emits its own sanitized manifest/verification
+result, and a record is filed only after a real drill exists. The encrypted archive, plaintext dump/evidence tree and recovery
 identity are never registry payloads. A failed restore rehearsal must remain a failed observation,
 and a successful one proves only that the selected encrypted backup was imported into an explicitly
 empty, different target and reproduced its database/private-artifact/request-log/governed-history
