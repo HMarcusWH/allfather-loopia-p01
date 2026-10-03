@@ -17,9 +17,8 @@ model call still needs a human to inspect the exact request, and both human revi
 
 Admitting the grant's budget does not admit a recurrence, and the reverse cannot happen: a schedule is
 admitted only while its grant is ADMITTED, and every occurrence re-reads both decisions. A decision
-must cite the canonical authority it relies on. Canonical draft PR369 now defines the dedicated
-`ROLE_SYSTEM_SCHEDULER_OBSERVER` seat; an actual admission still waits for that upstream change to
-be adopted/merged (see §8).
+must cite the canonical authority it relies on. Canonical PR369, merged as `411aba91423265e578813afbc8f64318320ef08d`, defines the dedicated
+`ROLE_SYSTEM_SCHEDULER_OBSERVER` seat (see §8).
 
 ## 2. Who acts
 
@@ -137,15 +136,15 @@ new email or SMS channel.
   not have. The occurrence records the run, its revision and that it waits at `DIFFED`; the
   workbench computes and shows the exact request when the human opens it.
 - **Canonical delegation is explicit, not inferred locally.** `SCHEDULED_OBSERVATION` remains the
-  projection's bounded execution purpose (P01), while canonical draft PR369 adds only the narrow M02
-  service seat required to represent `SYSTEM_SCHEDULER` authority. The projection will not treat that
-  authority as settled until PR369 is adopted/merged, and no real schedule is admitted here.
+  projection's bounded execution purpose (P01), while canonical PR369 (merge `411aba91423265e578813afbc8f64318320ef08d`) adds only the narrow M02
+  service seat required to represent `SYSTEM_SCHEDULER` authority. That authority is now adopted;
+  no real schedule is admitted merely because the role exists.
 - `ContextEnvelope` and `MissionConfiguration` needed no change: the principal rides beside the
   operator scope, and both read the actor or the delegating operator they always read.
 - Not done here: a qualified external scheduler identity on a real host, any admitted schedule, and
   bounded P08 audit jobs on the same machinery (they wait for an admitted scheduling policy).
 - **Scheduler-principal provisioning is now implemented behind the canonical authority change.**
-  Canonical PR369 defines the dedicated `ROLE_SYSTEM_SCHEDULER_OBSERVER` seat with exactly
+  Canonical PR369, merged as `411aba91423265e578813afbc8f64318320ef08d`, defines the dedicated `ROLE_SYSTEM_SCHEDULER_OBSERVER` seat with exactly
   `mission.read`, `mission.transition`, `evidence.read` and `tool.invoke` — deliberately
   narrower than `ROLE_WORKSPACE_OPERATOR`. This projection ports that role and adds
   `SchedulerIdentityProvisioner` plus the private `ops/monitor/scheduler-identity.php` CLI:
@@ -159,9 +158,8 @@ new email or SMS channel.
   suspension/revocation. The existing `monitor_schedule.php` journey then proves
   provisioned service → admitted grant → proposed/admitted schedule → tick → capture/diff →
   `WAITING_FOR_OPERATOR`, while keeping model invocation, review and release human-only.
-- Until canonical PR369 is merged/adopted, this remains a projection candidate rather than settled
-  upstream authority. Even after adoption, no schedule exists merely because the service seat can
-  be provisioned: a current `SCHEDULED_OBSERVATION` execution grant and a reviewed owner decision
+- Canonical PR369 is now merged/adopted. No schedule exists merely because the service seat can be
+  provisioned: a current `SCHEDULED_OBSERVATION` execution grant and a reviewed owner decision
   naming the exact schedule digest are still independently required.
 
 ## 9. Tests
