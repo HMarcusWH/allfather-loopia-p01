@@ -89,7 +89,8 @@ Assert::same('[]', $db->scalar('SELECT permitted_output_classes FROM missions'),
 Assert::same(0, (int) $db->scalar("SELECT COUNT(*) FROM mission_assignments WHERE assigned_output_classes <> '[]'"), 'neither assignment has product-output scope');
 Assert::same('["ANALYZE"]', $db->scalar('SELECT requested_action_classes FROM missions'), 'mission ceiling is analyze only');
 foreach ($governance as $command) {
-    $eligible = (new Eligibility($db, $clock))->evaluateToolRight($command + ['requested_operation' => ModelRegistration::OPERATION_KEY, 'purpose' => 'MODEL_EVALUATION']);
+    // MODEL_EVALUATION is the native grant purpose, not M03's authority-audit purpose vocabulary.
+    $eligible = (new Eligibility($db, $clock))->evaluateToolRight($command + ['requested_operation' => ModelRegistration::OPERATION_KEY, 'purpose' => 'TOOL_RIGHT']);
     Assert::same('PERMITTED_BY_CONTRACT', $eligible['decision'], 'actual M03 eligibility accepts only the prepared model tool');
 }
 foreach (['output_class_bindings', 'provider_credentials', 'provider_model_attempts', 'monitor_execution_grants', 'monitor_runs', 'monitor_evaluation_runs', 'monitor_setup_receipts', 'competitors', 'source_license_cards', 'evidence_objects', 'released_briefings'] as $table) {
