@@ -104,6 +104,61 @@ try {
     @rmdir($tree);
 }
 
+// ============================================================ recovery evidence is production-scoped
+
+Assert::case('P12: staging recovery evidence cannot satisfy production recovery readiness');
+
+$tree = sys_get_temp_dir() . '/allfather-p12-recovery-' . Ids::new();
+mkdir($tree . '/database/migrations', 0700, true);
+foreach (glob($root . '/database/migrations/*.sql') ?: [] as $file) {
+    copy($file, $tree . '/database/migrations/' . basename($file));
+}
+$lock = json_decode((string) file_get_contents($root . '/upstream.lock.json'), true, 512, JSON_THROW_ON_ERROR);
+file_put_contents($tree . '/upstream.lock.json', json_encode($lock, JSON_THROW_ON_ERROR));
+$registry = json_decode((string) file_get_contents($root . '/deployment-evidence.json'), true, 512, JSON_THROW_ON_ERROR);
+$record = static function (string $id, string $kind, string $environment, string $target, string $release, string $at): array {
+    return [
+        'record_id' => $id,
+        'kind' => $kind,
+        'result' => 'PASS',
+        'release_ref' => $release,
+        'environment' => $environment,
+        'recorded_at' => $at,
+        'evidence_ref' => 'docs/deployment-evidence/p12/' . strtolower($id) . '.json',
+        'evidence_sha256' => str_repeat('d', 64),
+        'target' => $target,
+    ];
+};
+$release = str_repeat('c', 40);
+$registry['records'][] = $record('P12_STAGE_RESTORE', 'FULL_RESTORE_DRILL', 'staging', 'staging.allfatherbi.com', $release, '2026-10-03T16:00:00.000Z');
+$registry['records'][] = $record('P12_STAGE_ROTATE', 'KEY_ROTATION_DRILL', 'staging', 'staging.allfatherbi.com', $release, '2026-10-03T16:01:00.000Z');
+file_put_contents($tree . '/deployment-evidence.json', json_encode($registry, JSON_THROW_ON_ERROR));
+try {
+    [$code, $stageRecovery] = $preflight(['--root=' . $tree, '--release-ref=' . $release]);
+    Assert::same(1, $code, 'the temporary release is still not production-ready');
+    $checks = array_column($stageRecovery['checks'], null, 'check');
+    Assert::same('FAIL', $checks['RECOVERY_READINESS']['status'] ?? null, 'staging restore/rotation observations do not satisfy production recovery');
+    Assert::same('RECOVERY_NOT_EVIDENCED_ON_PRODUCTION', $checks['RECOVERY_READINESS']['reason_code'] ?? null, 'the refusal names absent production recovery evidence');
+
+    $registry['records'][] = $record('P12_PROD_RESTORE', 'FULL_RESTORE_DRILL', 'production', 'prod.example.test', $release, '2026-10-03T16:02:00.000Z');
+    $registry['records'][] = $record('P12_PROD_ROTATE', 'KEY_ROTATION_DRILL', 'production', 'prod.example.test', $release, '2026-10-03T16:03:00.000Z');
+    file_put_contents($tree . '/deployment-evidence.json', json_encode($registry, JSON_THROW_ON_ERROR));
+
+    [$code, $prodRecovery] = $preflight(['--root=' . $tree, '--release-ref=' . $release]);
+    Assert::same(1, $code, 'recovery observations alone still cannot make the release production-ready');
+    $checks = array_column($prodRecovery['checks'], null, 'check');
+    Assert::same('PASS', $checks['RECOVERY_READINESS']['status'] ?? null, 'both production recovery observations satisfy only the recovery prerequisite');
+    Assert::same(false, $prodRecovery['grants_go'] ?? null, 'even complete recovery evidence never grants GO');
+    Assert::same(false, $prodRecovery['customer_visibility_granted'] ?? null, 'and never grants customer visibility');
+} finally {
+    array_map('unlink', glob($tree . '/database/migrations/*.sql') ?: []);
+    @unlink($tree . '/upstream.lock.json');
+    @unlink($tree . '/deployment-evidence.json');
+    @rmdir($tree . '/database/migrations');
+    @rmdir($tree . '/database');
+    @rmdir($tree);
+}
+
 // ============================================================ the database refuses production identity
 
 $db = Harness::freshDb();
