@@ -128,23 +128,28 @@ final class MonitorPrincipal
                  ORDER BY m.workspace_id, r.role_key, m.membership_id",
                 [$tenantId, $this->actorId, $clock->now(), $clock->now()]
             );
-            if (count($memberships) !== 1
-                || (string) $memberships[0]['workspace_id'] !== $workspaceId
-                || (string) $memberships[0]['role_key'] !== self::SERVICE_ROLE_KEY) {
-                return Outcome::refuse('MONITOR_SERVICE_ROLE_BOUNDARY_VIOLATION');
+            if ($memberships !== []) {
+                if (count($memberships) !== 1
+                    || (string) $memberships[0]['workspace_id'] !== $workspaceId
+                    || (string) $memberships[0]['role_key'] !== self::SERVICE_ROLE_KEY) {
+                    return Outcome::refuse('MONITOR_SERVICE_ROLE_BOUNDARY_VIOLATION');
+                }
+                $actual = array_map(
+                    static fn (array $row): string => (string) $row['permission_key'],
+                    $db->all(
+                        'SELECT permission_key FROM role_permissions WHERE role_id = ? ORDER BY permission_key',
+                        [(string) $memberships[0]['role_id']]
+                    )
+                );
+                $expected = self::SERVICE_ROLE_PERMISSIONS;
+                sort($expected, SORT_STRING);
+                if ($actual !== $expected) {
+                    return Outcome::refuse('MONITOR_SERVICE_ROLE_AUTHORITY_DRIFT');
+                }
             }
-            $actual = array_map(
-                static fn (array $row): string => (string) $row['permission_key'],
-                $db->all(
-                    'SELECT permission_key FROM role_permissions WHERE role_id = ? ORDER BY permission_key',
-                    [(string) $memberships[0]['role_id']]
-                )
-            );
-            $expected = self::SERVICE_ROLE_PERMISSIONS;
-            sort($expected, SORT_STRING);
-            if ($actual !== $expected) {
-                return Outcome::refuse('MONITOR_SERVICE_ROLE_AUTHORITY_DRIFT');
-            }
+            // No current membership is not "broader authority"; it is ordinary absence of
+            // authority. Leave that to AccessGuard below so the existing refusal contract remains
+            // MONITOR_SERVICE_ACCESS_DENIED.
         }
         foreach ($permissions as $permission) {
             if ($guard->evaluate($this->type, $this->actorId, $tenantId, $workspaceId, $permission, $resourceType)['decision'] !== 'ALLOW') {
