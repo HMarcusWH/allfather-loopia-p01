@@ -212,14 +212,14 @@ lock asserts a claim the registry does not support (`CLAIM_WITHOUT_EVIDENCE`). I
 
 ## 8. Current state
 
-The registry carries 14 reviewed records: PR13/PR15 history, the completed PR16 inert staging
-qualification, and hosted-CI conformance records through merged PR28. The running application release is
+The registry carries 15 reviewed records: PR13/PR15 history, the completed PR16 inert staging
+qualification, and hosted-CI conformance records through merged PR30. The running application release is
 `392f48deef11380f6dccfe88f2a47ba1fd94575c` on `staging.allfatherbi.com`; this evidence-only filing
 does not substitute its own commit for that qualified runtime object.
 
 The registry supports `conformance_complete`, `staging_deployed` and
-`loopia_capability_validated`; the latest code-conformance record is merged PR28 `1a99f72b` from
-hosted push run `36861689735`, while the latest host/deployment records remain PR16. It does not support live-read activation or ROAD_TEST_001 execution.
+`loopia_capability_validated`; the latest code-conformance record is merged PR30 `0b8c17e9` from
+hosted push run `37127292912`, while the latest host/deployment records remain PR16. It does not support live-read activation or ROAD_TEST_001 execution.
 The historical `CROSS_SITE_ISOLATION` FAIL is retained: E.1 is FAIL_READABLE and E.3 is UNVERIFIED.
 The supported staging result is explicitly limited by the owner-directed staging deviation and
 cannot qualify production hosting isolation.
