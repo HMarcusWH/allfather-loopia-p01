@@ -547,5 +547,76 @@
       "qualification_state": "MERGED_MAIN_HOSTED_CI_PASS_36861689735",
       "operational_state": "NO_REAL_STAGING_REWRAP_PERFORMED"
     }
+  ],
+  "unmerged_candidates": [
+    {
+      "id": "P08",
+      "pull_request": 30,
+      "branch": "claude/gifted-wozniak-ooz1av",
+      "code_head": "149ceee8003e5f39a7ead34b958baeb538bdbf89",
+      "merge_state": "NOT_MERGED",
+      "qualification_state": "PR_HOSTED_CI_PASS_37092396485",
+      "qualification": {
+        "run_id": 37092396485,
+        "run_number": 400,
+        "event": "pull_request",
+        "tested_merge_commit": "6f62e5f4170cfb5ca9d1c782c3ab0e9224ace12b",
+        "lanes": [
+          {
+            "mariadb": "10.6.28",
+            "pass": 8677,
+            "fail": 0,
+            "skip": 0
+          },
+          {
+            "mariadb": "10.11.19",
+            "pass": 8677,
+            "fail": 0,
+            "skip": 0
+          }
+        ],
+        "release_preparation": "PASS",
+        "release_qualification_receipt": "PASS"
+      },
+      "deployment_state": "NOT_DEPLOYED",
+      "activation_state": "NOT_ACTIVATED",
+      "migrations": [
+        "245_source_card_window_width.sql",
+        "246_assurance_refs_width.sql"
+      ],
+      "note": "P02/P03/P05 expansion register rows remain OPEN; UF-003, UF-004 and UF-005 reported upstream"
+    }
+  ],
+  "follow_up_branches": [
+    {
+      "id": "P07",
+      "branch": "claude/p07-monitor-scheduling",
+      "merge_state": "NOT_IN_A_PULL_REQUEST",
+      "qualification_state": "LOCAL_STRICT_SUITE_ONLY",
+      "blocked_on": [
+        "P06_ROAD_TEST",
+        "UPSTREAM_SERVICE_DELEGATION_DECISION",
+        "OWNER_SCHEDULE_DECISION"
+      ]
+    },
+    {
+      "id": "P09",
+      "branch": "claude/p09-console-administration",
+      "merge_state": "NOT_IN_A_PULL_REQUEST",
+      "qualification_state": "LOCAL_STRICT_SUITE_ONLY",
+      "note": "deployed-browser journeys are an operational gate"
+    },
+    {
+      "id": "P12",
+      "branch": "claude/p12-production-preflight",
+      "merge_state": "NOT_IN_A_PULL_REQUEST",
+      "state": "INERT_SCAFFOLDING_ONLY",
+      "blocked_on": [
+        "CANONICAL_IDENTITY_AUDIENCE_DECISIONS",
+        "HOSTING_ISOLATION_CLOSURE",
+        "PRODUCTION_RECOVERY_EVIDENCE",
+        "OWNER_PRODUCTION_GO"
+      ]
+    }
   ]
 }
