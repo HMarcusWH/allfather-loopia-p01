@@ -553,24 +553,24 @@
       "id": "P08",
       "pull_request": 30,
       "branch": "claude/gifted-wozniak-ooz1av",
-      "code_head": "149ceee8003e5f39a7ead34b958baeb538bdbf89",
+      "code_head": "b27d2fc01d7d2b35028549c0d55e827b43432c8e",
       "merge_state": "NOT_MERGED",
-      "qualification_state": "PR_HOSTED_CI_PASS_37092396485",
+      "qualification_state": "PR_HOSTED_CI_PASS_37108613432",
       "qualification": {
-        "run_id": 37092396485,
-        "run_number": 400,
+        "run_id": 37108613432,
+        "run_number": 402,
         "event": "pull_request",
-        "tested_merge_commit": "6f62e5f4170cfb5ca9d1c782c3ab0e9224ace12b",
+        "tested_merge_commit": "c877578b12a74a5e2ea39714d1b5c8db905325db",
         "lanes": [
           {
             "mariadb": "10.6.28",
-            "pass": 8677,
+            "pass": 8942,
             "fail": 0,
             "skip": 0
           },
           {
             "mariadb": "10.11.19",
-            "pass": 8677,
+            "pass": 8942,
             "fail": 0,
             "skip": 0
           }
