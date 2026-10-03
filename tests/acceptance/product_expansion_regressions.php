@@ -136,6 +136,21 @@ Assert::same(
 // SME blockers are closed". A row may leave OPEN only in the same change that flips its pinned
 // assertion above, after the repair has landed upstream and been ported.
 $register = (string) file_get_contents(dirname(__DIR__, 2) . '/docs/P03_ASSURANCE_PORT.md');
+// Parse the §5 table into cells, so the check reads what a reader reads: one row per scenario, a
+// classification that is not HOLDS, a status cell that is exactly **OPEN**, and no second row for
+// the same scenario saying something else.
+$section = substr($register, (int) strpos($register, '## 5. P02/P03/P05 expansion register'));
+$sectionEnd = strpos($section, "\n## ", 1);
+$section = $sectionEnd === false ? $section : substr($section, 0, $sectionEnd);
+$rows = [];
+foreach (explode("\n", $section) as $line) {
+    if (!str_starts_with($line, '| ') || str_starts_with($line, '| Scenario') || str_starts_with($line, '| ---')) {
+        continue;
+    }
+    $cells = array_map('trim', explode('|', trim($line, " |")));
+    $rows[] = $cells;
+}
+Assert::true(count($rows) >= 7, 'the expansion register table parses');
 foreach ([
     'P05 Swedish comparative markers',
     'P05 Swedish urgency and trait targeting',
@@ -144,14 +159,26 @@ foreach ([
     'P03 owner-upload licence mapping',
     'P03 catalogue audit from a sibling workspace',
     'P02 foreign-scope working-state writes',
+    'P05 negated comparison',
+    'P05 unmarked comparison',
+    'P03 structured ICP size discrimination',
 ] as $openRow) {
-    Assert::true(
-        preg_match('/^\| ' . preg_quote($openRow, '/') . '[^\n]*\| \*\*OPEN\*\* \|/m', $register) === 1,
-        "the expansion register still lists '{$openRow}' as OPEN",
-    );
+    $matching = array_values(array_filter($rows, static fn (array $cells): bool => str_starts_with($cells[0], $openRow)));
+    Assert::same(1, count($matching), "the expansion register has exactly one row for '{$openRow}'");
+    $cells = $matching[0] ?? ['', '', '', ''];
+    Assert::same(4, count($cells), "'{$openRow}' has scenario, classification, status and behaviour cells");
+    Assert::true(($cells[1] ?? '') !== '' && !str_contains(strtoupper($cells[1] ?? ''), 'HOLDS'), "'{$openRow}' is not classified HOLDS");
+    Assert::same('**OPEN**', $cells[2] ?? null, "'{$openRow}' reads exactly OPEN");
+    Assert::false((bool) preg_match('/\b(repaired|fixed|resolved|closed)\b/i', ($cells[1] ?? '') . ' ' . ($cells[3] ?? '')), "'{$openRow}' does not describe itself as repaired");
 }
 $findings = (string) file_get_contents(dirname(__DIR__, 2) . '/docs/UPSTREAM_FINDINGS.md');
 $uf004 = substr($findings, (int) strpos($findings, '## UF-004'));
 $next = strpos($uf004, "\n## ", 1);
 $uf004 = $next === false ? $uf004 : substr($uf004, 0, $next);
-Assert::true(str_starts_with($uf004, '## UF-004') && str_contains($uf004, '**Status:** REPORTED'), 'UF-004 stays recorded as reported upstream, not resolved');
+Assert::true(str_starts_with($uf004, '## UF-004'), 'UF-004 is recorded');
+Assert::same(1, preg_match_all('/^\*\*Status:\*\* .*$/m', $uf004, $statusLines), 'UF-004 has exactly one status line');
+Assert::same(
+    '**Status:** REPORTED — parity kept; pinned by vector `catalogue-workspace-owned-from-sibling-workspace`.',
+    $statusLines[0][0] ?? null,
+    'UF-004 stays recorded as reported upstream with parity kept, not resolved',
+);

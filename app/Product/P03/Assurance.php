@@ -166,12 +166,15 @@ final class Assurance
         }
 
         // A caller window wins over the card's error window; with neither, capture age is not judged.
+        // "Latest" is canonical's SQLite BINARY string order, not this column's utf8mb4_unicode_ci
+        // order: the two agree on canonical's own fixed-width `…Z` instants but not on mixed forms
+        // (`…12:00:00Z` vs `…12:00+02:00`), and the row chosen decides the verdict.
         $errorWindowMs = $input['freshness_window_ms'] ?? ($target['error_after_ms'] === null ? null : (int) $target['error_after_ms']);
         if ($errorWindowMs !== null) {
             $latest = $this->db->scalar(
                 "SELECT captured_at FROM evidence_objects
                  WHERE source_ref_id = ? AND evidence_type = 'UPLOADED_SOURCE_CAPTURE'
-                 ORDER BY captured_at DESC LIMIT 1",
+                 ORDER BY captured_at COLLATE utf8mb4_bin DESC LIMIT 1",
                 [(string) $target['source_ref_id']]
             );
             if ($latest === null) {
@@ -186,7 +189,7 @@ final class Assurance
         if ($target['recheck_terms_after_ms'] !== null) {
             $reviewedAt = $this->db->scalar(
                 'SELECT reviewed_at FROM source_terms_reviews WHERE source_license_card_id = ?
-                 ORDER BY reviewed_at DESC LIMIT 1',
+                 ORDER BY reviewed_at COLLATE utf8mb4_bin DESC LIMIT 1',
                 [(string) $target['source_license_card_id']]
             );
             $reviewedMs = $reviewedAt === null ? null : self::ms((string) $reviewedAt);
@@ -196,8 +199,12 @@ final class Assurance
         }
 
         $stale = $reasonCodes !== [];
+        $judgement = $this->judgement($input, $checked, isset($input['freshness_window_ms'])
+            ? 'caller capture window ' . $errorWindowMs . ' ms'
+            : ($errorWindowMs === null ? 'no capture window' : 'card capture window ' . $errorWindowMs . ' ms'));
 
         return $this->record($profile, $checked, [
+            'judgement' => $judgement,
             'audit_category' => 'CATALOGUE_FRESHNESS',
             'target_object_refs' => [$input['customer_product_catalogue_id']],
             'check_key' => 'P03_CATALOGUE_FRESHNESS',
@@ -268,8 +275,10 @@ final class Assurance
         }
 
         $stale = $reasonCodes !== [];
+        $judgement = $this->judgement($input, $checked, 'signal window ' . (int) $input['signal_pairing_freshness_window_ms'] . ' ms');
 
         return $this->record($profile, $checked, [
+            'judgement' => $judgement,
             'audit_category' => 'SIGNAL_PAIRING_FRESHNESS',
             'target_object_refs' => [$input['fit_hypothesis_id']],
             'check_key' => 'P03_SIGNAL_PAIRING_FRESHNESS',
@@ -418,7 +427,7 @@ final class Assurance
 
     /**
      * @param array<string, mixed> $input
-     * @param array{as_of: string, as_of_ms: int, requested_by_actor_type: string, requested_by_actor_id: ?string} $checked
+     * @param array{now: string, as_of: string, as_of_ms: int, requested_by_actor_type: string, requested_by_actor_id: ?string} $checked
      */
     private function sweepLocked(array $input, array $checked, int $maxTargets): Outcome
     {
@@ -439,32 +448,18 @@ final class Assurance
             }
             $profiles[$category] = (string) $profile['audit_profile_id'];
         }
+        // A caller-supplied as_of is passed to every audit (canonical semantics: judged at as_of,
+        // recorded at now). Without one, each audit judges at its own now — the instant it records as
+        // requested_at — rather than at the sweep's start, which a long sweep would leave behind.
         $requester = [
-            'as_of' => $checked['as_of'],
+            'record_judgement' => true,
+            'as_of' => $input['as_of'] ?? null,
             'requested_by_actor_type' => $checked['requested_by_actor_type'],
             'requested_by_actor_id' => $checked['requested_by_actor_id'],
         ];
 
-        // Tenant-level catalogues (no workspace) and this workspace's own. Another workspace's
-        // catalogue is not swept from here even though the single-target audit would accept it.
-        $catalogues = $this->db->all(
-            "SELECT c.customer_product_catalogue_id FROM customer_product_catalogues c
-             WHERE c.tenant_id = ? AND (c.workspace_id IS NULL OR c.workspace_id = ?)
-               AND (c.catalogue_status <> 'RETIRED' OR EXISTS (
-                    SELECT 1 FROM customer_products p
-                    JOIN fit_hypotheses fh ON fh.customer_product_id = p.customer_product_id
-                    WHERE p.customer_product_catalogue_id = c.customer_product_catalogue_id
-                      AND fh.tenant_id = c.tenant_id AND fh.workspace_id = ?
-                      AND fh.status NOT IN ('REJECTED', 'SUPERSEDED')))
-             ORDER BY c.created_at, c.customer_product_catalogue_id LIMIT " . ($maxTargets + 1),
-            [$input['tenant_id'], $input['workspace_id'], $input['workspace_id']]
-        );
-        $hypotheses = $this->db->all(
-            "SELECT fit_hypothesis_id FROM fit_hypotheses
-             WHERE tenant_id = ? AND workspace_id = ? AND status NOT IN ('REJECTED', 'SUPERSEDED')
-             ORDER BY created_at, fit_hypothesis_id LIMIT " . ($maxTargets + 1),
-            [$input['tenant_id'], $input['workspace_id']]
-        );
+        $catalogues = $this->liveCatalogues($input['tenant_id'], $input['workspace_id'], $maxTargets + 1);
+        $hypotheses = $this->liveHypotheses($input['tenant_id'], $input['workspace_id'], $maxTargets + 1);
         if (count($catalogues) + count($hypotheses) > $maxTargets) {
             // Refuse before any audit runs: a sweep that silently audited a prefix would report a
             // clean scope it never finished looking at.
@@ -481,7 +476,7 @@ final class Assurance
                 continue;
             }
             foreach ($targets as $row) {
-                $target = (string) ($row['customer_product_catalogue_id'] ?? $row['fit_hypothesis_id'] ?? 'workspace');
+                $target = is_string($row) ? $row : 'workspace';
                 try {
                     $outcome = match ($category) {
                         'CATALOGUE_FRESHNESS' => $this->runCatalogueFreshnessAudit([
@@ -530,7 +525,7 @@ final class Assurance
         return Outcome::ok([
             'tenant_id' => $input['tenant_id'],
             'workspace_id' => $input['workspace_id'],
-            'as_of' => $checked['as_of'],
+            'as_of' => $input['as_of'] ?? null,
             'signal_pairing_freshness_window_ms' => $input['signal_pairing_freshness_window_ms'],
             'freshness_window_ms' => $input['freshness_window_ms'] ?? null,
             'complete' => $skipped === [] && $refused === 0 && $errored === 0,
@@ -541,6 +536,46 @@ final class Assurance
             'refused_count' => $refused,
             'errored_count' => $errored,
         ]);
+    }
+
+    /**
+     * The catalogues a sweep audits — and status reports on — in a scope: tenant-level ones (no
+     * workspace) and this workspace's own. Another workspace's catalogue is not swept from here even
+     * though the single-target audit would accept it. A RETIRED catalogue counts only while a live
+     * fit hypothesis in this workspace still cites one of its products: otherwise it backs nothing,
+     * and auditing it would re-open the same CATALOGUE_NOT_ACTIVE incident on every sweep.
+     *
+     * @return list<string>
+     */
+    private function liveCatalogues(string $tenantId, string $workspaceId, ?int $limit): array
+    {
+        return array_map('strval', array_column($this->db->all(
+            "SELECT c.customer_product_catalogue_id FROM customer_product_catalogues c
+             WHERE c.tenant_id = ? AND (c.workspace_id IS NULL OR c.workspace_id = ?)
+               AND (c.catalogue_status <> 'RETIRED' OR EXISTS (
+                    SELECT 1 FROM customer_products p
+                    JOIN fit_hypotheses fh ON fh.customer_product_id = p.customer_product_id
+                    WHERE p.customer_product_catalogue_id = c.customer_product_catalogue_id
+                      AND fh.tenant_id = c.tenant_id AND fh.workspace_id = ?
+                      AND fh.status NOT IN ('REJECTED', 'SUPERSEDED')))
+             ORDER BY c.created_at, c.customer_product_catalogue_id" . ($limit === null ? '' : ' LIMIT ' . $limit),
+            [$tenantId, $workspaceId, $workspaceId]
+        ), 'customer_product_catalogue_id'));
+    }
+
+    /**
+     * The live (not REJECTED or SUPERSEDED) fit hypotheses of one workspace.
+     *
+     * @return list<string>
+     */
+    private function liveHypotheses(string $tenantId, string $workspaceId, ?int $limit): array
+    {
+        return array_map('strval', array_column($this->db->all(
+            "SELECT fit_hypothesis_id FROM fit_hypotheses
+             WHERE tenant_id = ? AND workspace_id = ? AND status NOT IN ('REJECTED', 'SUPERSEDED')
+             ORDER BY created_at, fit_hypothesis_id" . ($limit === null ? '' : ' LIMIT ' . $limit),
+            [$tenantId, $workspaceId]
+        ), 'fit_hypothesis_id'));
     }
 
     // ================================================================ operator entrypoints
@@ -567,12 +602,13 @@ final class Assurance
      * the permission that manages incidents is the one asked for. The run is recorded as OPERATOR,
      * with the operator's identity, never as an anonymous service, and the ALLOW is retained.
      *
-     * The operator path evaluates at the clock's NOW against each card's OWN freshness window: no
-     * M11 row has a field for the instant or window a verdict was computed with (canonical persists
-     * neither — UF-005), so a caller-chosen `as_of` or a looser catalogue window would write PASS
-     * evidence nobody could later tell apart from a real-time one. Both are refused here. The
-     * signal-pairing window has no card default in canonical, so the operator supplies it; the sweep
-     * result echoes it.
+     * The operator path judges each audit at its own NOW and each catalogue under its card's OWN
+     * capture window: no M11 row has a field for the instant or window a verdict was computed with
+     * (canonical persists neither — UF-005), so a caller-chosen `as_of` or a looser catalogue window
+     * would write PASS evidence nobody could tell apart from a real-time one. Both are refused. The
+     * signal-pairing window has no default in canonical, so the operator supplies it, bounded to
+     * 1..365 days; like the instant and the card window, it is written into each sweep-run audit's
+     * run summary.
      *
      * @param array{tenant_id: string, workspace_id: string, operator_id: string} $scope
      * @param array{signal_pairing_freshness_window_ms: int, max_targets?: ?int} $input
@@ -589,9 +625,15 @@ final class Assurance
         if (($input['freshness_window_ms'] ?? null) !== null) {
             return Outcome::refuse('SWEEP_CATALOGUE_WINDOW_NOT_ACCEPTED', [], 'POLICY');
         }
+        // Canonical has no default signal-pairing window, so the operator names one — bounded to a
+        // year so a "window" cannot quietly disable the age check, and recorded on every run.
+        $signalWindow = $input['signal_pairing_freshness_window_ms'] ?? null;
+        if (!is_int($signalWindow) || $signalWindow < 86_400_000 || $signalWindow > 365 * 86_400_000) {
+            return Outcome::refuse('SWEEP_SIGNAL_WINDOW_OUT_OF_RANGE', [], 'POLICY');
+        }
 
         return $this->sweep([
-            'signal_pairing_freshness_window_ms' => $input['signal_pairing_freshness_window_ms'] ?? null,
+            'signal_pairing_freshness_window_ms' => $signalWindow,
             'max_targets' => $input['max_targets'] ?? null,
             'tenant_id' => $scope['tenant_id'],
             'workspace_id' => $scope['workspace_id'],
@@ -603,12 +645,16 @@ final class Assurance
     /**
      * The scope's P03 audit posture, read-only, for an operator holding `incident.read` there.
      *
-     * Posture is per TARGET, not "the latest run": the two per-target categories write one run per
-     * target, so the single newest run is just whichever target was audited last and could hide a
-     * failure from the same sweep. For each category this reports every audited target's LATEST
-     * result and lists the failing ones; `posture` is FAILING if any target's latest result failed.
-     * The buyer-intent scan is one scope-wide run, so its latest run is its posture. Reading writes
-     * nothing (an ALLOW is not retained as an access record).
+     * Posture is per TARGET, over the targets a sweep would audit NOW (the same selection as the
+     * sweep): a rejected hypothesis or an uncited RETIRED catalogue is not swept any more, so its old
+     * failure must not keep the scope FAILING, and the single newest run is just whichever target was
+     * audited last. For each per-target category this reports every live target's LATEST recorded
+     * result (chosen in SQL, so the cost follows the number of targets, not the number of sweeps),
+     * lists the failing ones and counts the live targets never audited. Posture: FAILING if any live
+     * target's latest result failed; else INCOMPLETE if any live target was never audited; else
+     * PASSING; NO_TARGETS when the scope has none. The buyer-intent scan is one scope-wide run, so its
+     * latest run is its posture (NOT_AUDITED before the first). A sweep audit that ERRORED or was
+     * REFUSED records no run; the sweep's own summary says so. Reading writes nothing.
      *
      * @param array{tenant_id: string, workspace_id: string, operator_id: string} $scope
      */
@@ -618,6 +664,19 @@ final class Assurance
         if ($denied !== null) {
             return $denied;
         }
+        $shape = static fn (array $run): array => [
+            'audit_run_id' => (string) $run['audit_run_id'],
+            'target_object_refs' => json_decode((string) $run['target_object_refs'], true),
+            'status' => (string) $run['status'],
+            'completed_at' => $run['completed_at'],
+            'summary' => $run['summary'],
+            'finding_type' => (string) $run['finding_type'],
+            'reason_codes' => json_decode((string) $run['reason_codes'], true),
+        ];
+        $live = [
+            'CATALOGUE_FRESHNESS' => $this->liveCatalogues($scope['tenant_id'], $scope['workspace_id'], null),
+            'SIGNAL_PAIRING_FRESHNESS' => $this->liveHypotheses($scope['tenant_id'], $scope['workspace_id'], null),
+        ];
         $categories = [];
         foreach (self::CATEGORIES as $category) {
             $profile = $this->db->one(
@@ -626,35 +685,68 @@ final class Assurance
                  ORDER BY (status = 'ACTIVE') DESC, created_at, audit_profile_id LIMIT 1",
                 [$scope['tenant_id'], $scope['workspace_id'], $category]
             );
-            $runs = $profile === null ? [] : $this->db->all(
-                'SELECT r.audit_run_id, r.target_object_refs, r.status, r.completed_at, f.finding_type, f.reason_codes
+            $profileId = $profile === null ? null : (string) $profile['audit_profile_id'];
+            $newest = $profileId === null ? null : $this->db->one(
+                'SELECT r.audit_run_id, r.target_object_refs, r.status, r.completed_at, r.summary, f.finding_type, f.reason_codes
                  FROM audit_runs r JOIN audit_findings f ON f.audit_run_id = r.audit_run_id
-                 WHERE r.audit_profile_id = ? ORDER BY r.requested_at DESC, r.audit_run_id DESC',
-                [(string) $profile['audit_profile_id']]
+                 WHERE r.audit_profile_id = ? ORDER BY r.requested_at DESC, r.audit_run_id DESC LIMIT 1',
+                [$profileId]
             );
-            $shape = static fn (array $run): array => [
-                'audit_run_id' => (string) $run['audit_run_id'],
-                'target_object_refs' => json_decode((string) $run['target_object_refs'], true),
-                'status' => (string) $run['status'],
-                'completed_at' => $run['completed_at'],
-                'finding_type' => (string) $run['finding_type'],
-                'reason_codes' => json_decode((string) $run['reason_codes'], true),
-            ];
-            // Latest result per target. The buyer-intent scan's refs are its violators, not its
-            // target, so its whole history is one "target": the scope.
-            $latestPerTarget = [];
-            foreach ($runs as $run) {
-                $key = $category === 'BUYER_INTENT_INVARIANT' ? 'scope' : (string) $run['target_object_refs'];
-                $latestPerTarget[$key] ??= $shape($run);
+            if ($category === 'BUYER_INTENT_INVARIANT') {
+                // Its refs are its violators, not its target: the whole history is one target, the scope.
+                $latest = $newest === null ? [] : [$shape($newest)];
+                $failing = array_values(array_filter($latest, static fn (array $r): bool => $r['finding_type'] !== 'CONTROL_PASS'));
+                $posture = $latest === [] ? 'NOT_AUDITED' : ($failing === [] ? 'PASSING' : 'FAILING');
+                $liveCount = 1;
+            } else {
+                $latest = [];
+                if ($profileId !== null) {
+                    // The newest run per target, one row per target ever audited by this profile. A
+                    // per-target run's refs are one id ('["<uuid>"]', 40 characters), so the window
+                    // partitions on a bounded CHAR rather than the LONGTEXT column, and only rows short
+                    // enough that the cast cannot truncate take part.
+                    $rows = $this->db->all(
+                        'SELECT x.audit_run_id, x.target_object_refs, x.status, x.completed_at, x.summary, f.finding_type, f.reason_codes
+                         FROM (SELECT r.audit_run_id, r.target_object_refs, r.status, r.completed_at, r.summary,
+                                      ROW_NUMBER() OVER (PARTITION BY CAST(r.target_object_refs AS CHAR(191))
+                                                         ORDER BY r.requested_at DESC, r.audit_run_id DESC) AS rn
+                               FROM audit_runs r
+                               WHERE r.audit_profile_id = ? AND CHAR_LENGTH(r.target_object_refs) <= 191) x
+                         JOIN audit_findings f ON f.audit_run_id = x.audit_run_id
+                         WHERE x.rn = 1',
+                        [$profileId]
+                    );
+                    $byTarget = [];
+                    foreach ($rows as $row) {
+                        $refs = json_decode((string) $row['target_object_refs'], true);
+                        if (is_array($refs) && count($refs) === 1 && is_string($refs[0])) {
+                            $byTarget[$refs[0]] = $row;
+                        }
+                    }
+                    foreach ($live[$category] as $target) {
+                        if (isset($byTarget[$target])) {
+                            $latest[] = $shape($byTarget[$target]);
+                        }
+                    }
+                }
+                $failing = array_values(array_filter($latest, static fn (array $r): bool => $r['finding_type'] !== 'CONTROL_PASS'));
+                $liveCount = count($live[$category]);
+                $posture = match (true) {
+                    $liveCount === 0 => 'NO_TARGETS',
+                    $failing !== [] => 'FAILING',
+                    count($latest) < $liveCount => 'INCOMPLETE',
+                    default => 'PASSING',
+                };
             }
-            $failing = array_values(array_filter($latestPerTarget, static fn (array $r): bool => $r['finding_type'] !== 'CONTROL_PASS'));
             $categories[$category] = [
-                'audit_profile_id' => $profile === null ? null : (string) $profile['audit_profile_id'],
+                'audit_profile_id' => $profileId,
                 'profile_status' => $profile === null ? 'MISSING' : (string) $profile['status'],
-                'posture' => $latestPerTarget === [] ? 'NOT_AUDITED' : ($failing === [] ? 'PASSING' : 'FAILING'),
-                'targets_audited' => count($latestPerTarget),
+                'posture' => $posture,
+                'live_targets' => $liveCount,
+                'targets_audited' => count($latest),
+                'targets_never_audited' => $liveCount - count($latest),
                 'failing_targets' => $failing,
-                'latest_run' => $runs === [] ? null : $shape($runs[0]),
+                'latest_run' => $newest === null ? null : $shape($newest),
             ];
         }
 
@@ -689,10 +781,28 @@ final class Assurance
     }
 
     /**
+     * What a SWEEP-run audit records about how it was judged, appended to its run summary: canonical
+     * persists neither the instant nor the window a verdict used (UF-005), so evidence written by the
+     * projection's sweep says both. The values are the ones the audit actually used, never a caller's
+     * label. A directly called audit records canonical's summary unchanged (parity).
+     *
+     * @param array<string, mixed> $input
+     * @param array{as_of: string} $checked
+     */
+    private function judgement(array $input, array $checked, string $window): ?string
+    {
+        if (($input['record_judgement'] ?? false) !== true) {
+            return null;
+        }
+
+        return sprintf('Judged as of %s (%s) under %s.', $checked['as_of'], ($input['as_of'] ?? null) === null ? 'its own now' : 'caller-supplied', $window);
+    }
+
+    /**
      * Validate the caller-supplied knobs before anything is read or written.
      *
      * @param array<string, mixed> $input
-     * @return array{as_of: string, as_of_ms: int, requested_by_actor_type: string, requested_by_actor_id: ?string}|Outcome
+     * @return array{now: string, as_of: string, as_of_ms: int, requested_by_actor_type: string, requested_by_actor_id: ?string}|Outcome
      */
     private function checkInput(array $input, mixed $window, bool $windowRequired): array|Outcome
     {
@@ -703,9 +813,12 @@ final class Assurance
         } elseif (!is_int($window) || $window < 0) {
             return Outcome::refuse('FRESHNESS_WINDOW_INVALID', [], 'POLICY');
         }
+        // One instant per audit, as canonical's single `now`: the default as_of AND the
+        // requested_at/evaluated_at/created_at the audit records.
+        $now = $this->clock->now();
         $asOf = $input['as_of'] ?? null;
         if ($asOf === null) {
-            $asOf = $this->clock->now();
+            $asOf = $now;
         } elseif (!is_string($asOf) || !Clock::isCanonical($asOf)) {
             return Outcome::refuse('AS_OF_NOT_CANONICAL', [], 'POLICY');
         }
@@ -719,6 +832,7 @@ final class Assurance
         }
 
         return [
+            'now' => $now,
             'as_of' => $asOf,
             'as_of_ms' => (int) self::ms($asOf),
             'requested_by_actor_type' => $actorType,
@@ -755,13 +869,13 @@ final class Assurance
      * ONE run, ONE check, ONE finding — and an incident when it failed — in one transaction.
      *
      * @param array{audit_profile_id: string, tenant_id: string, workspace_id: string} $profile
-     * @param array{as_of: string, as_of_ms: int, requested_by_actor_type: string, requested_by_actor_id: ?string} $checked
+     * @param array{now: string, as_of: string, as_of_ms: int, requested_by_actor_type: string, requested_by_actor_id: ?string} $checked
      * @param array<string, mixed> $spec
      * @param array<string, mixed> $extra
      */
     private function record(array $profile, array $checked, array $spec, array $extra): Outcome
     {
-        $now = $this->clock->now();
+        $now = $checked['now'];
 
         return $this->db->transaction(function (Database $tx) use ($profile, $checked, $spec, $extra, $now): Outcome {
             $failed = (bool) $spec['failed'];
@@ -813,7 +927,7 @@ final class Assurance
 
             $tx->run(
                 "UPDATE audit_runs SET status = 'COMPLETED', summary = ?, completed_at = ? WHERE audit_run_id = ?",
-                [$spec['check_key'] . ($failed ? ' FAIL.' : ' PASS.'), $now, $auditRunId]
+                [$spec['check_key'] . ($failed ? ' FAIL.' : ' PASS.') . (($spec['judgement'] ?? null) === null ? '' : ' ' . $spec['judgement']), $now, $auditRunId]
             );
 
             $incidentCaseId = null;
@@ -856,9 +970,12 @@ final class Assurance
      *
      *   YYYY | YYYY-MM | YYYY-MM-DD (also ±YYYYYY)          date-only forms are UTC midnight
      *   …THH:mm[:ss[.fraction]][Z|±HH:mm]                    fraction truncated to milliseconds
-     *   T24:00[:00[.000]]                                    the next midnight; any later 24:xx is NaN
+     *   T24:00[:00[.0…]]                                     the next midnight; any later 24:xx, or any
+     *                                                        non-zero fraction digit at 24:00, is NaN
      *   a day past the month's end (2026-02-30)              rolls over, as canonical does
      *   seconds 60, minutes 60, hours 25+, month 13, ±24:00  NaN
+     *   beyond ±8.64e15 ms (±100,000,000 days, ES TimeClip)   NaN
+     *   year -000000                                          not ES (V8 reads it with its legacy parser)
      *
      * An offset-less date-time is HOST-LOCAL in canonical; it is read as UTC here, which is what
      * canonical does on a UTC host (the parity vectors are generated with TZ=UTC). Strings outside
@@ -880,7 +997,7 @@ final class Assurance
         $second = (int) ($part(6) ?? 0);
         $millis = $part(7) === null ? 0 : (int) substr(str_pad((string) $part(7), 3, '0'), 0, 3);
         if ($month < 1 || $month > 12 || $day < 1 || $day > 31 || $minute > 59 || $second > 59
-            || $hour > 24 || ($hour === 24 && ($minute !== 0 || $second !== 0 || $millis !== 0))
+            || $hour > 24 || ($hour === 24 && ($minute !== 0 || $second !== 0 || trim((string) $part(7), '0') !== ''))
         ) {
             return null;
         }
@@ -902,6 +1019,9 @@ final class Assurance
         $dayOfYear = intdiv(153 * (($month + 9) % 12) + 2, 5);
         $days = $era * 146097 + $yearOfEra * 365 + intdiv($yearOfEra, 4) - intdiv($yearOfEra, 100) + $dayOfYear - 719468 + ($day - 1);
 
-        return $days * 86_400_000 + (($hour * 60 + $minute) * 60 + $second) * 1000 + $millis - $offsetMs;
+        $ms = $days * 86_400_000 + (($hour * 60 + $minute) * 60 + $second) * 1000 + $millis - $offsetMs;
+
+        // ES TimeClip: an instant more than 8.64e15 ms from the epoch is NaN.
+        return abs($ms) > 8_640_000_000_000_000 ? null : $ms;
     }
 }

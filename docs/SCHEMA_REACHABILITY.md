@@ -352,7 +352,7 @@ Applied uniformly; deviations are recorded per table in the migration files.
 | --- | --- | --- |
 | `TEXT` primary keys (UUID) | `CHAR(36)` `utf8mb4_bin` | fixed width, byte-exact comparison, index-friendly |
 | `TEXT` free text | `VARCHAR(n)` where bounded, `TEXT`/`MEDIUMTEXT` where not | InnoDB index key limit is 3072 bytes |
-| `TEXT` ISO-8601 timestamps | `CHAR(24)` `utf8mb4_bin`, canonical `YYYY-MM-DDTHH:MM:SS.sssZ` | preserves upstream string semantics and lexicographic ordering exactly; avoids `DATETIME` rounding and timezone reinterpretation |
+| `TEXT` ISO-8601 timestamps | `CHAR(24)` under the table collation (`utf8mb4_unicode_ci` — the migrations declare no `utf8mb4_bin`, whatever earlier revisions of this row said), canonical `YYYY-MM-DDTHH:MM:SS.sssZ` | avoids `DATETIME` rounding and timezone reinterpretation. Canonical's own fixed-width `…Z` instants sort identically under it; other forms (offsets, short fractions) need not, so a query whose "latest" must match canonical's SQLite BINARY order says `COLLATE utf8mb4_bin`, as the P03 assurance port does |
 | `INTEGER` 0/1 flags | `TINYINT(1) NOT NULL` + `CHECK (col IN (0,1))` | preserves CHECK-pinned invariants such as `external_side_effects_allowed = 0` |
 | `CHECK (x IN (...))` enums | `CHECK (x IN (...))` **and** application-side validation | MariaDB 10.2+ enforces CHECK; the application layer duplicates it so the invariant holds even where a constraint is dropped by a migration tool |
 | `UNIQUE` idempotency keys | `UNIQUE KEY` | preserved verbatim — these are the duplicate-release/duplicate-capture protections |
@@ -556,6 +556,12 @@ repin the whole projection or infer canonical authority from tables found in a r
 | Monitor attempt recovery (completion plan P05) | 3 | `monitor_model_attempt_bindings`, `provider_model_candidate_artifacts`, `monitor_run_reconciliations`; migration `230_monitor_attempt_recovery.sql` |
 | Provider key rotation receipts (completion plan P11) | 1 | `provider_credential_rotation_events`; migration `240_provider_rotation_events.sql`; append-only operational evidence, no key/plaintext material |
 | **Current application total** | **218** | **189 canonical + 29 Loopia adapters** |
+
+**Recorded, not widened (P08).** `ingestion_fetch_plans.cadence_min_interval_ms` (migration 090)
+has the same `INT`-for-SQLite-`INTEGER` translation that migration 245 repairs on the source-card
+windows: a cadence over about 24.8 days cannot be stored. It belongs to the inert M15 live-read
+plane, which no P08 path reads, so it is recorded here rather than widened without a consumer to
+prove the change (see the header of `245_source_card_window_width.sql`).
 
 The completion-plan tables are Loopia-local deployment controls, not canonical law: immutable grant
 and approval definitions, append-only lifecycle events, budget consumption, an admission trail and

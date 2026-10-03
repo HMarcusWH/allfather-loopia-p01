@@ -142,7 +142,7 @@ a non-RELEASED signal.
 `YYYY-MM-DDTHH:MM:SS.sssZ` (`AS_OF_NOT_CANONICAL`) — which also refuses ES forms canonical would
 read, such as a date-only `2026-07-01` — and refuses a negative or non-integer window
 (`FRESHNESS_WINDOW_INVALID`) and an unknown requester type, before any row is read or written, for
-all three audits. Valid inputs keep canonical semantics; the 62 parity vectors use only valid
+all three audits. Valid inputs keep canonical semantics; the 74 parity vectors use only valid
 inputs. The operator surface (`ops/assurance/p03.php`, `operatorSweep`) goes further and accepts no
 `as_of` or catalogue-window override at all (UF-005). `tests/integration/p03_assurance.php` pins the
 refusals.
@@ -201,18 +201,24 @@ review). **Status:** REPORTED — parity kept where it is deterministic; the res
 
 ### What this port did
 
-- (1) The operator surface accepts neither `as_of` nor a catalogue-window override
+- (1) Each audit takes one `now` for both its default `as_of` and the `requested_at` it records, as
+  canonical does. The operator surface accepts neither `as_of` nor a catalogue-window override
   (`SWEEP_AS_OF_NOT_ACCEPTED`, `SWEEP_CATALOGUE_WINDOW_NOT_ACCEPTED`; the CLI exits 2), so every
-  operator-run audit is judged at the clock's now under the card's own window. The service methods
-  keep both inputs for parity and remain unrecorded, as in canonical; the sweep's returned summary
-  states the `as_of` and windows it used, but that summary is not persisted either.
+  operator-run audit is judged at its own now and each catalogue under its card's own capture
+  window. The signal-pairing window has no default in canonical, so the operator must supply one,
+  bounded to 1..365 days (`SWEEP_SIGNAL_WINDOW_OUT_OF_RANGE`). Every audit run by the projection's
+  sweep appends to its run `summary` the instant it was judged at and the window it used, so sweep
+  evidence is traceable. A directly called service audit keeps canonical's summary for parity, and
+  its `as_of` and window stay unrecorded, as in canonical.
 - (2)/(3) `Assurance::ms()` reads stored instants exactly as `Date.parse` reads the ES format —
   date-only forms as UTC, fraction truncated, `T24:00` as the next midnight, day rollover, `:60` /
-  month 13 / `±24:00` unreadable — pinned by a 47-instant battery generated from canonical with
-  `TZ=UTC`. An offset-less date-time is read as UTC (canonical's answer on a UTC host). A string
-  outside the ES format is unreadable (`null`) and takes the branch canonical takes for `NaN`, where
-  V8 may instead have read a date: that is a recorded divergence, not parity, and the battery
-  asserts both halves (ES forms equal canonical; non-ES forms are `null` here).
+  month 13 / `±24:00` / hour 24 with a non-zero fraction / beyond the ±8.64e15 ms TimeClip
+  unreadable — pinned by a 60-instant battery generated from canonical with `TZ=UTC`, and per audit
+  path by discriminating vectors. An offset-less date-time is read as UTC (canonical's answer on a
+  UTC host). A string outside the ES format (including the forbidden year `-000000`) is unreadable
+  (`null`) and takes the branch canonical takes for `NaN`, where V8 may instead have read a date:
+  that is a recorded divergence, not parity, and the battery asserts both halves (ES forms equal
+  canonical; non-ES forms are `null` here).
 
 ### Suggested upstream remedy
 

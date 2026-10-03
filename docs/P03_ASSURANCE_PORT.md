@@ -12,7 +12,7 @@ and not evidence that P03 is ready for customers.
 | Canonical commit | `1c40306c22e15b2ad3049e8d32abff47450c8921` (canonical main inspected by the completion plan) |
 | Canonical source SHA-256 | `0992a457afed4a921b5d3ce1cb6aa87d131dca04405a794b809090e3566bf3a1` |
 | PHP port | [`app/Product/P03/Assurance.php`](../app/Product/P03/Assurance.php) |
-| Parity vectors | [`tests/fixtures/p03_assurance_vectors.json`](../tests/fixtures/p03_assurance_vectors.json), 62 audit cases and a 47-instant `Date.parse` battery |
+| Parity vectors | [`tests/fixtures/p03_assurance_vectors.json`](../tests/fixtures/p03_assurance_vectors.json), 74 audit cases and a 60-instant `Date.parse` battery |
 | Vector generator | [`tests/fixtures/p03-assurance-golden-generator.mts`](../tests/fixtures/p03-assurance-golden-generator.mts) |
 | Conformance suite | [`tests/conformance/p03_assurance.php`](../tests/conformance/p03_assurance.php) |
 | Projection suites | [`tests/integration/p03_assurance.php`](../tests/integration/p03_assurance.php), [`p03_assurance_sweep.php`](../tests/integration/p03_assurance_sweep.php), [`p03_assurance_scale.php`](../tests/integration/p03_assurance_scale.php) |
@@ -37,7 +37,8 @@ vocabulary. `M11\Assurance` needed no change.
 
 Valid inputs follow canonical exactly, including reason-code order, the strict `>` window
 comparisons, an unreadable stored instant being ignored (except the terms recheck, which canonical
-fails closed), the incident's related refs, and **canonical's tenant-only catalogue scope** (UF-004).
+fails closed), the incident's related refs (in canonical order for the per-target families), and
+**canonical's tenant-only catalogue scope** (UF-004).
 
 **Narrowed at the input boundary (UF-003).** Canonical computes `Date.parse(asOf)`; a malformed
 `asOf` becomes `NaN`, and every time-based comparison against it is false — review expiry, capture
@@ -52,17 +53,32 @@ reading or writing anything. Recorded in [`UPSTREAM_FINDINGS.md`](UPSTREAM_FINDI
 **Stored instants (UF-005).** Instants read from the database (review expiry, capture, terms review,
 signal creation) are read the way canonical `Date.parse` reads the ES date-time-string format:
 date-only forms as UTC midnight, fractions truncated to milliseconds, `T24:00` as the next midnight,
-a day past the month's end rolled over, and `:60`, month 13 or `±24:00` unreadable. A 47-instant
-battery generated from canonical pins this. Two parts of canonical's behaviour are engine- or
+a day past the month's end rolled over, and `:60`, month 13, `±24:00`, an hour 24 with any non-zero
+fraction digit, or an instant beyond ±8.64e15 ms (ES TimeClip) unreadable. A 60-instant battery
+generated from canonical pins this, and discriminating audit vectors pin it per path — each verdict
+flips if the offset is ignored, the milliseconds dropped or a non-ES string read leniently. Two parts of canonical's behaviour are engine- or
 host-dependent and are **not** reproduced: an offset-less date-time is host-local in canonical and
 read as UTC here (canonical's answer on a UTC host, which is how the vectors are generated), and a
-legacy non-ISO string that V8 may parse (`"June 15, 2026"`) is unreadable here. Canonical's writers
-store `toISOString()` values, so this matters only for imported or hand-written rows.
+legacy non-ISO string that V8 may parse (`"June 15, 2026"`, or a year `-000000`, which the ES format
+forbids) is unreadable here. Canonical's writers store `toISOString()` values, so this matters only
+for imported or hand-written rows.
 
-**Not persisted (UF-005).** Canonical records neither the `asOf` an audit judged nor a
-`freshnessWindowMs` that overrode the card's window. The service methods keep both inputs for
-parity; the operator surface accepts neither (§4), so operator-run evidence is always "now, under
-the card's own window".
+**"Latest" is canonical's byte order.** The latest capture and the latest terms review are chosen by
+`ORDER BY … DESC LIMIT 1`, which canonical evaluates in SQLite BINARY order. The MariaDB timestamp
+columns use the table collation `utf8mb4_unicode_ci`, which agrees on canonical's own fixed-width
+`…Z` instants but not on mixed forms (`…12:00:00Z` sorts after `…12:00+02:00` in binary order, before
+it under the collation). The port orders with `COLLATE utf8mb4_bin`, pinned by two vectors whose
+verdict depends on the row chosen.
+
+**Not persisted by canonical (UF-005).** Canonical records neither the `asOf` an audit judged nor
+the window it used. Each port audit takes ONE `now` for both its default `as_of` and the
+`requested_at` it records, as canonical does. A directly called audit records canonical's summary
+unchanged (parity). An audit run by the projection's **sweep** appends to its run `summary` the
+instant it was judged at (and whether that was its own now or caller-supplied) and the window it
+used — `card capture window N ms`, `caller capture window N ms`, `no capture window` or
+`signal window N ms` — so sweep evidence says how it was judged. The operator surface accepts no
+`as_of` and no catalogue-window override, and bounds the signal window it must supply to 1..365
+days (§4).
 
 **Incident timeline (pre-existing M11 projection difference).** The port opens incidents through the
 certified `M11\Assurance::openIncident`, which every product shares. Its `OPENED` timeline entry is
@@ -86,7 +102,7 @@ To regenerate (a canonical checkout at the pinned commit, Node 22.19+):
 ```bash
 pnpm install --frozen-lockfile --ignore-scripts
 pnpm --filter @allfather/substrate-core build
-CANONICAL_COMMIT=$(git rev-parse HEAD) node --import tsx \
+CANONICAL_COMMIT=$(git rev-parse HEAD) TZ=UTC node --import tsx \
   <loopia>/tests/fixtures/p03-assurance-golden-generator.mts <loopia>/tests/fixtures/p03_assurance_vectors.json
 ```
 
@@ -116,6 +132,9 @@ on when it was generated.
     the sweep carries on. `skipped_categories` names each category without an ACTIVE profile and
     why (`MISSING`, `SUSPENDED`, …); the sweep never seeds or reactivates one. `complete` is true
     only when every category had an ACTIVE profile and every audit COMPLETED.
+  - **Instant and window.** Without a caller-supplied `as_of`, each audit is judged at its own now —
+    the `requested_at` it records — not at the sweep's start; with one, every audit uses it. Every
+    sweep-run audit records the instant and window it was judged under in its run summary (§2).
   - Each failing audit opens its own incident, as canonical does for every failing call; a target
     still failing on the next sweep opens another. Any de-duplication is an upstream decision.
 - **Seeding is serialized.** `seedProfiles` locks the tenant row first, so two concurrent seeds of
@@ -123,18 +142,26 @@ on when it was generated.
 - **Operator entrypoints.** `operatorSeedProfiles` needs `tenant.administer`; `operatorSweep` needs
   `incident.manage`, because a failing audit opens an incident; both **retain** their M02 ALLOW as
   an access record (`P03_AUDIT_PROFILE`, `P03_AUDIT_SWEEP`), because `audit_profiles` carries no
-  actor and who configured or ran assurance must be answerable. `operatorSweep` evaluates at the
-  clock's now under each card's own window: it refuses an `as_of` (`SWEEP_AS_OF_NOT_ACCEPTED`) and
-  a catalogue-window override (`SWEEP_CATALOGUE_WINDOW_NOT_ACCEPTED`). Its runs are recorded as
-  `OPERATOR` with that operator's id. `operatorStatus` needs `incident.read`, is read-only and
-  retains nothing; per category it reports each audited target's **latest** result, the failing
-  targets, and a posture of `NOT_AUDITED`, `PASSING` or `FAILING` (failing if any target's latest
-  result failed — not merely the newest run).
+  actor and who configured or ran assurance must be answerable. `operatorSweep` judges each audit at
+  its own now and each catalogue under its card's own capture window: it refuses an `as_of`
+  (`SWEEP_AS_OF_NOT_ACCEPTED`) and a catalogue-window override
+  (`SWEEP_CATALOGUE_WINDOW_NOT_ACCEPTED`). Canonical has no default signal-pairing window, so the
+  operator supplies one, between 1 and 365 days (`SWEEP_SIGNAL_WINDOW_OUT_OF_RANGE`), and every
+  sweep-run pairing audit records it. Its runs are recorded as `OPERATOR` with that operator's id.
+  `operatorStatus` needs `incident.read`, is read-only and retains nothing. Per category it works
+  over the targets a sweep would audit **now** (the same selection), so a rejected hypothesis or an
+  uncited retired catalogue stops counting once remediated. It reports each live target's
+  **latest** recorded result (chosen per target in SQL, so its cost follows the number of targets,
+  not of sweeps), the failing ones, how many live targets were never audited, and a posture:
+  `FAILING` if any live target's latest result failed, else `INCOMPLETE` if any was never audited,
+  else `PASSING`; `NO_TARGETS` when there are none. The buyer-intent scan's posture is its latest
+  run (`NOT_AUDITED` before the first).
 - **CLI.** `php ops/assurance/p03.php <seed-profiles|status|sweep> --env=... --tenant-id=...
-  --workspace-id=... --operator-id=... [--signal-window-days=N] [--max-targets=N]`. There is no
-  `--as-of` and no catalogue-window option. Exit codes: 0 complete; 1 refused; 2 usage error;
-  3 the sweep ran but was **incomplete**, so the scope must not be read as clean. Nothing here
-  reaches the network.
+  --workspace-id=... --operator-id=... [--signal-window-days=N] [--max-targets=N]`
+  (`--signal-window-days` 1..365, required for `sweep`; `--max-targets` 1..1000). There is no
+  `--as-of` and no catalogue-window option. Exit codes: 0 done (for `sweep`, complete); 1 refused;
+  2 usage error; 3 database unreachable; 4 refused by the maintenance gate; 5 the sweep ran but was
+  **incomplete**, so the scope must not be read as clean. Nothing here reaches the network.
 
 Bounded scheduled audit jobs wait for an admitted P07 scheduling policy; none is registered.
 
@@ -169,7 +196,9 @@ repaired here: the plan requires verified shared defects to be repaired upstream
 describes the code; it does **not** mean the broader SME blockers are closed. A row leaves OPEN only
 when the repair has landed upstream first and been ported, and the pinned assertion is flipped on
 purpose in the same change. `tests/acceptance/product_expansion_regressions.php` fails if any OPEN
-row below disappears or stops reading OPEN.
+row below disappears, is duplicated, is reclassified HOLDS, describes itself as repaired or stops
+reading exactly OPEN. Rows marked "not re-run here" are recorded from the canonical parity baseline;
+no behavioural assertion in this package re-runs them.
 
 | Scenario | Classification | Register status | Current behaviour |
 | --- | --- | --- | --- |
@@ -187,6 +216,9 @@ row below disappears or stops reading OPEN.
 | P02 foreign-scope working-state writes | not re-run here | **OPEN** | remains as recorded in the parity baseline; P02 write expansion stays gated on it |
 
 **Consequence.** P01-only manual piloting does not wait on this register. Exposing P03 to customers
-needs the audits (now present) **and** the owner-upload mapping repair; enabling generated P05 drafts
+needs the audits **deployed and run on a standing basis** (they exist in source only: not deployed,
+not scheduled, never run against staging), **and** the open P03 rows above repaired or decided —
+owner-upload licence mapping, the sibling-workspace catalogue audit (UF-004) and structured ICP size
+discrimination; enabling generated P05 drafts
 needs the Swedish/title repairs and a decision about semantic citation support; widening P02 writes
 needs the scope repair. Each repair is an upstream change first.

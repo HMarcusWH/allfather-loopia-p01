@@ -108,6 +108,21 @@ const CASES: Case[] = [
   CF('catalogue-stored-capture-unreadable', cat({ error_after_ms: DAY, captures: [{ captured_at: 'garbage' }] })),
   CF('catalogue-stored-terms-review-date-only', cat({ recheck_terms_after_ms: 30 * DAY, terms_reviews: ['2026-06-20'] })),
   CF('catalogue-stored-terms-review-unreadable', cat({ recheck_terms_after_ms: 30 * DAY, terms_reviews: ['garbage'] })),
+  // Discriminating vectors: each verdict flips if the instant is read any other way — the offset
+  // ignored, the milliseconds dropped (strtotime), or a non-ES string read by a lenient parser.
+  CF('catalogue-stored-capture-offset-decides', cat({ error_after_ms: DAY, captures: [{ captured_at: '2026-06-30T01:00+02:00' }] })),
+  CF('catalogue-stored-capture-milliseconds-decide', cat({ error_after_ms: DAY + 600, captures: [{ captured_at: '2026-06-29T23:59:59.5Z' }] })),
+  CF('catalogue-stored-terms-review-milliseconds-decide', cat({ recheck_terms_after_ms: 30 * DAY + 600, terms_reviews: ['2026-05-31T23:59:59.5Z'] })),
+  CF('catalogue-stored-terms-review-iso-week-unreadable', cat({ recheck_terms_after_ms: 30 * DAY, terms_reviews: ['2026W26'] })),
+  CF('catalogue-stored-terms-review-beyond-timeclip', cat({ recheck_terms_after_ms: 30 * DAY, terms_reviews: ['+275761-01-01'] })),
+  CF('catalogue-stored-terms-review-hour-24-fraction', cat({ recheck_terms_after_ms: 30 * DAY, terms_reviews: ['2026-06-14T24:00:00.0001'] })),
+  CF('catalogue-stored-expiry-before-timeclip', cat({ review_expires_at: '-271822-01-01' })),
+  CF('catalogue-stored-capture-before-timeclip', cat({ error_after_ms: DAY, captures: [{ captured_at: '-271822-01-01' }] })),
+  // "Latest" is SQLite BINARY string order: '…12:00:00Z' sorts after '…12:00+02:00' (':' > '+'),
+  // although the latter is earlier as an instant read in a different order. Judged at 11:00Z the
+  // next day, the row chosen decides the verdict.
+  CF('catalogue-latest-capture-is-binary-string-order', cat({ error_after_ms: DAY, captures: [{ captured_at: '2026-06-30T12:00:00Z' }, { captured_at: '2026-06-30T12:00+02:00' }] }), { asOf: '2026-07-01T11:00:00.000Z' }),
+  CF('catalogue-latest-terms-review-is-binary-string-order', cat({ recheck_terms_after_ms: 30 * DAY, terms_reviews: ['2026-06-01T12:00:00Z', '2026-06-01T12:00+02:00'] }), { asOf: '2026-07-01T11:00:00.000Z' }),
   CF('catalogue-wrong-category-profile', cat(), {}, { category: 'SIGNAL_PAIRING_FRESHNESS' }),
   CF('catalogue-inactive-profile', cat(), {}, { category: 'CATALOGUE_FRESHNESS', status: 'SUSPENDED' }),
   CF('catalogue-target-missing', null),
@@ -125,7 +140,9 @@ const CASES: Case[] = [
   SP('pairing-target-missing', null),
   SP('pairing-stored-created-date-only-stale', hyp({ signal_created_at: '2026-06-01' })),
   SP('pairing-stored-created-date-only-fresh', hyp({ signal_created_at: '2026-06-30' })),
-  SP('pairing-stored-created-unreadable', hyp({ signal_created_at: 'yesterday' })),
+  SP('pairing-stored-created-unreadable', hyp({ signal_created_at: '2026W01' })),
+  SP('pairing-stored-created-milliseconds-decide', hyp({ signal_created_at: '2026-06-23T23:59:59.5Z' }), { signalPairingFreshnessWindowMs: 7 * DAY + 600 }),
+  SP('pairing-stored-created-before-timeclip', hyp({ signal_created_at: '-271822-01-01' })),
   SP('pairing-wrong-category-profile', hyp(), {}, { category: 'BUYER_INTENT_INVARIANT' }),
   SP('pairing-inactive-profile', hyp(), {}, { category: 'SIGNAL_PAIRING_FRESHNESS', status: 'REVOKED' }),
 
@@ -247,6 +264,7 @@ const parse = (s: unknown) => JSON.parse(String(s));
 const relabel = (labels: Map<string, string>) => (v: unknown) => (typeof v === 'string' && labels.has(v) ? labels.get(v)! : v);
 
 function runCase(c: Case) {
+  const ordered = (refs: unknown[]) => (c.family === 'BUYER_INTENT_INVARIANT' ? [...refs].sort() : refs);
   counter = 0;
   const afb = openAfbDatabase();
   const db = afb.db;
@@ -296,7 +314,9 @@ function runCase(c: Case) {
     }
     expected.audit_run = {
       audit_profile_id: r(run.audit_profile_id), audit_category: run.audit_category,
-      target_object_refs: parse(run.target_object_refs).map(r).sort(), requested_by_actor_type: run.requested_by_actor_type,
+      // Canonical's order is deterministic for the per-target families (and the M11 timeline cites
+      // the first ref), so it is kept; buyer-intent violators come back in no defined order.
+      target_object_refs: ordered(parse(run.target_object_refs).map(r)), requested_by_actor_type: run.requested_by_actor_type,
       status: run.status, summary: run.summary, scope: run.tenant_id === s.home.tenant && run.workspace_id === profileScope.workspace ? 'profile' : 'OTHER',
     };
     expected.check = { check_key: check.check_key, decision: check.decision, reason_codes: parse(check.reason_codes), severity_if_failed: check.severity_if_failed, safe_summary: check.safe_summary };
@@ -311,7 +331,7 @@ function runCase(c: Case) {
       const req = db.prepare(`SELECT * FROM incident_evaluation_requests WHERE incident_evaluation_request_id = ?`).get(kase.incident_evaluation_request_id) as any;
       expected.incident = {
         trigger_owner_module_id: req.trigger_owner_module_id, trigger_reason_codes: parse(req.trigger_reason_codes),
-        trigger_severity: req.trigger_severity, related_object_refs: parse(req.related_object_refs).map(r).sort(),
+        trigger_severity: req.trigger_severity, related_object_refs: ordered(parse(req.related_object_refs).map(r)),
         incident_class: kase.incident_class, severity: kase.severity, status: kase.status,
         current_release_or_operation_consequence: kase.current_release_or_operation_consequence, safe_summary: kase.safe_summary,
         scope: kase.tenant_id === profileScope.tenant && kase.workspace_id === profileScope.workspace ? 'profile' : 'OTHER',
@@ -332,7 +352,8 @@ function runCase(c: Case) {
 // strings in the ES date-time-string format, which the port must read identically; the others are
 // accepted (or not) by the engine's implementation-defined legacy parser, which the port does not
 // reproduce (UF-005) — the conformance suite pins that it reads them as unreadable.
-const ES_FORMAT = /^([+-]\d{6}|\d{4})(-\d{2}(-\d{2})?)?(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?)?$/;
+// The ES format forbids the year -000000; V8 then falls back to its legacy parser.
+const ES_FORMAT = /^(?!-000000)([+-]\d{6}|\d{4})(-\d{2}(-\d{2})?)?(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?)?$/;
 const INSTANTS = [
   '2026-06-15T00:00:00.000Z', '2026-06-15', '2026-06', '2026', '+002026-06-15', '-000001-01-01', '0000-01-01',
   '2026-06-15T00:00', '2026-06-15T00:00:00', '2026-06-15T00:00Z', '2026-06-15T10:00:00.5Z', '2026-06-15T10:00:00.12Z',
@@ -343,6 +364,13 @@ const INSTANTS = [
   '2026-06-15T25:00:00Z', '2026-06-15T10:60:00Z', '2026-06-15T10Z', '2026-06-15T10:00:00.Z', '1969-12-31T23:59:59.999Z',
   '2026-06-15 10:00:00', '2026-06-15t10:00:00z', '2026-06-15T10:00:00+0200', '2026-6-5', '2026/06/15', 'June 15, 2026',
   '20260615', 'not-a-date', 'yesterday', '',
+  // ES TimeClip: ±8.64e15 ms is the last representable instant; one past it is NaN.
+  '+275760-09-13T00:00:00.000Z', '+275760-09-13T00:00:00.001Z', '-271821-04-20T00:00:00.000Z', '-271821-04-19T23:59:59.999Z',
+  '+275761-01-01', '-271822-01-01',
+  // Hour 24 is the next midnight only when every fraction digit is zero.
+  '2026-06-14T24:00:00.0001Z', '2026-06-14T24:00:00.0000000000Z', '2026-06-15T10:00:00.1234567891Z',
+  // Not ES (the year -000000 is forbidden), so legacy-parsed by V8; unreadable in the port.
+  '-000000-04', '-000000-01-01', '2026W26', 'June 1, 2026',
 ];
 const storedInstants = INSTANTS.map((value) => {
   const parsed = Date.parse(value);

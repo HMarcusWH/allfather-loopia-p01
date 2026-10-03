@@ -339,6 +339,11 @@ Seed::membership($db, $clock, $sweepScope['tenant_id'], $sweepScope['workspace_i
 // record a caller's instant or window, so neither is accepted from an operator.
 Assert::same('SWEEP_AS_OF_NOT_ACCEPTED', $p03->operatorSweep($operator, ['signal_pairing_freshness_window_ms' => 7 * $DAY, 'as_of' => '2020-01-01T00:00:00.000Z'])->reasonCode(), 'an operator cannot backdate a sweep');
 Assert::same('SWEEP_CATALOGUE_WINDOW_NOT_ACCEPTED', $p03->operatorSweep($operator, ['signal_pairing_freshness_window_ms' => 7 * $DAY, 'freshness_window_ms' => 3650 * $DAY])->reasonCode(), 'nor loosen the cards\' own catalogue windows');
+// The signal window has no canonical default, so the operator names it — within a year, so a
+// "window" cannot quietly switch the age check off.
+foreach ([0, $DAY - 1, 366 * $DAY, 36500 * $DAY, '7', null] as $window) {
+    Assert::same('SWEEP_SIGNAL_WINDOW_OUT_OF_RANGE', $p03->operatorSweep($operator, ['signal_pairing_freshness_window_ms' => $window])->reasonCode(), 'an operator signal window outside 1..365 days refuses: ' . var_export($window, true));
+}
 // A passing catalogue created AFTER the failing one is audited after it, so the newest single run is a
 // PASS while the scope still has a failure: status must not let the one hide the other.
 $clock->advanceMs(60_000);
@@ -346,8 +351,27 @@ $lateFresh = $catalogue($sweepScope);
 $allowsBefore = (int) $db->scalar("SELECT COUNT(*) FROM access_evaluation_records WHERE actor_id = ? AND resource_type = 'P03_AUDIT_SWEEP' AND decision = 'ALLOW'", [$sweepScope['operator_id']]);
 $operatorSwept = $p03->operatorSweep($operator, ['signal_pairing_freshness_window_ms' => 7 * $DAY]);
 Assert::true($operatorSwept->isOk(), 'an incident reviewer can sweep');
-Assert::true($operatorSwept->value()['as_of'] >= '2026-07-02T00:00:00.000Z' && $operatorSwept->value()['as_of'] <= $clock->now(), 'at the clock\'s now');
-Assert::same(null, $operatorSwept->value()['freshness_window_ms'], 'with the cards\' own windows');
+Assert::same([null, null], [$operatorSwept->value()['as_of'], $operatorSwept->value()['freshness_window_ms']], 'with no caller instant and the cards\' own windows');
+// Each audit is judged at its own now — the instant it records — and says so on its run, with the
+// window it used: canonical records neither (UF-005).
+foreach ($operatorSwept->value()['audits'] as $row) {
+    $run = $db->one('SELECT requested_at, summary FROM audit_runs WHERE audit_run_id = ?', [$row['audit_run_id']]);
+    $expectedWindow = match ($row['audit_category']) {
+        'CATALOGUE_FRESHNESS' => null,
+        'SIGNAL_PAIRING_FRESHNESS' => ' under signal window ' . (7 * $DAY) . ' ms.',
+        default => '',
+    };
+    if ($row['audit_category'] === 'BUYER_INTENT_INVARIANT') {
+        Assert::same('P03_BUYER_INTENT_INVARIANT PASS.', (string) $run['summary'], 'the buyer-intent scan has no instant or window to record');
+        continue;
+    }
+    Assert::true(str_contains((string) $run['summary'], 'Judged as of ' . $run['requested_at'] . ' (its own now) under '), 'a sweep-run audit records that it was judged at the instant it records: ' . $run['summary']);
+    if ($expectedWindow !== null) {
+        Assert::true(str_ends_with((string) $run['summary'], $expectedWindow), 'and the signal window it used: ' . $run['summary']);
+    } else {
+        Assert::same(1, preg_match('/ under (card capture window \d+ ms|no capture window)\.$/', (string) $run['summary']), 'and the card window it used: ' . $run['summary']);
+    }
+}
 Assert::same($allowsBefore + 1, (int) $db->scalar("SELECT COUNT(*) FROM access_evaluation_records WHERE actor_id = ? AND resource_type = 'P03_AUDIT_SWEEP' AND decision = 'ALLOW'", [$sweepScope['operator_id']]), 'and the ALLOW that let the operator sweep is retained as an access record');
 $operatorRuns = $db->all(
     'SELECT requested_by_actor_type, requested_by_actor_id FROM audit_runs WHERE tenant_id = ? ORDER BY requested_at DESC LIMIT 6',
@@ -365,8 +389,8 @@ foreach ($operatorSwept->value()['audits'] as $row) {
 }
 Assert::false($byOperatorTarget['CATALOGUE_FRESHNESS'][$lateFresh['catalogue_id']]['failed'], 'the late catalogue passes');
 Assert::same(
-    ['FAILING', 4, [[$stale['catalogue_id']]]],
-    [$catalogueStatus['posture'], $catalogueStatus['targets_audited'], array_column($catalogueStatus['failing_targets'], 'target_object_refs')],
+    ['FAILING', 4, 4, 0, [[$stale['catalogue_id']]]],
+    [$catalogueStatus['posture'], $catalogueStatus['live_targets'], $catalogueStatus['targets_audited'], $catalogueStatus['targets_never_audited'], array_column($catalogueStatus['failing_targets'], 'target_object_refs')],
     'status reports catalogue freshness FAILING with exactly the suspended catalogue — a later passing target cannot hide it',
 );
 Assert::same(['CATALOGUE_NOT_ACTIVE'], $catalogueStatus['failing_targets'][0]['reason_codes'], 'with its reason');
@@ -416,10 +440,27 @@ try {
     Assert::true(($out['result']['failed_count'] ?? 0) >= 2, 'and reports its failures');
     $db->run("UPDATE audit_profiles SET status = 'SUSPENDED' WHERE audit_profile_id = ?", [$sweepProfiles['BUYER_INTENT_INVARIANT']]);
     [$code, $out] = $cli(['sweep', ...$ids, '--signal-window-days=7']);
-    Assert::same([3, false], [$code, $out['result']['complete'] ?? null], 'a sweep that skipped a category exits 3, not 0');
+    Assert::same([5, false], [$code, $out['result']['complete'] ?? null], 'a sweep that skipped a category exits 5, not 0');
     Assert::same([['audit_category' => 'BUYER_INTENT_INVARIANT', 'profile_status' => 'SUSPENDED']], $out['result']['skipped_categories'] ?? null, 'naming the category and why it was skipped');
+    [$code] = $cli(['sweep', ...$ids, '--signal-window-days=366']);
+    Assert::same(2, $code, 'a signal window over a year is a usage error');
+    [$code] = $cli(['sweep', ...$ids, '--signal-window-days=7', '--max-targets=5000']);
+    Assert::same(2, $code, 'and so is a target bound over 1000');
     [$code] = $cli(['publish', ...$ids]);
     Assert::same(2, $code, 'there is no other command');
+    $unreachable = $envFile . '.unreachable';
+    file_put_contents($unreachable, preg_replace('/^DB_(HOST|PORT|SOCKET)=.*\n/m', '', (string) file_get_contents($envFile)) . "DB_HOST=127.0.0.1\nDB_PORT=1\n");
+    try {
+        $command = [PHP_BINARY, dirname(__DIR__, 2) . '/ops/assurance/p03.php', 'status', ...$ids, '--env=' . $unreachable];
+        $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        stream_get_contents($pipes[1]);
+        stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        Assert::same(3, proc_close($process), 'an unreachable database exits 3 — never the incomplete-sweep code');
+    } finally {
+        @unlink($unreachable);
+    }
 } finally {
     @unlink($envFile);
 }

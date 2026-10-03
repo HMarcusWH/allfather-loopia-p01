@@ -161,3 +161,52 @@ Assert::same([['audit_category' => 'SIGNAL_PAIRING_FRESHNESS', 'profile_status' 
 Assert::same(false, $partial['complete'], 'and the sweep is INCOMPLETE');
 Assert::same(['SIGNAL_PAIRING_FRESHNESS'], $partial['missing_profiles'], 'the legacy list still names it');
 Assert::same(['MISSING', 'MISSING', 'MISSING'], array_column($sweep(Seed::tenantWorkspace($db, $clock, 'p03unseeded'))->value()['skipped_categories'], 'profile_status'), 'an unseeded scope reports every category MISSING');
+
+// ============================================================ status follows the live target set
+
+$live = Seed::tenantWorkspace($db, $clock, 'p03statuslive');
+$p03->seedProfiles($live['tenant_id'], $live['workspace_id']);
+$liveOperator = ['tenant_id' => $live['tenant_id'], 'workspace_id' => $live['workspace_id'], 'operator_id' => $live['operator_id']];
+$reader = Seed::role($db, $clock, 'P03_STATUS_READER_' . substr(Ids::new(), 0, 6), ['incident.read']);
+Seed::membership($db, $clock, $live['tenant_id'], $live['workspace_id'], $live['operator_id'], $reader['role_id']);
+$status = static fn (): array => $p03->operatorStatus($liveOperator)->value()['categories'];
+Assert::same(['NO_TARGETS', 'NO_TARGETS', 'NOT_AUDITED'], array_column($status(), 'posture'), 'a scope with nothing to audit says so, per category');
+
+$suspendedCatalogue = $catalogue($live);
+Assert::same(['INCOMPLETE', 1, 0, 1], (static fn (array $c): array => [$c['posture'], $c['live_targets'], $c['targets_audited'], $c['targets_never_audited']])($status()['CATALOGUE_FRESHNESS']), 'a live target never audited is INCOMPLETE, not PASSING');
+Assert::true($catalogues->changeCatalogueStatus($suspendedCatalogue, 'SUSPENDED', 'test')->isOk(), 'the catalogue is suspended');
+$staleFitId = $liveHypothesisCiting($live, $catalogue($live));
+$db->run("UPDATE company_signals SET created_at = '2026-01-01T00:00:00.000Z' WHERE company_signal_id = (SELECT company_signal_id FROM fit_hypotheses WHERE fit_hypothesis_id = ?)", [$staleFitId]);
+Assert::true($sweep($live)->isOk(), 'the scope is swept');
+$before = $status();
+Assert::same(['FAILING', [[$suspendedCatalogue]]], [$before['CATALOGUE_FRESHNESS']['posture'], array_column($before['CATALOGUE_FRESHNESS']['failing_targets'], 'target_object_refs')], 'the suspended catalogue fails');
+Assert::same(['FAILING', [[$staleFitId]]], [$before['SIGNAL_PAIRING_FRESHNESS']['posture'], array_column($before['SIGNAL_PAIRING_FRESHNESS']['failing_targets'], 'target_object_refs')], 'and so does the stale pairing');
+
+// Ordinary remediation: the stale hypothesis is rejected, the suspended catalogue retired (nothing
+// cites it). The sweep stops auditing both, so status must stop reporting their old failures.
+$db->run("UPDATE fit_hypotheses SET status = 'REJECTED' WHERE fit_hypothesis_id = ?", [$staleFitId]);
+Assert::true($catalogues->changeCatalogueStatus($suspendedCatalogue, 'RETIRED', 'test')->isOk(), 'the suspended catalogue retires');
+$clock->advanceMs(1000);
+$resweep = $sweep($live)->value();
+Assert::same([0, true], [$resweep['failed_count'], $resweep['complete']], 'the next sweep finds nothing failing');
+$after = $status();
+Assert::same(['PASSING', 1, []], [$after['CATALOGUE_FRESHNESS']['posture'], $after['CATALOGUE_FRESHNESS']['live_targets'], $after['CATALOGUE_FRESHNESS']['failing_targets']], 'status agrees: the retired catalogue no longer counts');
+Assert::same(['NO_TARGETS', []], [$after['SIGNAL_PAIRING_FRESHNESS']['posture'], $after['SIGNAL_PAIRING_FRESHNESS']['failing_targets']], 'nor does the rejected hypothesis');
+
+// Many sweeps of one target: status reports the latest result, chosen per target in SQL.
+for ($i = 0; $i < 5; $i++) {
+    $clock->advanceMs(1000);
+    $sweep($live);
+}
+$latestRun = (string) $db->scalar('SELECT audit_run_id FROM audit_runs WHERE tenant_id = ? AND audit_category = ? ORDER BY requested_at DESC, audit_run_id DESC LIMIT 1', [$live['tenant_id'], 'CATALOGUE_FRESHNESS']);
+Assert::same([$latestRun], array_column(array_values(array_filter([$status()['CATALOGUE_FRESHNESS']['latest_run']])), 'audit_run_id'), 'the newest run is the one reported');
+
+// A service sweep given an instant passes it to every audit and records it as caller-supplied.
+$asOfSweep = $sweep($live, ['as_of' => '2026-07-01T12:00:00.000Z'])->value();
+Assert::same('2026-07-01T12:00:00.000Z', $asOfSweep['as_of'], 'the summary names the caller instant');
+foreach ($asOfSweep['audits'] as $row) {
+    if ($row['audit_category'] !== 'BUYER_INTENT_INVARIANT') {
+        $summary = (string) $db->scalar('SELECT summary FROM audit_runs WHERE audit_run_id = ?', [$row['audit_run_id']]);
+        Assert::true(str_contains($summary, 'Judged as of 2026-07-01T12:00:00.000Z (caller-supplied) under '), 'and every run records it as caller-supplied: ' . $summary);
+    }
+}

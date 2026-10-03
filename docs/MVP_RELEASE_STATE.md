@@ -7,7 +7,7 @@ described as deployed or a deployment gets described as activated:
 | Question | Current answer | Evidence |
 | --- | --- | --- |
 | **Source** — what application code is in this release tree? | P00–P06, P10 and P11 are merged through PR28 at `1a99f72b`. P08 is an **unmerged** candidate: PR #30, code head `149ceee8` | Git history; [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) |
-| **Tested** — which exact commit was qualified, and how? | merged PR28 `1a99f72b` passed hosted CI push run 36861689735; both MariaDB lanes were 7,689/0/0. Separately, PR #30 code head `149ceee8` passed hosted CI pull-request run 37092396485; both lanes 8,677/0/0 (a branch candidate, not merged main) | §2; `deployment-evidence.json` |
+| **Tested** — which exact commit was qualified, and how? | merged PR28 `1a99f72b` passed hosted CI push run 36861689735; both MariaDB lanes were 7,689/0/0. Separately, PR #30 code head `149ceee8` passed hosted CI pull-request run 37092396485; both lanes 8,677/0/0 (a branch candidate, not merged main) | §2 and `deployment-evidence.json` for merged main; §1 for PR #30 (a CI run, not a filed registry record) |
 | **Deployed** — which application runs on staging? | PR16 `392f48de`, inert. **None of the Monitor work is deployed**, and neither is PR #30 | §3; [Gate R filing](STAGING_GATE_R_EVIDENCE_2026-09-26.md) |
 | **Activated** — what may run against the world? | nothing: no live read, no native model call, no scheduler handler, no external action; no P03 audit is scheduled or has been run against staging | §4; `upstream.lock.json` |
 
@@ -60,10 +60,11 @@ candidate_migrations               = 30
   immutable execution-grant history has been changed by the merge.
 - **Unmerged P08 candidate (PR #30, branch `claude/gifted-wozniak-ooz1av`).** Code head
   `149ceee8003e5f39a7ead34b958baeb538bdbf89`: the canonical P03 assurance port (three audits on the
-  certified M11 plane, 62 canonical-generated parity vectors and a 47-instant `Date.parse` battery),
+  certified M11 plane, 74 canonical-generated parity vectors and a 60-instant `Date.parse` battery),
   the operator sweep/status CLI, migrations `245_source_card_window_width` and
   `246_assurance_refs_width` with an upgrade-order proof on a pre-P08 database, and the P02/P03/P05
-  expansion register with its OPEN rows pinned. Hosted CI pull-request run **37092396485** (run 400)
+  expansion register with every OPEN row guarded by the acceptance suite (the P02 foreign-scope and
+  P03 ICP-size rows are recorded from the parity baseline, not re-run). Hosted CI pull-request run **37092396485** (run 400)
   tested the merge of that head with `main` (merge commit `6f62e5f4170cfb5ca9d1c782c3ab0e9224ace12b`):
   MariaDB **10.6.28** and **10.11.19** both **8,677/0/0**, foundation, release preparation and
   release qualification passed, receipt PASS. That is qualification of a branch candidate; it is not

@@ -301,6 +301,9 @@ foreach ($vectors['cases'] as $case) {
 
         return $mapped;
     };
+    // Canonical's ref order is deterministic for the per-target families — and the M11 timeline cites
+    // the first ref — so it is compared as is; buyer-intent violators have no defined order.
+    $refs = static fn (array $values): array => $case['family'] === 'BUYER_INTENT_INVARIANT' ? $sorted($values) : array_map($relabel, $values);
 
     Assert::same($expected['audited_rows_unchanged'], $auditedDigest($db, $s) === $before, "{$name}: audited rows unchanged");
     $countsAfter = $counts();
@@ -334,7 +337,7 @@ foreach ($vectors['cases'] as $case) {
     Assert::same($expected['audit_run'], [
         'audit_profile_id' => $relabel((string) $run['audit_profile_id']),
         'audit_category' => (string) $run['audit_category'],
-        'target_object_refs' => $sorted(json_decode((string) $run['target_object_refs'], true)),
+        'target_object_refs' => $refs(json_decode((string) $run['target_object_refs'], true)),
         'requested_by_actor_type' => (string) $run['requested_by_actor_type'],
         'status' => (string) $run['status'],
         'summary' => (string) $run['summary'],
@@ -376,7 +379,7 @@ foreach ($vectors['cases'] as $case) {
         'trigger_owner_module_id' => (string) $request['trigger_owner_module_id'],
         'trigger_reason_codes' => json_decode((string) $request['trigger_reason_codes'], true),
         'trigger_severity' => (string) $request['trigger_severity'],
-        'related_object_refs' => $sorted(json_decode((string) $request['related_object_refs'], true)),
+        'related_object_refs' => $refs(json_decode((string) $request['related_object_refs'], true)),
         'incident_class' => (string) $kase['incident_class'],
         'severity' => (string) $kase['severity'],
         'status' => (string) $kase['status'],
@@ -400,7 +403,15 @@ foreach ($vectors['cases'] as $case) {
             "{$name}: timeline entry {$i} matches canonical",
         );
         Assert::same(['SYSTEM', null], [$entry['recorded_by_actor_type'], $entry['related_object_ref']], "{$name}: canonical OPENED entry is SYSTEM with no ref");
-        $firstRef = json_decode((string) $request['related_object_refs'], true)[0] ?? null;
-        Assert::same(['SERVICE', $firstRef], [(string) $row['recorded_by_actor_type'], $row['related_object_ref']], "{$name}: the M11 projection's OPENED entry is SERVICE with the first related ref (recorded divergence)");
+        // The ref the port's entry cites is pinned to canonical's FIRST related ref (by label), not to
+        // whatever the port's own request happens to list first. Buyer-intent violators have no
+        // defined order, so there it must merely be one of canonical's refs.
+        $cited = $row['related_object_ref'] === null ? null : $relabel((string) $row['related_object_ref']);
+        Assert::same('SERVICE', (string) $row['recorded_by_actor_type'], "{$name}: the M11 projection's OPENED entry is recorded by SERVICE (recorded divergence)");
+        if ($case['family'] === 'BUYER_INTENT_INVARIANT') {
+            Assert::true(in_array($cited, $expected['incident']['related_object_refs'], true), "{$name}: and cites one of canonical's related refs");
+        } else {
+            Assert::same($expected['incident']['related_object_refs'][0], $cited, "{$name}: and cites canonical's first related ref (recorded divergence)");
+        }
     }
 }

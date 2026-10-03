@@ -239,6 +239,71 @@
       "value": "",
       "es_format": false,
       "canonical_ms": null
+    },
+    {
+      "value": "+275760-09-13T00:00:00.000Z",
+      "es_format": true,
+      "canonical_ms": 8640000000000000
+    },
+    {
+      "value": "+275760-09-13T00:00:00.001Z",
+      "es_format": true,
+      "canonical_ms": null
+    },
+    {
+      "value": "-271821-04-20T00:00:00.000Z",
+      "es_format": true,
+      "canonical_ms": -8640000000000000
+    },
+    {
+      "value": "-271821-04-19T23:59:59.999Z",
+      "es_format": true,
+      "canonical_ms": null
+    },
+    {
+      "value": "+275761-01-01",
+      "es_format": true,
+      "canonical_ms": null
+    },
+    {
+      "value": "-271822-01-01",
+      "es_format": true,
+      "canonical_ms": null
+    },
+    {
+      "value": "2026-06-14T24:00:00.0001Z",
+      "es_format": true,
+      "canonical_ms": null
+    },
+    {
+      "value": "2026-06-14T24:00:00.0000000000Z",
+      "es_format": true,
+      "canonical_ms": 1781481600000
+    },
+    {
+      "value": "2026-06-15T10:00:00.1234567891Z",
+      "es_format": true,
+      "canonical_ms": 1781517600123
+    },
+    {
+      "value": "-000000-04",
+      "es_format": false,
+      "canonical_ms": 986083200000
+    },
+    {
+      "value": "-000000-01-01",
+      "es_format": false,
+      "canonical_ms": 978307200000
+    },
+    {
+      "value": "2026W26",
+      "es_format": false,
+      "canonical_ms": null
+    },
+    {
+      "value": "June 1, 2026",
+      "es_format": false,
+      "canonical_ms": 1780272000000
     }
   ],
   "cases": [
@@ -3301,6 +3366,826 @@
       }
     },
     {
+      "name": "catalogue-stored-capture-offset-decides",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": 86400000,
+          "recheck_terms_after_ms": null,
+          "captures": [
+            {
+              "captured_at": "2026-06-30T01:00+02:00"
+            }
+          ],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_CAPTURE_STALE"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_CAPTURE_STALE"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_CAPTURE_STALE)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_CAPTURE_STALE"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_CAPTURE_STALE"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "catalogue-stored-capture-milliseconds-decide",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": 86400600,
+          "recheck_terms_after_ms": null,
+          "captures": [
+            {
+              "captured_at": "2026-06-29T23:59:59.5Z"
+            }
+          ],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-stored-terms-review-milliseconds-decide",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": 2592000600,
+          "captures": [],
+          "terms_reviews": [
+            "2026-05-31T23:59:59.5Z"
+          ]
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-stored-terms-review-iso-week-unreadable",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": 2592000000,
+          "captures": [],
+          "terms_reviews": [
+            "2026W26"
+          ]
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_TERMS_RECHECK_OVERDUE"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_TERMS_RECHECK_OVERDUE)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "catalogue-stored-terms-review-beyond-timeclip",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": 2592000000,
+          "captures": [],
+          "terms_reviews": [
+            "+275761-01-01"
+          ]
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_TERMS_RECHECK_OVERDUE"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_TERMS_RECHECK_OVERDUE)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "catalogue-stored-terms-review-hour-24-fraction",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": 2592000000,
+          "captures": [],
+          "terms_reviews": [
+            "2026-06-14T24:00:00.0001"
+          ]
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_TERMS_RECHECK_OVERDUE"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_TERMS_RECHECK_OVERDUE)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "catalogue-stored-expiry-before-timeclip",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": "-271822-01-01",
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-stored-capture-before-timeclip",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": 86400000,
+          "recheck_terms_after_ms": null,
+          "captures": [
+            {
+              "captured_at": "-271822-01-01"
+            }
+          ],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-latest-capture-is-binary-string-order",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": 86400000,
+          "recheck_terms_after_ms": null,
+          "captures": [
+            {
+              "captured_at": "2026-06-30T12:00:00Z"
+            },
+            {
+              "captured_at": "2026-06-30T12:00+02:00"
+            }
+          ],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T11:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-latest-terms-review-is-binary-string-order",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": 2592000000,
+          "captures": [],
+          "terms_reviews": [
+            "2026-06-01T12:00:00Z",
+            "2026-06-01T12:00+02:00"
+          ]
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T11:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
       "name": "catalogue-wrong-category-profile",
       "family": "CATALOGUE_FRESHNESS",
       "setup": {
@@ -4183,7 +5068,131 @@
         "hypothesis": {
           "scope": "home",
           "signal_status": "RELEASED",
-          "signal_created_at": "yesterday"
+          "signal_created_at": "2026W01"
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "signalPairingFreshnessWindowMs": 604800000
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "SIGNAL_PAIRING_FRESHNESS",
+          "target_object_refs": [
+            "fit_hypothesis"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_SIGNAL_PAIRING_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_SIGNAL_PAIRING_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Signal-pairing freshness audit: the cited signal is RELEASED and within the freshness window."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "The cited signal is fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "pairing-stored-created-milliseconds-decide",
+      "family": "SIGNAL_PAIRING_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "SIGNAL_PAIRING_FRESHNESS"
+        },
+        "hypothesis": {
+          "scope": "home",
+          "signal_status": "RELEASED",
+          "signal_created_at": "2026-06-23T23:59:59.5Z"
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "signalPairingFreshnessWindowMs": 604800600
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "SIGNAL_PAIRING_FRESHNESS",
+          "target_object_refs": [
+            "fit_hypothesis"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_SIGNAL_PAIRING_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_SIGNAL_PAIRING_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Signal-pairing freshness audit: the cited signal is RELEASED and within the freshness window."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "The cited signal is fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "pairing-stored-created-before-timeclip",
+      "family": "SIGNAL_PAIRING_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "SIGNAL_PAIRING_FRESHNESS"
+        },
+        "hypothesis": {
+          "scope": "home",
+          "signal_status": "RELEASED",
+          "signal_created_at": "-271822-01-01"
         }
       },
       "input": {
