@@ -20,7 +20,7 @@ The pinned canonical graph does not settle production. Specifically, today:
 | Which audiences may be activated? | `OPERATOR_ONLY` and `TENANT_INTERNAL` only; every wider audience is designed-inert upstream (V1-GAP-093) | `output_visibility_profiles` CHECK; `release_artifacts` cannot be `RELEASED_CUSTOMER_VISIBLE` |
 | Who may launch? | `production_launch_authorized`, `owner_go_granted`, `customer_visible_output_authorized` are permanent authority locks, all false | `upstream.lock.json` → `claim_boundary`; owner acts recorded upstream, never edited by code |
 | Is the host isolated? | E.1 `FAIL_READABLE`, E.3 `UNVERIFIED`; staging runs under an owner-directed deviation that production cannot inherit | `deployment-evidence.json` → `PR15_CROSS_SITE_ISOLATION_FAIL` |
-| Is recovery proven on production? | P10 backup/restore and P11 rotation tooling exist and are offline-tested; no production drill, and the evidence registry has no kind for one | `DeploymentEvidence::KINDS` |
+| Is recovery proven on production? | P10 backup/restore and P11 rotation tooling exist and are offline-tested; `FULL_RESTORE_DRILL` / `KEY_ROTATION_DRILL` are valid evidence kinds, but no production drill is filed | `DeploymentEvidence::KINDS`; production preflight `RECOVERY_READINESS` |
 
 `APP_ENV=production` is already a strict bootstrap posture. It is **not** a grant: it does not create
 a production identity, open a production ledger stream or widen an audience, and the preflight treats
