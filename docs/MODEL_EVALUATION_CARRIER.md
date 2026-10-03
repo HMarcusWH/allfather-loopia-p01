@@ -6,7 +6,9 @@ This is private operator preparation for the existing `MODEL_EVALUATION` lane. I
 
 `MonitorSetup` configures product source observation and internal release, and legitimately requires a reviewed source and company/profile evidence. Synthetic evaluation inputs come from the frozen evaluation manifest instead. Do not invent source rights or a fictional company profile to get a synthetic evaluation through product setup.
 
-`EvaluationCarrier` composes the existing model-descriptor, M03 and M04 owners. It creates one TEST mission with action scope `ANALYZE`, source scope `[]`, output class `INTERNAL_INFORMATIONAL`, one model tool, and two separate evaluation author/critic identities with exact contracts and narrowed assignments. M03 bindings still require the existing downstream gates for any informational output. It creates no subscription, source, profile, credential, prompt approval, native grant, provider attempt, product configuration or release.
+`EvaluationCarrier` composes the existing model-descriptor, M03 and M04 owners. It creates one TEST mission with action scope `ANALYZE`, empty source and product-output scopes, one model tool, and two separate evaluation author/critic identities with exact contracts and narrowed assignments. Neither assignment has product-output scope and neither contract gains an output-class binding. Candidate retention belongs to the existing evaluation runner; it is not an M03 product release. No schema or output gate is widened.
+
+It creates no subscription, source, profile, credential, prompt approval, native grant, provider attempt, product configuration or release. The database refused the first candidate's invalid product-output binding during CI; the repair removed the unnecessary binding instead of changing the schema to accommodate it. That failed run remains failed.
 
 ## Authorization and plan semantics
 
@@ -46,6 +48,8 @@ The apply receipt contains `governance.author` and `governance.critic`, suitable
 
 ## Qualification
 
-`tests/integration/evaluation_carrier.php` uses shipped roles on a disposable MariaDB database. It covers v1 refusal/v2 preparation, configuration-read-only planning, exact digest/target/release binding, complete-table write-set checks, nested rollback, distinct author/critic identities, M03 model eligibility, no source/profile/grant/credential/release creation, reuse, revocation and cross-scope refusal, actual private CLI replay, and the real evaluation runner refusing absent execution authority.
+`tests/integration/evaluation_carrier.php` uses shipped roles on a disposable MariaDB database. It covers v1 refusal/v2 preparation, configuration-read-only planning, exact digest/target/release binding, complete-table write-set checks, verified outer rollback, distinct author/critic identities, M03 model eligibility, zero source/output/grant/credential/release creation, reuse, revocation and cross-scope refusal, actual private CLI replay, and the real evaluation runner refusing absent execution authority.
+
+`tests/integration/evaluation_carrier_owners.php` independently composes the same fixed zero-output carrier through the existing owners, then checks its recognition and exact reuse. This is a compatibility test, not an operational SQL procedure.
 
 These are source tests, not a live evaluation, deployment, quality result or ROAD_TEST observation. Real staging execution and the two human road-test reviews remain separately approved operational work.
