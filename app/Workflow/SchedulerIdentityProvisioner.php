@@ -20,7 +20,7 @@ use Allfather\Loopia\Substrate\M02\{AccessGuard,Permissions};
  */
 final class SchedulerIdentityProvisioner
 {
-    public const ROLE_KEY = 'ROLE_SYSTEM_SCHEDULER_OBSERVER';
+    public const ROLE_KEY = MonitorPrincipal::SERVICE_ROLE_KEY;
     public const SERVICE_CLASS = 'SYSTEM_SCHEDULER';
     public const SERVICE_PURPOSE = 'P07 recurring observation: governed capture and diff only';
 
@@ -64,6 +64,7 @@ final class SchedulerIdentityProvisioner
             if (
                 (string) ($existing['tenant_id'] ?? '') !== $scope['tenant_id']
                 || (string) $existing['service_class'] !== self::SERVICE_CLASS
+                || (string) $existing['service_purpose'] !== self::SERVICE_PURPOSE
             ) {
                 return Outcome::refuse('SCHEDULER_IDENTITY_CONFLICT');
             }
@@ -80,32 +81,42 @@ final class SchedulerIdentityProvisioner
         $membershipId = null;
         if ($serviceId !== null) {
             $memberships = $this->db->all(
-                "SELECT m.membership_id, m.role_id, m.status, m.valid_from, m.valid_until,
+                "SELECT m.membership_id, m.workspace_id, m.role_id, m.status, m.valid_from, m.valid_until,
                         r.role_key, r.role_version
                  FROM workspace_memberships m
                  JOIN roles r ON r.role_id = m.role_id
-                 WHERE m.tenant_id = ? AND m.workspace_id = ?
-                   AND m.principal_type = 'SERVICE' AND m.principal_id = ?
-                 ORDER BY m.created_at, m.membership_id",
-                [$scope['tenant_id'], $scope['workspace_id'], $serviceId]
+                 WHERE m.tenant_id = ? AND m.principal_type = 'SERVICE' AND m.principal_id = ?
+                 ORDER BY m.workspace_id, m.created_at, m.membership_id",
+                [$scope['tenant_id'], $serviceId]
             );
+            $now = $this->clock->now();
             foreach ($memberships as $membership) {
                 $status = (string) $membership['status'];
                 $roleKey = (string) $membership['role_key'];
-                if ($status === 'ACTIVE' && $roleKey !== self::ROLE_KEY) {
+                $validUntil = $membership['valid_until'] === null ? null : (string) $membership['valid_until'];
+                $current = $status === 'ACTIVE'
+                    && (string) $membership['valid_from'] <= $now
+                    && ($validUntil === null || $validUntil > $now);
+
+                // A service key is deterministically scoped to one workspace. Any other CURRENT
+                // membership — even a seemingly harmless read role — makes this no longer the
+                // single-purpose service principal the canonical decision authorizes.
+                if ($current && (
+                    (string) $membership['workspace_id'] !== $scope['workspace_id']
+                    || $roleKey !== self::ROLE_KEY
+                )) {
                     return Outcome::refuse('SCHEDULER_IDENTITY_BROADER_MEMBERSHIP_PRESENT', [
+                        'workspace_id' => (string) $membership['workspace_id'],
                         'role_key' => $roleKey,
                     ]);
                 }
-                if ($roleKey === self::ROLE_KEY) {
+                if ((string) $membership['workspace_id'] === $scope['workspace_id'] && $roleKey === self::ROLE_KEY) {
                     if ($status !== 'ACTIVE') {
                         return Outcome::refuse('SCHEDULER_MEMBERSHIP_NOT_ACTIVE', [
                             'status' => $status,
                         ]);
                     }
-                    $validUntil = $membership['valid_until'] === null ? null : (string) $membership['valid_until'];
-                    if ((string) $membership['valid_from'] > $this->clock->now()
-                        || ($validUntil !== null && $validUntil <= $this->clock->now())) {
+                    if (!$current) {
                         return Outcome::refuse('SCHEDULER_MEMBERSHIP_NOT_CURRENT');
                     }
                     $membershipAction = 'REUSE';
@@ -393,7 +404,7 @@ final class SchedulerIdentityProvisioner
                 [(string) $role['role_id']]
             )
         );
-        $expected = ScheduleService::SERVICE_PERMISSIONS;
+        $expected = MonitorPrincipal::SERVICE_ROLE_PERMISSIONS;
         sort($expected, SORT_STRING);
         $actual = $permissions;
         sort($actual, SORT_STRING);
