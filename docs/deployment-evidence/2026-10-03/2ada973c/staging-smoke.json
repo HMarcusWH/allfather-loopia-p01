@@ -1,0 +1,386 @@
+{
+  "schema_version": "1.0",
+  "status": "PASS",
+  "release_ref": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+  "source_fingerprint": "6460ca1b44ab3147966037163e27e4f2c7e2e6a961cf06c4ec9ee0cdb084a21b",
+  "target": "staging.allfatherbi.com",
+  "anonymous": {
+    "status": "SMOKE_PASS",
+    "step_count": 23,
+    "failures": 0,
+    "responses_without_request_reference": 0
+  },
+  "authenticated_gate_n_and_gate_o": {
+    "status": "TESTED_CONTRACTS_PASS",
+    "gate_n_status": "SMOKE_PASS",
+    "step_count": 118,
+    "failed_step_count": 0,
+    "cleanup_status": "RETIRED_AND_ZERO_LIVE_SESSIONS"
+  },
+  "monitor_boundary": {
+    "run_id": "20261003-monitor02",
+    "monitor_boundary_status": "SMOKE_PASS",
+    "step_count": 50,
+    "failures": 0,
+    "responses_without_request_reference": 0,
+    "monitor_specific_contracts_passed": 6,
+    "cleanup_status": "RETIRED_AND_ZERO_LIVE_SESSIONS",
+    "monitored_runtime_counters_unchanged": true,
+    "before": {
+      "counts": {
+        "monitor_runs": 0,
+        "monitor_execution_grants": 0,
+        "monitor_execution_grant_events": 0,
+        "provider_model_attempts": 0,
+        "provider_model_results": 0,
+        "provider_call_records": 0,
+        "source_capture_reservations": 0,
+        "source_snapshots": 0,
+        "ingestion_capture_reservations": 0,
+        "ingestion_raw_captures": 0
+      },
+      "current_admitted_grants": 0,
+      "future_admitted_grants": 0
+    },
+    "after": {
+      "counts": {
+        "monitor_runs": 0,
+        "monitor_execution_grants": 0,
+        "monitor_execution_grant_events": 0,
+        "provider_model_attempts": 0,
+        "provider_model_results": 0,
+        "provider_call_records": 0,
+        "source_capture_reservations": 0,
+        "source_snapshots": 0,
+        "ingestion_capture_reservations": 0,
+        "ingestion_raw_captures": 0
+      },
+      "current_admitted_grants": 0,
+      "future_admitted_grants": 0
+    },
+    "steps": [
+      {
+        "step": "health",
+        "result": "PASS",
+        "status": 200,
+        "request_id": "FSUMlH9qLBIesxV8ShSTcg"
+      },
+      {
+        "step": "anonymous console shell redirects to sign-in",
+        "result": "PASS",
+        "status": 303,
+        "request_id": "YdCS5pUjGrzPvO7gONKrWA"
+      },
+      {
+        "step": "anonymous JSON read is a JSON 401",
+        "result": "PASS",
+        "status": 401,
+        "request_id": "SYkSc7-uiu1LkDI6NXq8LA"
+      },
+      {
+        "step": "sign-in page",
+        "result": "PASS",
+        "status": 200,
+        "request_id": "dnDtvAbN52mrRXSvrI6W4Q"
+      },
+      {
+        "step": "unknown path",
+        "result": "PASS",
+        "status": 404,
+        "request_id": "eX9YbYp6NxeBHNOm8JOmng"
+      },
+      {
+        "step": "POST without a CSRF token is refused",
+        "result": "PASS",
+        "status": 403,
+        "request_id": "6e-X-1eZWl3qgxuJpU1cgw"
+      },
+      {
+        "step": "scheduler endpoint refuses GET",
+        "result": "PASS",
+        "status": 405
+      },
+      {
+        "step": "private path is not served",
+        "result": "PASS",
+        "status": 302
+      },
+      {
+        "step": "private path is not served",
+        "result": "PASS",
+        "status": 403
+      },
+      {
+        "step": "private path is not served",
+        "result": "PASS",
+        "status": 403
+      },
+      {
+        "step": "private path is not served",
+        "result": "PASS",
+        "status": 403
+      },
+      {
+        "step": "private path is not served",
+        "result": "PASS",
+        "status": 403
+      },
+      {
+        "step": "private path is not served",
+        "result": "PASS",
+        "status": 403
+      },
+      {
+        "step": "private path is not served",
+        "result": "PASS",
+        "status": 403
+      },
+      {
+        "step": "private path is not served",
+        "result": "PASS",
+        "status": 403
+      },
+      {
+        "step": "private path is not served",
+        "result": "PASS",
+        "status": 403
+      },
+      {
+        "step": "private path is not served",
+        "result": "PASS",
+        "status": 403
+      },
+      {
+        "step": "private path is not served",
+        "result": "PASS",
+        "status": 403
+      },
+      {
+        "step": "private path is not served",
+        "result": "PASS",
+        "status": 403
+      },
+      {
+        "step": "private path is not served",
+        "result": "PASS",
+        "status": 403
+      },
+      {
+        "step": "private path is not served",
+        "result": "PASS",
+        "status": 403
+      },
+      {
+        "step": "private path is not served",
+        "result": "PASS",
+        "status": 403
+      },
+      {
+        "step": "private path is not served",
+        "result": "PASS",
+        "status": 403
+      },
+      {
+        "step": "sign-in",
+        "result": "PASS",
+        "status": 303,
+        "request_id": "MqtX7rSmdRwOQ-eobcQM9A"
+      },
+      {
+        "step": "workspace chooser",
+        "result": "PASS",
+        "status": 200,
+        "request_id": "w4AR-yw_6SHv7rq_ig6J-g"
+      },
+      {
+        "step": "workspace selected",
+        "result": "PASS",
+        "status": 303,
+        "request_id": "6ReQUbv46MDUwD4wIVX88g"
+      },
+      {
+        "step": "workspace selection becomes session state",
+        "result": "PASS",
+        "status": 200,
+        "request_id": "jzjzCGV9mbFQ9bpR83npsg"
+      },
+      {
+        "step": "the React shell is served",
+        "result": "PASS",
+        "status": 200,
+        "request_id": "unO067yYANi80l6KB_4Saw"
+      },
+      {
+        "step": "the console stylesheet is delivered",
+        "result": "PASS",
+        "status": 200
+      },
+      {
+        "step": "the console script is delivered",
+        "result": "PASS",
+        "status": 200
+      },
+      {
+        "step": "governed read",
+        "result": "PASS",
+        "status": 200,
+        "request_id": "lktmiJX8zc7wzq0bVeglCw"
+      },
+      {
+        "step": "governed read",
+        "result": "PASS",
+        "status": 403,
+        "request_id": "F13cBYGvAc-IoNL2GDHPYg"
+      },
+      {
+        "step": "governed read",
+        "result": "PASS",
+        "status": 403,
+        "request_id": "fDcJUX9rNntgQ7HeFGkWsw"
+      },
+      {
+        "step": "governed read",
+        "result": "PASS",
+        "status": 403,
+        "request_id": "oh6jI3Lw6JZCFMpfF0vxjA"
+      },
+      {
+        "step": "governed read",
+        "result": "PASS",
+        "status": 403,
+        "request_id": "q6AYUkS_MtujsRqJnfkBHw"
+      },
+      {
+        "step": "governed read",
+        "result": "PASS",
+        "status": 403,
+        "request_id": "CneKpp57qQj_2S73uKSFrQ"
+      },
+      {
+        "step": "governed read",
+        "result": "PASS",
+        "status": 403,
+        "request_id": "rv-MdqtwqEOA_VAcKccemg"
+      },
+      {
+        "step": "governed read",
+        "result": "PASS",
+        "status": 403,
+        "request_id": "n3NJj5lkTt1crw7u1XGqBw"
+      },
+      {
+        "step": "governed read",
+        "result": "PASS",
+        "status": 200,
+        "request_id": "g-CUnsgCFkqMjZ0TNk27bw"
+      },
+      {
+        "step": "caller-supplied scope changes nothing",
+        "result": "PASS",
+        "status": 200,
+        "request_id": "nd0qi3k6UR2r8LT_vdtWNw"
+      },
+      {
+        "step": "Monitor workbench is reachable",
+        "result": "PASS",
+        "status": 200,
+        "request_id": "cU5kVHeUVi4_-HpkCZEtGg"
+      },
+      {
+        "step": "caller-supplied Monitor scope is ignored",
+        "result": "PASS",
+        "status": 200,
+        "request_id": "PpjmuAn_bPalwRhpjcueKQ"
+      },
+      {
+        "step": "Monitor POST without CSRF is refused",
+        "result": "PASS",
+        "status": 403,
+        "request_id": "jXGfNnoI_c86k8ogBBk8-g"
+      },
+      {
+        "step": "Monitor advance requires a body run id",
+        "result": "PASS",
+        "status": 409,
+        "request_id": "S5r2zIy5VZB_8jrQPCvxyA"
+      },
+      {
+        "step": "Monitor query run id cannot authorize advance",
+        "result": "PASS",
+        "status": 409,
+        "request_id": "Upowp8mLme1pnIhqxSL1iA"
+      },
+      {
+        "step": "Monitor review requires a body run id",
+        "result": "PASS",
+        "status": 409,
+        "request_id": "PVtc6jCSU0cUPfnRfH0DTA"
+      },
+      {
+        "step": "operator surface",
+        "result": "PASS",
+        "status": 200,
+        "request_id": "IMzQSVZprewcdWD1rwu1Pg"
+      },
+      {
+        "step": "operator surface",
+        "result": "PASS",
+        "status": 200,
+        "request_id": "d1_vhYadP7DeF3UV372awQ"
+      },
+      {
+        "step": "sign-out",
+        "result": "PASS",
+        "status": 303,
+        "request_id": "GJgYExkFgl0De4EEGo_0oQ"
+      },
+      {
+        "step": "the session is gone after sign-out",
+        "result": "PASS",
+        "status": 401,
+        "request_id": "I0h8m2hQqQFztbS1a82qtg"
+      }
+    ]
+  },
+  "request_id_proof": {
+    "release_ref": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+    "source_fingerprint": "6460ca1b44ab3147966037163e27e4f2c7e2e6a961cf06c4ec9ee0cdb084a21b",
+    "target": "staging.allfatherbi.com",
+    "status": "PASS",
+    "request_id": "51zLFNhLNaoKCBqWObvGFQ",
+    "matching_log_lines": 1,
+    "exact_metadata_matches": 1,
+    "private_log_http_status": 403,
+    "private_log_contents_emitted": false,
+    "verified_at": "2026-10-03T17:51:52.120Z"
+  },
+  "manual_browser_result": "COMPLETED_WITH_KNOWN_GAPS",
+  "prior_unqualified_attempt": "monitor-attempt01-unqualified.json",
+  "scope_limits": [
+    "Negative deployed-boundary qualification only; no configured mission, real source fetch, model call, review/release or populated replay was exercised.",
+    "Persisted before/after counters were compared; no packet-level egress observation is claimed.",
+    "Known unwired browser panels and stale support wording are retained in browser-observations.json; this is not full P09 acceptance."
+  ],
+  "sources": [
+    {
+      "local_observation": "host-qualification/main-20261003-qual01/anonymous-smoke.json",
+      "sha256": "5fa579aaf3f3ac87ce417320aa4c9ddb4bce8af7e1dcc1ccb116d28a674b1c8e"
+    },
+    {
+      "local_observation": "gate-no/20261003-main01/gate-no-status.json",
+      "sha256": "b156e501c25ef485cff7b8eb3e13b71a15496bfc6954c2f3715e01984be87315"
+    },
+    {
+      "local_observation": "monitor-smoke/20261003-monitor02/monitor-status.json",
+      "sha256": "65cc469e923d409eb7c53e7c0769fd2dde8c358ffdd008da848a02734637abc0"
+    },
+    {
+      "local_observation": "host-qualification/main-20261003-qual01/request-id-proof.json",
+      "sha256": "7e3f28da7e73e87f1715336dd1f74ab7c3415f6808c845099d0670e475f0df19"
+    },
+    {
+      "local_observation": "current-main-browser-observations.json",
+      "sha256": "c91e76d8a62357c53a557336d7c96e35a3840c1d78841b2484c5db98ed4d2c09"
+    }
+  ]
+}

@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0",
+  "status": "PASS",
+  "release_ref": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+  "source_fingerprint": "6460ca1b44ab3147966037163e27e4f2c7e2e6a961cf06c4ec9ee0cdb084a21b",
+  "target": "staging.allfatherbi.com",
+  "execution": "ACTUAL_LOOPIA_HOST_SEPARATE_QUALIFICATION_DATABASE",
+  "qualification": {
+    "schema_version": "1.0",
+    "projection_id": "LOOPIA_SME_MVP",
+    "php_version": "8.5.9",
+    "database_server_version": "10.11.19-MariaDB-log",
+    "complete": true,
+    "strict": true,
+    "layer_filter": null,
+    "file_filter": null,
+    "layers": {
+      "foundation": {
+        "pass": 1326,
+        "fail": 0,
+        "skip": 0,
+        "files": 14,
+        "duration_ms": 1562
+      },
+      "unit": {
+        "pass": 660,
+        "fail": 0,
+        "skip": 0,
+        "files": 12,
+        "duration_ms": 106
+      },
+      "integration": {
+        "pass": 2859,
+        "fail": 0,
+        "skip": 0,
+        "files": 48,
+        "duration_ms": 51931
+      },
+      "conformance": {
+        "pass": 1330,
+        "fail": 0,
+        "skip": 0,
+        "files": 7,
+        "duration_ms": 7681
+      },
+      "acceptance": {
+        "pass": 738,
+        "fail": 0,
+        "skip": 0,
+        "files": 7,
+        "duration_ms": 11418
+      },
+      "security": {
+        "pass": 1854,
+        "fail": 0,
+        "skip": 0,
+        "files": 31,
+        "duration_ms": 40653
+      },
+      "rollback": {
+        "pass": 175,
+        "fail": 0,
+        "skip": 0,
+        "files": 5,
+        "duration_ms": 7124
+      }
+    },
+    "total": {
+      "pass": 8942,
+      "fail": 0,
+      "skip": 0,
+      "duration_ms": 120485
+    },
+    "skips_are_failures": true,
+    "failure_count": 0,
+    "skip_count": 0
+  },
+  "runtime_database_used_for_strict_suite": false,
+  "sources": [
+    {
+      "local_observation": "host-qualification/main-20261003-qual01/qualification.json",
+      "sha256": "9593b6d04b3a9a5370f38e92528abd06f05a3194ccd548f06d65b5ce7dbaa7e1"
+    },
+    {
+      "local_observation": "host-qualification/main-20261003-qual01/host-execution-context.json",
+      "sha256": "55f7105813d1a70eb56b4b18fff705ad92706c3b015ddda13b1b0899ceff7207"
+    },
+    {
+      "local_observation": "host-qualification/main-20261003-qual01/database-boundary.json",
+      "sha256": "5d49fdc5f28c53171dcf41bc2c03a15b48494fbed0370bec7917bcf8dd95d2a8"
+    }
+  ]
+}

@@ -175,8 +175,79 @@
       "environment": "ci",
       "recorded_at": "2026-10-03T13:50:09.000Z",
       "evidence_ref": "docs/deployment-evidence/2026-10-03/0b8c17e9/release-qualification-receipt.json",
-      "evidence_sha256": "62b484b158b9c34af6c6e18739e3bd74994a5e105662b7b3083b0c067c9efb02",
+      "evidence_sha256": "f110bbc6c80cef77df8b261787a48089f6b909a6e4dfdd623e9551a8a8c5d8ba",
       "note": "GitHub Actions push run 37127292912 qualified merged PR30/main 0b8c17e9 directly; MariaDB 10.6 and 10.11 both 8942/0/0. CI evidence only, not host/deployment/activation evidence."
+    },
+    {
+      "record_id": "MAIN_2ADA973C_HOSTED_CONFORMANCE_PASS",
+      "kind": "CONFORMANCE",
+      "result": "PASS",
+      "release_ref": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+      "environment": "ci",
+      "recorded_at": "2026-10-03T18:18:44.455Z",
+      "evidence_ref": "docs/deployment-evidence/2026-10-03/2ada973c/hosted-conformance.json",
+      "evidence_sha256": "e7f27172287ccd67bca9a299c8c6e819a939ddb093aac191b0d3c971f20f47d3",
+      "note": "Exact merged-main hosted CI run37128711802; both MariaDB lanes8942/0/0. CI only."
+    },
+    {
+      "record_id": "MAIN_2ADA973C_HOST_CONFORMANCE_PASS",
+      "kind": "CONFORMANCE",
+      "result": "PASS",
+      "release_ref": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+      "environment": "staging",
+      "recorded_at": "2026-10-03T18:18:44.456Z",
+      "evidence_ref": "docs/deployment-evidence/2026-10-03/2ada973c/host-conformance.json",
+      "evidence_sha256": "153cc8616e5bdff50b8782529e2f64768417687eaa3fcdf45112a0b4215264c9",
+      "note": "Actual Loopia strict8942/0/0; separate qualification DB. Runtime data was not truncated.",
+      "target": "staging.allfatherbi.com"
+    },
+    {
+      "record_id": "MAIN_2ADA973C_STAGING_DEPLOYMENT_PASS",
+      "kind": "STAGING_DEPLOYMENT",
+      "result": "PASS",
+      "release_ref": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+      "environment": "staging",
+      "recorded_at": "2026-10-03T18:18:44.457Z",
+      "evidence_ref": "docs/deployment-evidence/2026-10-03/2ada973c/staging-deployment.json",
+      "evidence_sha256": "f29a5a8e43b9c3c8bd7065abe45fda36bf0138d8e00fefbc96369bbedde718ff",
+      "note": "Exact2ada deployed inert under reviewed maintenance;30 migrations/no drift. Shared-host deviation retained.",
+      "target": "staging.allfatherbi.com"
+    },
+    {
+      "record_id": "MAIN_2ADA973C_LOOPIA_PROBE_PASS",
+      "kind": "LOOPIA_PROBE_001",
+      "result": "PASS",
+      "release_ref": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+      "environment": "staging",
+      "recorded_at": "2026-10-03T18:18:44.458Z",
+      "evidence_ref": "docs/deployment-evidence/2026-10-03/2ada973c/host-probe.json",
+      "evidence_sha256": "2e1aea17cb6f4c6cabffbda94e7dfae8895baf4fc8896730be73faec63d606a1",
+      "note": "Actual-host baseline/network READY. Capability is not activation; scheduler transport UNVERIFIED.",
+      "target": "staging.allfatherbi.com"
+    },
+    {
+      "record_id": "MAIN_2ADA973C_MONITOR_WRAPPER_FAILURE_FAIL",
+      "kind": "STAGING_SMOKE",
+      "result": "FAIL",
+      "release_ref": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+      "environment": "staging",
+      "recorded_at": "2026-10-03T18:18:44.459Z",
+      "evidence_ref": "docs/deployment-evidence/2026-10-03/2ada973c/monitor-attempt01-unqualified.json",
+      "evidence_sha256": "1adc6ada3e205c42e31651fed155ef3508130b1cb064d3098f2ac4134ca8d8e4",
+      "note": "Monitor01 wrapper parser failure preserved. Requests ran; full verdict not retained. Not an established app failure.",
+      "target": "staging.allfatherbi.com"
+    },
+    {
+      "record_id": "MAIN_2ADA973C_STAGING_SMOKE_PASS",
+      "kind": "STAGING_SMOKE",
+      "result": "PASS",
+      "release_ref": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+      "environment": "staging",
+      "recorded_at": "2026-10-03T18:18:44.460Z",
+      "evidence_ref": "docs/deployment-evidence/2026-10-03/2ada973c/staging-smoke.json",
+      "evidence_sha256": "c91b13bb046d72445346a56b91a6393106b19b85942d18269e507ea5c89d9cb0",
+      "note": "Anonymous23/0; N/O118/0; Monitor02 50/0 and6 boundary checks; both synthetic accounts retired. Browser gaps retained.",
+      "target": "staging.allfatherbi.com"
     }
   ]
 }

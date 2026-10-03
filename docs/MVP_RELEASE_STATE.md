@@ -1,84 +1,57 @@
 # MVP release state
 
-**The one place to read the current state.** It answers four questions separately, because they
-have different answers and different evidence, and running them together is how a candidate gets
-described as deployed or a deployment gets described as activated:
+**The current-state entrypoint.** Source, testing, deployment and authority remain separate.
+The [3 October evidence filing](STAGING_OPERATIONS_EVIDENCE_2026-10-03.md) records the underlying
+observations and their limits. This documentation change does not deploy itself or grant execution.
+The later [P11 retained-key supplement](P11_RETAINED_KEY_EVIDENCE_2026-10-03.md) records the second
+backup and successful local v1 recovery/v2-only refusal; full live key rotation remains unexercised.
 
 | Question | Current answer | Evidence |
 | --- | --- | --- |
-| **Source** — what application code is in this release tree? | P00–P06, P08, P10 and P11 are merged through PR30 at `0b8c17e9`; this branch additionally carries the **unmerged P07 source candidate** | Git history; [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) |
-| **Tested** — which exact commit was qualified, and how? | merged PR30/main `0b8c17e9` passed hosted CI push run 37127292912 (run 406); MariaDB 10.6.28 and 10.11.19 both 8,942/0/0, with foundation, exact Git-object release preparation and aggregate release qualification PASS | §2; `deployment-evidence.json` |
-| **Deployed** — which application runs on staging? | PR16 `392f48de`, inert. **None of the merged Monitor/P08 work is deployed** | §3; [Gate R filing](STAGING_GATE_R_EVIDENCE_2026-09-26.md) |
-| **Activated** — what may run against the world? | nothing: no live read, no native model call, no scheduler handler, no external action; no P03 audit is scheduled or has been run against staging | §4; `upstream.lock.json` |
-
-Update this file in the same change that alters any of the four answers.
-`tests/foundation/release_state_currentness.php` fails the build when the values in the block below
-stop matching `upstream.lock.json`, `deployment-evidence.json` and `database/migrations/`.
+| **Source** — what application code is present? | The merged application baseline remains exact `2ada973c`; current repository main `d4ca9adc` adds evidence-only filings. This branch additionally carries the **unmerged P07 source candidate**; TenantAdmin v2 and later packages remain separate | Git history; 31 candidate migrations |
+| **Tested** — which exact commit was qualified? | `2ada973c` passed hosted run `37128711802`: both MariaDB 10.6/10.11 lanes 8,942/0/0. Its actual Loopia strict suite also passed 8,942/0/0 on the separate qualification database | Filed hosted and host conformance artifacts |
+| **Deployed** — which release runs on staging? | `2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a`, inert, with all 30 migrations and the exact prepared source fingerprint | Filed deployment, probe and HTTPS smoke artifacts |
+| **Activated** — which missions may run? | No current/future execution grant; no Monitor run, source capture or model attempt in the measured counters. Scheduler handlers remain empty. ROAD_TEST_001 has not executed | Inert preflight and Monitor smoke counter readbacks |
 
 ```text
 canonical_pin                      = c6d9cf9a7a1001b001ca6118999e9cb75c831c4d
 implementation_baseline_merge      = 0b8c17e9a3457baf25f25babb43d61bc71633f6a
-deployed_staging_release           = 392f48deef11380f6dccfe88f2a47ba1fd94575c
-evidence_records                   = 15
+deployed_staging_release           = 2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a
+evidence_records                   = 21
 candidate_migrations               = 31
 ```
 
-## What the words mean here
+## Source and qualification
 
-| Word | Means | Does not mean |
-| --- | --- | --- |
-| **implemented** | the code is merged on `main` | that anything ran it outside a test |
-| **qualified** | a complete strict run of every workflow step for that exact commit — hosted CI, or a local receipt that says it is local | host proof, deployment, or activation |
-| **deployed** | a filed `STAGING_DEPLOYMENT` record names that exact release on a named host | that it does anything beyond inert serving |
-| **activated** | a reviewed change wired a capability AND an owner decision admitted it | anything a flag, a preflight mode or a merge can do by itself |
-| **authorized** | an owner act recorded upstream | anything evidence can establish |
+The canonical pin is unchanged. Selected later canonical repairs remain documented separately in
+`reconciliation/`; reading a newer upstream head does not advance the pin. Canonical PR369's exact
+scheduler-observer authority is adopted at `411aba91423265e578813afbc8f64318320ef08d`, without advancing
+the global pin. The implementation baseline merge remains PR30 `0b8c17e9`; `2ada973c` is the exact
+reviewed, prepared and deployed application object. Repository main `d4ca9adc` adds evidence-only
+filings. This branch additionally carries P07 source: bounded recurring observation, migration 250,
+the explicit v1 `ROLE_SYSTEM_SCHEDULER_OBSERVER` seat, and governed scheduler-principal
+plan/provision/status/stand-down. None of that is merged, deployed, admitted or activated yet.
 
-## 1. Source
-
-- **Canonical pin:** `c6d9cf9a7a1001b001ca6118999e9cb75c831c4d` in `upstream.lock.json`, unchanged.
-  Selected later canonical repairs are recorded separately in
-  [`reconciliation/`](reconciliation/monitor-scoped-extension-2026-09-27.json); the latest canonical
-  main inspected for them is `411aba91423265e578813afbc8f64318320ef08d` (canonical PR369).
-  Inspecting a newer canonical head does not advance the pin.
-- **Implementation baseline merge:** `0b8c17e9a3457baf25f25babb43d61bc71633f6a` (PR30), completing
-  **P00–P06 plus P08, P10 and P11 source implementation**. P08 adds the three canonical P03
-  post-outcome audits, migrations 245/246 and their upgrade proofs; it does not deploy or schedule
-  those audits. P11 remains merged with no real staging rewrap performed.
-- **Qualification history:** PR23, PR24 and PR25 were merged by owner decision while hosted runner
-  execution was unavailable. Hosted CI resumed for PR26. The latest merged-main qualification is
-  push run `37127292912` for PR30/main `0b8c17e9a3457baf25f25babb43d61bc71633f6a`: MariaDB 10.6.28
-  and 10.11.19 both reported **8,942/0/0**, and foundation, exact Git-object release preparation and
-  aggregate release qualification all passed. This does not retroactively qualify PR23–PR25, and it is not Loopia
-  host evidence.
-- **P06 operational state:** source/tooling is merged and CI-qualified, but no newer Monitor release
-  has been deployed to Loopia, no funded model evaluation or MANUAL_MONITOR grant has been applied,
-  and `ROAD_TEST_001` has not executed. P10's real native/off-host/clean-target rehearsal also
-  remains operational acceptance work.
-- **P11 operational state:** source/tooling is merged and hosted-CI-qualified, but no real staging
-  master-key rewrap has been performed. No Loopia key material, provider credential ciphertext or
-  immutable execution-grant history has been changed by the merge.
-- **P08 operational state:** merged and hosted-CI-qualified on main as PR30 `0b8c17e9`; the three P03
-  assurance audits remain source-only — not deployed, scheduled or run against staging. The P02/P03/P05
-  expansion register keeps its unrepaired rows OPEN. P07, P09 and P12 remain separate follow-up work;
-  their old `claude/*` branches are preservation references, not PR bases.
-- **P07 source-candidate state:** draft PR32 carries recurring observation, migration
-  `250_monitor_schedule_control`, the deterministic schedule-series fix, the canonical narrow
-  `ROLE_SYSTEM_SCHEDULER_OBSERVER` projection, and a private governed scheduler-identity
-  plan/provision/status/suspend/revoke path. The primary offline schedule fixture now uses that
-  provisioner. It is still not merged, deployed or activated; canonical PR369 is adopted as
-  `411aba91423265e578813afbc8f64318320ef08d`, while P06/ROAD_TEST_001 remains an operational predecessor. Provisioning a service seat alone admits
-  neither an execution grant nor a schedule.
 - **P09 source-candidate state:** stacked draft PR33 adds scriptless Monitor setup/schedule administration,
   owner-safe P02/P03 detail reads, metadata-only Monitor run reads and the richer escaped workbench.
   Its web authority vocabulary remains narrower than the private CLIs and it admits no execution or
   schedule. Hosted requalification is required on this synchronized P07 base; deployed desktop/mobile
   browser acceptance remains an operational P09 gate.
-- **Candidate schema:** 31 migration files, including `210_monitor_execution_controls`,
-  `220_monitor_evaluation_records`, `225_monitor_setup_receipts`, `230_monitor_attempt_recovery`,
-  P11 `240_provider_rotation_events`, P08 `245_source_card_window_width` / `246_assurance_refs_width`,
-  and P07 `250_monitor_schedule_control`. The deployed PR16 release has 19.
 
-## 2. Tested
+**Candidate schema:** this branch contains 31 migration files: the deployed 30 plus unmerged P07
+`250_monitor_schedule_control`. Staging still has exactly the original 30 applied; its next migration
+run was a no-op, and drift/pending counts were zero before this P07 source candidate existed. PHP 8.5.9 and MariaDB 10.11.19 were measured on
+Loopia. The host strict suite used `.env.qualification` and a separately verified database/user;
+it did not truncate the runtime database.
+
+Hosted run [37128711802](https://github.com/HMarcusWH/allfather-loopia-p01/actions/runs/37128711802)
+qualified exact main `2ada973c` on PHP 8.2.34 and MariaDB 10.6.28/10.11.19, both **8,942/0/0**.
+The hosted receipt remains self-reported CI evidence, paired with the independently inspected run.
+Actual Loopia qualification is a separate **8,942/0/0** receipt on PHP 8.5.9/MariaDB 10.11.19.
+Historical local reproductions and hosted-runner interruptions are retained in earlier records;
+these results do not retroactively qualify an untested historical commit.
+
+## Qualification procedure
 
 **How a commit is qualified now.** `bash ops/ci/qualify-release.sh` holds every step whose exit
 status decides qualification. The workflow calls it one step at a time; the `local` route calls the
@@ -102,47 +75,61 @@ A receipt is **self-reported**. A `LOCAL` receipt says `hosted_ci: false` and th
 that says otherwise; it may be filed only as `CONFORMANCE` evidence with `environment: "ci"`. It is
 never GitHub green and never a host result.
 
-**Hosted CI.** Runner allocation was unavailable through PR25, which is why the earlier inert-staging
-path used complete local reproductions under the owner-directed deviation. Hosted runners resumed for
-PR26 and have remained available. The latest merged-main qualification is **push run 36861689735 on
-`1a99f72b3e25e8e69c0e36d6de9f8de44901772a`**, with both strict MariaDB lanes complete at
-7,689/0/0. Repository billing/branch-protection settings remain outside application code.
+## Deployed staging and observed boundaries
 
-**Latest registry-backed code qualification:** merged PR30
-`0b8c17e9a3457baf25f25babb43d61bc71633f6a` — hosted `CONFORMANCE` (`ci`) from push run
-`37127292912`, with strict MariaDB 10.6.28 and 10.11.19 lanes both **8,942/0/0**. The committed receipt is
-self-reported hosted-CI evidence and establishes no Loopia host claim. **Latest registry-backed host
-qualification remains PR16 `392f48de`** at 5,552/0/0 on Loopia. PR18–PR22 reports remain unfiled.
+The old PR16 release lacked the current maintenance/backup implementation. The owner approved the
+revised order: static HTTP fence and bounded legacy drain observation, exact-main upgrade and
+migrations, then real BACKUP maintenance and P10. The exact source fingerprint is
+`6460ca1b44ab3147966037163e27e4f2c7e2e6a961cf06c4ec9ee0cdb084a21b`.
+The legacy drain is not described as a retrospective maintenance-lease proof.
 
-## 3. Deployed
+After the successful restore rehearsal, maintenance was left and the current release was
+qualified over HTTPS: anonymous smoke **23/0**, authenticated Gate N/O **118/0**, Monitor smoke
+**50/0** with all six specific Monitor boundary checks, and a request-ID match to one private log
+line while the public log path refused access with 403. Disposable qualification accounts were
+retired with zero live sessions. The first Monitor attempt is preserved as a report-parser failure:
+requests executed, but its full verdict was not retained. The corrected fresh attempt passed.
 
-- **Staging** (`staging.allfatherbi.com`) runs PR16 `392f48deef11380f6dccfe88f2a47ba1fd94575c`, inert,
-  under the [owner-directed shared-host staging deviation](STAGING_OWNER_DIRECTED_DEVIATION_2026-09-25.md):
-  PHP 8.5.9, MariaDB 10.11.19, 19 migrations, strict host suite 5,552/0/0, rollback drill
-  PR16→PR15→PR16 passed. E.1 remains `FAIL_READABLE` and E.3 `UNVERIFIED`; neither is an isolation
-  pass.
-- **The merged Monitor/P08/P11 work through PR30 is not deployed.** The deployed PR16 tree predates
-  `/console/monitor`, the bounded model/admission path and P04/P05/P10/P06/P11 tooling.
-- **Production** is neither deployed nor authorized.
-- **Evidence registry:** 15 reviewed records, adding PR30 merged-main hosted CI conformance while
-  preserving the PR13 host failure and PR15 isolation failure alongside current PR16 host evidence.
+The browser inspection found the logo, workspace chooser, account/support and inert Monitor
+workbench working. Empty product states and unwired detail panels remain explicit. Support text
+still overstates that the entire console is read-only; the Monitor workbench exposes governed
+advance/review controls. This is not full P09 desktop/mobile acceptance or a populated mission test.
+The tenant-admin role-version repair remains separate work and is not claimed deployed here.
 
-## 4. Activated
+The historical shared-host deviation remains: E.1 **FAIL_READABLE**, E.3 **UNVERIFIED**. No new
+cross-site isolation PASS is filed. Production is neither deployed nor authorized. No rollback
+drill of current `2ada973c` was performed; the historical PR16→PR15→PR16 result stays historical.
 
-Nothing that reaches the outside world is active. Each control below is structural, not a flag, and
-is held by a named test:
+## P10 and P11 operational evidence
 
-| Capability | State | Held by |
-| --- | --- | --- |
-| Live source read | `CurlHttpsTransport` and `DnsHostResolver` are constructed only on `MonitorFactory::forWorkspace`'s admitted branch — an ADMITTED `MANUAL_MONITOR` grant, which needs a reviewed owner decision. None exists | `tests/foundation/no_external_action_surface.php`, `tests/integration/monitor_native_composition.php` |
-| Native model execution | one provider-transport constructor, `MonitorFactory::modelTransport($admitted)`; HTTP composes `MonitorFactory::forWorkspace()`, which without an ADMITTED grant is the inactive composition and refuses `NATIVE` steps with `MONITOR_NATIVE_EXECUTION_INACTIVE`; with one, every stage is re-admitted | the same tests; `tests/security/monitor_grant_revocation.php` |
-| Product prompts | pack `2026-09-27.monitor.v1`: `activation_status: INACTIVE`, approval `DRAFT`, evaluation `OFFLINE_CONTRACT_TESTED`, `model_evaluated: false` | `app/PromptOps/ProductPromptPack.php` refuses any other state |
-| Scheduler | handler registry is `[]` in `worker/tick.php` and `public_html/scheduler.php` | `ops/deploy/preflight.php`, `ops/rollback/verify-stand-down.php` |
-| External action, publish, send, charge | no transport exists | `tests/foundation/no_external_action_surface.php` |
-| ROAD_TEST_001 | not executed | no `ROAD_TEST_001` record exists |
+The first actual native encrypted backup was retained off host and restored into an initially
+empty, different, isolated local MariaDB 10.11.19 database. The unchanged protected restore script
+verified **219 tables and 2 private artifacts**. Supplemental checks verified **30 exact migration
+hashes and 272 triggers**, matching authenticated trigger ownership, and zero admitted grants.
+Actual update and delete attempts on an existing immutable audit row both refused with SQLSTATE
+45000 and were rolled back; all 28 audit rows retained identical count and full content digest.
+The target runtime and scheduler were not started, and temporary plaintext was removed.
 
-The stored lock flags, unchanged by anything above. Evidence filing does not move them; a separate
-reviewed edit would.
+This selected backup had **zero M10 streams, zero Monitor runs, zero retained-output render
+models and zero provider credential rows**. It establishes restoration of that state, not populated
+business-history replay. **P11 real master-key rewrap/older-key recovery was NOT_EXERCISED.**
+A temporary provider credential was stored encrypted after that backup; no provider call or
+execution grant followed. The first restore proof does not cover the later credential.
+No backup archive, plaintext dump, recovery identity or credential payload is committed here.
+
+## Activation and remaining work
+
+P06 still requires the separate reviewed model evaluation, exact prompt/admission records and a
+bounded owner-authorized road test. Storing a provider credential is not activation. Product prompt
+records remain inactive/offline-tested until their explicit evaluation and approval path succeeds.
+Scheduler transport remains UNVERIFIED and the deployed `2ada973c` handler registry remains empty.
+This P07 source candidate adds the bounded scheduler handler and explicit service seat, but no
+recurring schedule is admitted and no deployment/activation claim follows from the source branch.
+P03 assurance audits were deployed as source but are not scheduled or run against staging. P09/P12
+and optional expansion work remain separate; open package PRs are not represented as merged or deployed.
+
+Registry evidence may support observed deployment/conformance claims without changing a lock.
+All stored flags below are unchanged; this filing creates no authority transition:
 
 ```text
 production_launch_authorized       = false
@@ -154,18 +141,14 @@ conformance_complete               = false
 staging_deployed                   = false
 loopia_capability_validated        = false
 live_read_activated                = false
-road_test_001_executed             = false
+road_test_001_executed              = false
 ```
 
-## 5. What comes next
+For subsequent qualification use the reviewed `ops/ci/qualify-release.sh` workflow with disposable
+lane databases only. A current source/CI record never substitutes for a new deployment, populated
+road test, production boundary or owner decision.
 
-The [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) sequences the rest as three releases.
-PR30 is the **P00–P06 plus P08/P10/P11 source baseline**, and this evidence/current-state change files its
-merged-main hosted qualification. P10 operational acceptance (real native backup, off-host retention
-and clean disposable restore) still gates the live P06 road test. P07 remains after that road test.
-No code merge or CI result creates execution authority, deployment evidence or owner GO.
-
-## 6. Superseded narrative
+## Superseded narrative
 
 Older documents keep their dated findings. Where one describes the present wrongly, it now carries a
 note pointing here rather than being rewritten:
@@ -175,4 +158,4 @@ note pointing here rather than being rewritten:
 | P02 and P03 are `WEB_SURFACE_NOT_INCLUDED` | `PORT_SCOPE_MATRIX.md` §3.7 and the P03 console-panel classification | superseded: their **index** reads are wired into the authenticated React console (`/console/api/v1/p02/entities`, `/p02/relationships`, `/p03/priority-queue`, `/p03/monitored`). Detail reads (P02 entity detail, P03 battlecards) remain `NEEDS_READ_MODEL`, and the scriptless SSR surfaces still serve neither product |
 | P02 "web surface not included" | `LOOPIA_CAPABILITY_REPORT.md` §1 | corrected in place |
 | "Nothing has run on Loopia", the canary "has never been run on a real host", the probe "has only ever run in CI" | `LOOPIA_HOST_MODEL.md` §5 | historical as of 2026-09-06; PR13–PR16 ran all three on Loopia |
-| MariaDB 10.6 "verified in CI, on every commit" | `LOOPIA_HOST_MODEL.md` §5 | historical interruption: hosted CI was unavailable through PR25; PR30 merged main is now directly hosted-qualified on both 10.6 and 10.11 |
+| MariaDB 10.6 "verified in CI, on every commit" | `LOOPIA_HOST_MODEL.md` §5 | historical interruption: hosted CI was unavailable through PR25; main `2ada973c` is directly hosted-qualified on both 10.6 and 10.11; actual-host evidence is filed separately |
