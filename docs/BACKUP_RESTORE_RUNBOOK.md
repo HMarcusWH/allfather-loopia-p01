@@ -291,3 +291,7 @@ Before P06, exercise P10 on the actual intended operator/host path and retain:
 
 Those observations do not grant authority. They establish whether backup and restore actually work
 on the selected environment.
+
+After a real drill exists, a separate reviewed evidence filing may point to its sanitized verifier
+output with kind `FULL_RESTORE_DRILL`. The record itself grants no execution or production authority,
+and a production-readiness check counts it only when it names the exact production host/release.
