@@ -1,5 +1,5 @@
 {
-  "status": "P00_P06_P10_P11_MERGED_PR28_MAIN_HOSTED_CI_QUALIFIED_P06_OPERATIONS_PENDING",
+  "status": "P00_P06_P08_P10_P11_MERGED_PR30_MAIN_HOSTED_CI_QUALIFIED_P06_OPERATIONS_PENDING",
   "baseline": {
     "loopia_main": "8dbea16b262df7b6d40fe945f34e301eedf2aba6",
     "canonical_main": "1c40306c22e15b2ad3049e8d32abff47450c8921"
@@ -546,73 +546,16 @@
       "merge_state": "MERGED",
       "qualification_state": "MERGED_MAIN_HOSTED_CI_PASS_36861689735",
       "operational_state": "NO_REAL_STAGING_REWRAP_PERFORMED"
-    }
-  ],
-  "unmerged_candidates": [
+    },
     {
       "id": "P08",
       "pull_request": 30,
-      "branch": "claude/gifted-wozniak-ooz1av",
-      "candidate_head": "53f9589a6f7c22064ac28087afed66d4f304e136",
-      "code_head": "b27d2fc01d7d2b35028549c0d55e827b43432c8e",
-      "candidate_head_note": "candidate_head changes only documentation on top of code_head; a later documentation-only commit is qualified by its own run, recorded on the pull request",
-      "merge_state": "NOT_MERGED",
-      "qualification_state": "PR_HOSTED_CI_PASS_37124619387_CANDIDATE_HEAD_AND_37108613432_CODE_HEAD",
-      "qualification": {
-        "candidate_head": {
-          "run_id": 37124619387,
-          "run_number": 404,
-          "event": "pull_request",
-          "tested_merge_commit": "5a572369dee849fd8b9c6713fa7262002b50af1e",
-          "lanes": [
-            {
-              "mariadb": "10.6.28",
-              "pass": 8942,
-              "fail": 0,
-              "skip": 0
-            },
-            {
-              "mariadb": "10.11.19",
-              "pass": 8942,
-              "fail": 0,
-              "skip": 0
-            }
-          ],
-          "release_preparation": "PASS",
-          "release_qualification_receipt": "PASS"
-        },
-        "code_head": {
-          "run_id": 37108613432,
-          "run_number": 402,
-          "event": "pull_request",
-          "tested_merge_commit": "c877578b12a74a5e2ea39714d1b5c8db905325db",
-          "lanes": [
-            {
-              "mariadb": "10.6.28",
-              "pass": 8942,
-              "fail": 0,
-              "skip": 0
-            },
-            {
-              "mariadb": "10.11.19",
-              "pass": 8942,
-              "fail": 0,
-              "skip": 0
-            }
-          ],
-          "release_preparation": "PASS",
-          "release_qualification_receipt": "PASS"
-        }
-      },
-      "deployment_state": "NOT_DEPLOYED",
-      "activation_state": "NOT_ACTIVATED",
-      "migrations": [
-        "245_source_card_window_width.sql",
-        "246_assurance_refs_width.sql"
-      ],
-      "note": "P02/P03/P05 expansion register rows remain OPEN; UF-003, UF-004 and UF-005 reported upstream"
+      "merge_state": "MERGED",
+      "qualification_state": "MERGED_MAIN_HOSTED_CI_PASS_37127292912",
+      "operational_state": "NOT_DEPLOYED_NOT_SCHEDULED_NO_STAGING_AUDIT_RUN"
     }
   ],
+  "unmerged_candidates": [],
   "follow_up_branches": [
     {
       "id": "P07",
@@ -625,7 +568,7 @@
         "OWNER_SCHEDULE_DECISION"
       ],
       "branch_role": "PRESERVATION_REFERENCE_DIVERGED_NOT_A_PR_BASE",
-      "successor": "TO_BE_REBUILT_FROM_MAIN_AFTER_P08_MERGES"
+      "successor": "CLEAN_SUCCESSOR_REQUIRED_FROM_MAIN_0b8c17e9_AFTER_P08_MERGE"
     },
     {
       "id": "P09",
@@ -634,7 +577,7 @@
       "qualification_state": "LOCAL_STRICT_SUITE_ONLY",
       "note": "deployed-browser journeys are an operational gate",
       "branch_role": "PRESERVATION_REFERENCE_DIVERGED_NOT_A_PR_BASE",
-      "successor": "TO_BE_REBUILT_FROM_MAIN_AFTER_P08_MERGES"
+      "successor": "CLEAN_SUCCESSOR_REQUIRED_FROM_MAIN_0b8c17e9_AFTER_P08_MERGE"
     },
     {
       "id": "P12",
@@ -648,7 +591,7 @@
         "OWNER_PRODUCTION_GO"
       ],
       "branch_role": "PRESERVATION_REFERENCE_DIVERGED_NOT_A_PR_BASE",
-      "successor": "TO_BE_REBUILT_FROM_MAIN_AFTER_P08_MERGES"
+      "successor": "CLEAN_SUCCESSOR_REQUIRED_FROM_MAIN_0b8c17e9_AFTER_P08_MERGE"
     }
   ]
 }
