@@ -61,10 +61,13 @@ candidate_migrations               = 31
   assurance audits remain source-only — not deployed, scheduled or run against staging. The P02/P03/P05
   expansion register keeps its unrepaired rows OPEN. P07, P09 and P12 remain separate follow-up work;
   their old `claude/*` branches are preservation references, not PR bases.
-- **P07 source-candidate state:** this branch carries recurring observation/source-only scheduler code and migration
-  `250_monitor_schedule_control`; it is not merged, deployed, activated or authority-complete. Supported
-  scheduler-identity provisioning remains blocked on the upstream service-delegation decision, so a real
-  schedule still fails closed.
+- **P07 source-candidate state:** draft PR32 carries recurring observation, migration
+  `250_monitor_schedule_control`, the deterministic schedule-series fix, the canonical narrow
+  `ROLE_SYSTEM_SCHEDULER_OBSERVER` projection, and a private governed scheduler-identity
+  plan/provision/status/suspend/revoke path. The primary offline schedule fixture now uses that
+  provisioner. It is still not merged, deployed or activated; canonical PR369 must be adopted and
+  P06/ROAD_TEST_001 remains an operational predecessor. Provisioning a service seat alone admits
+  neither an execution grant nor a schedule.
 - **Candidate schema:** 31 migration files, including `210_monitor_execution_controls`,
   `220_monitor_evaluation_records`, `225_monitor_setup_receipts`, `230_monitor_attempt_recovery`,
   P11 `240_provider_rotation_events`, P08 `245_source_card_window_width` / `246_assurance_refs_width`,
