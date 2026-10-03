@@ -38,7 +38,7 @@ candidate_migrations               = 31
 - **Canonical pin:** `c6d9cf9a7a1001b001ca6118999e9cb75c831c4d` in `upstream.lock.json`, unchanged.
   Selected later canonical repairs are recorded separately in
   [`reconciliation/`](reconciliation/monitor-scoped-extension-2026-09-27.json); the latest canonical
-  main inspected for them is `1c40306c22e15b2ad3049e8d32abff47450c8921` (canonical PR 368).
+  main inspected for them is `411aba91423265e578813afbc8f64318320ef08d` (canonical PR369).
   Inspecting a newer canonical head does not advance the pin.
 - **Implementation baseline merge:** `0b8c17e9a3457baf25f25babb43d61bc71633f6a` (PR30), completing
   **P00–P06 plus P08, P10 and P11 source implementation**. P08 adds the three canonical P03
@@ -61,13 +61,18 @@ candidate_migrations               = 31
   assurance audits remain source-only — not deployed, scheduled or run against staging. The P02/P03/P05
   expansion register keeps its unrepaired rows OPEN. P07, P09 and P12 remain separate follow-up work;
   their old `claude/*` branches are preservation references, not PR bases.
-- **P07 source-candidate state:** this branch carries recurring observation/source-only scheduler code and migration
-  `250_monitor_schedule_control`; it is not merged, deployed, activated or authority-complete. Supported
-  scheduler-identity provisioning remains blocked on the upstream service-delegation decision, so a real
-  schedule still fails closed.
-- **P09 source-candidate state:** this stacked branch additionally carries operator setup/schedule pages,
-  owner-safe P02/P03 detail reads and Monitor metadata reads. It is offline-only; deployed desktop/mobile
-  browser acceptance remains pending, and it grants no execution or schedule admission.
+- **P07 source-candidate state:** draft PR32 carries recurring observation, migration
+  `250_monitor_schedule_control`, the deterministic schedule-series fix, the canonical narrow
+  `ROLE_SYSTEM_SCHEDULER_OBSERVER` projection, and a private governed scheduler-identity
+  plan/provision/status/suspend/revoke path. The primary offline schedule fixture now uses that
+  provisioner. It is still not merged, deployed or activated; canonical PR369 is adopted as
+  `411aba91423265e578813afbc8f64318320ef08d`, while P06/ROAD_TEST_001 remains an operational predecessor. Provisioning a service seat alone admits
+  neither an execution grant nor a schedule.
+- **P09 source-candidate state:** stacked draft PR33 adds scriptless Monitor setup/schedule administration,
+  owner-safe P02/P03 detail reads, metadata-only Monitor run reads and the richer escaped workbench.
+  Its web authority vocabulary remains narrower than the private CLIs and it admits no execution or
+  schedule. Hosted requalification is required on this synchronized P07 base; deployed desktop/mobile
+  browser acceptance remains an operational P09 gate.
 - **Candidate schema:** 31 migration files, including `210_monitor_execution_controls`,
   `220_monitor_evaluation_records`, `225_monitor_setup_receipts`, `230_monitor_attempt_recovery`,
   P11 `240_provider_rotation_events`, P08 `245_source_card_window_width` / `246_assurance_refs_width`,

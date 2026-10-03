@@ -6,7 +6,8 @@ use Allfather\Loopia\Core\{Clock,FixedClock,Ids,Outcome};
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Jobs\{JobMachine,MonitorStepHandler,SchedulerRunner};
 use Allfather\Loopia\Provider\ModelPolicy;
-use Allfather\Loopia\Workflow\{MissionConfiguration,MonitorService,RunJournal,ScheduleDispatcher,ScheduleService};
+use Allfather\Loopia\Substrate\M02\Seed as M02Seed;
+use Allfather\Loopia\Workflow\{MissionConfiguration,MonitorService,RunJournal,ScheduleDispatcher,ScheduleService,SchedulerIdentityProvisioner};
 
 require_once __DIR__ . '/ExecutionFixture.php';
 
@@ -28,7 +29,21 @@ final class ScheduleFixture
     {
         $fx = ExecutionFixture::create($db, $clock, $pages);
         $scope = $fx['scope'];
-        $serviceId = self::serviceIdentity($db, $clock, $scope['tenant_id'], $scope['workspace_id']);
+
+        // The scheduler principal is now reached through the supported M02 owner path rather than
+        // test-only inserts. The operator's admin seat is a prerequisite, not authority granted by
+        // the provisioner itself.
+        $m02 = new M02Seed($db, $clock);
+        $m02->ensureVocabulary();
+        $admin = Seed::role($db, $clock, 'scheduler-provision-admin-' . substr(Ids::new(), 0, 8), [
+            'tenant.administer', 'identity.register', 'identity.read',
+            'identity.suspend_revoke', 'role.assign', 'role.revoke',
+        ]);
+        Seed::membership($db, $clock, $scope['tenant_id'], $scope['workspace_id'], $scope['operator_id'], $admin['role_id']);
+        $provisioner = new SchedulerIdentityProvisioner($db, $clock);
+        $plan = ExecutionFixture::value($provisioner->plan($scope));
+        $provisioned = ExecutionFixture::value($provisioner->provision($scope, $plan['plan_digest']));
+        $serviceId = $provisioned['service_identity_id'];
         $from = Clock::parse($clock->now());
         $grantDefinition = ExecutionFixture::manualDefinition($db, $clock, $fx, [], array_replace([
             'purpose' => 'SCHEDULED_OBSERVATION', 'prompt_approval_ids' => [], 'credential_id' => null, 'credential_digest' => null,

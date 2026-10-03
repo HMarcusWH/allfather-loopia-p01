@@ -36,7 +36,7 @@ final class ScheduleService
     public const CATCH_UP_POLICY = 'LATEST_ONLY';
     public const OBSERVATION_MODE = 'OBSERVE_AND_QUEUE';
     /** What the scheduler's service principal must hold in the workspace — and its delegator too. */
-    public const SERVICE_PERMISSIONS = ['mission.read', 'mission.transition', 'evidence.read', 'tool.invoke'];
+    public const SERVICE_PERMISSIONS = MonitorPrincipal::SERVICE_ROLE_PERMISSIONS;
     private const INPUT_KEYS = ['monitor_schedule_id', 'mission_id', 'execution_grant_id', 'service_identity_id', 'cadence_seconds', 'max_occurrences', 'valid_from', 'valid_until'];
     /** Statuses that still occupy a monitored source; REVOKED and EXPIRED release it. */
     private const LIVE_STATUSES = ['PROPOSED', 'ADMITTED', 'SUSPENDED', 'NOT_YET_VALID'];

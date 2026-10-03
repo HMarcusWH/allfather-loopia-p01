@@ -206,6 +206,12 @@ final class Permissions
                 'entity_twin.propose_state_change', 'entity_relationship.propose',
             ],
         ],
+        'ROLE_SYSTEM_SCHEDULER_OBSERVER' => [
+            'display_name' => 'System Scheduler Observer',
+            'permissions' => [
+                'mission.read', 'mission.transition', 'evidence.read', 'tool.invoke',
+            ],
+        ],
         'ROLE_ACTION_APPROVER' => [
             'display_name' => 'Controlled Action Approver',
             'permissions' => ['approval.read', 'approval.decide_exact_artifact', 'decision.read'],

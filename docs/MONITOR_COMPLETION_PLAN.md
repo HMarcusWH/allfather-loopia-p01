@@ -3,8 +3,10 @@
 **Adopted as the engineering plan of record:** 27 September 2026. **Status:** **P00–P06, P08, P10 and P11 are
 merged** through PR30; merged main `0b8c17e9` is hosted-CI qualified by push run 37127292912
 (8,942/0/0 on MariaDB 10.6.28 and 10.11.19), while P06 live operational evidence remains pending.
-P07, P09 and P12 remain proposed/conditional. Their earlier candidate work is preserved on diverged
-reference branches and must be rebuilt cleanly from current `main`. A candidate implementation is not a merge, qualification,
+P07 is implemented on draft PR32 and hosted qualification is being refreshed after the scheduler-principal
+provisioning repair; canonical PR369 is now adopted (merge `411aba91`); its remaining release gate is P06/ROAD_TEST_001 plus the separate owner schedule decision.
+P09 is implemented on stacked draft PR33 with deployed-browser acceptance still operationally pending;
+P12 remains conditional. A candidate implementation is not a merge, qualification,
 deployment, funded model evaluation, activation or authority grant. The current state of the
 application is
 [`MVP_RELEASE_STATE.md`](MVP_RELEASE_STATE.md), not this plan.
@@ -37,9 +39,9 @@ provider transport, the four prompts and the existing M01–M12/M15/M16 and prod
 | P04 | Repeatable operator-supported mission setup | P01 | **merged in PR23; setup grants no execution** |
 | P05 | Recoverable model results and explicit interruption handling | P01, P03 | **merged in PR24; not deployed/activated** |
 | P06 | Deploy, requalify and run the first approved manual road test | P00, P02, P03, P04, P05, P10 | **merged in PR26; merged main hosted-CI qualified; no newer Loopia deployment/evaluation/road-test evidence yet** |
-| P07 | Recurring observation with bounded per-occurrence authority | P06 | proposed; earlier work preserved on the diverged reference branch `claude/p07-monitor-scheduling` (not in PR #30, not a PR base); scheduler-identity provisioning blocked on the upstream service-delegation decision |
+| P07 | Recurring observation with bounded per-occurrence authority | P06 | **implemented in draft PR32**: migration 250, recurring observe-and-queue scheduler, canonical narrow service role port, governed scheduler-identity plan/provision/status/stand-down path and end-to-end offline coverage; no schedule admitted/deployed; merge still gated by P06/ROAD_TEST_001 and the separate owner schedule decision; canonical PR369 is merged as `411aba91` |
 | P08 | P03 assurance port and broader product-scope validation | P00 | **merged in PR30 as `0b8c17e9`; merged main hosted-CI qualified by run 37127292912, both lanes 8,942/0/0; not deployed, no audit run or schedule; expansion register rows stay OPEN** |
-| P09 | Operator administration and richer views | P04, P05 | proposed; earlier work preserved on the diverged reference branch `claude/p09-console-administration` (not in PR #30, not a PR base); deployed-browser journeys are an operational gate |
+| P09 | Operator administration and richer views | P04, P05 | **implemented in stacked draft PR33 and hosted-CI qualified before the latest P07 base repair**; exact-head requalification follows P07 synchronization; deployed desktop/mobile browser journeys remain an operational gate |
 | P10 | Independent backup and full restore | P00 | **merged in PR25; native/off-host/clean-target operational proof pending** |
 | P11 | Version-aware master-key rotation | P00, P01, P10 | **merged in PR28; merged main hosted-CI qualified; no real staging rewrap performed** |
 | P12 | Production identity and visibility through the canonical owners | P06, P10, P11 | conditional on canonical decisions not yet taken; inert scaffolding only, preserved on the diverged reference branch `claude/p12-production-preflight` (not in PR #30, not a PR base); **not complete** |
