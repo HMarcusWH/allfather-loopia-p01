@@ -1,0 +1,44 @@
+{
+  "kind": "SELECTIVE_CANONICAL_CORRECTION",
+  "upstream_repository": "HMarcusWH/Allfatherbusinessintelligence",
+  "upstream_base": "411aba91423265e578813afbc8f64318320ef08d",
+  "upstream_commit": "9c481153f5a5d37d76af2c27e57e2daaf4f01b09",
+  "projection_baseline": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+  "retained_base_pin": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+  "base_pin_changed": false,
+  "source_files": {
+    "packages/allfather-control-substrate/src/m02/permissions.ts": "209692ada9474281db44322dd9cbe49d2789842b2ad214e50f364174f62b8555",
+    "packages/allfather-control-substrate/src/m02/seed.ts": "16f14e2e9811b99db99c8ecee0ea2798eab790273fed4c6258636a5041c60f01",
+    "packages/allfather-control-substrate/src/m02/role-vocabulary.ts": "fa758aba307421dc1137c15e60fb8862ca57b74d89ee11a2a2fc607fcc4b42f8",
+    "packages/allfather-control-substrate/src/m02/role-vocabulary.test.ts": "2d81e95ae0186746fdc56cb0710758dbd15f66ece700d51ca15abed3f107379d",
+    "packages/allfather-control-substrate/src/m02/README.md": "4712dd1393cb2f1d1569ee931954fb2c8bde12bd88b9f62fabde9cce1d96f343"
+  },
+  "specification": "docs/build/11_M02_tenant_workspace_access_layer_module_specification_Allfather_BI_Control_Substrate_v1.md",
+  "scope": [
+    "TenantAdmin v2 exact original10 plus runtime_host_binding.administer/valkyrie.register/valkyrie.administer_contract",
+    "additive exact-version vocabulary provisioning; preserve v1/status/memberships",
+    "legacy/default role lookup remains v1; explicit successor assignment required"
+  ],
+  "projection_files": [
+    "app/Substrate/M02/Permissions.php",
+    "app/Substrate/M02/Seed.php"
+  ],
+  "projection_adaptations": [
+    "MariaDB/PHP transaction and explicit list records instead of SQLite savepoints/TypeScript mappings",
+    "AccountService exact-version parameter defaults1; onboarding preflight uses1",
+    "narrow CLI provisions vocabulary only, under maintenance lease, staging/testing only"
+  ],
+  "not_imported": [
+    "canonical DEMO identity seed or scheduler additions outside this repair",
+    "new tenant/workspace identity vocabulary",
+    "P07/P09/P12 capability changes"
+  ],
+  "authority_effects": {
+    "automatic_membership_upgrade": false,
+    "live_assignment_performed": false,
+    "execution_admission": false,
+    "production_authority": false
+  },
+  "upstream_merge_status_at_import": "UNMERGED_REVIEWED_CANDIDATE",
+  "note": "The source commit is fixed and independently reviewed. A source correction is not a live role assignment or activation."
+}

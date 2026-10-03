@@ -127,13 +127,14 @@ if ((string) $workspace['status'] !== 'ACTIVE') {
     $fail("workspace '{$args['workspace-key']}' is {$workspace['status']}, not ACTIVE", 4);
 }
 
+// Onboarding deliberately stays on version 1, matching AccountService default. A successor requires
+// a separate reviewed assignment; rerunning onboarding must never upgrade existing authority.
 // Resolve the exact ACTIVE role version the service will use, once, before any write. The map is
 // also used by the membership preflight so `--dry-run` checks the same role_id as the real grant.
 $roleDefinitions = [];
 foreach ($roleKeys as $roleKey) {
     $defined = $db->one(
-        "SELECT role_id, role_version FROM roles WHERE role_key = ? AND status = 'ACTIVE'
-         ORDER BY role_version DESC LIMIT 1",
+        "SELECT role_id, role_version FROM roles WHERE role_key = ? AND role_version = 1 AND status = 'ACTIVE'",
         [$roleKey]
     );
     if ($defined === null) {

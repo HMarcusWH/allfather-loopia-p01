@@ -52,8 +52,13 @@ Assert::same('MONITOR_PROFILE_IMPORT_DENIED', $setup->importProfile($scope, 'Own
 Assert::same(0, $count('evidence_objects'), 'a denied import wrote nothing');
 
 // The explicit, authorized membership act — performed outside setup, never by it.
-$role = Seed::role($db, $clock, 'setup-operator-' . substr(Ids::new(), 0, 8), [...MonitorSetup::PERMISSIONS, 'tool.invoke', 'evidence.read', 'mission.read', 'mission.transition', 'company_signal.review', 'distribution.route', 'competition_monitoring.read']);
-Seed::membership($db, $clock, $scope['tenant_id'], $scope['workspace_id'], $scope['operator_id'], $role['role_id']);
+$vocabulary = new \Allfather\Loopia\Substrate\M02\Seed($db, $clock);
+$vocabulary->ensureVocabulary();
+$accounts = new \Allfather\Loopia\Auth\AccountService($db, $clock, new \Allfather\Loopia\Auth\Authenticator($db, $clock));
+$workspaceKey = (string) $db->scalar('SELECT workspace_key FROM workspaces WHERE workspace_id=?', [$scope['workspace_id']]);
+foreach (['ROLE_TENANT_ADMIN' => 2, 'ROLE_WORKSPACE_OPERATOR' => 1, 'ROLE_COMPETITION_MONITOR' => 1, 'ROLE_INTELLIGENCE_DISTRIBUTOR' => 1] as $roleKey => $version) {
+    Assert::true($accounts->addRoleMembership($scope['tenant_id'], $workspaceKey, $scope['operator_id'], $roleKey, $version)->isOk(), 'explicit actual shipped role assignment: ' . $roleKey);
+}
 $futureReview=$request([Ids::new()],Ids::new(),['source'=>['review'=>['approved_at'=>'2026-01-02T00:00:00.000Z']]]);
 $futurePlan=X::value($setup->plan($scope,$futureReview));
 Assert::same('SOURCE_REVIEW_TIME_INVALID',array_column($futurePlan['steps'],null,'step')['SOURCE_REVIEW_ATTESTATION']['reason_code'],'a future-dated source review is not current authority');
