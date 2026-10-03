@@ -3,7 +3,7 @@
 **Adopted as the engineering plan of record:** 27 September 2026. **Status:** **P00–P06, P10 and P11 are
 merged** through PR28; merged main is hosted-CI qualified, while P06 live operational evidence remains
 pending. P08 is implemented and hosted-CI-qualified as an **unmerged** candidate on PR #30 (exact candidate
-head `3cc94b21`, run 37108860003; last code change `b27d2fc0`, run 37108613432); P07, P09 and P12
+head `53f9589a`, run 37124619387; last code change `b27d2fc0`, run 37108613432); P07, P09 and P12
 remain proposed/conditional. Their earlier candidate work is preserved on diverged reference branches
 outside PR #30, to be rebuilt cleanly from `main` after P08 merges. A candidate implementation is not a merge, qualification,
 deployment, funded model evaluation, activation or authority grant. The current state of the
@@ -39,7 +39,7 @@ provider transport, the four prompts and the existing M01–M12/M15/M16 and prod
 | P05 | Recoverable model results and explicit interruption handling | P01, P03 | **merged in PR24; not deployed/activated** |
 | P06 | Deploy, requalify and run the first approved manual road test | P00, P02, P03, P04, P05, P10 | **merged in PR26; merged main hosted-CI qualified; no newer Loopia deployment/evaluation/road-test evidence yet** |
 | P07 | Recurring observation with bounded per-occurrence authority | P06 | proposed; earlier work preserved on the diverged reference branch `claude/p07-monitor-scheduling` (not in PR #30, not a PR base); scheduler-identity provisioning blocked on the upstream service-delegation decision |
-| P08 | P03 assurance port and broader product-scope validation | P00 | **unmerged candidate in PR #30; exact candidate head `3cc94b21` hosted-CI qualified (run 37108860003, both lanes 8,942/0/0), its code identical to the last code-changing head `b27d2fc0` (run 37108613432, same result); not deployed, no audit run or scheduled; expansion register rows stay OPEN** |
+| P08 | P03 assurance port and broader product-scope validation | P00 | **unmerged candidate in PR #30; exact candidate head `53f9589a` hosted-CI qualified (run 37124619387, both lanes 8,942/0/0), its code identical to the last code-changing head `b27d2fc0` (run 37108613432, same result); not deployed, no audit run or scheduled; expansion register rows stay OPEN** |
 | P09 | Operator administration and richer views | P04, P05 | proposed; earlier work preserved on the diverged reference branch `claude/p09-console-administration` (not in PR #30, not a PR base); deployed-browser journeys are an operational gate |
 | P10 | Independent backup and full restore | P00 | **merged in PR25; native/off-host/clean-target operational proof pending** |
 | P11 | Version-aware master-key rotation | P00, P01, P10 | **merged in PR28; merged main hosted-CI qualified; no real staging rewrap performed** |

@@ -6,8 +6,8 @@ described as deployed or a deployment gets described as activated:
 
 | Question | Current answer | Evidence |
 | --- | --- | --- |
-| **Source** — what application code is in this release tree? | P00–P06, P10 and P11 are merged through PR28 at `1a99f72b`. P08 is an **unmerged** candidate: PR #30, qualified candidate head `3cc94b21` (last code change `b27d2fc0`) | Git history; [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) |
-| **Tested** — which exact commit was qualified, and how? | merged PR28 `1a99f72b` passed hosted CI push run 36861689735; both MariaDB lanes were 7,689/0/0. Separately, the exact PR #30 candidate head `3cc94b21` passed hosted CI pull-request run 37108860003 (run 403); both lanes 8,942/0/0. Its code is that of `b27d2fc0`, which passed run 37108613432 (run 402) with the same result; `3cc94b21` added only state documents. A branch candidate, not merged main | §2 and `deployment-evidence.json` for merged main; §1 for PR #30 (a CI run, not a filed registry record) |
+| **Source** — what application code is in this release tree? | P00–P06, P10 and P11 are merged through PR28 at `1a99f72b`. P08 is an **unmerged** candidate: PR #30, qualified candidate head `53f9589a` (last code change `b27d2fc0`) | Git history; [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) |
+| **Tested** — which exact commit was qualified, and how? | merged PR28 `1a99f72b` passed hosted CI push run 36861689735; both MariaDB lanes were 7,689/0/0. Separately, the exact PR #30 candidate head `53f9589a` passed hosted CI pull-request run 37124619387 (run 404); both lanes 8,942/0/0. Its code is that of `b27d2fc0`, which passed run 37108613432 (run 402) with the same result; the commits after `b27d2fc0` change only documentation. A branch candidate, not merged main | §2 and `deployment-evidence.json` for merged main; §1 for PR #30 (a CI run, not a filed registry record) |
 | **Deployed** — which application runs on staging? | PR16 `392f48de`, inert. **None of the Monitor work is deployed**, and neither is PR #30 | §3; [Gate R filing](STAGING_GATE_R_EVIDENCE_2026-09-26.md) |
 | **Activated** — what may run against the world? | nothing: no live read, no native model call, no scheduler handler, no external action; no P03 audit is scheduled or has been run against staging | §4; `upstream.lock.json` |
 
@@ -64,17 +64,20 @@ candidate_migrations               = 30
   the operator sweep/status CLI, migrations `245_source_card_window_width` and
   `246_assurance_refs_width` with an upgrade-order proof on a pre-P08 database, and the P02/P03/P05
   expansion register with every OPEN row guarded by the acceptance suite (the P02 foreign-scope and
-  P03 ICP-size rows are recorded from the parity baseline, not re-run). Two exact heads are
+  P03 ICP-size rows are recorded from the parity baseline, not re-run). Three exact heads are
   qualified, each by hosted CI on its merge with `main`, both MariaDB **10.6.28** and **10.11.19**
   at **8,942/0/0** with foundation, release preparation and release qualification passing and the
   receipt PASS:
   - the code head `b27d2fc0…` — pull-request run **37108613432** (run 402), merge commit
     `c877578b12a74a5e2ea39714d1b5c8db905325db`;
-  - the candidate head `3cc94b21633b005d6065d9840d4f1c3e72aa7770`, which adds only state documents —
-    pull-request run **37108860003** (run 403), merge commit `6d81ae814adfdfe2d58523ecb5c89e5af676d0b7`.
+  - the documentation-only head `3cc94b21633b005d6065d9840d4f1c3e72aa7770` — pull-request run
+    **37108860003** (run 403), merge commit `6d81ae814adfdfe2d58523ecb5c89e5af676d0b7`;
+  - the candidate head `53f9589a6f7c22064ac28087afed66d4f304e136`, also documentation-only on top of
+    the code head — pull-request run **37124619387** (run 404), merge commit
+    `5a572369dee849fd8b9c6713fa7262002b50af1e`.
 
-  A commit cannot name itself: a later PR #30 commit that changes only these state documents is
-  qualified by its own hosted run, recorded on the PR, not here. All of this is qualification of a
+  A commit cannot name itself: a later PR #30 commit that changes only documentation is qualified by
+  its own hosted run, recorded on the PR, not here. All of this is qualification of a
   branch candidate; it is not a merge, a deployment, an activation, or evidence that any audit has
   run. P07, P09 and inert P12 scaffolding are **not** in PR #30. Their earlier work is preserved on
   reference branches (`claude/p07-monitor-scheduling`, `claude/p09-console-administration`,

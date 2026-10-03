@@ -553,17 +553,17 @@
       "id": "P08",
       "pull_request": 30,
       "branch": "claude/gifted-wozniak-ooz1av",
-      "candidate_head": "3cc94b21633b005d6065d9840d4f1c3e72aa7770",
+      "candidate_head": "53f9589a6f7c22064ac28087afed66d4f304e136",
       "code_head": "b27d2fc01d7d2b35028549c0d55e827b43432c8e",
-      "candidate_head_note": "candidate_head adds only state documents to code_head; a later state-document-only commit is qualified by its own run, recorded on the pull request",
+      "candidate_head_note": "candidate_head changes only documentation on top of code_head; a later documentation-only commit is qualified by its own run, recorded on the pull request",
       "merge_state": "NOT_MERGED",
-      "qualification_state": "PR_HOSTED_CI_PASS_37108860003_CANDIDATE_HEAD_AND_37108613432_CODE_HEAD",
+      "qualification_state": "PR_HOSTED_CI_PASS_37124619387_CANDIDATE_HEAD_AND_37108613432_CODE_HEAD",
       "qualification": {
         "candidate_head": {
-          "run_id": 37108860003,
-          "run_number": 403,
+          "run_id": 37124619387,
+          "run_number": 404,
           "event": "pull_request",
-          "tested_merge_commit": "6d81ae814adfdfe2d58523ecb5c89e5af676d0b7",
+          "tested_merge_commit": "5a572369dee849fd8b9c6713fa7262002b50af1e",
           "lanes": [
             {
               "mariadb": "10.6.28",
