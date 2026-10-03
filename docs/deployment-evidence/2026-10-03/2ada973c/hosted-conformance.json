@@ -1,0 +1,322 @@
+{
+  "schema_version": "1.0",
+  "kind": "RELEASE_QUALIFICATION_RECEIPT",
+  "projection_id": "LOOPIA_SME_MVP",
+  "result": "PASS",
+  "problems": [],
+  "source": {
+    "commit": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+    "tree": "48a7cbdf46dbf75a1278fdec4417f910ee74e588",
+    "requested_ref": null,
+    "materialized_from": "CI_CHECKOUT",
+    "invoking_checkout_dirty": null,
+    "file_sha256": {
+      "workflow": "015f6aa8ca5f5d9f6a1ea3ec3766ec08c9e5a54661a589f8975157ea253a0fe3",
+      "runner": "da367cc4843c6ece44d9309aa59c0ddd40eaeea879f40037b2e829a6d50e4fe5",
+      "verifier": "f923d8285337237ba148e245df71453d9c6070de542f21a8372e6b7da6f2e1e7"
+    }
+  },
+  "execution": {
+    "kind": "GITHUB_ACTIONS",
+    "granularity": "JOB",
+    "self_reported": true,
+    "hosted_ci": true,
+    "github_run": {
+      "repository": "HMarcusWH/allfather-loopia-p01",
+      "run_id": "37128711802",
+      "run_attempt": "1",
+      "url": "https://github.com/HMarcusWH/allfather-loopia-p01/actions/runs/37128711802"
+    },
+    "started_at": null,
+    "finished_at": "2026-10-03T14:14:42Z",
+    "host_os": "Linux 6.17.0-1022-azure x86_64"
+  },
+  "toolchain": [],
+  "required": {
+    "php_line": "8.2",
+    "mariadb_lanes": [
+      "10.6",
+      "10.11"
+    ],
+    "jobs": {
+      "foundation": [
+        "frontend",
+        "runtime",
+        "lock",
+        "php-syntax",
+        "foundation-layer",
+        "unit-layer"
+      ],
+      "mariadb": [
+        "db-version",
+        "migrate",
+        "migrate-repeat",
+        "migrate-status",
+        "probe",
+        "evidence",
+        "full-suite"
+      ],
+      "release-preparation": [
+        "npm-pin",
+        "prepare",
+        "verify-prepared",
+        "verify-export",
+        "rsync-rehearsal",
+        "preflight",
+        "verify-preflight"
+      ],
+      "release-qualification": [
+        "verify-lanes"
+      ]
+    }
+  },
+  "jobs": [
+    {
+      "job": "foundation",
+      "result": "PASS",
+      "steps": [
+        {
+          "step": "*",
+          "status": "PASS",
+          "exit": null,
+          "duration_ms": null,
+          "note": "github result: success"
+        }
+      ]
+    },
+    {
+      "job": "mariadb",
+      "result": "PASS",
+      "steps": [
+        {
+          "step": "*",
+          "status": "PASS",
+          "exit": null,
+          "duration_ms": null,
+          "note": "github result: success"
+        }
+      ]
+    },
+    {
+      "job": "release-preparation",
+      "result": "PASS",
+      "steps": [
+        {
+          "step": "*",
+          "status": "PASS",
+          "exit": null,
+          "duration_ms": null,
+          "note": "github result: success"
+        }
+      ]
+    },
+    {
+      "job": "release-qualification",
+      "result": "PASS",
+      "steps": [
+        {
+          "step": "*",
+          "status": "PASS",
+          "exit": null,
+          "duration_ms": null,
+          "note": "github result: success"
+        }
+      ]
+    }
+  ],
+  "lanes": [
+    {
+      "report": "qualification-mariadb-10.11/qualification-10.11.json",
+      "sha256": "261756af5dace7fcbc0301dc9a1476f9a25cd0016f67d35c94e025b8fd40a1fa",
+      "content": {
+        "schema_version": "1.0",
+        "projection_id": "LOOPIA_SME_MVP",
+        "php_version": "8.2.34",
+        "database_server_version": "10.11.19-MariaDB-ubu2204",
+        "complete": true,
+        "strict": true,
+        "layer_filter": null,
+        "file_filter": null,
+        "layers": {
+          "foundation": {
+            "pass": 1326,
+            "fail": 0,
+            "skip": 0,
+            "files": 14,
+            "duration_ms": 789
+          },
+          "unit": {
+            "pass": 660,
+            "fail": 0,
+            "skip": 0,
+            "files": 12,
+            "duration_ms": 80
+          },
+          "integration": {
+            "pass": 2859,
+            "fail": 0,
+            "skip": 0,
+            "files": 48,
+            "duration_ms": 54728
+          },
+          "conformance": {
+            "pass": 1330,
+            "fail": 0,
+            "skip": 0,
+            "files": 7,
+            "duration_ms": 7828
+          },
+          "acceptance": {
+            "pass": 738,
+            "fail": 0,
+            "skip": 0,
+            "files": 7,
+            "duration_ms": 10742
+          },
+          "security": {
+            "pass": 1854,
+            "fail": 0,
+            "skip": 0,
+            "files": 31,
+            "duration_ms": 41893
+          },
+          "rollback": {
+            "pass": 175,
+            "fail": 0,
+            "skip": 0,
+            "files": 5,
+            "duration_ms": 3563
+          }
+        },
+        "total": {
+          "pass": 8942,
+          "fail": 0,
+          "skip": 0,
+          "duration_ms": 119624
+        },
+        "skips_are_failures": true,
+        "failure_count": 0,
+        "skip_count": 0
+      }
+    },
+    {
+      "report": "qualification-mariadb-10.6/qualification-10.6.json",
+      "sha256": "f51f578451282e40e82435861dfacb02992c1c46ba952b23717838aff1234076",
+      "content": {
+        "schema_version": "1.0",
+        "projection_id": "LOOPIA_SME_MVP",
+        "php_version": "8.2.34",
+        "database_server_version": "10.6.28-MariaDB-ubu2204",
+        "complete": true,
+        "strict": true,
+        "layer_filter": null,
+        "file_filter": null,
+        "layers": {
+          "foundation": {
+            "pass": 1326,
+            "fail": 0,
+            "skip": 0,
+            "files": 14,
+            "duration_ms": 1304
+          },
+          "unit": {
+            "pass": 660,
+            "fail": 0,
+            "skip": 0,
+            "files": 12,
+            "duration_ms": 96
+          },
+          "integration": {
+            "pass": 2859,
+            "fail": 0,
+            "skip": 0,
+            "files": 48,
+            "duration_ms": 67934
+          },
+          "conformance": {
+            "pass": 1330,
+            "fail": 0,
+            "skip": 0,
+            "files": 7,
+            "duration_ms": 9271
+          },
+          "acceptance": {
+            "pass": 738,
+            "fail": 0,
+            "skip": 0,
+            "files": 7,
+            "duration_ms": 13873
+          },
+          "security": {
+            "pass": 1854,
+            "fail": 0,
+            "skip": 0,
+            "files": 31,
+            "duration_ms": 44221
+          },
+          "rollback": {
+            "pass": 175,
+            "fail": 0,
+            "skip": 0,
+            "files": 5,
+            "duration_ms": 3312
+          }
+        },
+        "total": {
+          "pass": 8942,
+          "fail": 0,
+          "skip": 0,
+          "duration_ms": 140012
+        },
+        "skips_are_failures": true,
+        "failure_count": 0,
+        "skip_count": 0
+      }
+    }
+  ],
+  "preflight": {
+    "sha256": "882a8cf5387e18f1717e482848ec4448e45d4bf20a1312023c3339a901fff451",
+    "status": "READY_FOR_INERT_STAGING_COPY",
+    "source_fingerprint": "6460ca1b44ab3147966037163e27e4f2c7e2e6a961cf06c4ec9ee0cdb084a21b",
+    "content": {
+      "status": "READY_FOR_INERT_STAGING_COPY",
+      "mode": "staging",
+      "release_ref": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+      "environment": "staging",
+      "base_url": "https://staging.invalid",
+      "git_head": "NOT_AVAILABLE",
+      "source_fingerprint": "6460ca1b44ab3147966037163e27e4f2c7e2e6a961cf06c4ec9ee0cdb084a21b",
+      "source_fingerprint_covers": [
+        "app",
+        "database",
+        "public_html",
+        "worker"
+      ],
+      "problems": [],
+      "operator_console": {
+        "staged": true,
+        "script": "console.VQV3PTEZ.js",
+        "style": "console.TAAHOXDD.css",
+        "assets": 1
+      },
+      "app_master_key": "SET",
+      "db_password": "SET",
+      "live_read": false,
+      "scheduler_handlers": false,
+      "external_action": false,
+      "customer_visible_output": false,
+      "production_launch_authorized": false,
+      "authorizes_deployment": false,
+      "copies_anything": false
+    }
+  },
+  "establishes": "The named GitHub Actions run reported every qualification job successful for this commit, and each MariaDB lane report is complete, strict, and has zero failures and zero skips.",
+  "does_not_establish": [
+    "that the run record exists as described — the GitHub run itself is the record to check",
+    "independent verification — a receipt is self-reported by the machine that produced it",
+    "Loopia host qualification, deployment, or any claim about a real host",
+    "activation of live read, native model execution or the scheduler",
+    "owner GO, customer-visible output, external action or production authority"
+  ],
+  "filing": "If filed, only as `CONFORMANCE` evidence with `environment: \"ci\"` for exactly this commit. Never as a host record."
+}
