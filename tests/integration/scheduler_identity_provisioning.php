@@ -17,6 +17,23 @@ $scope = Seed::tenantWorkspace($db, $clock, 'scheduler-provision');
 $m02 = new M02Seed($db, $clock);
 $m02->ensureVocabulary();
 
+// A hypothetical same-key successor is deliberately present before planning. P07 adopted
+// scheduler observer v1 explicitly; "latest version" must never become authority by accident.
+$schedulerV2 = Ids::new();
+$db->insert('roles', [
+    'role_id' => $schedulerV2,
+    'role_key' => SchedulerIdentityProvisioner::ROLE_KEY,
+    'role_version' => 2,
+    'schema_version' => '1',
+    'display_name' => 'Future scheduler observer fixture',
+    'purpose_summary' => 'negative fixture: must not be selected implicitly',
+    'status' => 'ACTIVE',
+    'created_at' => $clock->now(),
+]);
+foreach (ScheduleService::SERVICE_PERMISSIONS as $permission) {
+    $db->insert('role_permissions', ['role_id' => $schedulerV2, 'permission_key' => $permission]);
+}
+
 $adminRole = Seed::role($db, $clock, 'scheduler-admin-' . substr(Ids::new(), 0, 8), [
     'tenant.administer', 'identity.register', 'identity.read',
     'identity.suspend_revoke', 'role.assign', 'role.revoke',
@@ -31,6 +48,15 @@ Assert::same(['CREATE', 'CREATE', false, false], [
     $p['service_action'], $p['membership_action'], $p['grants_execution'], $p['admits_schedule'],
 ], 'planning creates identity+membership only and grants no execution');
 Assert::same(SchedulerIdentityProvisioner::ROLE_KEY, $p['definition']['role_key'], 'the plan names the canonical narrow scheduler role');
+Assert::same(
+    SchedulerIdentityProvisioner::ROLE_VERSION,
+    $p['definition']['role_version'],
+    'planning pins the adopted scheduler seat to v1 even when a same-key successor exists',
+);
+Assert::true(
+    $p['definition']['role_id'] !== $schedulerV2,
+    'planning never silently selects the later same-key role definition',
+);
 $plannedPermissions = ScheduleService::SERVICE_PERMISSIONS;
 sort($plannedPermissions, SORT_STRING);
 Assert::same(
@@ -111,6 +137,29 @@ Assert::same([false, false, $m['service_identity_id'], $m['membership_id']], [
     $again->value()['service_identity_id'],
     $again->value()['membership_id'],
 ], 'provisioning is idempotent');
+
+// Even if an administrator or future migration rewires this service to a same-key successor,
+// both the provisioner and execution principal fail closed until code explicitly adopts it.
+$db->run(
+    'UPDATE workspace_memberships SET role_id=?, role_version=? WHERE membership_id=?',
+    [$schedulerV2, 2, $m['membership_id']]
+);
+Assert::same(
+    'SCHEDULER_IDENTITY_BROADER_MEMBERSHIP_PRESENT',
+    $owner->plan($scope)->reasonCode(),
+    'a same-key scheduler role successor is not implicit provisioning authority',
+);
+$versionPrincipal = MonitorPrincipal::service($m['service_identity_id'], $scope['operator_id'], Ids::new());
+Assert::same(
+    'MONITOR_SERVICE_ROLE_BOUNDARY_VIOLATION',
+    $versionPrincipal->authorize($db, $clock, $scope['tenant_id'], $scope['workspace_id'], ['mission.read'], 'MONITOR_SCHEDULE')->reasonCode(),
+    'a same-key scheduler role successor is not implicit execution authority',
+);
+$db->run(
+    'UPDATE workspace_memberships SET role_id=?, role_version=? WHERE membership_id=?',
+    [$p['definition']['role_id'], SchedulerIdentityProvisioner::ROLE_VERSION, $m['membership_id']]
+);
+Assert::true($owner->plan($scope)->isOk(), 'restoring the adopted v1 seat restores the scheduler boundary');
 
 $otherWorkspace = Ids::new();
 $db->insert('workspaces', [
