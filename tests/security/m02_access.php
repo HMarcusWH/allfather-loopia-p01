@@ -30,7 +30,7 @@ $clock = Harness::clock();
 $vocab = new M02Seed($db, $clock);
 $seeded = $vocab->ensureVocabulary();
 Assert::true($seeded['permissions'] > 50, 'the permission vocabulary seeds');
-Assert::same(14, $seeded['roles'], 'all 14 canonical roles seed');
+Assert::same(15, $seeded['roles'], 'all 15 canonical roles seed, including the narrow scheduler observer seat');
 
 // Idempotent: a redeploy must not duplicate the vocabulary.
 $again = $vocab->ensureVocabulary();
@@ -83,6 +83,17 @@ foreach ([
 ] as $ceiling) {
     Assert::true(Permissions::isExcluded($ceiling), "the action ceiling excludes {$ceiling}");
 }
+
+// The scheduler service role is a deliberately narrow canonical seat, never a Workspace Operator
+// synonym. Keep its exact four-permission surface pinned in the projection.
+$schedulerRole = $vocab->roleIdFor('ROLE_SYSTEM_SCHEDULER_OBSERVER');
+Assert::true($schedulerRole !== null, 'the scheduler observer role is seeded');
+$schedulerPermissions = array_map(
+    static fn (array $row): string => (string) $row['permission_key'],
+    $db->all('SELECT permission_key FROM role_permissions WHERE role_id = ? ORDER BY permission_key', [$schedulerRole])
+);
+$expectedSchedulerPermissions = ['evidence.read', 'mission.read', 'mission.transition', 'tool.invoke'];
+Assert::same($expectedSchedulerPermissions, $schedulerPermissions, 'scheduler observer grants exactly the four canonical observation permissions');
 
 // No seeded role may grant an excluded permission. If one did, the whole exclusion list would be
 // decoration.
