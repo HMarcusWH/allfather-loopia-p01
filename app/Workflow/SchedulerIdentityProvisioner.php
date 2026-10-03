@@ -21,6 +21,7 @@ use Allfather\Loopia\Substrate\M02\{AccessGuard,Permissions};
 final class SchedulerIdentityProvisioner
 {
     public const ROLE_KEY = MonitorPrincipal::SERVICE_ROLE_KEY;
+    public const ROLE_VERSION = MonitorPrincipal::SERVICE_ROLE_VERSION;
     public const SERVICE_CLASS = 'SYSTEM_SCHEDULER';
     public const SERVICE_PURPOSE = 'P07 recurring observation: governed capture and diff only';
 
