@@ -72,8 +72,9 @@ is in [`PORT_SCOPE_MATRIX.md`](./docs/PORT_SCOPE_MATRIX.md) §3, with the gaps c
 
 **Read [`docs/MVP_RELEASE_STATE.md`](./docs/MVP_RELEASE_STATE.md) first.** It is the one place that
 states what is on `main`, what was qualified, what is deployed and what is active — four different
-answers. In short: `main` carries the inactive Monitor work (PR18–PR22), which is **not deployed**;
-staging still runs PR16. The rest of this section is the PR16 deployment record.
+answers. In short: `main` carries the merged P00–P06, P08, P10 and P11 source baseline through
+PR30 (`0b8c17e9`), which is **not deployed**; staging still runs PR16. The rest of this section is
+the PR16 deployment record.
 
 **PR16 is deployed and qualified as inert Loopia staging under the recorded owner-directed
 shared-host staging deviation.** The running application release is
@@ -81,7 +82,7 @@ shared-host staging deviation.** The running application release is
 deployed application release. See [the Gate R filing](docs/STAGING_GATE_R_EVIDENCE_2026-09-26.md)
 for the measured 5,552/0/0 host result, N/O/P, browser inspection and PR16-to-PR15-to-PR16 rollback.
 
-`deployment-evidence.json` carries **12 records**, preserving historical failures and current
+`deployment-evidence.json` carries **15 records**, preserving historical failures and current
 release evidence. It supports conformance, staging deployment and current-release host capability;
 it does not support live-read activation or ROAD_TEST_001 execution. E.1 remains FAIL_READABLE and
 E.3 remains UNVERIFIED. This is neither technical isolation nor production readiness.

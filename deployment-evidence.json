@@ -166,6 +166,17 @@
       "evidence_ref": "docs/deployment-evidence/2026-10-01/1a99f72b/release-qualification-receipt.json",
       "evidence_sha256": "9a8cad83b47cc5aecaa6edc29e7093c66e5269592023751510119b0a13e2bc09",
       "note": "GitHub Actions push run 36861689735 qualified merged main 1a99f72b directly; MariaDB 10.6 and 10.11 both 7689/0/0. CI evidence only, not Loopia host/deployment/activation evidence."
+    },
+    {
+      "record_id": "PR30_HOSTED_CONFORMANCE_PASS",
+      "kind": "CONFORMANCE",
+      "result": "PASS",
+      "release_ref": "0b8c17e9a3457baf25f25babb43d61bc71633f6a",
+      "environment": "ci",
+      "recorded_at": "2026-10-03T13:50:09.000Z",
+      "evidence_ref": "docs/deployment-evidence/2026-10-03/0b8c17e9/release-qualification-receipt.json",
+      "evidence_sha256": "62b484b158b9c34af6c6e18739e3bd74994a5e105662b7b3083b0c067c9efb02",
+      "note": "GitHub Actions push run 37127292912 qualified merged PR30/main 0b8c17e9 directly; MariaDB 10.6 and 10.11 both 8942/0/0. CI evidence only, not host/deployment/activation evidence."
     }
   ]
 }
