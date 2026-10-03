@@ -26,8 +26,10 @@ final class MonitorPrincipal
 {
     public const OPERATOR = 'OPERATOR';
     public const SERVICE = 'SERVICE';
-    /** The only service class that may act on a Monitor run. */
+    /** The only service class/role that may act on a scheduled Monitor run. */
     public const SERVICE_CLASS = 'SYSTEM_SCHEDULER';
+    public const SERVICE_ROLE_KEY = 'ROLE_SYSTEM_SCHEDULER_OBSERVER';
+    public const SERVICE_ROLE_PERMISSIONS = ['mission.read', 'mission.transition', 'evidence.read', 'tool.invoke'];
 
     private function __construct(
         public readonly string $type,
@@ -110,6 +112,44 @@ final class MonitorPrincipal
             if ($service === null || $service['tenant_id'] !== $tenantId || $service['service_class'] !== self::SERVICE_CLASS || $service['status'] !== 'ACTIVE') {
                 return Outcome::refuse('MONITOR_SERVICE_PRINCIPAL_INVALID');
             }
+
+            // The scheduler identity is a single-purpose service seat. A later role assignment must
+            // never silently widen it while this code continues to treat it as the bounded P07
+            // observer. Require exactly one CURRENT membership across the tenant, in this workspace,
+            // to the canonical scheduler role, and require that role's permission set to remain
+            // byte-for-byte the adopted four-key set. Any drift stands scheduling down.
+            $memberships = $db->all(
+                "SELECT m.workspace_id, m.role_id, r.role_key
+                 FROM workspace_memberships m
+                 JOIN roles r ON r.role_id = m.role_id
+                 WHERE m.tenant_id = ? AND m.principal_type = 'SERVICE' AND m.principal_id = ?
+                   AND m.status = 'ACTIVE' AND m.valid_from <= ?
+                   AND (m.valid_until IS NULL OR m.valid_until > ?)
+                 ORDER BY m.workspace_id, r.role_key, m.membership_id",
+                [$tenantId, $this->actorId, $clock->now(), $clock->now()]
+            );
+            if ($memberships !== []) {
+                if (count($memberships) !== 1
+                    || (string) $memberships[0]['workspace_id'] !== $workspaceId
+                    || (string) $memberships[0]['role_key'] !== self::SERVICE_ROLE_KEY) {
+                    return Outcome::refuse('MONITOR_SERVICE_ROLE_BOUNDARY_VIOLATION');
+                }
+                $actual = array_map(
+                    static fn (array $row): string => (string) $row['permission_key'],
+                    $db->all(
+                        'SELECT permission_key FROM role_permissions WHERE role_id = ? ORDER BY permission_key',
+                        [(string) $memberships[0]['role_id']]
+                    )
+                );
+                $expected = self::SERVICE_ROLE_PERMISSIONS;
+                sort($expected, SORT_STRING);
+                if ($actual !== $expected) {
+                    return Outcome::refuse('MONITOR_SERVICE_ROLE_AUTHORITY_DRIFT');
+                }
+            }
+            // No current membership is not "broader authority"; it is ordinary absence of
+            // authority. Leave that to AccessGuard below so the existing refusal contract remains
+            // MONITOR_SERVICE_ACCESS_DENIED.
         }
         foreach ($permissions as $permission) {
             if ($guard->evaluate($this->type, $this->actorId, $tenantId, $workspaceId, $permission, $resourceType)['decision'] !== 'ALLOW') {

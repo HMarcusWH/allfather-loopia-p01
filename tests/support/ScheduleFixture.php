@@ -6,7 +6,8 @@ use Allfather\Loopia\Core\{Clock,FixedClock,Ids,Outcome};
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Jobs\{JobMachine,MonitorStepHandler,SchedulerRunner};
 use Allfather\Loopia\Provider\ModelPolicy;
-use Allfather\Loopia\Workflow\{MissionConfiguration,MonitorService,RunJournal,ScheduleDispatcher,ScheduleService};
+use Allfather\Loopia\Substrate\M02\Seed as M02Seed;
+use Allfather\Loopia\Workflow\{MissionConfiguration,MonitorService,RunJournal,ScheduleDispatcher,ScheduleService,SchedulerIdentityProvisioner};
 
 require_once __DIR__ . '/ExecutionFixture.php';
 
@@ -22,13 +23,27 @@ require_once __DIR__ . '/ExecutionFixture.php';
  */
 final class ScheduleFixture
 {
-    public const SERVICE_PERMISSIONS = ['mission.read', 'mission.transition', 'evidence.read', 'tool.invoke'];
+    public const SERVICE_PERMISSIONS = \Allfather\Loopia\Workflow\MonitorPrincipal::SERVICE_ROLE_PERMISSIONS;
 
     public static function create(Database $db, FixedClock $clock, array $pages, array $grantOverrides = []): array
     {
         $fx = ExecutionFixture::create($db, $clock, $pages);
         $scope = $fx['scope'];
-        $serviceId = self::serviceIdentity($db, $clock, $scope['tenant_id'], $scope['workspace_id']);
+
+        // The scheduler principal is now reached through the supported M02 owner path rather than
+        // test-only inserts. The operator's admin seat is a prerequisite, not authority granted by
+        // the provisioner itself.
+        $m02 = new M02Seed($db, $clock);
+        $m02->ensureVocabulary();
+        $admin = Seed::role($db, $clock, 'scheduler-provision-admin-' . substr(Ids::new(), 0, 8), [
+            'tenant.administer', 'identity.register', 'identity.read',
+            'identity.suspend_revoke', 'role.assign', 'role.revoke',
+        ]);
+        Seed::membership($db, $clock, $scope['tenant_id'], $scope['workspace_id'], $scope['operator_id'], $admin['role_id']);
+        $provisioner = new SchedulerIdentityProvisioner($db, $clock);
+        $plan = ExecutionFixture::value($provisioner->plan($scope));
+        $provisioned = ExecutionFixture::value($provisioner->provision($scope, $plan['plan_digest']));
+        $serviceId = $provisioned['service_identity_id'];
         $from = Clock::parse($clock->now());
         $grantDefinition = ExecutionFixture::manualDefinition($db, $clock, $fx, [], array_replace([
             'purpose' => 'SCHEDULED_OBSERVATION', 'prompt_approval_ids' => [], 'credential_id' => null, 'credential_digest' => null,
@@ -56,14 +71,29 @@ final class ScheduleFixture
         $db->insert('service_identities', [
             'service_identity_id' => $id, 'tenant_id' => $tenantId, 'schema_version' => '1',
             'display_name' => 'Monitor scheduler', 'service_key' => 'monitor-scheduler-' . substr($id, 0, 8),
-            'service_purpose' => 'Scheduled capture and compare only', 'service_class' => $class, 'status' => 'ACTIVE',
+            'service_purpose' => $class === SchedulerIdentityProvisioner::SERVICE_CLASS
+                ? SchedulerIdentityProvisioner::SERVICE_PURPOSE
+                : 'Synthetic non-scheduler service for refusal coverage',
+            'service_class' => $class, 'status' => 'ACTIVE',
             'created_at' => $clock->now(),
         ]);
         if ($member) {
-            $role = Seed::role($db, $clock, 'scheduler-' . substr(Ids::new(), 0, 8), self::SERVICE_PERMISSIONS);
+            if ($class === SchedulerIdentityProvisioner::SERVICE_CLASS) {
+                (new M02Seed($db, $clock))->ensureVocabulary();
+                $roleId = (string) $db->scalar(
+                    "SELECT role_id FROM roles WHERE role_key = ? AND role_version = 1 AND status = 'ACTIVE'",
+                    [SchedulerIdentityProvisioner::ROLE_KEY]
+                );
+                if ($roleId === '') {
+                    throw new \RuntimeException('fixture could not resolve the canonical scheduler observer role');
+                }
+            } else {
+                $role = Seed::role($db, $clock, 'synthetic-service-' . substr(Ids::new(), 0, 8), self::SERVICE_PERMISSIONS);
+                $roleId = $role['role_id'];
+            }
             $db->insert('workspace_memberships', [
                 'membership_id' => Ids::new(), 'tenant_id' => $tenantId, 'workspace_id' => $workspaceId,
-                'principal_type' => 'SERVICE', 'principal_id' => $id, 'role_id' => $role['role_id'], 'role_version' => 1,
+                'principal_type' => 'SERVICE', 'principal_id' => $id, 'role_id' => $roleId, 'role_version' => 1,
                 'status' => 'ACTIVE', 'valid_from' => $clock->now(), 'created_at' => $clock->now(),
             ]);
         }

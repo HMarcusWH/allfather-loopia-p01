@@ -22,7 +22,7 @@ use Allfather\Loopia\PromptOps\PromptApprovalStore;
 use Allfather\Loopia\Provider\{CredentialRotation,CredentialStore,KeyRing,SecretBox};
 use Allfather\Loopia\Substrate\M02\Seed as M02Seed;
 use Allfather\Loopia\Tests\Assert;
-use Allfather\Loopia\Workflow\{ExecutionAdmission,ExecutionGrantStore,MonitorSetup,NativeOperations,OwnerDecisionRegistry,ScheduleService};
+use Allfather\Loopia\Workflow\{ExecutionAdmission,ExecutionGrantStore,MonitorSetup,NativeOperations,OwnerDecisionRegistry,ScheduleService,SchedulerIdentityProvisioner};
 
 $root = dirname(__DIR__, 2);
 
@@ -79,6 +79,9 @@ $owners = [
     MonitorSetup::class => ['family' => 'monitor setup', 'classified' => ['importProfile', 'plan', 'apply'], 'other' => ['receipt', 'validateRequest']],
     // P07 recurrence: admission and the bulk stand-down stay private CLI acts.
     ScheduleService::class => ['family' => 'schedule lifecycle', 'classified' => ['plan', 'propose', 'admit', 'suspend', 'revoke', 'standDown'], 'other' => ['runKey', 'overview', 'find', 'findById', 'status', 'current', 'delegation', 'admittedCandidates', 'digest']],
+    // P07 scheduler-principal lifecycle. This is private operator administration only; no web
+    // surface may create, revive or stand down a SERVICE identity/membership.
+    SchedulerIdentityProvisioner::class => ['family' => 'scheduler identity provisioning', 'classified' => ['plan', 'provision', 'standDown'], 'other' => ['status', 'serviceKey']],
     // Execution-grant lifecycle, the per-step reservation that consumes a grant, and the stand-down.
     ExecutionGrantStore::class => ['family' => 'execution-grant lifecycle', 'classified' => ['plan', 'propose', 'admit', 'suspend', 'revoke'], 'other' => ['find', 'findById', 'status', 'admission', 'currentFor', 'admittedIn', 'consumed', 'digest']],
     ExecutionAdmission::class => ['family' => 'execution-grant lifecycle', 'classified' => ['reserve'], 'other' => ['grants', 'check']],
@@ -145,7 +148,7 @@ foreach ($webAllowance as $relative => $allowance) {
 // CredentialRotation::apply and AccountService::suspend out of reach (checked below).
 $forbiddenEverywhere = array_values(array_diff_key($classified, array_flip($allowedAnywhere)));
 sort($forbiddenEverywhere);
-foreach (['admit', 'approve', 'withdraw', 'standDown', 'reserve', 'ensureVocabulary', 'addRoleMembership', 'createLogin', 'subscribe', 'save', 'seal', 'withCredential', 'importProfile'] as $mustBeBanned) {
+foreach (['admit', 'approve', 'withdraw', 'standDown', 'provision', 'reserve', 'ensureVocabulary', 'addRoleMembership', 'createLogin', 'subscribe', 'save', 'seal', 'withCredential', 'importProfile'] as $mustBeBanned) {
     Assert::true(in_array($mustBeBanned, $forbiddenEverywhere, true), "{$mustBeBanned} is banned on every web surface");
 }
 $vocabulary = '/(?:->|::)\s*(' . implode('|', array_map(static fn (string $n): string => preg_quote($n, '/'), array_values($classified))) . ')\s*\(/i';

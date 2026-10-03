@@ -17,8 +17,8 @@ model call still needs a human to inspect the exact request, and both human revi
 
 Admitting the grant's budget does not admit a recurrence, and the reverse cannot happen: a schedule is
 admitted only while its grant is ADMITTED, and every occurrence re-reads both decisions. A decision
-must cite the canonical authority it relies on; canonical has no service-delegation contract today,
-so an actual admission needs that upstream decision first (see §8).
+must cite the canonical authority it relies on. Canonical PR369, merged as `411aba91423265e578813afbc8f64318320ef08d`, defines the dedicated
+`ROLE_SYSTEM_SCHEDULER_OBSERVER` seat (see §8).
 
 ## 2. Who acts
 
@@ -46,13 +46,7 @@ principal (`MONITOR_SERVICE_DELEGATION_NOT_ADMITTED`).
 
 Immutable versions plus append-only lifecycle (`ADMITTED`, `SUSPENDED`, `REVOKED`); `EXPIRED` and
 `NOT_YET_VALID` are computed. A changed cadence, window, grant or cap is a successor version with its
-own digest and admission; only one version of a series may be admitted. A new series is named by its
-first version's reviewed input, so the digest `plan` shows is exactly the digest `propose` records,
-and proposing the same first version again is idempotent.
-
-Besides the CLI below, the scriptless console page `/console/monitor/schedule` (P09) can plan,
-propose (bound to the digest the operator reviewed), suspend and revoke. It cannot admit: admission
-stays the CLI act below.
+own digest and admission; only one version of a series may be admitted.
 
 | Bound | Rule |
 | --- | --- |
@@ -141,33 +135,36 @@ new email or SMS channel.
   preview that is not the real request or require the scheduler to resolve model authority it does
   not have. The occurrence records the run, its revision and that it waits at `DIFFED`; the
   workbench computes and shows the exact request when the human opens it.
-- **No new canonical authority.** `SCHEDULED_OBSERVATION` was already a local execution purpose (P01).
-  Service delegation has no canonical contract; per the plan, that upstream decision must land before
-  any real schedule is admitted. Nothing here pretends otherwise.
+- **Canonical delegation is explicit, not inferred locally.** `SCHEDULED_OBSERVATION` remains the
+  projection's bounded execution purpose (P01), while canonical PR369 (merge `411aba91423265e578813afbc8f64318320ef08d`) adds only the narrow M02
+  service seat required to represent `SYSTEM_SCHEDULER` authority. That authority is now adopted;
+  no real schedule is admitted merely because the role exists.
 - `ContextEnvelope` and `MissionConfiguration` needed no change: the principal rides beside the
   operator scope, and both read the actor or the delegating operator they always read.
 - Not done here: a qualified external scheduler identity on a real host, any admitted schedule, and
   bounded P08 audit jobs on the same machinery (they wait for an admitted scheduling policy).
-- **Blocked upstream: provisioning the scheduler identity.** Every schedule names a tenant-bound
-  `SYSTEM_SCHEDULER` service identity holding its **own** workspace membership. There is no governed
-  operator path that creates that identity or its membership: nothing under `app/` or `ops/` writes
-  `service_identities`, and only the offline fixture (`tests/support/ScheduleFixture.php`) inserts
-  one. That path must not be invented locally. In particular, giving the service
-  `ROLE_WORKSPACE_OPERATOR` (or any other existing role) is not a shortcut, because the role and exact
-  permission set a scheduler may hold is what the pending upstream service-delegation decision has to
-  fix. Until it lands, the code fails closed: no supported path can create the identity, so in any
-  real database planning refuses (`SCHEDULE_SERVICE_IDENTITY_INVALID`, or
-  `SCHEDULE_PRINCIPAL_NOT_AUTHORIZED` for an identity without its own authority) and nothing can be
-  scheduled. Once the decision lands, two things become the **P07 merge gate**:
-  1. a private plan → provision CLI for the identity and its membership, under that decision;
-  2. a fixture-free end-to-end test: provisioned scope → grant → proposed schedule → owner-admitted →
-     tick → exactly one occurrence → capture/diff → `WAITING_FOR_OPERATOR` at `DIFFED`. It must also
-     show no model call, no auto-submitted request digest, no review, no release, no duplicate
-     capture on repeated ticks, a stop on revocation and on expiry, and the service and its
-     delegator recorded separately.
+- **Scheduler-principal provisioning is now implemented behind the canonical authority change.**
+  Canonical PR369, merged as `411aba91423265e578813afbc8f64318320ef08d`, defines the dedicated `ROLE_SYSTEM_SCHEDULER_OBSERVER` seat with exactly
+  `mission.read`, `mission.transition`, `evidence.read` and `tool.invoke` — deliberately
+  narrower than `ROLE_WORKSPACE_OPERATOR`. This projection ports that role and adds
+  `SchedulerIdentityProvisioner` plus the private `ops/monitor/scheduler-identity.php` CLI:
+  plan → exact digest → provision, status, suspend and revoke. It creates/converges only a
+  tenant-bound `SYSTEM_SCHEDULER` identity and one workspace membership, returns no secret
+  material, refuses broader/conflicting memberships, never silently revives withdrawn authority,
+  and grants neither execution nor schedule admission.
+- The primary P07 fixture now reaches the service identity through that provisioner rather than
+  direct SQL. `tests/integration/scheduler_identity_provisioning.php` separately proves exact role
+  authority, idempotency, stale-digest refusal, sibling-workspace default-deny and immediate
+  suspension/revocation. The existing `monitor_schedule.php` journey then proves
+  provisioned service → admitted grant → proposed/admitted schedule → tick → capture/diff →
+  `WAITING_FOR_OPERATOR`, while keeping model invocation, review and release human-only.
+- Canonical PR369 is now merged/adopted. No schedule exists merely because the service seat can be
+  provisioned: a current `SCHEDULED_OBSERVATION` execution grant and a reviewed owner decision
+  naming the exact schedule digest are still independently required.
 
 ## 9. Tests
 
+- [`tests/integration/scheduler_identity_provisioning.php`](../tests/integration/scheduler_identity_provisioning.php) — canonical narrow-role provisioning, exact plan digest, idempotency, no broader service authority, sibling-workspace default-deny and stand-down without silent revival.
 - [`tests/integration/monitor_schedule.php`](../tests/integration/monitor_schedule.php) — planning
   refusals, proposal vs admission, baseline, change queued at the boundary, the service refused every
   human surface, the human takeover with exactly one inspected model call, mixed v1/v2 replay,
