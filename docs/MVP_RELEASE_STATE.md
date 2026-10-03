@@ -38,7 +38,7 @@ candidate_migrations               = 31
 - **Canonical pin:** `c6d9cf9a7a1001b001ca6118999e9cb75c831c4d` in `upstream.lock.json`, unchanged.
   Selected later canonical repairs are recorded separately in
   [`reconciliation/`](reconciliation/monitor-scoped-extension-2026-09-27.json); the latest canonical
-  main inspected for them is `1c40306c22e15b2ad3049e8d32abff47450c8921` (canonical PR 368).
+  main inspected for them is `411aba91423265e578813afbc8f64318320ef08d` (canonical PR369).
   Inspecting a newer canonical head does not advance the pin.
 - **Implementation baseline merge:** `0b8c17e9a3457baf25f25babb43d61bc71633f6a` (PR30), completing
   **P00–P06 plus P08, P10 and P11 source implementation**. P08 adds the three canonical P03
@@ -65,8 +65,8 @@ candidate_migrations               = 31
   `250_monitor_schedule_control`, the deterministic schedule-series fix, the canonical narrow
   `ROLE_SYSTEM_SCHEDULER_OBSERVER` projection, and a private governed scheduler-identity
   plan/provision/status/suspend/revoke path. The primary offline schedule fixture now uses that
-  provisioner. It is still not merged, deployed or activated; canonical PR369 must be adopted and
-  P06/ROAD_TEST_001 remains an operational predecessor. Provisioning a service seat alone admits
+  provisioner. It is still not merged, deployed or activated; canonical PR369 is adopted as
+  `411aba91423265e578813afbc8f64318320ef08d`, while P06/ROAD_TEST_001 remains an operational predecessor. Provisioning a service seat alone admits
   neither an execution grant nor a schedule.
 - **Candidate schema:** 31 migration files, including `210_monitor_execution_controls`,
   `220_monitor_evaluation_records`, `225_monitor_setup_receipts`, `230_monitor_attempt_recovery`,
