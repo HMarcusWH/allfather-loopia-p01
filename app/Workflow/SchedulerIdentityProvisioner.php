@@ -396,9 +396,9 @@ final class SchedulerIdentityProvisioner
 
         $role = $this->db->one(
             "SELECT role_id, role_version FROM roles
-             WHERE role_key = ? AND status = 'ACTIVE'
-             ORDER BY role_version DESC LIMIT 1",
-            [self::ROLE_KEY]
+             WHERE role_key = ? AND role_version = ? AND status = 'ACTIVE'
+             LIMIT 1",
+            [self::ROLE_KEY, self::ROLE_VERSION]
         );
         if ($role === null) {
             return Outcome::refuse('SCHEDULER_ROLE_NOT_DEFINED');
