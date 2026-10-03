@@ -84,16 +84,17 @@ final class EvaluationCarrier
                 $m03 = new Registry($tx, $this->clock);
                 $m04 = new Proposals($tx, $this->clock);
                 $eligibility = new Eligibility($tx, $this->clock);
+                // The evaluation runner retains untrusted model candidates itself. It does not
+                // require a product output-class binding. Empty output/source scope is deliberate.
                 $mission = $m04->createMission($scope['tenant_id'], $scope['workspace_id'], 'TEST', self::TITLE, self::PURPOSE,
-                    ['ANALYZE'], 'OPERATOR', $scope['operator_id'], 'DRAFT', ['INTERNAL_INFORMATIONAL'], [], [$model['governed_tool_id']]);
+                    ['ANALYZE'], 'OPERATOR', $scope['operator_id'], 'DRAFT', [], [], [$model['governed_tool_id']]);
                 self::value($m04->activateMission($mission, $scope['operator_id']));
                 foreach (self::ROLES as $role => $class) {
                     $agent = $m03->registerValkyrie($scope['tenant_id'], $scope['workspace_id'], self::TITLE . ' ' . $role, $class, self::PURPOSE, $scope['operator_id'], 'DRAFT');
                     $contract = self::value($m03->issueContract($agent, $scope['tenant_id'], $scope['workspace_id'], self::TITLE . ' ' . $role, $class, ['ANALYZE'], self::PROHIBITIONS))['capability_contract_id'];
                     self::value($m03->changeStatus($agent, 'ACTIVE', 'SYNTHETIC_EVALUATION_CARRIER_CREATED'));
                     $eligibility->grantToolRight($contract, $model['governed_tool_id'], [ModelRegistration::OPERATION_KEY], 'INTERNAL_TRANSFORM', 'ANALYZE', false);
-                    self::value($m03->bindOutputClass($contract, 'INTERNAL_INFORMATIONAL', 'ANALYZE'));
-                    self::value($m04->assignToMissionNarrowed($mission, $agent, $contract, 'EVALUATION_' . strtoupper($role), [$model['governed_tool_id']], ['ANALYZE'], $scope['operator_id']));
+                    self::value($m04->assignToMissionNarrowed($mission, $agent, $contract, 'EVALUATION_' . strtoupper($role), [$model['governed_tool_id']], ['ANALYZE'], $scope['operator_id'], assignedOutputClasses: []));
                 }
                 $verified = $this->plan($scope);
                 if (!$verified->isOk()) { return $verified; }
@@ -135,7 +136,7 @@ final class EvaluationCarrier
             $tool = $model['governed_tool_id'];
             self::exact($mission, ['mission_type' => 'TEST', 'mission_version' => 1, 'status' => 'ACTIVE', 'objective' => self::PURPOSE, 'purpose_summary' => self::PURPOSE, 'target_scope' => 'WORKSPACE_SCOPED', 'created_by_actor_type' => 'OPERATOR', 'created_by_actor_id' => $scope['operator_id'], 'activated_by_operator_id' => $scope['operator_id'], 'supersedes_mission_id' => null, 'expires_at' => null]);
             self::need($mission['valid_from'] <= $this->clock->now(), 'EVALUATION_CARRIER_STATE_NOT_CURRENT');
-            foreach (['requested_action_classes' => ['ANALYZE'], 'permitted_output_classes' => ['INTERNAL_INFORMATIONAL'], 'allowed_source_scope_ids' => [], 'allowed_tool_ids' => [$tool], 'explicit_prohibitions' => ['NO_EXTERNAL_ACTION', 'NO_PUBLICATION', 'NO_CUSTOMER_VISIBLE_OUTPUT']] as $key => $value) {
+            foreach (['requested_action_classes' => ['ANALYZE'], 'permitted_output_classes' => [], 'allowed_source_scope_ids' => [], 'allowed_tool_ids' => [$tool], 'explicit_prohibitions' => ['NO_EXTERNAL_ACTION', 'NO_PUBLICATION', 'NO_CUSTOMER_VISIBLE_OUTPUT']] as $key => $value) {
                 self::jsonList($mission, $key, $value);
             }
             $assignments = $this->db->all('SELECT * FROM mission_assignments WHERE mission_id=? ORDER BY assignment_role,assignment_id', [$mission['mission_id']]);
@@ -165,14 +166,13 @@ final class EvaluationCarrier
                     self::exact($clause, ['description' => $clause['forbidden_category'], 'severity_if_attempted' => 'S5', 'incident_evaluation_required' => 1, 'status' => 'ACTIVE']);
                 }
                 $outputs = $this->db->all('SELECT * FROM output_class_bindings WHERE capability_contract_id=?', [$contract['capability_contract_id']]);
-                self::need(count($outputs) === 1, 'EVALUATION_CARRIER_OUTPUT_CONFLICT');
-                self::exact($outputs[0], ['output_class' => 'INTERNAL_INFORMATIONAL', 'requested_action_class_maximum' => 'ANALYZE', 'permitted_visibility_scope' => 'TENANT_INTERNAL', 'status' => 'ACTIVE']);
-                self::jsonList($outputs[0], 'required_downstream_gates', ['M07_HMWH', 'M08_ARBITER']);
+                self::need($outputs === [], 'EVALUATION_CARRIER_OUTPUT_CONFLICT');
                 $matched = array_values(array_filter($assignments, static fn (array $a): bool => $a['assignment_role'] === 'EVALUATION_' . strtoupper($role)));
                 self::need(count($matched) === 1, 'EVALUATION_CARRIER_ASSIGNMENT_CONFLICT');
                 $assignment = $matched[0];
-                self::exact($assignment, ['tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'], 'valkyrie_id' => $agent['valkyrie_id'], 'capability_contract_id' => $contract['capability_contract_id'], 'capability_contract_version_id' => $contract['capability_contract_id'], 'status' => 'ACTIVE', 'assigned_by_operator_id' => $scope['operator_id']]);
-                foreach (['assigned_action_classes' => ['ANALYZE'], 'assigned_tool_ids' => [$tool], 'assigned_output_classes' => ['INTERNAL_INFORMATIONAL']] as $key => $value) {
+                self::exact($assignment, ['tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'], 'valkyrie_id' => $agent['valkyrie_id'], 'capability_contract_id' => $contract['capability_contract_id'], 'capability_contract_version_id' => $contract['capability_contract_id'], 'status' => 'ACTIVE', 'assigned_by_operator_id' => $scope['operator_id'], 'valid_until' => null]);
+                self::need($assignment['assigned_at'] <= $this->clock->now(), 'EVALUATION_CARRIER_STATE_NOT_CURRENT');
+                foreach (['assigned_action_classes' => ['ANALYZE'], 'assigned_tool_ids' => [$tool], 'assigned_output_classes' => []] as $key => $value) {
                     self::jsonList($assignment, $key, $value);
                 }
                 $existing['agents'][$role] = compact('agent', 'contract', 'rights', 'clauses', 'outputs', 'assignment');
@@ -193,7 +193,7 @@ final class EvaluationCarrier
             'carrier_action' => $action, 'descriptor_action' => $model === null ? 'CREATE' : 'REUSE',
             'state_digest' => Digest::canonicalDigest(compact('tenant', 'workspace', 'memberships', 'model', 'existing')),
             'definition' => ['mission_type' => 'TEST', 'title' => self::TITLE, 'purpose' => self::PURPOSE, 'roles' => self::ROLES,
-                'action_classes' => ['ANALYZE'], 'source_scope' => [], 'output_classes' => ['INTERNAL_INFORMATIONAL'], 'prohibitions' => self::PROHIBITIONS],
+                'action_classes' => ['ANALYZE'], 'source_scope' => [], 'output_classes' => [], 'prohibitions' => self::PROHIBITIONS],
             'governance' => $governance, 'configuration_writes_performed' => 0, 'execution_authority_created' => false,
         ];
         return $plan + ['plan_digest' => Digest::canonicalDigest($plan)];
