@@ -1,0 +1,167 @@
+{
+  "schema_version": "1.0",
+  "status": "RETAINED_V1_BACKUP_KEY_CONDITION_PASS",
+  "filing_scope": "SUPPLEMENTAL_OBSERVATION_NOT_A_REGISTRY_KIND",
+  "release_ref": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+  "source_fingerprint": "6460ca1b44ab3147966037163e27e4f2c7e2e6a961cf06c4ec9ee0cdb084a21b",
+  "target": "staging.allfatherbi.com",
+  "completed_at_utc": "2026-10-03T19:16:09.366037+00:00",
+  "second_backup": {
+    "encrypted": true,
+    "archive_sha256": "c45d4f58f6abc020e174d3d87fc238ddc461f6e71d942dd255a5dbe7b79e848b",
+    "offhost_sha256_verified": true,
+    "credential_rows": 1,
+    "key_version": 1,
+    "same_maintenance_export_restore_binding_verified": true,
+    "source_temporary_plaintext_cleanup_confirmed": true
+  },
+  "restore": {
+    "scope": "DISTINCT_LOCAL_ISOLATED_TARGET",
+    "result": {
+      "database_identity_sha256": "33a5035519d6eb9ca210b8e2220df333fce7f2d743a9eeb56837dc1e60a56eb7",
+      "tables": 219,
+      "artifacts": 2,
+      "m10_streams": 0,
+      "monitor_runs": 0,
+      "retained_outputs_rendered": 0,
+      "runtime_started": false,
+      "native_execution_requires_separate_re_admission": true,
+      "restore_verified": true
+    },
+    "temporary_plaintext_cleanup_confirmed": true,
+    "original_p10_archive_and_target_preserved": true
+  },
+  "key_condition": {
+    "scope": "LOCAL_RESTORED_COPY_ONLY",
+    "credential_rows": 1,
+    "key_version": 1,
+    "checks": {
+      "retained_v1_authenticated_open": true,
+      "retained_v1_keyed_digest_match": true,
+      "v2_only_versions": [
+        2
+      ],
+      "v2_only_active_version": 2,
+      "v2_only_result": "CREDENTIAL_KEY_VERSION_UNAVAILABLE",
+      "provider_api_called": false,
+      "credential_rewrapped": false,
+      "plaintext_or_ciphertext_emitted": false
+    },
+    "credential_row_before_sha256": "8d501c2bd2603edb09ce3d78fc8906b9dd7887b30c44d9e603883aa01fb0f17d",
+    "credential_row_after_sha256": "8d501c2bd2603edb09ce3d78fc8906b9dd7887b30c44d9e603883aa01fb0f17d",
+    "rotation_events_before": 0,
+    "rotation_events_after": 0,
+    "transaction_rolled_back": true,
+    "committed_writes": 0
+  },
+  "preserved_failures": [
+    {
+      "stage": "INITIAL_LOCAL_TARGET_SETUP",
+      "result": "NAMESPACE_KEEPER_EXITED",
+      "finding": "Child could not read /proc/1/ns/net; separate reviewed startup completion passed parent namespace identity and preserved initialized data."
+    },
+    {
+      "stage": "FIRST_RESTORE_ATTEMPT",
+      "result": "RESTORE_OUTCOME_UNCONFIRMED_TARGET_TAINTED",
+      "finding": "Original shim had CRLF shebang; full child result was not retained. Root separately reconciled zero target objects and absent temporary work; reviewed second attempt used a new LF-only shim and distinct attempt paths. First attempt remains unqualified."
+    }
+  ],
+  "final_host": {
+    "maintenance": "OPEN",
+    "backup_operation": "OPEN",
+    "inert_flags": {
+      "live_read": false,
+      "scheduler_handlers": false,
+      "external_action": false,
+      "customer_visible_output": false,
+      "production_launch_authorized": false
+    },
+    "execution_counts": {
+      "monitor_runs": 0,
+      "monitor_execution_grants": 0,
+      "monitor_execution_grant_events": 0,
+      "provider_model_attempts": 0,
+      "provider_model_results": 0,
+      "provider_call_records": 0,
+      "source_capture_reservations": 0,
+      "source_snapshots": 0,
+      "ingestion_capture_reservations": 0,
+      "ingestion_raw_captures": 0
+    },
+    "current_admitted_grants": 0,
+    "future_admitted_grants": 0
+  },
+  "not_established": [
+    "Full P11 live master-key rotation or credential rewrap",
+    "Historical grant rebinding after rotation",
+    "Populated ROAD_TEST history/output recovery",
+    "Current-release rollback",
+    "Provider/model quality or real model evaluation",
+    "ROAD_TEST_001 execution or execution admission",
+    "Customer visibility, external action or production authority"
+  ],
+  "relationship_to_first_p10": "The first P10 snapshot had zero provider credential rows. This later second backup contains the subsequently stored credential; first-snapshot evidence is preserved without retroactive claims.",
+  "source": [
+    {
+      "local_observation": "p11-source-credential-metadata.json",
+      "sha256": "84d98883e0bbe4e208c7254da7836cacc0a52bc02ff2ffe431cdb39b2fe04e85"
+    },
+    {
+      "local_observation": "p11-source-export-receipt.json",
+      "sha256": "3085579061fb35e6c6913f82f1b3cc3d85d1f176fb7ac40989c690529939d9b0"
+    },
+    {
+      "local_observation": "p11-offhost-copy-receipt.json",
+      "sha256": "76c309b321a2ece75cb58c381a9d69dce75baa68d61de25bdafd60bba00fca4f"
+    },
+    {
+      "local_observation": "p11-local-target-receipt.json",
+      "sha256": "193cd5a2d47e5f1bb3bb862bbf5068de9274a880e9be03fd58e83c5e7bc65d01"
+    },
+    {
+      "local_observation": "p11-restore-attempt-p11first.json",
+      "sha256": "dc06e933cca0fc826f190a897a21f20804e0b5887a0714a1bc1976db09d2db95"
+    },
+    {
+      "local_observation": "p11-failed-restore-target-reconciliation.json",
+      "sha256": "c3239de2dfe84dde5e86df86e4510a62bf2de842bcbf01d15df876dda01b80f1"
+    },
+    {
+      "local_observation": "p11-restore-second-offline-checks.json",
+      "sha256": "5701f9dcc9151aa45ed5b270e61320ac49ed7b7e5f99e91ec3a419533dce18af"
+    },
+    {
+      "local_observation": "p11-restore-second-independent-review.json",
+      "sha256": "0b183c00902e0afe17f81e4e279442821020ea682ff4d5ebfb8b24c9be5f8986"
+    },
+    {
+      "local_observation": "p11-restore-receipt.json",
+      "sha256": "62ceb80139760be1a34c8d803ff70c4057bab9331863bd92cc845445d220b3d3"
+    },
+    {
+      "local_observation": "p11-restore-verifier-p11second.json",
+      "sha256": "ae4a5f805ec9f30cc3d01cf08b5d816a2c9b29c03299f0092944b538713ea197"
+    },
+    {
+      "local_observation": "p11-retained-key-proof.json",
+      "sha256": "d07d383d5e7abb6d15c3cf18b461348bf93485d8494d65cb6055215d6dca71c9"
+    },
+    {
+      "local_observation": "p11-maintenance-enter.json",
+      "sha256": "6978fffb8495b80108f37c22fd79ebd1f65c0d1f2010a399fe666e31cb767983"
+    },
+    {
+      "local_observation": "p11-maintenance-leave.json",
+      "sha256": "1f03b0a83685fe7cdc9b88fc869f29031670907f2f8d055214ee6661e16f2d21"
+    },
+    {
+      "local_observation": "p11-setup-refusal-diagnosis.json",
+      "sha256": "a13434aaba15c238e22c9da856c05b5cc20426f4d57acbeb4de91946535e27dd"
+    },
+    {
+      "local_observation": "p11-source-and-key-independent-review.json",
+      "sha256": "d9a675d168c955d6f57bc36e2d9dff769f1864fdccf3e4fc3bf5edccd7a84194"
+    }
+  ],
+  "source_access_limit": "Local source observations are bound by hash, not duplicated into the repository; raw archives, keys, credentials and restored data remain private."
+}

@@ -3,6 +3,8 @@
 **The current-state entrypoint.** Source, testing, deployment and authority remain separate.
 The [3 October evidence filing](STAGING_OPERATIONS_EVIDENCE_2026-10-03.md) records the underlying
 observations and their limits. This documentation change does not deploy itself or grant execution.
+The later [P11 retained-key supplement](P11_RETAINED_KEY_EVIDENCE_2026-10-03.md) records the second
+backup and successful local v1 recovery/v2-only refusal; full live key rotation remains unexercised.
 
 | Question | Current answer | Evidence |
 | --- | --- | --- |
