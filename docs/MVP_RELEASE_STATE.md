@@ -6,7 +6,7 @@ described as deployed or a deployment gets described as activated:
 
 | Question | Current answer | Evidence |
 | --- | --- | --- |
-| **Source** — what application code is in this release tree? | P00–P06, P08, P10 and P11 are merged through PR30 at `0b8c17e9` | Git history; [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) |
+| **Source** — what application code is in this release tree? | P00–P06, P08, P10 and P11 are merged through PR30 at `0b8c17e9`; this branch additionally carries the **unmerged P07 source candidate** | Git history; [Monitor completion plan](MONITOR_COMPLETION_PLAN.md) |
 | **Tested** — which exact commit was qualified, and how? | merged PR30/main `0b8c17e9` passed hosted CI push run 37127292912 (run 406); MariaDB 10.6.28 and 10.11.19 both 8,942/0/0, with foundation, exact Git-object release preparation and aggregate release qualification PASS | §2; `deployment-evidence.json` |
 | **Deployed** — which application runs on staging? | PR16 `392f48de`, inert. **None of the merged Monitor/P08 work is deployed** | §3; [Gate R filing](STAGING_GATE_R_EVIDENCE_2026-09-26.md) |
 | **Activated** — what may run against the world? | nothing: no live read, no native model call, no scheduler handler, no external action; no P03 audit is scheduled or has been run against staging | §4; `upstream.lock.json` |
@@ -20,7 +20,7 @@ canonical_pin                      = c6d9cf9a7a1001b001ca6118999e9cb75c831c4d
 implementation_baseline_merge      = 0b8c17e9a3457baf25f25babb43d61bc71633f6a
 deployed_staging_release           = 392f48deef11380f6dccfe88f2a47ba1fd94575c
 evidence_records                   = 15
-candidate_migrations               = 30
+candidate_migrations               = 31
 ```
 
 ## What the words mean here
@@ -61,11 +61,14 @@ candidate_migrations               = 30
   assurance audits remain source-only — not deployed, scheduled or run against staging. The P02/P03/P05
   expansion register keeps its unrepaired rows OPEN. P07, P09 and P12 remain separate follow-up work;
   their old `claude/*` branches are preservation references, not PR bases.
-- **Candidate schema:** 30 migration files, including `210_monitor_execution_controls`,
+- **P07 source-candidate state:** this branch carries recurring observation/source-only scheduler code and migration
+  `250_monitor_schedule_control`; it is not merged, deployed, activated or authority-complete. Supported
+  scheduler-identity provisioning remains blocked on the upstream service-delegation decision, so a real
+  schedule still fails closed.
+- **Candidate schema:** 31 migration files, including `210_monitor_execution_controls`,
   `220_monitor_evaluation_records`, `225_monitor_setup_receipts`, `230_monitor_attempt_recovery`,
-  P11 `240_provider_rotation_events`, and P08 `245_source_card_window_width` and
-  `246_assurance_refs_width` (column-width translation repairs; no new table). The deployed PR16
-  release has 19.
+  P11 `240_provider_rotation_events`, P08 `245_source_card_window_width` / `246_assurance_refs_width`,
+  and P07 `250_monitor_schedule_control`. The deployed PR16 release has 19.
 
 ## 2. Tested
 

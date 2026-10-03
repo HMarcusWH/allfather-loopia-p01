@@ -22,7 +22,8 @@
       "database/migrations/220_monitor_evaluation_records.sql",
       "database/migrations/225_monitor_setup_receipts.sql",
       "database/migrations/230_monitor_attempt_recovery.sql",
-      "database/migrations/240_provider_rotation_events.sql"
+      "database/migrations/240_provider_rotation_events.sql",
+      "database/migrations/250_monitor_schedule_control.sql"
     ]
   },
   "baseline_canonical_tables": [
@@ -261,6 +262,12 @@
     ],
     "240_provider_rotation_events.sql": [
       "provider_credential_rotation_events"
+    ],
+    "250_monitor_schedule_control.sql": [
+      "monitor_schedule_events",
+      "monitor_schedule_occurrence_outcomes",
+      "monitor_schedule_occurrences",
+      "monitor_schedules"
     ]
   }
 }

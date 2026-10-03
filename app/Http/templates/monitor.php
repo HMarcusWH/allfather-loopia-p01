@@ -3,7 +3,7 @@ use Allfather\Loopia\Http\View;
 /** All service data is rendered as text. Payload inspectors never interpret HTML or instructions. */
 $json = static fn (mixed $data): string => json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 $csrf = $session['csrf_token'] ?? '';
-$missions = $listing['missions'] ?? []; $runs = $listing['runs'] ?? [];
+$missions = $listing['missions'] ?? []; $runs = $listing['runs'] ?? []; $scheduledQueue = $listing['scheduled_queue'] ?? [];
 $run = $detail['run'] ?? null; $preview = $detail['preview_request'] ?? null;
 $stage = (string) ($run['stage'] ?? '');
 $previewReason = (string) ($detail['preview_reason_code'] ?? '');
@@ -47,6 +47,17 @@ $requestDigest = is_array($preview) ? (string) ($preview['request_digest'] ?? $p
   </form>
 <?php endif; ?>
 </section>
+
+<?php if ($scheduledQueue !== []): ?>
+<section aria-labelledby="monitor-queue"><h2 id="monitor-queue">Scheduled observations waiting for you</h2>
+<p>A schedule captured and compared these sources and found a change. Nothing was sent to a model and nothing was released: each run waits at the request-inspection step until you open it, inspect the exact request and decide.</p>
+<div class="table-wrap"><table><thead><tr><th>Run</th><th>Scheduled for</th><th>Missed slots</th><th>Queued</th></tr></thead><tbody>
+<?php foreach ($scheduledQueue as $item): ?>
+<tr><td><a href="/console/monitor?run=<?= View::e(rawurlencode((string) $item['monitor_run_id'])) ?>"><?= View::e($item['monitor_run_id']) ?></a></td>
+<td><?= View::e($item['scheduled_for'] ?? '') ?></td><td><?= View::e((string) ($item['skipped_slots'] ?? 0)) ?></td><td><?= View::e($item['recorded_at'] ?? '') ?></td></tr>
+<?php endforeach; ?></tbody></table></div>
+</section>
+<?php endif; ?>
 
 <section aria-labelledby="monitor-runs"><h2 id="monitor-runs">Runs in this workspace</h2>
 <?php if ($runs === []): ?><p>No runs recorded.</p><?php else: ?>

@@ -34,6 +34,7 @@ use Allfather\Loopia\Jobs\JobMachine;
 use Allfather\Loopia\Jobs\SchedulerRunner;
 use Allfather\Loopia\Ops\MaintenanceGate;
 use Allfather\Loopia\Support\Bootstrap;
+use Allfather\Loopia\Workflow\ScheduleDispatcher;
 
 $root = dirname(__DIR__);
 
@@ -75,9 +76,14 @@ try {
     exit(1);
 }
 
-// Empty for the same reason as the HTTP entry point: no step handler may perform an external read
-// while LIVE_READ_ACTIVATED is false, and the internal steps are a separate act to wire.
-$runner = new SchedulerRunner(new JobMachine($db, new Clock()), []);
+// EMPTY unless this deployment holds an owner-admitted monitor schedule (P07). Without one this is
+// exactly the inert runner it always was. With one, the only handler advances MONITOR_STEP jobs —
+// capture and compare under that schedule's admitted SCHEDULED_OBSERVATION grant, then a queue for a
+// human — through a Monitor composition that has no live model transport at all. Every occurrence is
+// re-checked against its own schedule, grant and source at every step; see docs/MONITOR_SCHEDULING.md.
+$runner = ScheduleDispatcher::admittedAnywhere($db, new Clock(), $root)
+    ? ScheduleDispatcher::runner($db, new Clock(), $root, $env)
+    : new SchedulerRunner(new JobMachine($db, new Clock()), []);
 
 $result = $runner->tick(
     $env->int('SCHEDULER_MAX_JOBS_PER_TICK', 10),

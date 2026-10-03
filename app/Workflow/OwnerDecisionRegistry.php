@@ -83,6 +83,21 @@ final class OwnerDecisionRegistry
             && in_array($grantDigest, $decision['authorizes']['execution_grants'], true);
     }
 
+    /**
+     * Whether a resolved decision authorizes this exact monitor schedule version (P07).
+     *
+     * A schedule is delegation: it lets the scheduler's SERVICE principal start runs on a cadence
+     * under an already-admitted SCHEDULED_OBSERVATION grant. It is a separate list from the grant on
+     * purpose — admitting the capture budget is not admitting the recurrence, and neither is implied
+     * by the other. A decision that lists no schedules (every decision written before P07) admits none.
+     */
+    public static function authorizesSchedule(array $decision, string $tenantId, string $workspaceId, string $scheduleDigest): bool
+    {
+        return $decision['tenant_id'] === $tenantId && $decision['workspace_id'] === $workspaceId
+            && in_array('SCHEDULED_OBSERVATION', $decision['purposes'], true)
+            && in_array($scheduleDigest, $decision['authorizes']['monitor_schedules'] ?? [], true);
+    }
+
     /** Whether a resolved decision authorizes this exact prompt identity for this purpose. */
     public static function authorizesPrompt(array $decision, string $tenantId, string $workspaceId, array $prompt): bool
     {
@@ -126,8 +141,19 @@ final class OwnerDecisionRegistry
             return false;
         }
         $a = $d['authorizes'];
-        if (!is_array($a) || array_diff(array_keys($a), ['prompt_approvals', 'execution_grants']) !== [] || !is_array($a['prompt_approvals'] ?? null) || !is_array($a['execution_grants'] ?? null)) {
+        if (!is_array($a) || array_diff(array_keys($a), ['prompt_approvals', 'execution_grants', 'monitor_schedules']) !== [] || !is_array($a['prompt_approvals'] ?? null) || !is_array($a['execution_grants'] ?? null)) {
             return false;
+        }
+        // Optional, and only meaningful for SCHEDULED_OBSERVATION. Absent means "no schedule".
+        if (array_key_exists('monitor_schedules', $a)) {
+            if (!is_array($a['monitor_schedules']) || !array_is_list($a['monitor_schedules'])) {
+                return false;
+            }
+            foreach ($a['monitor_schedules'] as $digest) {
+                if (!is_string($digest) || preg_match('/^[a-f0-9]{64}$/D', $digest) !== 1) {
+                    return false;
+                }
+            }
         }
         foreach ($a['execution_grants'] as $digest) {
             if (!is_string($digest) || preg_match('/^[a-f0-9]{64}$/D', $digest) !== 1) {
