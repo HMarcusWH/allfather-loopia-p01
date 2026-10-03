@@ -105,13 +105,19 @@ final class SchedulerIdentityProvisioner
                 if ($current && (
                     (string) $membership['workspace_id'] !== $scope['workspace_id']
                     || $roleKey !== self::ROLE_KEY
+                    || (int) $membership['role_version'] !== self::ROLE_VERSION
                 )) {
                     return Outcome::refuse('SCHEDULER_IDENTITY_BROADER_MEMBERSHIP_PRESENT', [
                         'workspace_id' => (string) $membership['workspace_id'],
                         'role_key' => $roleKey,
+                        'role_version' => (int) $membership['role_version'],
                     ]);
                 }
-                if ((string) $membership['workspace_id'] === $scope['workspace_id'] && $roleKey === self::ROLE_KEY) {
+                if (
+                    (string) $membership['workspace_id'] === $scope['workspace_id']
+                    && $roleKey === self::ROLE_KEY
+                    && (int) $membership['role_version'] === self::ROLE_VERSION
+                ) {
                     if ($status !== 'ACTIVE') {
                         return Outcome::refuse('SCHEDULER_MEMBERSHIP_NOT_ACTIVE', [
                             'status' => $status,
