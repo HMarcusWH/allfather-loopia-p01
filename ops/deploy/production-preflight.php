@@ -22,8 +22,8 @@ declare(strict_types=1);
  *   HOSTING_ISOLATION       a PASS CROSS_SITE_ISOLATION record for a production host in
  *                           deployment-evidence.json. The staging deviation is not one.
  *   PRODUCTION_RELEASE      a PASS CONFORMANCE record on a production host for --release-ref.
- *   RECOVERY_READINESS      evidence of a production full restore and key rotation. The evidence
- *                           registry has no kind for either yet, so this cannot pass by accident.
+ *   RECOVERY_READINESS      evidence of a production full restore and key rotation. Both evidence
+ *                           kinds exist, but only reviewed production PASS records can satisfy it.
  *   RUNTIME_POSTURE         (with --env) APP_ENV=production. A strict posture, NOT a grant.
  *
  * Even if every check passed, the verdict would be READY_FOR_OWNER_DECISION and `grants_go` would be
