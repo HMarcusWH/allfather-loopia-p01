@@ -107,7 +107,7 @@ Its implementation and static/fixture checks do not update the deployed PR16 cla
 
 | Area | State |
 | --- | --- |
-| schema migrations | 31 files in this P07 candidate; deployed-release count is recorded separately |
+| schema migrations | 31 files in candidate; deployed-release count is recorded separately |
 | authority seeding | `Permissions` vocabulary + role seeds; product registrations provision their selected tenant capabilities |
 | audit profiles | created on demand per category |
 | CI | latest merged-main code qualification: PR30 `0b8c17e9`, hosted push run 37127292912, PHP 8.2.34, MariaDB 10.6.28/10.11.19 both 8,942/0/0; foundation, release preparation and aggregate qualification PASS. This is CI evidence only, not Loopia host proof. |
