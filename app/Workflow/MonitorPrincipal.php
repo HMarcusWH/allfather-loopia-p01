@@ -29,6 +29,8 @@ final class MonitorPrincipal
     /** The only service class/role that may act on a scheduled Monitor run. */
     public const SERVICE_CLASS = 'SYSTEM_SCHEDULER';
     public const SERVICE_ROLE_KEY = 'ROLE_SYSTEM_SCHEDULER_OBSERVER';
+    /** Canonical PR369 adopted this exact v1 seat; later same-key versions are not implicit successors. */
+    public const SERVICE_ROLE_VERSION = 1;
     public const SERVICE_ROLE_PERMISSIONS = ['mission.read', 'mission.transition', 'evidence.read', 'tool.invoke'];
 
     private function __construct(
