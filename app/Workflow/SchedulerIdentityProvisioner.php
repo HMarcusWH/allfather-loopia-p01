@@ -15,7 +15,7 @@ use Allfather\Loopia\Substrate\M02\{AccessGuard,Permissions};
  * admission. This owner only creates the narrow M02 principal that a separately admitted
  * SCHEDULED_OBSERVATION schedule may delegate capture/diff work to.
  *
- * Canonical authority: Allfatherbusinessintelligence PR369
+ * Canonical authority: Allfatherbusinessintelligence PR369 merged as 411aba91423265e578813afbc8f64318320ef08d
  * (ROLE_SYSTEM_SCHEDULER_OBSERVER; exact four-permission seat).
  */
 final class SchedulerIdentityProvisioner
