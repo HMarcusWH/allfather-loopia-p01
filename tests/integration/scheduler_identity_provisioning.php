@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Allfather\Loopia\Core\Ids;
 use Allfather\Loopia\Substrate\M02\{AccessGuard,Seed as M02Seed};
 use Allfather\Loopia\Tests\{Assert,Harness,Seed};
-use Allfather\Loopia\Workflow\{ScheduleService,SchedulerIdentityProvisioner};
+use Allfather\Loopia\Workflow\{MonitorPrincipal,ScheduleService,SchedulerIdentityProvisioner};
 
 $db = Harness::freshDb();
 if ($db === null) {
@@ -131,6 +131,40 @@ Assert::same(
     $guard->evaluate('SERVICE', $m['service_identity_id'], $scope['tenant_id'], $otherWorkspace, 'mission.read', 'MONITOR_SCHEDULE')['decision'],
     'the workspace membership does not bleed into a sibling workspace',
 );
+
+// A later broader assignment stands this service down rather than silently widening the scheduler.
+// This is a negative fixture row: the supported provisioner would never create it.
+$workspaceOperatorRole = (string) $db->scalar(
+    "SELECT role_id FROM roles WHERE role_key='ROLE_WORKSPACE_OPERATOR' AND role_version=1"
+);
+$db->insert('workspace_memberships', [
+    'membership_id' => Ids::new(),
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $otherWorkspace,
+    'principal_type' => 'SERVICE',
+    'principal_id' => $m['service_identity_id'],
+    'role_id' => $workspaceOperatorRole,
+    'role_version' => 1,
+    'status' => 'ACTIVE',
+    'valid_from' => $clock->now(),
+    'created_at' => $clock->now(),
+]);
+Assert::same(
+    'SCHEDULER_IDENTITY_BROADER_MEMBERSHIP_PRESENT',
+    $owner->plan($scope)->reasonCode(),
+    'the provisioner refuses a scheduler service that acquired any broader current membership',
+);
+$principal = MonitorPrincipal::service($m['service_identity_id'], $scope['operator_id'], Ids::new());
+Assert::same(
+    'MONITOR_SERVICE_ROLE_BOUNDARY_VIOLATION',
+    $principal->authorize($db, $clock, $scope['tenant_id'], $scope['workspace_id'], ['mission.read'], 'MONITOR_SCHEDULE')->reasonCode(),
+    'every scheduled act also fails closed if the service authority later widens',
+);
+$db->run(
+    'UPDATE workspace_memberships SET status=? WHERE principal_type=? AND principal_id=? AND workspace_id=?',
+    ['REVOKED', 'SERVICE', $m['service_identity_id'], $otherWorkspace]
+);
+Assert::true($owner->plan($scope)->isOk(), 'removing the broader assignment restores the exact narrow seat');
 
 $standDown = $owner->standDown($scope, 'suspend');
 Assert::true($standDown->isOk(), 'an authorized operator can suspend the service seat');
