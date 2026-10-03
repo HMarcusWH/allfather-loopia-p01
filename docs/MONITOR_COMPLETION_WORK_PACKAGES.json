@@ -1,5 +1,5 @@
 {
-  "status": "P00_P06_P08_P10_P11_MERGED_P07_PR32_IMPLEMENTED_P06_OPERATIONS_AND_CANONICAL_PR369_PENDING",
+  "status": "P00_P06_P08_P10_P11_MERGED_P07_PR32_IMPLEMENTED_CANONICAL_PR369_ADOPTED_P06_OPERATIONS_PENDING",
   "baseline": {
     "loopia_main": "8dbea16b262df7b6d40fe945f34e301eedf2aba6",
     "canonical_main": "1c40306c22e15b2ad3049e8d32abff47450c8921"
@@ -565,7 +565,6 @@
       "qualification_state": "HOSTED_REQUALIFICATION_PENDING_AFTER_SCHEDULER_PRINCIPAL_PROVISIONING",
       "blocked_on": [
         "P06_ROAD_TEST",
-        "CANONICAL_PR369_ADOPTION",
         "OWNER_SCHEDULE_DECISION"
       ],
       "branch_role": "CLEAN_SUCCESSOR",
@@ -576,7 +575,12 @@
         "SYSTEM_SCHEDULER_NARROW_ROLE_PORT",
         "SCHEDULER_IDENTITY_PLAN_PROVISION_STATUS_STAND_DOWN",
         "SUPPORTED_PROVISIONING_TEST_PATH"
-      ]
+      ],
+      "canonical_authority": {
+        "pull_request": 369,
+        "merge_ref": "411aba91423265e578813afbc8f64318320ef08d",
+        "role_key": "ROLE_SYSTEM_SCHEDULER_OBSERVER"
+      }
     },
     {
       "id": "P09",
