@@ -44,7 +44,7 @@ nowhere else. M15 governed ingestion is present with the guarded egress path.
 | P05 | marketing drafts, claim citations, variants, admission, internal release, three audits |
 | P07-A | consent, PII firewall, outreach admission, approval, frozen artifacts, synthetic dispatch, five audits |
 
-**Storage** — 30 migrations in the current implementation candidate, MariaDB 10.6+ / InnoDB, with the invariants held as CHECK constraints,
+**Storage** — 30 migrations in the current merged implementation baseline, MariaDB 10.6+ / InnoDB, with the invariants held as CHECK constraints,
 append-only triggers and the database-enforced uniqueness translations named in
 `SCHEMA_REACHABILITY.md`. **Loopia Företag is MariaDB 10.6**; 10.11 is Företag Plus only. Both are
 verified against real servers in the test matrix — see `CONFORMANCE_MATRIX.md` §1.
@@ -110,11 +110,11 @@ Its implementation and static/fixture checks do not update the deployed PR16 cla
 | schema migrations | 30 files in candidate; deployed-release count is recorded separately |
 | authority seeding | `Permissions` vocabulary + role seeds; product registrations provision their selected tenant capabilities |
 | audit profiles | created on demand per category |
-| CI | latest merged-main code qualification: PR28 `1a99f72b`, hosted push run 36861689735, PHP 8.2.34, MariaDB 10.6/10.11 both 7,689/0/0; foundation, release preparation and aggregate qualification PASS. This is CI evidence only, not Loopia host proof. |
+| CI | latest merged-main code qualification: PR30 `0b8c17e9`, hosted push run 37127292912, PHP 8.2.34, MariaDB 10.6.28/10.11.19 both 8,942/0/0; foundation, release preparation and aggregate qualification PASS. This is CI evidence only, not Loopia host proof. |
 | runbook | `DEPLOYMENT_RUNBOOK.md` for the mechanics, `BETA_RUNBOOK.md` for the sequence |
 | rollback | PR16 to PR15 to PR16 drill PASS for named immutable history and request-log prefix; no populated M10 stream or full database restore exercised |
 | host qualification | PR16 actual Loopia strict suite 5,552/0/0, probes, N/O/P and browser checks PASS under the staging deviation; **current P10 filesystem-flock/native backup-import capabilities are not yet host-qualified**; E.1 FAIL_READABLE, E.3 UNVERIFIED |
-| evidence | `deployment-evidence.json`, validated on every commit; **14 reviewed records; PR28 merged-main CI conformance filed, while PR16 remains the latest inert staging qualification under the recorded staging deviation** |
+| evidence | `deployment-evidence.json`, validated on every commit; **15 reviewed records; PR30 merged-main CI conformance filed, while PR16 remains the latest inert staging qualification under the recorded staging deviation** |
 
 ## 5. Measured staging state and uncompleted transitions
 
