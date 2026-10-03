@@ -1,5 +1,5 @@
 {
-  "status": "P00_P06_P08_P10_P11_MERGED_PR30_MAIN_HOSTED_CI_QUALIFIED_P06_OPERATIONS_PENDING",
+  "status": "P00_P06_P08_P10_P11_MERGED_P07_PR32_IMPLEMENTED_P06_OPERATIONS_AND_CANONICAL_PR369_PENDING",
   "baseline": {
     "loopia_main": "8dbea16b262df7b6d40fe945f34e301eedf2aba6",
     "canonical_main": "1c40306c22e15b2ad3049e8d32abff47450c8921"
@@ -559,29 +559,37 @@
   "follow_up_branches": [
     {
       "id": "P07",
-      "branch": "claude/p07-monitor-scheduling",
-      "merge_state": "NOT_IN_A_PULL_REQUEST",
-      "qualification_state": "LOCAL_STRICT_SUITE_ONLY",
+      "branch": "chatgpt/p07-monitor-scheduling-clean",
+      "pull_request": 32,
+      "merge_state": "DRAFT_PR",
+      "qualification_state": "HOSTED_REQUALIFICATION_PENDING_AFTER_SCHEDULER_PRINCIPAL_PROVISIONING",
       "blocked_on": [
         "P06_ROAD_TEST",
-        "UPSTREAM_SERVICE_DELEGATION_DECISION",
+        "CANONICAL_PR369_ADOPTION",
         "OWNER_SCHEDULE_DECISION"
       ],
-      "branch_role": "PRESERVATION_REFERENCE_DIVERGED_NOT_A_PR_BASE",
-      "successor": "CLEAN_SUCCESSOR_REQUIRED_FROM_MAIN_0b8c17e9_AFTER_P08_MERGE"
+      "branch_role": "CLEAN_SUCCESSOR",
+      "implemented": [
+        "MONITOR_SCHEDULE_CONTROL",
+        "MIGRATION_250_UPGRADE_PROOF",
+        "DETERMINISTIC_SERIES_ID",
+        "SYSTEM_SCHEDULER_NARROW_ROLE_PORT",
+        "SCHEDULER_IDENTITY_PLAN_PROVISION_STATUS_STAND_DOWN",
+        "SUPPORTED_PROVISIONING_TEST_PATH"
+      ]
     },
     {
       "id": "P09",
-      "branch": "claude/p09-console-administration",
-      "merge_state": "NOT_IN_A_PULL_REQUEST",
-      "qualification_state": "LOCAL_STRICT_SUITE_ONLY",
-      "note": "deployed-browser journeys are an operational gate",
-      "branch_role": "PRESERVATION_REFERENCE_DIVERGED_NOT_A_PR_BASE",
-      "successor": "CLEAN_SUCCESSOR_REQUIRED_FROM_MAIN_0b8c17e9_AFTER_P08_MERGE"
+      "branch": "chatgpt/p09-console-administration-clean",
+      "pull_request": 33,
+      "merge_state": "DRAFT_PR_STACKED_ON_P07",
+      "qualification_state": "HOSTED_PASS_37129507854_BEFORE_LATEST_P07_BASE_CHANGE_REQUALIFICATION_REQUIRED",
+      "note": "deployed desktop/mobile browser journeys are an operational gate",
+      "branch_role": "CLEAN_SUCCESSOR"
     },
     {
       "id": "P12",
-      "branch": "claude/p12-production-preflight",
+      "branch": "TO_BE_CREATED_CLEAN_ON_P09",
       "merge_state": "NOT_IN_A_PULL_REQUEST",
       "state": "INERT_SCAFFOLDING_ONLY",
       "blocked_on": [
@@ -590,8 +598,7 @@
         "PRODUCTION_RECOVERY_EVIDENCE",
         "OWNER_PRODUCTION_GO"
       ],
-      "branch_role": "PRESERVATION_REFERENCE_DIVERGED_NOT_A_PR_BASE",
-      "successor": "CLEAN_SUCCESSOR_REQUIRED_FROM_MAIN_0b8c17e9_AFTER_P08_MERGE"
+      "branch_role": "NEXT_CLEAN_SUCCESSOR"
     }
   ]
 }
