@@ -1,0 +1,44 @@
+{
+  "status": "CURRENT_MAIN_BROWSER_INSPECTION_COMPLETED_WITH_KNOWN_GAPS",
+  "observed_at_utc": "2026-10-03T18:05:07Z",
+  "release_ref": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+  "source_fingerprint": "6460ca1b44ab3147966037163e27e4f2c7e2e6a961cf06c4ec9ee0cdb084a21b",
+  "method": "Authenticated in-app browser, visible accessibility state and visual inspection; user supplied login directly in browser",
+  "checks": {
+    "login": "PASS",
+    "workspace_chooser": "PASS: two unique workspace rows, main and plus46-studio; both TEST and external effects BLOCKED",
+    "logo": "PASS: visually rendered Allfather BI branding",
+    "main_monitor_workbench": "PASS_INERT: no configured missions, no runs",
+    "p01_released_battlecards": "EMPTY",
+    "p01_watchlist_observed_changes_assurance": "GOVERNED_READ_NOT_WIRED",
+    "p02_without_visibility_scope": "READ_PARAMETER_REQUIRED",
+    "p02_tenant_admin_leadership_scope": "EMPTY entity and relationship snapshots",
+    "p02_detail": "GOVERNED_READ_NOT_WIRED",
+    "p03_priority_queue_and_prospects": "EMPTY",
+    "p03_prospect_battlecards": "GOVERNED_READ_NOT_WIRED",
+    "p04_without_role": "READ_PARAMETER_REQUIRED",
+    "p04_executive_ceo": "DENIED: DISTRIBUTION_TARGET_NOT_CONFIGURED",
+    "p04_acknowledgement": "GOVERNED_READ_NOT_WIRED",
+    "p05_internal_drafts": "EMPTY",
+    "p05_assurance": "GOVERNED_READ_NOT_WIRED",
+    "m10": "EMPTY: TEST, NO STREAM",
+    "account": "ACTIVE account/operator; approved main roles visible; no credentials inspected",
+    "support": "PASS: STAGING and exact deployed release displayed",
+    "plus46_workspace": "PASS: expected six product/read roles; no administrator/operator role inherited from main",
+    "plus46_monitor_workbench": "MONITOR_ACCESS_DENIED, matching its current roles",
+    "final_workspace": "main"
+  },
+  "findings": [
+    {
+      "id": "SUPPORT_COPY_STALE_READ_ONLY_CLAIM",
+      "observation": "Support says nothing in this console creates, edits, approves or dispatches; Monitor workbench describes advancing configured missions and reviewing drafts.",
+      "disposition": "Reconcile support wording in console acceptance work; no live workflow was attempted to substantiate an operation."
+    }
+  ],
+  "limits": [
+    "This is current-main inert inspection, not P09 desktop/mobile acceptance.",
+    "No populated Monitor run, evidence detail, review/release, source capture, model execution or replay was available to exercise.",
+    "No execution grant, owner decision, prompt approval, role assignment or release was created through the browser.",
+    "Workspace selection changed session scope only; main was restored."
+  ]
+}
