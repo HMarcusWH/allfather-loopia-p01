@@ -65,6 +65,9 @@ candidate_migrations               = 31
   `250_monitor_schedule_control`; it is not merged, deployed, activated or authority-complete. Supported
   scheduler-identity provisioning remains blocked on the upstream service-delegation decision, so a real
   schedule still fails closed.
+- **P09 source-candidate state:** this stacked branch additionally carries operator setup/schedule pages,
+  owner-safe P02/P03 detail reads and Monitor metadata reads. It is offline-only; deployed desktop/mobile
+  browser acceptance remains pending, and it grants no execution or schedule admission.
 - **Candidate schema:** 31 migration files, including `210_monitor_execution_controls`,
   `220_monitor_evaluation_records`, `225_monitor_setup_receipts`, `230_monitor_attempt_recovery`,
   P11 `240_provider_rotation_events`, P08 `245_source_card_window_width` / `246_assurance_refs_width`,

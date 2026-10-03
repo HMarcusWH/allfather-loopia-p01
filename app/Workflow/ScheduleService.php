@@ -191,6 +191,51 @@ final class ScheduleService
         return Outcome::ok(['schedules' => $done]);
     }
 
+    /**
+     * The operator's read of this workspace's schedules (P09 administration page). Read-only and gated
+     * by mission.read: identifiers, digests, bounds, computed status and counts — never a decision's
+     * bytes. It lists the SCHEDULED_OBSERVATION grants a new version could name, with their status,
+     * because a schedule can only be proposed under one; it does not say any of them is admitted.
+     *
+     * @return Outcome<array{schedules: list<array<string, mixed>>, grants: list<array<string, mixed>>}>
+     */
+    public function overview(array $scope): Outcome
+    {
+        if (!$this->may($scope, ['mission.read'])) {
+            return Outcome::refuse('SCHEDULE_READ_DENIED');
+        }
+        $schedules = [];
+        foreach ($this->db->all(
+            'SELECT s.*, (SELECT COUNT(*) FROM monitor_schedule_occurrences o WHERE o.monitor_schedule_version_id = s.monitor_schedule_version_id) AS occurrences
+             FROM monitor_schedules s WHERE s.tenant_id=? AND s.workspace_id=? ORDER BY s.created_at DESC, s.monitor_schedule_version_id LIMIT 100',
+            [$scope['tenant_id'], $scope['workspace_id']]
+        ) as $row) {
+            $id = (string) $row['monitor_schedule_version_id'];
+            $current = $this->current($id);
+            $schedules[] = [
+                'monitor_schedule_version_id' => $id, 'monitor_schedule_id' => (string) $row['monitor_schedule_id'],
+                'schedule_version' => (int) $row['schedule_version'], 'schedule_digest' => (string) $row['schedule_digest'],
+                'mission_id' => (string) $row['mission_id'], 'execution_grant_id' => (string) $row['execution_grant_id'],
+                'service_identity_id' => (string) $row['service_identity_id'], 'delegating_operator_id' => (string) $row['delegating_operator_id'],
+                'cadence_seconds' => (int) $row['cadence_seconds'], 'max_occurrences' => (int) $row['max_occurrences'],
+                'occurrences' => (int) $row['occurrences'], 'valid_from' => (string) $row['valid_from'], 'valid_until' => (string) $row['valid_until'],
+                'status' => $this->status($id), 'usable_now' => $current->isOk(), 'not_usable_reason' => $current->isOk() ? null : $current->reasonCode(),
+                'observation_mode' => (string) $row['observation_mode'], 'created_at' => (string) $row['created_at'],
+            ];
+        }
+        $grants = array_map(fn (array $g): array => [
+            'execution_grant_id' => (string) $g['execution_grant_id'], 'mission_id' => (string) $g['mission_id'],
+            'grant_digest' => (string) $g['grant_digest'], 'valid_from' => (string) $g['valid_from'], 'valid_until' => (string) $g['valid_until'],
+            'status' => $this->grants->status((string) $g['execution_grant_id']),
+        ], $this->db->all(
+            "SELECT execution_grant_id, mission_id, grant_digest, valid_from, valid_until FROM monitor_execution_grants
+             WHERE tenant_id=? AND workspace_id=? AND purpose='SCHEDULED_OBSERVATION' ORDER BY created_at DESC, execution_grant_id LIMIT 50",
+            [$scope['tenant_id'], $scope['workspace_id']]
+        ));
+
+        return Outcome::ok(['schedules' => $schedules, 'grants' => $grants, 'grants_execution' => false]);
+    }
+
     public function find(string $tenantId, string $workspaceId, string $versionId): ?array
     {
         $row = $this->findById($versionId);
