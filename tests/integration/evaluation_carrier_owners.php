@@ -40,7 +40,7 @@ $eligibility = new Eligibility($db, $clock);
 Assert::case('carrier owner compatibility: TEST mission');
 $mission = $m04->createMission($scope['tenant_id'], $scope['workspace_id'], 'TEST', EvaluationCarrier::TITLE,
     EvaluationCarrier::PURPOSE, ['ANALYZE'], 'OPERATOR', $scope['operator_id'], 'DRAFT',
-    ['INTERNAL_INFORMATIONAL'], [], [$model['governed_tool_id']]);
+    [], [], [$model['governed_tool_id']]);
 $value($m04->activateMission($mission, $scope['operator_id']));
 foreach (EvaluationCarrier::ROLES as $role => $class) {
     Assert::case('carrier owner compatibility: ' . $role);
@@ -50,13 +50,16 @@ foreach (EvaluationCarrier::ROLES as $role => $class) {
         EvaluationCarrier::TITLE . ' ' . $role, $class, ['ANALYZE'], EvaluationCarrier::PROHIBITIONS))['capability_contract_id'];
     $value($m03->changeStatus($agent, 'ACTIVE', 'SYNTHETIC_EVALUATION_CARRIER_CREATED'));
     $eligibility->grantToolRight($contract, $model['governed_tool_id'], [ModelRegistration::OPERATION_KEY], 'INTERNAL_TRANSFORM', 'ANALYZE', false);
-    $value($m03->bindOutputClass($contract, 'INTERNAL_INFORMATIONAL', 'ANALYZE'));
+    // Model candidate retention is owned by the evaluation lane, not an M03 product-output binding.
     $value($m04->assignToMissionNarrowed($mission, $agent, $contract, 'EVALUATION_' . strtoupper($role),
-        [$model['governed_tool_id']], ['ANALYZE'], $scope['operator_id']));
+        [$model['governed_tool_id']], ['ANALYZE'], $scope['operator_id'], assignedOutputClasses: []));
 }
 Assert::case('carrier owner compatibility: recognize and reuse exact owner-produced state');
 $plan = $value($carrier->plan($scope));
 Assert::same('REUSE', $plan['carrier_action'], 'independently composed owner state is recognized exactly');
 Assert::same('ALREADY_CONFIGURED_MATCH', $value($carrier->apply($scope, $plan['plan_digest']))['status'], 'reviewed existing state is reusable without a new identity');
+Assert::same('[]', $db->scalar('SELECT permitted_output_classes FROM missions WHERE mission_id=?', [$mission]), 'the carrier mission has no product-output scope');
+Assert::same(0, (int) $db->scalar('SELECT COUNT(*) FROM output_class_bindings'), 'preparation adds no product-output contract');
+Assert::same(0, (int) $db->scalar("SELECT COUNT(*) FROM mission_assignments WHERE assigned_output_classes <> '[]'"), 'neither assignment has product-output scope');
 Assert::same(0, (int) $db->scalar('SELECT COUNT(*) FROM monitor_execution_grants'), 'preparation has no execution grant');
 Assert::same(0, (int) $db->scalar('SELECT COUNT(*) FROM provider_model_attempts'), 'preparation has no model attempt');
