@@ -17,8 +17,9 @@ model call still needs a human to inspect the exact request, and both human revi
 
 Admitting the grant's budget does not admit a recurrence, and the reverse cannot happen: a schedule is
 admitted only while its grant is ADMITTED, and every occurrence re-reads both decisions. A decision
-must cite the canonical authority it relies on; canonical has no service-delegation contract today,
-so an actual admission needs that upstream decision first (see §8).
+must cite the canonical authority it relies on. Canonical draft PR369 now defines the dedicated
+`ROLE_SYSTEM_SCHEDULER_OBSERVER` seat; an actual admission still waits for that upstream change to
+be adopted/merged (see §8).
 
 ## 2. Who acts
 
@@ -135,9 +136,10 @@ new email or SMS channel.
   preview that is not the real request or require the scheduler to resolve model authority it does
   not have. The occurrence records the run, its revision and that it waits at `DIFFED`; the
   workbench computes and shows the exact request when the human opens it.
-- **No new canonical authority.** `SCHEDULED_OBSERVATION` was already a local execution purpose (P01).
-  Service delegation has no canonical contract; per the plan, that upstream decision must land before
-  any real schedule is admitted. Nothing here pretends otherwise.
+- **Canonical delegation is explicit, not inferred locally.** `SCHEDULED_OBSERVATION` remains the
+  projection's bounded execution purpose (P01), while canonical draft PR369 adds only the narrow M02
+  service seat required to represent `SYSTEM_SCHEDULER` authority. The projection will not treat that
+  authority as settled until PR369 is adopted/merged, and no real schedule is admitted here.
 - `ContextEnvelope` and `MissionConfiguration` needed no change: the principal rides beside the
   operator scope, and both read the actor or the delegating operator they always read.
 - Not done here: a qualified external scheduler identity on a real host, any admitted schedule, and
