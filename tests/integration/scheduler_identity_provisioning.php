@@ -31,8 +31,10 @@ Assert::same(['CREATE', 'CREATE', false, false], [
     $p['service_action'], $p['membership_action'], $p['grants_execution'], $p['admits_schedule'],
 ], 'planning creates identity+membership only and grants no execution');
 Assert::same(SchedulerIdentityProvisioner::ROLE_KEY, $p['definition']['role_key'], 'the plan names the canonical narrow scheduler role');
+$plannedPermissions = ScheduleService::SERVICE_PERMISSIONS;
+sort($plannedPermissions, SORT_STRING);
 Assert::same(
-    array_values(array_unique(array_merge([], ScheduleService::SERVICE_PERMISSIONS))),
+    $plannedPermissions,
     $p['definition']['permissions'],
     'the plan exposes exactly the service permissions ScheduleService requires',
 );
