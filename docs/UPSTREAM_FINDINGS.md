@@ -120,23 +120,32 @@ canonical file was modified.
 ## UF-003 — P03 assurance audits fail OPEN on a malformed `asOf`
 
 **Where:** `packages/allfather-control-substrate/src/p03/assurance.ts` @ `1c40306c22e15b2ad3049e8d32abff47450c8921`,
-all three `run*Audit` functions. **Recorded:** 2026-10-02 (completion plan P08).
+`runCatalogueFreshnessAudit` and `runSignalPairingFreshnessAudit` (`runBuyerIntentInvariantAudit`
+accepts an `asOf` but never reads it). **Recorded:** 2026-10-02 (completion plan P08).
 **Status:** REPORTED — not fixed upstream; narrowed at this port's input boundary.
 
 ### Observation
 
-Each audit computes `asOfMs = Date.parse(input.asOf ?? now)`. A malformed `asOf` yields `NaN`, and
-every subsequent `x < asOfMs` / `asOfMs - y > window` comparison is then false. The catalogue and
-signal-pairing audits therefore record `CONTROL_PASS` for a stale target, and no incident opens. The
-terms-recheck branch alone stays closed, because it tests `!Number.isFinite(reviewedMs)` on the
-REVIEW instant, not on `asOfMs`.
+Both time-based audits compute `asOfMs = Date.parse(input.asOf ?? now)`. A malformed `asOf` yields
+`NaN`, and every comparison against it is then false. In the catalogue audit the review-expiry
+check (`expiryMs < asOfMs`), the capture-age check (`asOfMs - capturedMs > window`) and the
+terms-recheck age check (`asOfMs - reviewedMs > recheck`) all stop firing; in the signal-pairing
+audit the signal-age check stops firing. A target that is stale **only by time** therefore records
+`CONTROL_PASS` and no incident opens. Reasons that do not depend on the instant still fire: a
+non-ACTIVE catalogue, a non-approved or expired review status, a missing capture, a missing or
+unreadable terms review (that branch tests `!Number.isFinite(reviewedMs)` on the REVIEW instant), and
+a non-RELEASED signal.
 
 ### What this port did
 
-`app/Product/P03/Assurance.php` refuses a non-canonical `as_of` (`AS_OF_NOT_CANONICAL`), a negative
-or non-integer window (`FRESHNESS_WINDOW_INVALID`) and an unknown requester type before any row is
-read or written. Valid inputs keep canonical semantics; the 46 parity vectors use only valid inputs.
-`tests/integration/p03_assurance.php` pins the refusals.
+`app/Product/P03/Assurance.php` accepts `as_of` only in the canonical stored form
+`YYYY-MM-DDTHH:MM:SS.sssZ` (`AS_OF_NOT_CANONICAL`) — which also refuses ES forms canonical would
+read, such as a date-only `2026-07-01` — and refuses a negative or non-integer window
+(`FRESHNESS_WINDOW_INVALID`) and an unknown requester type, before any row is read or written, for
+all three audits. Valid inputs keep canonical semantics; the 62 parity vectors use only valid
+inputs. The operator surface (`ops/assurance/p03.php`, `operatorSweep`) goes further and accepts no
+`as_of` or catalogue-window override at all (UF-005). `tests/integration/p03_assurance.php` pins the
+refusals.
 
 ### Suggested upstream remedy
 
@@ -168,3 +177,45 @@ port's own **sweep** does not reach across: it audits only tenant-level and this
 
 Compare `workspace_id` when the catalogue carries one; keep tenant-only comparison for a NULL
 workspace.
+
+---
+
+## UF-005 — P03 audit records do not say which instant or window they judged, and instants are read engine- and host-dependently
+
+**Where:** the same file; `openAuditRun` and every `Date.parse` call. **Recorded:** 2026-10-03 (P08
+review). **Status:** REPORTED — parity kept where it is deterministic; the rest narrowed here.
+
+### Observation
+
+1. **The judged instant and window are not persisted.** `openAuditRun` stores `requested_at = now`.
+   The `asOf` the audit evaluated and any `freshnessWindowMs` that overrode the card's
+   `error_after_ms` appear nowhere on the run, check or finding. An audit evaluated as of a past or
+   future instant, or under a widened window, is recorded as an ordinary PASS at `requested_at`, and
+   nothing on the record lets a reviewer tell.
+2. **Offset-less date-times are host-local.** `Date.parse("2026-07-01T00:00:00")` is read in the
+   host's time zone, so the same stored row can be stale on one host and fresh on another.
+3. **Legacy non-ISO strings parse.** V8's fallback parser accepts forms outside the ES
+   date-time-string format (`"June 15, 2026"`, `"2026/06/15"`, `"2026-06-15 10:00:00"` — all read
+   by canonical in the battery below), with engine-defined results. Canonical's own writers store
+   `toISOString()` values, so such strings reach an audit only through imported or hand-written rows.
+
+### What this port did
+
+- (1) The operator surface accepts neither `as_of` nor a catalogue-window override
+  (`SWEEP_AS_OF_NOT_ACCEPTED`, `SWEEP_CATALOGUE_WINDOW_NOT_ACCEPTED`; the CLI exits 2), so every
+  operator-run audit is judged at the clock's now under the card's own window. The service methods
+  keep both inputs for parity and remain unrecorded, as in canonical; the sweep's returned summary
+  states the `as_of` and windows it used, but that summary is not persisted either.
+- (2)/(3) `Assurance::ms()` reads stored instants exactly as `Date.parse` reads the ES format —
+  date-only forms as UTC, fraction truncated, `T24:00` as the next midnight, day rollover, `:60` /
+  month 13 / `±24:00` unreadable — pinned by a 47-instant battery generated from canonical with
+  `TZ=UTC`. An offset-less date-time is read as UTC (canonical's answer on a UTC host). A string
+  outside the ES format is unreadable (`null`) and takes the branch canonical takes for `NaN`, where
+  V8 may instead have read a date: that is a recorded divergence, not parity, and the battery
+  asserts both halves (ES forms equal canonical; non-ES forms are `null` here).
+
+### Suggested upstream remedy
+
+Persist the evaluated `asOf` and the effective window on the audit run (or refuse overrides outside
+an explicit back-test path), and parse stored instants with an explicit, zone-qualified format
+instead of `Date.parse`.

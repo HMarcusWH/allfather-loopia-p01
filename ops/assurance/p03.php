@@ -8,15 +8,23 @@ declare(strict_types=1);
  *   seed-profiles  --env=... --tenant-id=... --workspace-id=... --operator-id=...
  *   status         --env=... --tenant-id=... --workspace-id=... --operator-id=...
  *   sweep          --env=... --tenant-id=... --workspace-id=... --operator-id=...
- *                  --signal-window-days=N [--catalogue-window-days=N] [--as-of=ISO] [--max-targets=N]
+ *                  --signal-window-days=N [--max-targets=N]
  *
  *   seed-profiles  needs `tenant.administer`. Idempotent; never reactivates a suspended profile.
- *   status         needs `incident.read`. Read-only.
+ *   status         needs `incident.read`. Read-only. Per category: FAILING if any audited target's
+ *                  latest result failed, with the failing targets listed.
  *   sweep          needs `incident.manage`, because a failing audit OPENS an incident. It runs
- *                  CATALOGUE_FRESHNESS over each tenant-level or this-workspace catalogue,
- *                  SIGNAL_PAIRING_FRESHNESS over each live fit hypothesis, and the
- *                  BUYER_INTENT_INVARIANT scan once. It refuses, before auditing anything, a scope
- *                  with more targets than --max-targets (default 200) rather than auditing a prefix.
+ *                  CATALOGUE_FRESHNESS over each tenant-level or this-workspace catalogue (a RETIRED
+ *                  one only while a live hypothesis still cites it), SIGNAL_PAIRING_FRESHNESS over each
+ *                  live fit hypothesis, and the BUYER_INTENT_INVARIANT scan once over every queue item.
+ *                  It refuses, before auditing anything, a scope whose catalogues plus hypotheses
+ *                  exceed --max-targets (default 200) rather than auditing a prefix, and refuses while
+ *                  another sweep of the same scope runs. It evaluates at the clock's NOW against each
+ *                  card's own freshness window: there is deliberately no --as-of and no catalogue-window
+ *                  override, because no audit row can record either (UF-005).
+ *
+ * Exit codes: 0 complete; 1 refused; 2 usage error; 3 the sweep ran but was INCOMPLETE — a category
+ * had no ACTIVE profile, or an audit was refused or errored — so the scope must not be read as clean.
  *
  * Every audit only READS the audited rows and records its own append-only run/check/finding. None of
  * this is release authority, a substitute for M08, or a fetch: nothing here reaches the network.
@@ -43,7 +51,7 @@ $fail = static function (string $message, int $code = 2): never {
 $command = $argv[1] ?? '';
 $args = BetaCli::parseArgs(
     [$argv[0], ...array_slice($argv, 2)],
-    ['env', 'tenant-id', 'workspace-id', 'operator-id', 'signal-window-days', 'catalogue-window-days', 'as-of', 'max-targets'],
+    ['env', 'tenant-id', 'workspace-id', 'operator-id', 'signal-window-days', 'max-targets'],
     $fail,
 );
 $need = static function (string $name) use ($args, $fail): string {
@@ -69,7 +77,7 @@ $days = static function (string $name, bool $required) use ($args, $fail): ?int 
     return (int) $value * 86_400_000;
 };
 $usage = 'usage: p03.php <seed-profiles|status|sweep> --env=... --tenant-id=... --workspace-id=... --operator-id=... '
-    . '[--signal-window-days=N] [--catalogue-window-days=N] [--as-of=ISO] [--max-targets=N]';
+    . '[--signal-window-days=N] [--max-targets=N]';
 if (!in_array($command, ['seed-profiles', 'status', 'sweep'], true)) {
     $fail($usage);
 }
@@ -90,15 +98,14 @@ $result = match ($command) {
     'status' => $assurance->operatorStatus($scope),
     'sweep' => $assurance->operatorSweep($scope, array_filter([
         'signal_pairing_freshness_window_ms' => $days('signal-window-days', true),
-        'freshness_window_ms' => $days('catalogue-window-days', false),
-        'as_of' => ($args['as-of'] ?? '') === '' ? null : $args['as-of'],
         'max_targets' => ($args['max-targets'] ?? '') === ''
             ? null
             : (preg_match('/^[1-9][0-9]{0,3}$/D', $args['max-targets']) === 1 ? (int) $args['max-targets'] : $fail('--max-targets must be 1..1000')),
     ], static fn (mixed $v): bool => $v !== null)),
 };
 
+$incomplete = $result->isOk() && $command === 'sweep' && ($result->value()['complete'] ?? false) !== true;
 BetaCli::emit(
     $result->isOk() ? ['ok' => true, 'command' => $command, 'result' => $result->value()] : ['ok' => false, 'command' => $command, 'reason_code' => $result->reasonCode()],
-    $result->isOk() ? 0 : 1,
+    $result->isOk() ? ($incomplete ? 3 : 0) : 1,
 );

@@ -4,6 +4,243 @@
   "source_sha256": "0992a457afed4a921b5d3ce1cb6aa87d131dca04405a794b809090e3566bf3a1",
   "generator": "tests/fixtures/p03-assurance-golden-generator.mts",
   "as_of_default": "2026-07-01T00:00:00.000Z",
+  "stored_instants": [
+    {
+      "value": "2026-06-15T00:00:00.000Z",
+      "es_format": true,
+      "canonical_ms": 1781481600000
+    },
+    {
+      "value": "2026-06-15",
+      "es_format": true,
+      "canonical_ms": 1781481600000
+    },
+    {
+      "value": "2026-06",
+      "es_format": true,
+      "canonical_ms": 1780272000000
+    },
+    {
+      "value": "2026",
+      "es_format": true,
+      "canonical_ms": 1767225600000
+    },
+    {
+      "value": "+002026-06-15",
+      "es_format": true,
+      "canonical_ms": 1781481600000
+    },
+    {
+      "value": "-000001-01-01",
+      "es_format": true,
+      "canonical_ms": -62198755200000
+    },
+    {
+      "value": "0000-01-01",
+      "es_format": true,
+      "canonical_ms": -62167219200000
+    },
+    {
+      "value": "2026-06-15T00:00",
+      "es_format": true,
+      "canonical_ms": 1781481600000
+    },
+    {
+      "value": "2026-06-15T00:00:00",
+      "es_format": true,
+      "canonical_ms": 1781481600000
+    },
+    {
+      "value": "2026-06-15T00:00Z",
+      "es_format": true,
+      "canonical_ms": 1781481600000
+    },
+    {
+      "value": "2026-06-15T10:00:00.5Z",
+      "es_format": true,
+      "canonical_ms": 1781517600500
+    },
+    {
+      "value": "2026-06-15T10:00:00.12Z",
+      "es_format": true,
+      "canonical_ms": 1781517600120
+    },
+    {
+      "value": "2026-06-15T10:00:00.1234Z",
+      "es_format": true,
+      "canonical_ms": 1781517600123
+    },
+    {
+      "value": "2026-06-15T10:00:00.999999Z",
+      "es_format": true,
+      "canonical_ms": 1781517600999
+    },
+    {
+      "value": "2026-06-15T23:59:60Z",
+      "es_format": true,
+      "canonical_ms": null
+    },
+    {
+      "value": "2026-06-14T24:00:00Z",
+      "es_format": true,
+      "canonical_ms": 1781481600000
+    },
+    {
+      "value": "2026-06-14T24:00Z",
+      "es_format": true,
+      "canonical_ms": 1781481600000
+    },
+    {
+      "value": "2026-06-14T24:00:00.000Z",
+      "es_format": true,
+      "canonical_ms": 1781481600000
+    },
+    {
+      "value": "2026-06-14T24:00:01Z",
+      "es_format": true,
+      "canonical_ms": null
+    },
+    {
+      "value": "2026-06-14T24:00:00.001Z",
+      "es_format": true,
+      "canonical_ms": null
+    },
+    {
+      "value": "2026-06-15T10:00+02:00",
+      "es_format": true,
+      "canonical_ms": 1781510400000
+    },
+    {
+      "value": "2026-06-15T10:00:00-23:59",
+      "es_format": true,
+      "canonical_ms": 1781603940000
+    },
+    {
+      "value": "2026-06-15T10:00:00+24:00",
+      "es_format": true,
+      "canonical_ms": null
+    },
+    {
+      "value": "2026-06-15T10:00:00+05:60",
+      "es_format": true,
+      "canonical_ms": null
+    },
+    {
+      "value": "2026-02-30",
+      "es_format": true,
+      "canonical_ms": 1772409600000
+    },
+    {
+      "value": "2026-02-29",
+      "es_format": true,
+      "canonical_ms": 1772323200000
+    },
+    {
+      "value": "2024-02-29",
+      "es_format": true,
+      "canonical_ms": 1709164800000
+    },
+    {
+      "value": "2026-06-31",
+      "es_format": true,
+      "canonical_ms": 1782864000000
+    },
+    {
+      "value": "2026-02-32",
+      "es_format": true,
+      "canonical_ms": null
+    },
+    {
+      "value": "2026-13-01",
+      "es_format": true,
+      "canonical_ms": null
+    },
+    {
+      "value": "2026-00-10",
+      "es_format": true,
+      "canonical_ms": null
+    },
+    {
+      "value": "2026-06-00",
+      "es_format": true,
+      "canonical_ms": null
+    },
+    {
+      "value": "2026-06-15T25:00:00Z",
+      "es_format": true,
+      "canonical_ms": null
+    },
+    {
+      "value": "2026-06-15T10:60:00Z",
+      "es_format": true,
+      "canonical_ms": null
+    },
+    {
+      "value": "2026-06-15T10Z",
+      "es_format": false,
+      "canonical_ms": null
+    },
+    {
+      "value": "2026-06-15T10:00:00.Z",
+      "es_format": false,
+      "canonical_ms": null
+    },
+    {
+      "value": "1969-12-31T23:59:59.999Z",
+      "es_format": true,
+      "canonical_ms": -1
+    },
+    {
+      "value": "2026-06-15 10:00:00",
+      "es_format": false,
+      "canonical_ms": 1781517600000
+    },
+    {
+      "value": "2026-06-15t10:00:00z",
+      "es_format": false,
+      "canonical_ms": 1781517600000
+    },
+    {
+      "value": "2026-06-15T10:00:00+0200",
+      "es_format": false,
+      "canonical_ms": 1781510400000
+    },
+    {
+      "value": "2026-6-5",
+      "es_format": false,
+      "canonical_ms": 1780617600000
+    },
+    {
+      "value": "2026/06/15",
+      "es_format": false,
+      "canonical_ms": 1781481600000
+    },
+    {
+      "value": "June 15, 2026",
+      "es_format": false,
+      "canonical_ms": 1781481600000
+    },
+    {
+      "value": "20260615",
+      "es_format": false,
+      "canonical_ms": null
+    },
+    {
+      "value": "not-a-date",
+      "es_format": false,
+      "canonical_ms": null
+    },
+    {
+      "value": "yesterday",
+      "es_format": false,
+      "canonical_ms": null
+    },
+    {
+      "value": "",
+      "es_format": false,
+      "canonical_ms": null
+    }
+  ],
   "cases": [
     {
       "name": "catalogue-fresh-passes",
@@ -156,7 +393,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -248,7 +494,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -336,7 +591,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -424,7 +688,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -512,7 +785,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -667,7 +949,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -759,7 +1050,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -1069,7 +1369,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -1162,7 +1471,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -1255,7 +1573,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -1343,7 +1670,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -1503,7 +1839,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -1607,7 +1952,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -1696,7 +2050,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -1853,7 +2216,1087 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "catalogue-stored-expiry-date-only-past",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": "2026-06-15",
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_REVIEW_PAST_EXPIRY"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
           "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_REVIEW_PAST_EXPIRY"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_REVIEW_PAST_EXPIRY)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_REVIEW_PAST_EXPIRY"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_REVIEW_PAST_EXPIRY"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "catalogue-stored-expiry-date-only-future",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": "2026-08-01",
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-stored-expiry-year-month",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": "2026-06",
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_REVIEW_PAST_EXPIRY"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_REVIEW_PAST_EXPIRY"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_REVIEW_PAST_EXPIRY)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_REVIEW_PAST_EXPIRY"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_REVIEW_PAST_EXPIRY"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "catalogue-stored-expiry-day-rollover",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": "2026-02-30",
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_REVIEW_PAST_EXPIRY"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_REVIEW_PAST_EXPIRY"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_REVIEW_PAST_EXPIRY)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_REVIEW_PAST_EXPIRY"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_REVIEW_PAST_EXPIRY"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "catalogue-stored-expiry-hour-24",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": "2026-06-14T24:00Z",
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_REVIEW_PAST_EXPIRY"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_REVIEW_PAST_EXPIRY"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_REVIEW_PAST_EXPIRY)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_REVIEW_PAST_EXPIRY"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_REVIEW_PAST_EXPIRY"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "catalogue-stored-expiry-leap-second-unreadable",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": "2026-06-15T23:59:60Z",
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-stored-expiry-garbage-unreadable",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": "not-a-date",
+          "error_after_ms": null,
+          "recheck_terms_after_ms": null,
+          "captures": [],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-stored-capture-offsetless-utc-host",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": 86400000,
+          "recheck_terms_after_ms": null,
+          "captures": [
+            {
+              "captured_at": "2026-06-29T00:00:00"
+            }
+          ],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_CAPTURE_STALE"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_CAPTURE_STALE"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_CAPTURE_STALE)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_CAPTURE_STALE"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_CAPTURE_STALE"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "catalogue-stored-capture-short-fraction",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": 86400000,
+          "recheck_terms_after_ms": null,
+          "captures": [
+            {
+              "captured_at": "2026-06-30T12:00:00.5Z"
+            }
+          ],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-stored-capture-minute-offset",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": 86400000,
+          "recheck_terms_after_ms": null,
+          "captures": [
+            {
+              "captured_at": "2026-06-30T12:00+02:00"
+            }
+          ],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-stored-capture-unreadable",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": 86400000,
+          "recheck_terms_after_ms": null,
+          "captures": [
+            {
+              "captured_at": "garbage"
+            }
+          ],
+          "terms_reviews": []
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-stored-terms-review-date-only",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": 2592000000,
+          "captures": [],
+          "terms_reviews": [
+            "2026-06-20"
+          ]
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Catalogue freshness audit: catalogue ACTIVE, review approved, capture within freshness."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "Catalogue review and latest capture are fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "catalogue-stored-terms-review-unreadable",
+      "family": "CATALOGUE_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "CATALOGUE_FRESHNESS"
+        },
+        "catalogue": {
+          "scope": "home",
+          "workspace": "home",
+          "catalogue_status": "ACTIVE",
+          "review_status": "approved",
+          "review_expires_at": null,
+          "error_after_ms": null,
+          "recheck_terms_after_ms": 2592000000,
+          "captures": [],
+          "terms_reviews": [
+            "garbage"
+          ]
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z"
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "CATALOGUE_TERMS_RECHECK_OVERDUE"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "CATALOGUE_FRESHNESS",
+          "target_object_refs": [
+            "catalogue"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_CATALOGUE_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_CATALOGUE_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Catalogue freshness audit: stale (CATALOGUE_TERMS_RECHECK_OVERDUE)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Catalogue authority/freshness gap: a stale catalogue must not back a fit hypothesis or queue admission.",
+          "reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "CATALOGUE_TERMS_RECHECK_OVERDUE"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "catalogue"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 catalogue freshness: a stale catalogue must not back a hypothesis/queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -2130,7 +3573,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 signal-pairing freshness: a stale pairing must not back a queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 signal-pairing freshness: a stale pairing must not back a queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -2276,7 +3728,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 signal-pairing freshness: a stale pairing must not back a queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 signal-pairing freshness: a stale pairing must not back a queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -2364,7 +3825,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 signal-pairing freshness: a stale pairing must not back a queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 signal-pairing freshness: a stale pairing must not back a queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -2449,7 +3919,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 signal-pairing freshness: a stale pairing must not back a queue admission.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 signal-pairing freshness: a stale pairing must not back a queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -2537,6 +4016,223 @@
           "incident_cases": 0
         },
         "reason_code": "TARGET_NOT_FOUND"
+      }
+    },
+    {
+      "name": "pairing-stored-created-date-only-stale",
+      "family": "SIGNAL_PAIRING_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "SIGNAL_PAIRING_FRESHNESS"
+        },
+        "hypothesis": {
+          "scope": "home",
+          "signal_status": "RELEASED",
+          "signal_created_at": "2026-06-01"
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "signalPairingFreshnessWindowMs": 604800000
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 1,
+          "incident_cases": 1
+        },
+        "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+        "failed": true,
+        "reason_codes": [
+          "SIGNAL_PAIRING_STALE"
+        ],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "SIGNAL_PAIRING_FRESHNESS",
+          "target_object_refs": [
+            "fit_hypothesis"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_SIGNAL_PAIRING_FRESHNESS FAIL.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_SIGNAL_PAIRING_FRESHNESS",
+          "decision": "FAIL",
+          "reason_codes": [
+            "SIGNAL_PAIRING_STALE"
+          ],
+          "severity_if_failed": "S3",
+          "safe_summary": "Signal-pairing freshness audit: stale (SIGNAL_PAIRING_STALE)."
+        },
+        "finding": {
+          "finding_type": "EVIDENCE_OR_AUTHORITY_GAP",
+          "finding_status": "OPEN",
+          "severity": "S3",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "INCIDENT_EVALUATION_REQUIRED",
+          "safe_finding_summary": "Signal-pairing freshness gap: a stale signal pairing must not back a queue admission.",
+          "reason_codes": [
+            "SIGNAL_PAIRING_STALE"
+          ],
+          "incident_evaluation_required": 1,
+          "decision_ledger_record_required": 1
+        },
+        "incident": {
+          "trigger_owner_module_id": "M05",
+          "trigger_reason_codes": [
+            "SIGNAL_PAIRING_STALE"
+          ],
+          "trigger_severity": "S3",
+          "related_object_refs": [
+            "fit_hypothesis",
+            "signal"
+          ],
+          "incident_class": "PROVENANCE_OR_IP",
+          "severity": "S3",
+          "status": "OPEN",
+          "current_release_or_operation_consequence": "NONE",
+          "safe_summary": "P03 signal-pairing freshness: a stale pairing must not back a queue admission.",
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 signal-pairing freshness: a stale pairing must not back a queue admission.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "pairing-stored-created-date-only-fresh",
+      "family": "SIGNAL_PAIRING_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "SIGNAL_PAIRING_FRESHNESS"
+        },
+        "hypothesis": {
+          "scope": "home",
+          "signal_status": "RELEASED",
+          "signal_created_at": "2026-06-30"
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "signalPairingFreshnessWindowMs": 604800000
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "SIGNAL_PAIRING_FRESHNESS",
+          "target_object_refs": [
+            "fit_hypothesis"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_SIGNAL_PAIRING_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_SIGNAL_PAIRING_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Signal-pairing freshness audit: the cited signal is RELEASED and within the freshness window."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "The cited signal is fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
+      }
+    },
+    {
+      "name": "pairing-stored-created-unreadable",
+      "family": "SIGNAL_PAIRING_FRESHNESS",
+      "setup": {
+        "profile": {
+          "category": "SIGNAL_PAIRING_FRESHNESS"
+        },
+        "hypothesis": {
+          "scope": "home",
+          "signal_status": "RELEASED",
+          "signal_created_at": "yesterday"
+        }
+      },
+      "input": {
+        "asOf": "2026-07-01T00:00:00.000Z",
+        "signalPairingFreshnessWindowMs": 604800000
+      },
+      "expected": {
+        "outcome": "COMPLETED",
+        "audited_rows_unchanged": true,
+        "row_counts": {
+          "audit_runs": 1,
+          "audit_check_records": 1,
+          "audit_findings": 1,
+          "incident_evaluation_requests": 0,
+          "incident_cases": 0
+        },
+        "finding_type": "CONTROL_PASS",
+        "failed": false,
+        "reason_codes": [],
+        "audit_run": {
+          "audit_profile_id": "profile",
+          "audit_category": "SIGNAL_PAIRING_FRESHNESS",
+          "target_object_refs": [
+            "fit_hypothesis"
+          ],
+          "requested_by_actor_type": "SERVICE",
+          "status": "COMPLETED",
+          "summary": "P03_SIGNAL_PAIRING_FRESHNESS PASS.",
+          "scope": "profile"
+        },
+        "check": {
+          "check_key": "P03_SIGNAL_PAIRING_FRESHNESS",
+          "decision": "PASS",
+          "reason_codes": [],
+          "severity_if_failed": null,
+          "safe_summary": "Signal-pairing freshness audit: the cited signal is RELEASED and within the freshness window."
+        },
+        "finding": {
+          "finding_type": "CONTROL_PASS",
+          "finding_status": "OPEN",
+          "severity": "S1",
+          "confidence_classification": "KNOWN",
+          "current_reliance_consequence": "NONE",
+          "safe_finding_summary": "The cited signal is fresh.",
+          "reason_codes": [],
+          "incident_evaluation_required": 0,
+          "decision_ledger_record_required": 0
+        },
+        "incident": null
       }
     },
     {
@@ -2841,7 +4537,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 buyer-intent invariant: a queue item asserts buyer intent without a valid trigger.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 buyer-intent invariant: a queue item asserts buyer intent without a valid trigger.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -2958,7 +4663,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 buyer-intent invariant: a queue item asserts buyer intent without a valid trigger.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 buyer-intent invariant: a queue item asserts buyer intent without a valid trigger.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -3045,7 +4759,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 buyer-intent invariant: a queue item asserts buyer intent without a valid trigger.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 buyer-intent invariant: a queue item asserts buyer intent without a valid trigger.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },
@@ -3211,7 +4934,16 @@
           "status": "OPEN",
           "current_release_or_operation_consequence": "NONE",
           "safe_summary": "P03 buyer-intent invariant: a queue item asserts buyer intent without a valid trigger.",
-          "scope": "profile"
+          "scope": "profile",
+          "timeline": [
+            {
+              "entry_type": "OPENED",
+              "safe_detail_summary": "P03 buyer-intent invariant: a queue item asserts buyer intent without a valid trigger.",
+              "related_object_ref": null,
+              "recorded_by_actor_type": "SYSTEM",
+              "recorded_by_actor_id": null
+            }
+          ]
         }
       }
     },

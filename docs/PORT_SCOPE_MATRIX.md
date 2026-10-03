@@ -129,7 +129,7 @@ is and is not there named in the Notes · ❌ not ported.
 | Prospect admission | Core | `src/p03/prospect-admission.ts` | promoted | ✅ | `app/Product/P03/ProspectQueue.php` | `submitForAdmission` / `admit`, against `P03_PROSPECT_ADMISSION` |
 | Priority outreach queue | Core | `src/p03/prospect-queue.ts` | promoted | ✅ | `app/Product/P03/ProspectQueue.php` | buyer-intent gate |
 | Prospect battlecard briefs | Core | `src/p03/release.ts` | promoted | ✅ | `app/Product/P03/Release.php` | M10 release + the two-gate surfacing. **Its own projection, NOT M16** — canonical P03 references the decision record rather than minting an artifact. Release-boundary card re-read along the prospect→hypothesis→product→catalogue→card lineage. The `PROSPECT_BATTLECARD_BRIEF` kind is NOT minted: upstream's release path carries that column NULL |
-| M11 audit profiles | Core | `src/p03/assurance.ts` | promoted | ✅ | `app/Product/P03/Assurance.php` | P08: `CATALOGUE_FRESHNESS`, `SIGNAL_PAIRING_FRESHNESS`, `BUYER_INTENT_INVARIANT` on the certified M11 plane, held to 46 canonical-generated parity vectors; operator sweep `ops/assurance/p03.php`. Post-outcome assurance only — see `docs/P03_ASSURANCE_PORT.md` |
+| M11 audit profiles | Core | `src/p03/assurance.ts` | promoted | ✅ | `app/Product/P03/Assurance.php` | P08: `CATALOGUE_FRESHNESS`, `SIGNAL_PAIRING_FRESHNESS`, `BUYER_INTENT_INVARIANT` on the certified M11 plane, held to 62 canonical-generated parity vectors and a 47-instant `Date.parse` battery; operator sweep `ops/assurance/p03.php`. Post-outcome assurance only — see `docs/P03_ASSURANCE_PORT.md` |
 | Console panels | Core | `src/p03/console-panels.ts` | promoted | ❌ | — | **NOT PORTED.** The console surfaces P01, P04 and P05 output; P03 has no panel |
 | Registration | Src | `src/p03/registration.ts` | promoted | ✅ | `app/Product/P03/Registration.php` | `registerLeadQualification` — M03 Valkyrie + contract, M06 tool (platform row, converged), M08 policy set, two tiers |
 
@@ -226,6 +226,14 @@ hopeful:
 **Not built in this pass, deliberately.** §13's test is evidence, and the evidence says B: an
 assurance capability that can remain absent for first staging while runtime behaviour stays honest.
 Porting it now would be a side quest against an instruction that forbids one.
+
+**P08 update (2026-10).** The three audits are now ported in source with parity vectors and
+offline tests (`docs/P03_ASSURANCE_PORT.md`). That moves the §3.7 row from "absent" to "present in
+source, not deployed and not run"; it does not change answer (7): an audit nobody runs is not an
+assurance plane. Customer
+launch still needs the audits deployed and run on a standing basis — an admitted P07 schedule or a
+written operator procedure — plus the open P03 rows of the P08 expansion register (owner-upload
+licence mapping, UF-004).
 
 #### P03 console panels — `src/p03/console-panels.ts` → OPTIONAL_PRODUCT_POLISH for staging
 

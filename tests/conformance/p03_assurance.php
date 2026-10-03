@@ -45,6 +45,24 @@ foreach (['AUDIT_PROFILE_INACTIVE', 'AUDIT_PROFILE_WRONG_CATEGORY', 'TARGET_NOT_
     );
 }
 
+// STORED instants are read the way canonical `Date.parse` reads them. Every string in the ES
+// date-time-string format must give canonical's exact millisecond value (or NaN as null); strings
+// outside it are the engine's implementation-defined legacy parsing, which the port deliberately
+// reads as unreadable — pinned here so that divergence (UF-005) cannot change silently.
+$ms = new ReflectionMethod(P03Assurance::class, 'ms');
+Assert::true(count($vectors['stored_instants']) >= 40, 'the stored-instant battery is not a token sample');
+$legacyAccepted = 0;
+foreach ($vectors['stored_instants'] as $instant) {
+    $port = $ms->invoke(null, $instant['value']);
+    if ($instant['es_format']) {
+        Assert::same($instant['canonical_ms'], $port, 'stored instant ' . json_encode($instant['value']) . ' reads exactly as canonical Date.parse reads it');
+    } else {
+        Assert::same(null, $port, 'non-ES-format instant ' . json_encode($instant['value']) . ' is unreadable in the port (UF-005)');
+        $legacyAccepted += $instant['canonical_ms'] === null ? 0 : 1;
+    }
+}
+Assert::true($legacyAccepted > 0, 'the battery includes legacy strings canonical does accept, so the recorded divergence is real and pinned');
+
 $db = Harness::freshDb();
 if ($db === null) {
     Assert::skip(Harness::unavailableReason());
@@ -365,5 +383,24 @@ foreach ($vectors['cases'] as $case) {
         'current_release_or_operation_consequence' => (string) $kase['current_release_or_operation_consequence'],
         'safe_summary' => (string) $kase['safe_summary'],
         'scope' => (string) $kase['tenant_id'] === $profileScope['tenant'] && (string) $kase['workspace_id'] === $profileScope['workspace'] ? 'profile' : 'OTHER',
+        'timeline' => $expected['incident']['timeline'],
     ], "{$name}: incident");
+
+    // The OPENED timeline entry. Canonical triage writes it as SYSTEM with no related ref; the
+    // pre-existing M11 projection (M11\Assurance::openIncident, shared by every product) writes SERVICE
+    // and the first related ref. Everything else must match; that one difference is pinned, so it can
+    // only change on purpose (docs/P03_ASSURANCE_PORT.md §2).
+    $timeline = $db->all('SELECT * FROM incident_timeline_entries WHERE incident_case_id = ? ORDER BY occurred_at, incident_timeline_entry_id', [$value['incident_case_id']]);
+    Assert::same(count($expected['incident']['timeline']), count($timeline), "{$name}: one timeline entry per canonical entry");
+    foreach ($expected['incident']['timeline'] as $i => $entry) {
+        $row = $timeline[$i];
+        Assert::same(
+            [$entry['entry_type'], $entry['safe_detail_summary'], $entry['recorded_by_actor_id']],
+            [(string) $row['entry_type'], (string) $row['safe_detail_summary'], $row['recorded_by_actor_id']],
+            "{$name}: timeline entry {$i} matches canonical",
+        );
+        Assert::same(['SYSTEM', null], [$entry['recorded_by_actor_type'], $entry['related_object_ref']], "{$name}: canonical OPENED entry is SYSTEM with no ref");
+        $firstRef = json_decode((string) $request['related_object_refs'], true)[0] ?? null;
+        Assert::same(['SERVICE', $firstRef], [(string) $row['recorded_by_actor_type'], $row['related_object_ref']], "{$name}: the M11 projection's OPENED entry is SERVICE with the first related ref (recorded divergence)");
+    }
 }

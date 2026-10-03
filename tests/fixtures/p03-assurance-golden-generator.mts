@@ -3,7 +3,9 @@
 // Run from a canonical checkout AT THE PINNED COMMIT, after building @allfather/substrate-core:
 //
 //   pnpm --filter @allfather/substrate-core build
-//   node --import tsx <loopia>/tests/fixtures/p03-assurance-golden-generator.mts <loopia>/tests/fixtures/p03_assurance_vectors.json
+//   CANONICAL_COMMIT=<40-hex> TZ=UTC node --import tsx <loopia>/tests/fixtures/p03-assurance-golden-generator.mts <loopia>/tests/fixtures/p03_assurance_vectors.json
+//
+// TZ=UTC is required: canonical reads an offset-less stored instant in the host's local time zone.
 //
 // Every input is synthetic and DECLARATIVE: each case names the rows it needs (catalogue/card review
 // state, capture and terms-review instants, signal status/age, queue-item trigger classes, profile
@@ -87,6 +89,25 @@ const CASES: Case[] = [
   // catalogue audit compares tenant only, so a workspace-OWNED catalogue is auditable from a sibling
   // workspace's profile. A canonical repair regenerates this vector and the port follows it.
   CF('catalogue-workspace-owned-from-sibling-workspace', cat({ catalogue_status: 'SUSPENDED' }), {}, { category: 'CATALOGUE_FRESHNESS', scope: 'sibling' }),
+  // Stored instants are read with canonical `Date.parse`, so each ES date-time-string form a CHAR(24)
+  // column can hold is pinned: date-only and year-month forms are UTC, `T24:00` is the next midnight,
+  // a day past month end rolls over, extra fraction digits are truncated, `:60` seconds are NaN (an
+  // unreadable expiry or capture never fires; an unreadable terms review fails closed). An
+  // offset-less date-time is HOST-LOCAL in canonical; these vectors are generated with TZ=UTC, and the
+  // host dependence is recorded upstream (UF-005) rather than reproduced.
+  CF('catalogue-stored-expiry-date-only-past', cat({ review_expires_at: '2026-06-15' })),
+  CF('catalogue-stored-expiry-date-only-future', cat({ review_expires_at: '2026-08-01' })),
+  CF('catalogue-stored-expiry-year-month', cat({ review_expires_at: '2026-06' })),
+  CF('catalogue-stored-expiry-day-rollover', cat({ review_expires_at: '2026-02-30' })),
+  CF('catalogue-stored-expiry-hour-24', cat({ review_expires_at: '2026-06-14T24:00Z' })),
+  CF('catalogue-stored-expiry-leap-second-unreadable', cat({ review_expires_at: '2026-06-15T23:59:60Z' })),
+  CF('catalogue-stored-expiry-garbage-unreadable', cat({ review_expires_at: 'not-a-date' })),
+  CF('catalogue-stored-capture-offsetless-utc-host', cat({ error_after_ms: DAY, captures: [{ captured_at: '2026-06-29T00:00:00' }] })),
+  CF('catalogue-stored-capture-short-fraction', cat({ error_after_ms: DAY, captures: [{ captured_at: '2026-06-30T12:00:00.5Z' }] })),
+  CF('catalogue-stored-capture-minute-offset', cat({ error_after_ms: DAY, captures: [{ captured_at: '2026-06-30T12:00+02:00' }] })),
+  CF('catalogue-stored-capture-unreadable', cat({ error_after_ms: DAY, captures: [{ captured_at: 'garbage' }] })),
+  CF('catalogue-stored-terms-review-date-only', cat({ recheck_terms_after_ms: 30 * DAY, terms_reviews: ['2026-06-20'] })),
+  CF('catalogue-stored-terms-review-unreadable', cat({ recheck_terms_after_ms: 30 * DAY, terms_reviews: ['garbage'] })),
   CF('catalogue-wrong-category-profile', cat(), {}, { category: 'SIGNAL_PAIRING_FRESHNESS' }),
   CF('catalogue-inactive-profile', cat(), {}, { category: 'CATALOGUE_FRESHNESS', status: 'SUSPENDED' }),
   CF('catalogue-target-missing', null),
@@ -102,6 +123,9 @@ const CASES: Case[] = [
   SP('pairing-sibling-workspace', hyp({ scope: 'sibling' })),
   SP('pairing-foreign-tenant', hyp({ scope: 'foreign' })),
   SP('pairing-target-missing', null),
+  SP('pairing-stored-created-date-only-stale', hyp({ signal_created_at: '2026-06-01' })),
+  SP('pairing-stored-created-date-only-fresh', hyp({ signal_created_at: '2026-06-30' })),
+  SP('pairing-stored-created-unreadable', hyp({ signal_created_at: 'yesterday' })),
   SP('pairing-wrong-category-profile', hyp(), {}, { category: 'BUYER_INTENT_INVARIANT' }),
   SP('pairing-inactive-profile', hyp(), {}, { category: 'SIGNAL_PAIRING_FRESHNESS', status: 'REVOKED' }),
 
@@ -291,6 +315,10 @@ function runCase(c: Case) {
         incident_class: kase.incident_class, severity: kase.severity, status: kase.status,
         current_release_or_operation_consequence: kase.current_release_or_operation_consequence, safe_summary: kase.safe_summary,
         scope: kase.tenant_id === profileScope.tenant && kase.workspace_id === profileScope.workspace ? 'profile' : 'OTHER',
+        timeline: (db.prepare(`SELECT * FROM incident_timeline_entries WHERE incident_case_id = ? ORDER BY occurred_at, rowid`).all(result.incidentCaseId) as any[]).map((e) => ({
+          entry_type: e.entry_type, safe_detail_summary: e.safe_detail_summary, related_object_ref: e.related_object_ref === null ? null : r(e.related_object_ref),
+          recorded_by_actor_type: e.recorded_by_actor_type, recorded_by_actor_id: e.recorded_by_actor_id,
+        })),
       };
     } else {
       expected.incident = null;
@@ -300,6 +328,30 @@ function runCase(c: Case) {
   return { name: c.name, family: c.family, setup: c.setup, input: c.input, expected };
 }
 
+// How canonical `Date.parse` reads stored instants, string by string (TZ=UTC). `es_format` marks the
+// strings in the ES date-time-string format, which the port must read identically; the others are
+// accepted (or not) by the engine's implementation-defined legacy parser, which the port does not
+// reproduce (UF-005) — the conformance suite pins that it reads them as unreadable.
+const ES_FORMAT = /^([+-]\d{6}|\d{4})(-\d{2}(-\d{2})?)?(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?)?$/;
+const INSTANTS = [
+  '2026-06-15T00:00:00.000Z', '2026-06-15', '2026-06', '2026', '+002026-06-15', '-000001-01-01', '0000-01-01',
+  '2026-06-15T00:00', '2026-06-15T00:00:00', '2026-06-15T00:00Z', '2026-06-15T10:00:00.5Z', '2026-06-15T10:00:00.12Z',
+  '2026-06-15T10:00:00.1234Z', '2026-06-15T10:00:00.999999Z', '2026-06-15T23:59:60Z', '2026-06-14T24:00:00Z',
+  '2026-06-14T24:00Z', '2026-06-14T24:00:00.000Z', '2026-06-14T24:00:01Z', '2026-06-14T24:00:00.001Z',
+  '2026-06-15T10:00+02:00', '2026-06-15T10:00:00-23:59', '2026-06-15T10:00:00+24:00', '2026-06-15T10:00:00+05:60',
+  '2026-02-30', '2026-02-29', '2024-02-29', '2026-06-31', '2026-02-32', '2026-13-01', '2026-00-10', '2026-06-00',
+  '2026-06-15T25:00:00Z', '2026-06-15T10:60:00Z', '2026-06-15T10Z', '2026-06-15T10:00:00.Z', '1969-12-31T23:59:59.999Z',
+  '2026-06-15 10:00:00', '2026-06-15t10:00:00z', '2026-06-15T10:00:00+0200', '2026-6-5', '2026/06/15', 'June 15, 2026',
+  '20260615', 'not-a-date', 'yesterday', '',
+];
+const storedInstants = INSTANTS.map((value) => {
+  const parsed = Date.parse(value);
+  return { value, es_format: ES_FORMAT.test(value), canonical_ms: Number.isNaN(parsed) ? null : parsed };
+});
+
+if (new Date(2026, 0, 1).getTimezoneOffset() !== 0) {
+  throw new Error('run with TZ=UTC: canonical reads offset-less stored instants in host-local time');
+}
 const commit = process.env.CANONICAL_COMMIT ?? '';
 if (!/^[0-9a-f]{40}$/.test(commit)) {
   throw new Error('set CANONICAL_COMMIT to the exact 40-hex canonical commit this checkout is at');
@@ -312,5 +364,6 @@ writeFileSync(process.argv[2], JSON.stringify({
   source_sha256: sourceSha256,
   generator: 'tests/fixtures/p03-assurance-golden-generator.mts',
   as_of_default: AS_OF,
+  stored_instants: storedInstants,
   cases,
 }, null, 2) + '\n');

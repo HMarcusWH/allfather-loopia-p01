@@ -273,6 +273,11 @@ $bounded = $p03->sweep([
     'signal_pairing_freshness_window_ms' => 7 * $DAY, 'as_of' => '2026-07-01T00:00:00.000Z', 'max_targets' => 2,
 ]);
 Assert::same('SWEEP_TARGETS_EXCEED_BOUND', $bounded->reasonCode(), 'three catalogues over a bound of two refuse the whole sweep');
+$boundedTotal = $p03->sweep([
+    'tenant_id' => $sweepScope['tenant_id'], 'workspace_id' => $sweepScope['workspace_id'],
+    'signal_pairing_freshness_window_ms' => 7 * $DAY, 'as_of' => '2026-07-01T00:00:00.000Z', 'max_targets' => 4,
+]);
+Assert::same('SWEEP_TARGETS_EXCEED_BOUND', $boundedTotal->reasonCode(), 'three catalogues and two live hypotheses (each family within 4, five in total) still exceed a bound of four: the bound is on the total');
 Assert::same(0, (int) $db->scalar('SELECT COUNT(*) FROM audit_runs WHERE tenant_id = ?', [$sweepScope['tenant_id']]), 'before auditing any prefix of it');
 
 $swept = $p03->sweep([
@@ -300,6 +305,7 @@ Assert::true($byCategory['SIGNAL_PAIRING_FRESHNESS'][$staleFit]['failed'], 'the 
 Assert::same(1, count($byCategory['BUYER_INTENT_INVARIANT']), 'the buyer-intent scan runs once for the scope');
 Assert::same(2, $swept['failed_count'], 'two failures in total');
 Assert::same(0, $swept['refused_count'], 'and no refusal');
+Assert::same([true, [], 0], [$swept['complete'], $swept['skipped_categories'], $swept['errored_count']], 'and the sweep says it is complete');
 Assert::same($auditedBefore, $snapshot(), 'the sweep changed none of the rows it audited');
 Assert::same(
     6,
@@ -329,8 +335,20 @@ Assert::same('OPERATOR_NOT_AUTHORIZED', $p03->operatorSweep($operator, ['signal_
 
 $reviewer = Seed::role($db, $clock, 'P03_TEST_INCIDENT_' . substr(Ids::new(), 0, 6), ['incident.read', 'incident.manage']);
 Seed::membership($db, $clock, $sweepScope['tenant_id'], $sweepScope['workspace_id'], $sweepScope['operator_id'], $reviewer['role_id']);
-$operatorSwept = $p03->operatorSweep($operator, ['signal_pairing_freshness_window_ms' => 7 * $DAY, 'as_of' => '2026-07-01T00:00:00.000Z']);
+// The operator path evaluates at the clock's now against the cards' own windows: no M11 row can
+// record a caller's instant or window, so neither is accepted from an operator.
+Assert::same('SWEEP_AS_OF_NOT_ACCEPTED', $p03->operatorSweep($operator, ['signal_pairing_freshness_window_ms' => 7 * $DAY, 'as_of' => '2020-01-01T00:00:00.000Z'])->reasonCode(), 'an operator cannot backdate a sweep');
+Assert::same('SWEEP_CATALOGUE_WINDOW_NOT_ACCEPTED', $p03->operatorSweep($operator, ['signal_pairing_freshness_window_ms' => 7 * $DAY, 'freshness_window_ms' => 3650 * $DAY])->reasonCode(), 'nor loosen the cards\' own catalogue windows');
+// A passing catalogue created AFTER the failing one is audited after it, so the newest single run is a
+// PASS while the scope still has a failure: status must not let the one hide the other.
+$clock->advanceMs(60_000);
+$lateFresh = $catalogue($sweepScope);
+$allowsBefore = (int) $db->scalar("SELECT COUNT(*) FROM access_evaluation_records WHERE actor_id = ? AND resource_type = 'P03_AUDIT_SWEEP' AND decision = 'ALLOW'", [$sweepScope['operator_id']]);
+$operatorSwept = $p03->operatorSweep($operator, ['signal_pairing_freshness_window_ms' => 7 * $DAY]);
 Assert::true($operatorSwept->isOk(), 'an incident reviewer can sweep');
+Assert::true($operatorSwept->value()['as_of'] >= '2026-07-02T00:00:00.000Z' && $operatorSwept->value()['as_of'] <= $clock->now(), 'at the clock\'s now');
+Assert::same(null, $operatorSwept->value()['freshness_window_ms'], 'with the cards\' own windows');
+Assert::same($allowsBefore + 1, (int) $db->scalar("SELECT COUNT(*) FROM access_evaluation_records WHERE actor_id = ? AND resource_type = 'P03_AUDIT_SWEEP' AND decision = 'ALLOW'", [$sweepScope['operator_id']]), 'and the ALLOW that let the operator sweep is retained as an access record');
 $operatorRuns = $db->all(
     'SELECT requested_by_actor_type, requested_by_actor_id FROM audit_runs WHERE tenant_id = ? ORDER BY requested_at DESC LIMIT 6',
     [$sweepScope['tenant_id']]
@@ -339,16 +357,23 @@ foreach ($operatorRuns as $run) {
     Assert::same(['OPERATOR', $sweepScope['operator_id']], [(string) $run['requested_by_actor_type'], (string) $run['requested_by_actor_id']], 'the run names the operator who asked');
 }
 $status = $p03->operatorStatus($operator)->value();
-Assert::same('ACTIVE', $status['categories']['CATALOGUE_FRESHNESS']['profile_status'], 'status reports the profile');
+$catalogueStatus = $status['categories']['CATALOGUE_FRESHNESS'];
+Assert::same('ACTIVE', $catalogueStatus['profile_status'], 'status reports the profile');
+$byOperatorTarget = [];
+foreach ($operatorSwept->value()['audits'] as $row) {
+    $byOperatorTarget[$row['audit_category']][$row['target']] = $row;
+}
+Assert::false($byOperatorTarget['CATALOGUE_FRESHNESS'][$lateFresh['catalogue_id']]['failed'], 'the late catalogue passes');
 Assert::same(
-    (string) $db->scalar(
-        'SELECT audit_run_id FROM audit_runs WHERE audit_profile_id = ? ORDER BY requested_at DESC, audit_run_id DESC LIMIT 1',
-        [$sweepProfiles['SIGNAL_PAIRING_FRESHNESS']]
-    ),
-    $status['categories']['SIGNAL_PAIRING_FRESHNESS']['latest_run']['audit_run_id'],
-    'and the latest run',
+    ['FAILING', 4, [[$stale['catalogue_id']]]],
+    [$catalogueStatus['posture'], $catalogueStatus['targets_audited'], array_column($catalogueStatus['failing_targets'], 'target_object_refs')],
+    'status reports catalogue freshness FAILING with exactly the suspended catalogue — a later passing target cannot hide it',
 );
-Assert::same('COMPLETED', $status['categories']['SIGNAL_PAIRING_FRESHNESS']['latest_run']['status'], 'with its outcome');
+Assert::same(['CATALOGUE_NOT_ACTIVE'], $catalogueStatus['failing_targets'][0]['reason_codes'], 'with its reason');
+$pairing = $status['categories']['SIGNAL_PAIRING_FRESHNESS'];
+Assert::same(['FAILING', 2, [[$staleFit]]], [$pairing['posture'], $pairing['targets_audited'], array_column($pairing['failing_targets'], 'target_object_refs')], 'signal pairing is FAILING for the stale pairing only');
+Assert::same(['PASSING', 1, []], [$status['categories']['BUYER_INTENT_INVARIANT']['posture'], $status['categories']['BUYER_INTENT_INVARIANT']['targets_audited'], $status['categories']['BUYER_INTENT_INVARIANT']['failing_targets']], 'the scope-wide buyer-intent scan is one target');
+Assert::same('COMPLETED', $pairing['latest_run']['status'], 'and the newest run is still shown, for what it is');
 Assert::same('OPERATOR_NOT_AUTHORIZED', $p03->operatorSeedProfiles($operator)->reasonCode(), 'managing incidents is not authority to configure profiles');
 $foreignScope = Seed::tenantWorkspace($db, $clock, 'p03foreignop');
 Assert::same(
@@ -382,8 +407,17 @@ try {
     Assert::contains('--signal-window-days is required', $err, 'saying which flag is missing');
     [$code, , $err] = $cli(['sweep', ...$ids, '--signal-window-days=0']);
     Assert::same(2, $code, 'a zero-day window is refused at the boundary');
-    [$code, $out] = $cli(['sweep', ...$ids, '--signal-window-days=7', '--as-of=2026-07-01T00:00:00.000Z']);
-    Assert::same([0, 2], [$code, $out['result']['failed_count'] ?? null], 'an authorized CLI sweep completes and reports its failures');
+    [$code] = $cli(['sweep', ...$ids, '--signal-window-days=7', '--as-of=2026-07-01T00:00:00.000Z']);
+    Assert::same(2, $code, 'the CLI has no --as-of: an operator sweep runs at the clock\'s now');
+    [$code] = $cli(['sweep', ...$ids, '--signal-window-days=7', '--catalogue-window-days=3650']);
+    Assert::same(2, $code, 'and no --catalogue-window-days: the cards\' own windows govern');
+    [$code, $out] = $cli(['sweep', ...$ids, '--signal-window-days=7']);
+    Assert::same([0, true, true], [$code, $out['ok'] ?? null, $out['result']['complete'] ?? null], 'an authorized CLI sweep completes');
+    Assert::true(($out['result']['failed_count'] ?? 0) >= 2, 'and reports its failures');
+    $db->run("UPDATE audit_profiles SET status = 'SUSPENDED' WHERE audit_profile_id = ?", [$sweepProfiles['BUYER_INTENT_INVARIANT']]);
+    [$code, $out] = $cli(['sweep', ...$ids, '--signal-window-days=7']);
+    Assert::same([3, false], [$code, $out['result']['complete'] ?? null], 'a sweep that skipped a category exits 3, not 0');
+    Assert::same([['audit_category' => 'BUYER_INTENT_INVARIANT', 'profile_status' => 'SUSPENDED']], $out['result']['skipped_categories'] ?? null, 'naming the category and why it was skipped');
     [$code] = $cli(['publish', ...$ids]);
     Assert::same(2, $code, 'there is no other command');
 } finally {

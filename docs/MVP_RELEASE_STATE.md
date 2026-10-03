@@ -20,7 +20,7 @@ canonical_pin                      = c6d9cf9a7a1001b001ca6118999e9cb75c831c4d
 implementation_baseline_merge      = 1a99f72b3e25e8e69c0e36d6de9f8de44901772a
 deployed_staging_release           = 392f48deef11380f6dccfe88f2a47ba1fd94575c
 evidence_records                   = 14
-candidate_migrations               = 29
+candidate_migrations               = 30
 ```
 
 ## What the words mean here
@@ -58,10 +58,11 @@ candidate_migrations               = 29
 - **P11 operational state:** source/tooling is merged and hosted-CI-qualified, but no real staging
   master-key rewrap has been performed. No Loopia key material, provider credential ciphertext or
   immutable execution-grant history has been changed by the merge.
-- **Candidate schema:** 29 migration files, including `210_monitor_execution_controls`,
+- **Candidate schema:** 30 migration files, including `210_monitor_execution_controls`,
   `220_monitor_evaluation_records`, `225_monitor_setup_receipts`, `230_monitor_attempt_recovery`,
-  P11 `240_provider_rotation_events` and P08 `245_source_card_window_width` (a column-width
-  translation repair; no new table). The deployed PR16 release has 19.
+  P11 `240_provider_rotation_events`, and P08 `245_source_card_window_width` and
+  `246_assurance_refs_width` (column-width translation repairs; no new table). The deployed PR16
+  release has 19.
 
 ## 2. Tested
 

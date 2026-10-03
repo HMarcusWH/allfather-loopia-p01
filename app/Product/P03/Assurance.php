@@ -33,11 +33,19 @@ use Allfather\Loopia\Substrate\M11\Assurance as M11Assurance;
  * audit that repaired what it found would leave no evidence the fault existed. No new assurance store
  * is introduced.
  *
- * Deliberate narrowing at the INPUT boundary only: a non-canonical `as_of` or a negative/non-integer
+ * Deliberate narrowing at the INPUT boundary: a non-canonical `as_of` or a negative/non-integer
  * window is refused before any row is written. Canonical `Date.parse` turns a malformed `asOf` into
- * NaN, every comparison against NaN is false, and the audit then passes everything — a fail-open
- * recorded in docs/UPSTREAM_FINDINGS.md rather than reproduced here. Valid inputs follow canonical
- * semantics exactly, including canonical's tenant-only catalogue scope (also recorded upstream).
+ * NaN, and every time-based comparison against NaN is false: expiry, capture age, terms-review age
+ * and signal age all stop firing, while status- and missing-row reasons still do — a fail-open
+ * recorded in docs/UPSTREAM_FINDINGS.md (UF-003) rather than reproduced here.
+ *
+ * STORED instants are read the way canonical `Date.parse` reads the ES date-time-string format
+ * (self::ms), pinned by parity vectors; the engine- and host-dependent remainder (legacy non-ISO
+ * strings, offset-less date-times read in host-local time) is recorded upstream (UF-005). Otherwise
+ * valid inputs follow canonical semantics, including canonical's tenant-only catalogue scope (UF-004).
+ * The one incident-plane difference is the pre-existing M11 projection's OPENED timeline entry
+ * (SERVICE + first related ref, where canonical triage writes SYSTEM + none), recorded in
+ * docs/P03_ASSURANCE_PORT.md §2 and pinned by the conformance suite.
  */
 final class Assurance
 {
@@ -70,27 +78,34 @@ final class Assurance
      */
     public function seedProfiles(string $tenantId, string $workspaceId): array
     {
-        $ids = [];
-        foreach (self::CATEGORIES as $category) {
-            $profileKey = 'p03.' . strtolower($category);
-            $existing = $this->db->scalar(
-                'SELECT audit_profile_id FROM audit_profiles
-                 WHERE tenant_id = ? AND workspace_id = ? AND profile_key = ?
-                 ORDER BY created_at, audit_profile_id LIMIT 1',
-                [$tenantId, $workspaceId, $profileKey]
-            );
-            $ids[$category] = $existing !== null
-                ? (string) $existing
-                : $this->m11->createAuditProfile(
-                    $tenantId,
-                    $workspaceId,
-                    $profileKey,
-                    $category,
-                    'P03 ' . strtolower(str_replace('_', ' ', $category)),
+        // Canonical enforces one ACTIVE profile per (scope, key) with a partial UNIQUE index that
+        // MariaDB cannot express (migration 010), so this check-then-insert is the enforcement and it
+        // is serialized on the tenant row, as the other idempotent per-tenant creators are. Without
+        // the lock two concurrent seeds both read "none" and both insert.
+        return $this->db->transaction(function (Database $tx) use ($tenantId, $workspaceId): array {
+            $tx->one('SELECT tenant_id FROM tenants WHERE tenant_id = ? FOR UPDATE', [$tenantId]);
+            $ids = [];
+            foreach (self::CATEGORIES as $category) {
+                $profileKey = 'p03.' . strtolower($category);
+                $existing = $tx->scalar(
+                    'SELECT audit_profile_id FROM audit_profiles
+                     WHERE tenant_id = ? AND workspace_id = ? AND profile_key = ?
+                     ORDER BY created_at, audit_profile_id LIMIT 1',
+                    [$tenantId, $workspaceId, $profileKey]
                 );
-        }
+                $ids[$category] = $existing !== null
+                    ? (string) $existing
+                    : $this->m11->createAuditProfile(
+                        $tenantId,
+                        $workspaceId,
+                        $profileKey,
+                        $category,
+                        'P03 ' . strtolower(str_replace('_', ' ', $category)),
+                    );
+            }
 
-        return $ids;
+            return $ids;
+        });
     }
 
     // ================================================================ CATALOGUE_FRESHNESS
@@ -347,10 +362,21 @@ final class Assurance
      * Run every P03 audit over every target in one scope, for an operator or a later bounded job.
      *
      * The sweep is a convenience over the three audits, not a new authority: it resolves the scope's
-     * ACTIVE profiles (it never seeds or reactivates one), audits each tenant catalogue visible to the
-     * workspace and each fit hypothesis in the workspace, and runs the buyer-intent scan once. Each
-     * audit records its own run/check/finding and opens its own incident. A missing profile is
-     * reported, not invented.
+     * ACTIVE profiles (it never seeds or reactivates one), audits each tenant-level or this-workspace
+     * catalogue and each live fit hypothesis in the workspace, and runs the buyer-intent scan once.
+     * Each audit records its own run/check/finding and, when it fails, opens its own incident — as
+     * canonical does for every failing audit call, so a target that is still failing opens a new
+     * incident on every sweep (canonical has no de-duplication here; any is an upstream decision).
+     *
+     * Target selection is projection-owned: a RETIRED catalogue is swept only while a live fit
+     * hypothesis in this workspace still cites one of its products — otherwise it backs nothing and
+     * would re-open the same CATALOGUE_NOT_ACTIVE incident forever.
+     *
+     * Bounds and honesty: the number of per-target audits (catalogues + hypotheses together) must not
+     * exceed `max_targets`, checked before any audit runs. The buyer-intent scan is ONE audit over
+     * every queue item in the scope. Sweeps of one scope are serialized; a second concurrent sweep is
+     * refused. An audit that throws is reported as ERRORED and the sweep continues. `complete` is
+     * true only when every category had an ACTIVE profile and every audit COMPLETED.
      *
      * @param array{
      *     tenant_id: string, workspace_id: string, signal_pairing_freshness_window_ms: int,
@@ -371,15 +397,47 @@ final class Assurance
         if (!is_int($maxTargets) || $maxTargets < 1 || $maxTargets > 1000) {
             return Outcome::refuse('SWEEP_TARGET_BOUND_INVALID', [], 'POLICY');
         }
+        foreach (['tenant_id', 'workspace_id'] as $key) {
+            if (!is_string($input[$key] ?? null) || !Ids::isValid($input[$key])) {
+                return Outcome::refuse('SWEEP_SCOPE_INVALID', [], 'SCOPE');
+            }
+        }
 
+        // One sweep per scope at a time. Without this, two operators sweeping together audit every
+        // target twice and open every incident twice.
+        $lock = 'p03-sweep:' . substr(hash('sha256', $input['tenant_id'] . '/' . $input['workspace_id']), 0, 40);
+        if ((int) $this->db->scalar('SELECT GET_LOCK(?, 0)', [$lock]) !== 1) {
+            return Outcome::refuse('SWEEP_IN_PROGRESS', [], 'POLICY');
+        }
+        try {
+            return $this->sweepLocked($input, $checked, $maxTargets);
+        } finally {
+            $this->db->scalar('SELECT RELEASE_LOCK(?)', [$lock]);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $input
+     * @param array{as_of: string, as_of_ms: int, requested_by_actor_type: string, requested_by_actor_id: ?string} $checked
+     */
+    private function sweepLocked(array $input, array $checked, int $maxTargets): Outcome
+    {
         $profiles = [];
+        $skipped = [];
         foreach (self::CATEGORIES as $category) {
-            $profiles[$category] = $this->db->scalar(
-                "SELECT audit_profile_id FROM audit_profiles
-                 WHERE tenant_id = ? AND workspace_id = ? AND audit_category = ? AND status = 'ACTIVE'
-                 ORDER BY created_at, audit_profile_id LIMIT 1",
+            $profile = $this->db->one(
+                "SELECT audit_profile_id, status FROM audit_profiles
+                 WHERE tenant_id = ? AND workspace_id = ? AND audit_category = ?
+                 ORDER BY (status = 'ACTIVE') DESC, created_at, audit_profile_id LIMIT 1",
                 [$input['tenant_id'], $input['workspace_id'], $category]
             );
+            if ($profile === null || (string) $profile['status'] !== 'ACTIVE') {
+                // A category that cannot be audited is named with WHY, never folded into "clean".
+                $skipped[] = ['audit_category' => $category, 'profile_status' => $profile === null ? 'MISSING' : (string) $profile['status']];
+                $profiles[$category] = null;
+                continue;
+            }
+            $profiles[$category] = (string) $profile['audit_profile_id'];
         }
         $requester = [
             'as_of' => $checked['as_of'],
@@ -390,10 +448,16 @@ final class Assurance
         // Tenant-level catalogues (no workspace) and this workspace's own. Another workspace's
         // catalogue is not swept from here even though the single-target audit would accept it.
         $catalogues = $this->db->all(
-            'SELECT customer_product_catalogue_id FROM customer_product_catalogues
-             WHERE tenant_id = ? AND (workspace_id IS NULL OR workspace_id = ?)
-             ORDER BY created_at, customer_product_catalogue_id LIMIT ' . ($maxTargets + 1),
-            [$input['tenant_id'], $input['workspace_id']]
+            "SELECT c.customer_product_catalogue_id FROM customer_product_catalogues c
+             WHERE c.tenant_id = ? AND (c.workspace_id IS NULL OR c.workspace_id = ?)
+               AND (c.catalogue_status <> 'RETIRED' OR EXISTS (
+                    SELECT 1 FROM customer_products p
+                    JOIN fit_hypotheses fh ON fh.customer_product_id = p.customer_product_id
+                    WHERE p.customer_product_catalogue_id = c.customer_product_catalogue_id
+                      AND fh.tenant_id = c.tenant_id AND fh.workspace_id = ?
+                      AND fh.status NOT IN ('REJECTED', 'SUPERSEDED')))
+             ORDER BY c.created_at, c.customer_product_catalogue_id LIMIT " . ($maxTargets + 1),
+            [$input['tenant_id'], $input['workspace_id'], $input['workspace_id']]
         );
         $hypotheses = $this->db->all(
             "SELECT fit_hypothesis_id FROM fit_hypotheses
@@ -401,46 +465,55 @@ final class Assurance
              ORDER BY created_at, fit_hypothesis_id LIMIT " . ($maxTargets + 1),
             [$input['tenant_id'], $input['workspace_id']]
         );
-        if (count($catalogues) > $maxTargets || count($hypotheses) > $maxTargets) {
+        if (count($catalogues) + count($hypotheses) > $maxTargets) {
             // Refuse before any audit runs: a sweep that silently audited a prefix would report a
             // clean scope it never finished looking at.
             return Outcome::refuse('SWEEP_TARGETS_EXCEED_BOUND', ['max_targets' => $maxTargets], 'POLICY');
         }
 
         $results = [];
-        $missing = [];
         foreach ([
             'CATALOGUE_FRESHNESS' => $catalogues,
             'SIGNAL_PAIRING_FRESHNESS' => $hypotheses,
             'BUYER_INTENT_INVARIANT' => [['scope' => 'workspace']],
         ] as $category => $targets) {
             if ($profiles[$category] === null) {
-                $missing[] = $category;
                 continue;
             }
             foreach ($targets as $row) {
-                $outcome = match ($category) {
-                    'CATALOGUE_FRESHNESS' => $this->runCatalogueFreshnessAudit([
-                        'audit_profile_id' => (string) $profiles[$category],
-                        'customer_product_catalogue_id' => (string) $row['customer_product_catalogue_id'],
-                        'freshness_window_ms' => $input['freshness_window_ms'] ?? null,
-                        ...$requester,
-                    ]),
-                    'SIGNAL_PAIRING_FRESHNESS' => $this->runSignalPairingFreshnessAudit([
-                        'audit_profile_id' => (string) $profiles[$category],
-                        'fit_hypothesis_id' => (string) $row['fit_hypothesis_id'],
-                        'signal_pairing_freshness_window_ms' => $input['signal_pairing_freshness_window_ms'],
-                        ...$requester,
-                    ]),
-                    default => $this->runBuyerIntentInvariantAudit([
-                        'audit_profile_id' => (string) $profiles[$category],
-                        ...$requester,
-                    ]),
-                };
+                $target = (string) ($row['customer_product_catalogue_id'] ?? $row['fit_hypothesis_id'] ?? 'workspace');
+                try {
+                    $outcome = match ($category) {
+                        'CATALOGUE_FRESHNESS' => $this->runCatalogueFreshnessAudit([
+                            'audit_profile_id' => $profiles[$category],
+                            'customer_product_catalogue_id' => $target,
+                            'freshness_window_ms' => $input['freshness_window_ms'] ?? null,
+                            ...$requester,
+                        ]),
+                        'SIGNAL_PAIRING_FRESHNESS' => $this->runSignalPairingFreshnessAudit([
+                            'audit_profile_id' => $profiles[$category],
+                            'fit_hypothesis_id' => $target,
+                            'signal_pairing_freshness_window_ms' => $input['signal_pairing_freshness_window_ms'],
+                            ...$requester,
+                        ]),
+                        default => $this->runBuyerIntentInvariantAudit([
+                            'audit_profile_id' => $profiles[$category],
+                            ...$requester,
+                        ]),
+                    };
+                } catch (\Throwable) {
+                    // Each audit is its own transaction, so an earlier audit's run and incident are
+                    // already committed. Report this one and keep going: aborting would leave the
+                    // operator with a partial result and no summary, and a retry would re-open every
+                    // incident the first attempt already opened. No error text leaves this method.
+                    $results[] = ['audit_category' => $category, 'target' => $target, 'outcome' => 'ERRORED', 'reason_code' => 'AUDIT_ERRORED',
+                        'finding_type' => null, 'failed' => null, 'audit_run_id' => null, 'incident_case_id' => null];
+                    continue;
+                }
                 $value = $outcome->isOk() ? $outcome->value() : null;
                 $results[] = [
                     'audit_category' => $category,
-                    'target' => (string) ($row['customer_product_catalogue_id'] ?? $row['fit_hypothesis_id'] ?? 'workspace'),
+                    'target' => $target,
                     'outcome' => $outcome->isOk() ? 'COMPLETED' : 'REFUSED',
                     'reason_code' => $outcome->isOk() ? null : $outcome->reasonCode(),
                     'finding_type' => $value['finding_type'] ?? null,
@@ -450,28 +523,38 @@ final class Assurance
                 ];
             }
         }
+        $count = static fn (callable $test): int => count(array_filter($results, $test));
+        $refused = $count(static fn (array $r): bool => $r['outcome'] === 'REFUSED');
+        $errored = $count(static fn (array $r): bool => $r['outcome'] === 'ERRORED');
 
         return Outcome::ok([
             'tenant_id' => $input['tenant_id'],
             'workspace_id' => $input['workspace_id'],
             'as_of' => $checked['as_of'],
-            'missing_profiles' => $missing,
+            'signal_pairing_freshness_window_ms' => $input['signal_pairing_freshness_window_ms'],
+            'freshness_window_ms' => $input['freshness_window_ms'] ?? null,
+            'complete' => $skipped === [] && $refused === 0 && $errored === 0,
+            'skipped_categories' => $skipped,
+            'missing_profiles' => array_column($skipped, 'audit_category'),
             'audits' => $results,
-            'failed_count' => count(array_filter($results, static fn (array $r): bool => $r['failed'] === true)),
-            'refused_count' => count(array_filter($results, static fn (array $r): bool => $r['outcome'] === 'REFUSED')),
+            'failed_count' => $count(static fn (array $r): bool => $r['failed'] === true),
+            'refused_count' => $refused,
+            'errored_count' => $errored,
         ]);
     }
 
     // ================================================================ operator entrypoints
 
     /**
-     * Seed the scope's P03 profiles for an operator holding `tenant.administer` there.
+     * Seed the scope's P03 profiles for an operator holding `tenant.administer` there. The ALLOW is
+     * retained as an access record, because audit_profiles carries no actor and the question "who
+     * configured P03 assurance here?" must have an answer.
      *
      * @param array{tenant_id: string, workspace_id: string, operator_id: string} $scope
      */
     public function operatorSeedProfiles(array $scope): Outcome
     {
-        $denied = $this->authorize($scope, 'tenant.administer', 'P03_AUDIT_PROFILE');
+        $denied = $this->authorize($scope, 'tenant.administer', 'P03_AUDIT_PROFILE', true);
         if ($denied !== null) {
             return $denied;
         }
@@ -482,20 +565,34 @@ final class Assurance
     /**
      * Sweep one scope for an operator holding `incident.manage` there — a sweep OPENS incidents, so
      * the permission that manages incidents is the one asked for. The run is recorded as OPERATOR,
-     * with the operator's identity, never as an anonymous service.
+     * with the operator's identity, never as an anonymous service, and the ALLOW is retained.
+     *
+     * The operator path evaluates at the clock's NOW against each card's OWN freshness window: no
+     * M11 row has a field for the instant or window a verdict was computed with (canonical persists
+     * neither — UF-005), so a caller-chosen `as_of` or a looser catalogue window would write PASS
+     * evidence nobody could later tell apart from a real-time one. Both are refused here. The
+     * signal-pairing window has no card default in canonical, so the operator supplies it; the sweep
+     * result echoes it.
      *
      * @param array{tenant_id: string, workspace_id: string, operator_id: string} $scope
-     * @param array{signal_pairing_freshness_window_ms: int, freshness_window_ms?: ?int, as_of?: ?string, max_targets?: ?int} $input
+     * @param array{signal_pairing_freshness_window_ms: int, max_targets?: ?int} $input
      */
     public function operatorSweep(array $scope, array $input): Outcome
     {
-        $denied = $this->authorize($scope, 'incident.manage', 'P03_AUDIT_SWEEP');
+        $denied = $this->authorize($scope, 'incident.manage', 'P03_AUDIT_SWEEP', true);
         if ($denied !== null) {
             return $denied;
         }
+        if (($input['as_of'] ?? null) !== null) {
+            return Outcome::refuse('SWEEP_AS_OF_NOT_ACCEPTED', [], 'POLICY');
+        }
+        if (($input['freshness_window_ms'] ?? null) !== null) {
+            return Outcome::refuse('SWEEP_CATALOGUE_WINDOW_NOT_ACCEPTED', [], 'POLICY');
+        }
 
         return $this->sweep([
-            ...$input,
+            'signal_pairing_freshness_window_ms' => $input['signal_pairing_freshness_window_ms'] ?? null,
+            'max_targets' => $input['max_targets'] ?? null,
             'tenant_id' => $scope['tenant_id'],
             'workspace_id' => $scope['workspace_id'],
             'requested_by_actor_type' => 'OPERATOR',
@@ -504,9 +601,14 @@ final class Assurance
     }
 
     /**
-     * The scope's P03 audit posture, read-only, for an operator holding `incident.read` there: each
-     * category's profile and the latest run's outcome. Reading writes nothing (an ALLOW is not
-     * retained as an access record).
+     * The scope's P03 audit posture, read-only, for an operator holding `incident.read` there.
+     *
+     * Posture is per TARGET, not "the latest run": the two per-target categories write one run per
+     * target, so the single newest run is just whichever target was audited last and could hide a
+     * failure from the same sweep. For each category this reports every audited target's LATEST
+     * result and lists the failing ones; `posture` is FAILING if any target's latest result failed.
+     * The buyer-intent scan is one scope-wide run, so its latest run is its posture. Reading writes
+     * nothing (an ALLOW is not retained as an access record).
      *
      * @param array{tenant_id: string, workspace_id: string, operator_id: string} $scope
      */
@@ -524,22 +626,35 @@ final class Assurance
                  ORDER BY (status = 'ACTIVE') DESC, created_at, audit_profile_id LIMIT 1",
                 [$scope['tenant_id'], $scope['workspace_id'], $category]
             );
-            $latest = $profile === null ? null : $this->db->one(
-                'SELECT r.audit_run_id, r.status, r.completed_at, f.finding_type, f.reason_codes
+            $runs = $profile === null ? [] : $this->db->all(
+                'SELECT r.audit_run_id, r.target_object_refs, r.status, r.completed_at, f.finding_type, f.reason_codes
                  FROM audit_runs r JOIN audit_findings f ON f.audit_run_id = r.audit_run_id
-                 WHERE r.audit_profile_id = ? ORDER BY r.requested_at DESC, r.audit_run_id DESC LIMIT 1',
+                 WHERE r.audit_profile_id = ? ORDER BY r.requested_at DESC, r.audit_run_id DESC',
                 [(string) $profile['audit_profile_id']]
             );
+            $shape = static fn (array $run): array => [
+                'audit_run_id' => (string) $run['audit_run_id'],
+                'target_object_refs' => json_decode((string) $run['target_object_refs'], true),
+                'status' => (string) $run['status'],
+                'completed_at' => $run['completed_at'],
+                'finding_type' => (string) $run['finding_type'],
+                'reason_codes' => json_decode((string) $run['reason_codes'], true),
+            ];
+            // Latest result per target. The buyer-intent scan's refs are its violators, not its
+            // target, so its whole history is one "target": the scope.
+            $latestPerTarget = [];
+            foreach ($runs as $run) {
+                $key = $category === 'BUYER_INTENT_INVARIANT' ? 'scope' : (string) $run['target_object_refs'];
+                $latestPerTarget[$key] ??= $shape($run);
+            }
+            $failing = array_values(array_filter($latestPerTarget, static fn (array $r): bool => $r['finding_type'] !== 'CONTROL_PASS'));
             $categories[$category] = [
                 'audit_profile_id' => $profile === null ? null : (string) $profile['audit_profile_id'],
                 'profile_status' => $profile === null ? 'MISSING' : (string) $profile['status'],
-                'latest_run' => $latest === null ? null : [
-                    'audit_run_id' => (string) $latest['audit_run_id'],
-                    'status' => (string) $latest['status'],
-                    'completed_at' => $latest['completed_at'],
-                    'finding_type' => (string) $latest['finding_type'],
-                    'reason_codes' => json_decode((string) $latest['reason_codes'], true),
-                ],
+                'posture' => $latestPerTarget === [] ? 'NOT_AUDITED' : ($failing === [] ? 'PASSING' : 'FAILING'),
+                'targets_audited' => count($latestPerTarget),
+                'failing_targets' => $failing,
+                'latest_run' => $runs === [] ? null : $shape($runs[0]),
             ];
         }
 
@@ -549,7 +664,7 @@ final class Assurance
     // ================================================================ helpers
 
     /** @param array{tenant_id: string, workspace_id: string, operator_id: string} $scope */
-    private function authorize(array $scope, string $permission, string $resourceType): ?Outcome
+    private function authorize(array $scope, string $permission, string $resourceType, bool $retainAllow = false): ?Outcome
     {
         foreach (['tenant_id', 'workspace_id', 'operator_id'] as $key) {
             if (!isset($scope[$key]) || !is_string($scope[$key]) || !Ids::isValid($scope[$key])) {
@@ -563,6 +678,9 @@ final class Assurance
             $scope['workspace_id'],
             $permission,
             $resourceType,
+            null,
+            null,
+            $retainAllow,
         );
 
         return $access['decision'] === 'ALLOW'
@@ -732,24 +850,58 @@ final class Assurance
     }
 
     /**
-     * Milliseconds since the epoch, or null when the instant cannot be read (canonical treats an
-     * unreadable stored instant as NaN, and a NaN comparison never fires — except the terms recheck,
-     * which canonical deliberately fails closed on).
+     * Milliseconds since the epoch for an instant, read the way canonical `Date.parse` reads the ES
+     * date-time-string format, or null where canonical yields NaN (and a NaN comparison never fires —
+     * except the terms recheck, which canonical deliberately fails closed on).
+     *
+     *   YYYY | YYYY-MM | YYYY-MM-DD (also ±YYYYYY)          date-only forms are UTC midnight
+     *   …THH:mm[:ss[.fraction]][Z|±HH:mm]                    fraction truncated to milliseconds
+     *   T24:00[:00[.000]]                                    the next midnight; any later 24:xx is NaN
+     *   a day past the month's end (2026-02-30)              rolls over, as canonical does
+     *   seconds 60, minutes 60, hours 25+, month 13, ±24:00  NaN
+     *
+     * An offset-less date-time is HOST-LOCAL in canonical; it is read as UTC here, which is what
+     * canonical does on a UTC host (the parity vectors are generated with TZ=UTC). Strings outside
+     * this format — which V8's legacy parser may still accept — are unreadable here. Both are
+     * engine/host-dependent canonical behaviour, recorded upstream as UF-005, not reproduced.
      */
-    private static function ms(string $iso): ?int
+    private static function ms(string $value): ?int
     {
-        $parsed = Clock::parse($iso);
-        if ($parsed === null) {
-            if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/', $iso) !== 1) {
-                return null;
-            }
-            try {
-                $parsed = new \DateTimeImmutable($iso);
-            } catch (\Exception) {
-                return null;
-            }
+        if (preg_match('/^([+-]\\d{6}|\\d{4})(?:-(\\d{2})(?:-(\\d{2}))?)?(?:T(\\d{2}):(\\d{2})(?::(\\d{2})(?:\\.(\\d+))?)?(Z|[+-]\\d{2}:\\d{2})?)?$/D', $value, $m) !== 1
+            || $m[1] === '-000000'
+        ) {
+            return null;
         }
+        $part = static fn (int $i): ?string => isset($m[$i]) && $m[$i] !== '' ? $m[$i] : null;
+        $month = (int) ($part(2) ?? 1);
+        $day = (int) ($part(3) ?? 1);
+        $hour = (int) ($part(4) ?? 0);
+        $minute = (int) ($part(5) ?? 0);
+        $second = (int) ($part(6) ?? 0);
+        $millis = $part(7) === null ? 0 : (int) substr(str_pad((string) $part(7), 3, '0'), 0, 3);
+        if ($month < 1 || $month > 12 || $day < 1 || $day > 31 || $minute > 59 || $second > 59
+            || $hour > 24 || ($hour === 24 && ($minute !== 0 || $second !== 0 || $millis !== 0))
+        ) {
+            return null;
+        }
+        $offsetMs = 0;
+        $zone = $part(8);
+        if ($zone !== null && $zone !== 'Z') {
+            $offsetHours = (int) substr($zone, 1, 2);
+            $offsetMinutes = (int) substr($zone, 4, 2);
+            if ($offsetHours > 23 || $offsetMinutes > 59) {
+                return null;
+            }
+            $offsetMs = ($offsetHours * 60 + $offsetMinutes) * 60_000 * ($zone[0] === '-' ? -1 : 1);
+        }
+        // Days from the civil date (H. Hinnant's algorithm); adding the day-of-month to the 1st gives
+        // canonical's roll-over for a day past the month's end.
+        $year = (int) $m[1] - ($month <= 2 ? 1 : 0);
+        $era = intdiv($year >= 0 ? $year : $year - 399, 400);
+        $yearOfEra = $year - $era * 400;
+        $dayOfYear = intdiv(153 * (($month + 9) % 12) + 2, 5);
+        $days = $era * 146097 + $yearOfEra * 365 + intdiv($yearOfEra, 4) - intdiv($yearOfEra, 100) + $dayOfYear - 719468 + ($day - 1);
 
-        return (int) $parsed->format('Uv');
+        return $days * 86_400_000 + (($hour * 60 + $minute) * 60 + $second) * 1000 + $millis - $offsetMs;
     }
 }

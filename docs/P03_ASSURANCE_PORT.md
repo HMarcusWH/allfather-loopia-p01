@@ -12,10 +12,11 @@ and not evidence that P03 is ready for customers.
 | Canonical commit | `1c40306c22e15b2ad3049e8d32abff47450c8921` (canonical main inspected by the completion plan) |
 | Canonical source SHA-256 | `0992a457afed4a921b5d3ce1cb6aa87d131dca04405a794b809090e3566bf3a1` |
 | PHP port | [`app/Product/P03/Assurance.php`](../app/Product/P03/Assurance.php) |
-| Parity vectors | [`tests/fixtures/p03_assurance_vectors.json`](../tests/fixtures/p03_assurance_vectors.json), 46 cases |
+| Parity vectors | [`tests/fixtures/p03_assurance_vectors.json`](../tests/fixtures/p03_assurance_vectors.json), 62 audit cases and a 47-instant `Date.parse` battery |
 | Vector generator | [`tests/fixtures/p03-assurance-golden-generator.mts`](../tests/fixtures/p03-assurance-golden-generator.mts) |
 | Conformance suite | [`tests/conformance/p03_assurance.php`](../tests/conformance/p03_assurance.php) |
-| Projection suite | [`tests/integration/p03_assurance.php`](../tests/integration/p03_assurance.php) |
+| Projection suites | [`tests/integration/p03_assurance.php`](../tests/integration/p03_assurance.php), [`p03_assurance_sweep.php`](../tests/integration/p03_assurance_sweep.php), [`p03_assurance_scale.php`](../tests/integration/p03_assurance_scale.php) |
+| Upgrade-order proof | [`tests/integration/p08_migration_order.php`](../tests/integration/p08_migration_order.php) (migrations 245 and 246 on a pre-P08 database) |
 | Operator CLI | [`ops/assurance/p03.php`](../ops/assurance/p03.php) |
 
 The three profiles, unchanged from canonical:
@@ -32,18 +33,43 @@ They ride the existing M11 plane: one `audit_runs` row, one `audit_check_records
 store or table was introduced; the three categories were already in the `audit_profiles` CHECK
 vocabulary. `M11\Assurance` needed no change.
 
-## 2. Semantics kept, and the one narrowing
+## 2. Semantics kept, narrowed, and divergent
 
 Valid inputs follow canonical exactly, including reason-code order, the strict `>` window
 comparisons, an unreadable stored instant being ignored (except the terms recheck, which canonical
-fails closed), the incident's related refs, and **canonical's tenant-only catalogue scope**.
+fails closed), the incident's related refs, and **canonical's tenant-only catalogue scope** (UF-004).
 
-One narrowing at the input boundary: canonical computes `Date.parse(asOf)`, and a malformed `asOf`
-becomes `NaN`. Every comparison against `NaN` is false, so canonical then passes every check — a
-fail-open. The port refuses a non-canonical `as_of` (`AS_OF_NOT_CANONICAL`), a negative or
-non-integer window (`FRESHNESS_WINDOW_INVALID`) and an unknown requester type or malformed requester
-id **before** reading or writing anything. Recorded as UF-003 in
-[`UPSTREAM_FINDINGS.md`](UPSTREAM_FINDINGS.md).
+**Narrowed at the input boundary (UF-003).** Canonical computes `Date.parse(asOf)`; a malformed
+`asOf` becomes `NaN`, and every time-based comparison against it is false — review expiry, capture
+age, terms-review age and signal age all stop firing, while status and missing-row reasons still
+fire. A target stale only by time then records `CONTROL_PASS`. The port accepts `as_of` only in the
+canonical stored form `YYYY-MM-DDTHH:MM:SS.sssZ` (`AS_OF_NOT_CANONICAL`; this also refuses ES forms
+canonical would read, such as a date-only `2026-07-01`, and applies to the buyer-intent audit, which
+canonical lets carry an `asOf` it never reads), and refuses a negative or non-integer window
+(`FRESHNESS_WINDOW_INVALID`) and an unknown requester type or malformed requester id **before**
+reading or writing anything. Recorded in [`UPSTREAM_FINDINGS.md`](UPSTREAM_FINDINGS.md).
+
+**Stored instants (UF-005).** Instants read from the database (review expiry, capture, terms review,
+signal creation) are read the way canonical `Date.parse` reads the ES date-time-string format:
+date-only forms as UTC midnight, fractions truncated to milliseconds, `T24:00` as the next midnight,
+a day past the month's end rolled over, and `:60`, month 13 or `±24:00` unreadable. A 47-instant
+battery generated from canonical pins this. Two parts of canonical's behaviour are engine- or
+host-dependent and are **not** reproduced: an offset-less date-time is host-local in canonical and
+read as UTC here (canonical's answer on a UTC host, which is how the vectors are generated), and a
+legacy non-ISO string that V8 may parse (`"June 15, 2026"`) is unreadable here. Canonical's writers
+store `toISOString()` values, so this matters only for imported or hand-written rows.
+
+**Not persisted (UF-005).** Canonical records neither the `asOf` an audit judged nor a
+`freshnessWindowMs` that overrode the card's window. The service methods keep both inputs for
+parity; the operator surface accepts neither (§4), so operator-run evidence is always "now, under
+the card's own window".
+
+**Incident timeline (pre-existing M11 projection difference).** The port opens incidents through the
+certified `M11\Assurance::openIncident`, which every product shares. Its `OPENED` timeline entry is
+recorded by `SERVICE` with the first related ref; canonical triage records it by `SYSTEM` with no
+ref. Entry type, summary and recorder id match. The conformance suite asserts the timeline on every
+failing vector and pins exactly this difference, so a change on either side fails the build. It is
+not changed in P08 because changing it would change every product's incident record.
 
 ## 3. How parity is held
 
@@ -76,20 +102,43 @@ on when it was generated.
   is given the assurance owner (staging provisioning does); without it, registration is unchanged.
   An audit profile grants nothing — `does_not_grant_authority` is CHECK-pinned to 1.
 - **Sweep.** `sweep()` audits each tenant-level or this-workspace catalogue, each live (not
-  `REJECTED`/`SUPERSEDED`) fit hypothesis and runs the buyer-intent scan once. It refuses a scope with
-  more targets than its bound (default 200, max 1000) **before** auditing anything, rather than
-  auditing a prefix and reporting it clean. It reports a missing profile; it never seeds one. A
+  `REJECTED`/`SUPERSEDED`) fit hypothesis, and runs the buyer-intent scan once over every queue item.
+  A `RETIRED` catalogue is swept only while a live hypothesis in this workspace still cites one of
+  its products; otherwise it backs nothing and would re-open the same incident on every sweep. A
   sibling workspace's catalogue is not swept even though the single-target audit would accept it.
-- **Operator entrypoints.** `operatorSeedProfiles` needs `tenant.administer`; `operatorStatus` needs
-  `incident.read` and is read-only; `operatorSweep` needs `incident.manage`, because a failing audit
-  opens an incident. Runs are recorded as `OPERATOR` with that operator's id.
+  - **Bound.** Catalogues plus hypotheses together must not exceed `max_targets` (default 200, max
+    1000), checked **before** any audit runs (`SWEEP_TARGETS_EXCEED_BOUND`), rather than auditing a
+    prefix and reporting it clean. The buyer-intent scan is one audit whatever the queue size;
+    migration 246 lets it record any number of violators (proved with 1,700).
+  - **Serialization.** One sweep per scope at a time, held by a named database lock; a concurrent
+    sweep of the same scope is refused (`SWEEP_IN_PROGRESS`) before it audits anything.
+  - **Honesty.** An audit that throws is reported as `ERRORED` (`AUDIT_ERRORED`, no error text) and
+    the sweep carries on. `skipped_categories` names each category without an ACTIVE profile and
+    why (`MISSING`, `SUSPENDED`, …); the sweep never seeds or reactivates one. `complete` is true
+    only when every category had an ACTIVE profile and every audit COMPLETED.
+  - Each failing audit opens its own incident, as canonical does for every failing call; a target
+    still failing on the next sweep opens another. Any de-duplication is an upstream decision.
+- **Seeding is serialized.** `seedProfiles` locks the tenant row first, so two concurrent seeds of
+  one scope cannot mint rival ACTIVE profiles; the second waits and then reuses the first's.
+- **Operator entrypoints.** `operatorSeedProfiles` needs `tenant.administer`; `operatorSweep` needs
+  `incident.manage`, because a failing audit opens an incident; both **retain** their M02 ALLOW as
+  an access record (`P03_AUDIT_PROFILE`, `P03_AUDIT_SWEEP`), because `audit_profiles` carries no
+  actor and who configured or ran assurance must be answerable. `operatorSweep` evaluates at the
+  clock's now under each card's own window: it refuses an `as_of` (`SWEEP_AS_OF_NOT_ACCEPTED`) and
+  a catalogue-window override (`SWEEP_CATALOGUE_WINDOW_NOT_ACCEPTED`). Its runs are recorded as
+  `OPERATOR` with that operator's id. `operatorStatus` needs `incident.read`, is read-only and
+  retains nothing; per category it reports each audited target's **latest** result, the failing
+  targets, and a posture of `NOT_AUDITED`, `PASSING` or `FAILING` (failing if any target's latest
+  result failed — not merely the newest run).
 - **CLI.** `php ops/assurance/p03.php <seed-profiles|status|sweep> --env=... --tenant-id=...
-  --workspace-id=... --operator-id=... [--signal-window-days=N] [--catalogue-window-days=N]
-  [--as-of=ISO] [--max-targets=N]`. Nothing here reaches the network.
+  --workspace-id=... --operator-id=... [--signal-window-days=N] [--max-targets=N]`. There is no
+  `--as-of` and no catalogue-window option. Exit codes: 0 complete; 1 refused; 2 usage error;
+  3 the sweep ran but was **incomplete**, so the scope must not be read as clean. Nothing here
+  reaches the network.
 
 Bounded scheduled audit jobs wait for an admitted P07 scheduling policy; none is registered.
 
-### Translation repair found by the vectors
+### Translation repairs found by P08
 
 The canonical card windows (`warn_after_ms`, `error_after_ms`, `recheck_terms_after_ms`) are SQLite
 INTEGER (64-bit). Migration 020 translated them to MariaDB `INT` (32-bit): any window over about
@@ -97,6 +146,17 @@ INTEGER (64-bit). Migration 020 translated them to MariaDB `INT` (32-bit): any w
 projected at all. Migration `245_source_card_window_width.sql` widens the three columns to `BIGINT`
 without editing 020. The same translation class also affects the inert M15 column
 `ingestion_fetch_plans.cadence_min_interval_ms`; it is recorded, not widened, because nothing reads it.
+
+The canonical id lists `audit_runs.target_object_refs` and
+`incident_evaluation_requests.related_object_refs` are unbounded SQLite TEXT; migration 010 made them
+MariaDB `TEXT` (64 KiB). The buyer-intent audit writes every violating queue-item id into both, so
+past about 1,680 violators the write was refused and the whole audit rolled back — the larger the
+breach, the less was recorded. Migration `246_assurance_refs_width.sql` widens both to `LONGTEXT`.
+`tests/integration/p08_migration_order.php` proves 245 and 246 on a database that already had every
+earlier migration applied (each applied once, nothing replayed or drifted, a second pass a no-op,
+existing rows byte-identical, the schema identical to a fresh install), and
+`tests/integration/p03_assurance_scale.php` records 1,700 violators. Other unbounded list columns
+translated to `TEXT` have not been audited for the same class.
 
 ## 5. P02/P03/P05 expansion register
 
