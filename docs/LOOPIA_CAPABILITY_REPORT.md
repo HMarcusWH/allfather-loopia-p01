@@ -257,7 +257,7 @@ The workbench shows structured escaped sections with exact JSON behind expanders
 console adds owner-safe P02/P03 detail reads plus metadata-only Monitor run reads. Tests include
 `tests/security/product_detail_reads.php`, `tests/security/monitor_administration.php`,
 `tests/security/monitor_setup_journey.php` and `frontend/console/tests/monitor-reads.test.js`.
-**Deployed-browser desktop/mobile journeys remain an operational gate**; offline tests do not satisfy it.
+**Deployed-browser desktop/mobile journeys remain an operational gate**; offline tests do not satisfy it. The exact real-host procedure is [`P09_BROWSER_ACCEPTANCE.md`](P09_BROWSER_ACCEPTANCE.md).
 
 **Released-intelligence read surfaces use governed projections.** The new Monitor workbench has
 a different purpose: it reads the scoped run journal and private content-addressed request,
