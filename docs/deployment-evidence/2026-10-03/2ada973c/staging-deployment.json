@@ -1,0 +1,120 @@
+{
+  "schema_version": "1.0",
+  "status": "PASS",
+  "release_ref": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+  "source_fingerprint": "6460ca1b44ab3147966037163e27e4f2c7e2e6a961cf06c4ec9ee0cdb084a21b",
+  "target": "staging.allfatherbi.com",
+  "previous_release": "392f48deef11380f6dccfe88f2a47ba1fd94575c",
+  "prepared_tracked_files_byte_identical": 671,
+  "console": {
+    "script": "console.VQV3PTEZ.js",
+    "style": "console.TAAHOXDD.css"
+  },
+  "sequence": [
+    "owner-approved revised order",
+    "static HTTP fence",
+    "bounded PR16 drain observation",
+    "exact-main copy with protected state preserved",
+    "30 migrations and no-op verification",
+    "actual BACKUP maintenance",
+    "native encrypted backup and isolated restore",
+    "maintenance left after verified restore"
+  ],
+  "migration_verification": {
+    "release_ref": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+    "status": "MIGRATIONS_VERIFIED_NOOP",
+    "applied": 30,
+    "newly_applied": 0,
+    "pending": 0,
+    "drifted": 0,
+    "before_after_identical": true,
+    "migration_ids": [
+      "001_identity_scope",
+      "010_governance_core",
+      "020_sources_evidence",
+      "030_p01_monitor",
+      "040_p02_entities",
+      "050_p03_catalogue_icp_leads",
+      "060_p04_distribution",
+      "070_p05_marketing",
+      "080_p07a_synthetic_outreach",
+      "090_m15_ingestion",
+      "100_m16_release_output",
+      "110_jobs_scheduler",
+      "120_platform_auth",
+      "130_provider_credentials",
+      "140_m10_stream_identity",
+      "150_m10_writer_provenance",
+      "160_authority_partial_indexes",
+      "170_platform_account_lifecycle",
+      "180_p01_source_provenance",
+      "185_p01_registration_receipts",
+      "190_bounded_model_provenance",
+      "200_monitor_runs",
+      "210_monitor_execution_controls",
+      "220_monitor_evaluation_records",
+      "225_monitor_setup_receipts",
+      "230_monitor_attempt_recovery",
+      "240_provider_rotation_events",
+      "245_source_card_window_width",
+      "246_assurance_refs_width",
+      "900_deferred_foreign_keys"
+    ],
+    "recorded_at": "2026-10-03T17:46:07.104Z"
+  },
+  "runtime_invariants": {
+    "status": "RUNTIME_INVARIANTS_VERIFIED",
+    "workspace_external_effect_guard": "PASS",
+    "access_evaluation_append_only": "PASS",
+    "probe_record_reused": true,
+    "writes_external_systems": false
+  },
+  "remote_preflight": "READY_FOR_INERT_STAGING_COPY",
+  "maintenance_after_restore": "OPEN",
+  "authority": {
+    "live_read": false,
+    "scheduler_handlers": false,
+    "external_action": false,
+    "customer_visible_output": false,
+    "production_launch_authorized": false
+  },
+  "limits": [
+    "The legacy PR16 tree lacked the new maintenance gates; its pre-upgrade drain was a bounded observation, not a retrospective lease proof.",
+    "P10 restore was into a different local target. No current-release rollback drill was executed.",
+    "Historical E1 FAIL_READABLE and E3 UNVERIFIED remain; this is inert staging under the owner-directed shared-host deviation."
+  ],
+  "sources": [
+    {
+      "local_observation": "main-release-preparation-receipt.json",
+      "sha256": "d0503b452595c1f5cbeae4af2907b6bc0139d1bf371f47984739ba967715d8a0"
+    },
+    {
+      "local_observation": "deployment-drain/receipt.json",
+      "sha256": "53ad636a742122c6b76648b2dba989a531f24e9ef9fea5f84e6a2fc060cd37ce"
+    },
+    {
+      "local_observation": "deployment-copy/receipt.json",
+      "sha256": "a206d464274bebf8d9545b78c4af284a74eebc37892f10539b7e5476f0057942"
+    },
+    {
+      "local_observation": "deployment-migrate/receipt.json",
+      "sha256": "0ecb6b856bc3e09a9e02adaf54213dcef11df9e0e2cfd6b9a5e908f7e03240d2"
+    },
+    {
+      "local_observation": "deployment-handover/receipt.json",
+      "sha256": "d75cce8f06bdb71b73571a4c2f1b0eee6cb22e0aee62eb7b4c0c79af10ab87c6"
+    },
+    {
+      "local_observation": "p10-maintenance-leave.json",
+      "sha256": "a26d8781b57c813de7a2d65a2272bf8eaaf005f3c0206c2eda1ac330d80a5d0b"
+    },
+    {
+      "local_observation": "host-qualification/main-20261003-qual01/migration-verification.json",
+      "sha256": "3333e0444855ecd79ba633cd9e2ef628acdcecf24044328ff0c401405dd1b1b8"
+    },
+    {
+      "local_observation": "host-qualification/main-20261003-qual01/runtime-invariants.json",
+      "sha256": "a6e01cb63babbca9a6b4b48f042cc28a7d50d5aa7c99a8f9cf21e61dc4ef1744"
+    }
+  ]
+}
