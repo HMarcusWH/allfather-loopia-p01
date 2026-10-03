@@ -21,6 +21,7 @@ use Allfather\Loopia\Substrate\M02\{AccessGuard,Permissions};
 final class SchedulerIdentityProvisioner
 {
     public const ROLE_KEY = MonitorPrincipal::SERVICE_ROLE_KEY;
+    public const ROLE_VERSION = MonitorPrincipal::SERVICE_ROLE_VERSION;
     public const SERVICE_CLASS = 'SYSTEM_SCHEDULER';
     public const SERVICE_PURPOSE = 'P07 recurring observation: governed capture and diff only';
 
@@ -104,13 +105,19 @@ final class SchedulerIdentityProvisioner
                 if ($current && (
                     (string) $membership['workspace_id'] !== $scope['workspace_id']
                     || $roleKey !== self::ROLE_KEY
+                    || (int) $membership['role_version'] !== self::ROLE_VERSION
                 )) {
                     return Outcome::refuse('SCHEDULER_IDENTITY_BROADER_MEMBERSHIP_PRESENT', [
                         'workspace_id' => (string) $membership['workspace_id'],
                         'role_key' => $roleKey,
+                        'role_version' => (int) $membership['role_version'],
                     ]);
                 }
-                if ((string) $membership['workspace_id'] === $scope['workspace_id'] && $roleKey === self::ROLE_KEY) {
+                if (
+                    (string) $membership['workspace_id'] === $scope['workspace_id']
+                    && $roleKey === self::ROLE_KEY
+                    && (int) $membership['role_version'] === self::ROLE_VERSION
+                ) {
                     if ($status !== 'ACTIVE') {
                         return Outcome::refuse('SCHEDULER_MEMBERSHIP_NOT_ACTIVE', [
                             'status' => $status,
@@ -389,9 +396,9 @@ final class SchedulerIdentityProvisioner
 
         $role = $this->db->one(
             "SELECT role_id, role_version FROM roles
-             WHERE role_key = ? AND status = 'ACTIVE'
-             ORDER BY role_version DESC LIMIT 1",
-            [self::ROLE_KEY]
+             WHERE role_key = ? AND role_version = ? AND status = 'ACTIVE'
+             LIMIT 1",
+            [self::ROLE_KEY, self::ROLE_VERSION]
         );
         if ($role === null) {
             return Outcome::refuse('SCHEDULER_ROLE_NOT_DEFINED');
