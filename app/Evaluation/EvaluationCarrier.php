@@ -222,7 +222,10 @@ final class EvaluationCarrier
 
     private static function value(Outcome $outcome): mixed
     {
-        self::need($outcome->isOk(), $outcome->reasonCode() ?? 'EVALUATION_CARRIER_OWNER_REFUSED');
+        if (!$outcome->isOk()) {
+            throw new \DomainException($outcome->reasonCode());
+        }
+
         return $outcome->value();
     }
 
