@@ -58,24 +58,26 @@ $plan = $value($carrier->plan($scope));
 Assert::same('CREATE', $plan['carrier_action'], 'the first carrier is planned explicitly');
 Assert::same('CREATE', $plan['descriptor_action'], 'the missing model descriptor is planned');
 Assert::same([], $plan['definition']['source_scope'], 'synthetic evaluation invents no source rights');
+Assert::same([], $plan['definition']['output_classes'], 'synthetic evaluation invents no product-output authority');
 Assert::same(false, $plan['execution_authority_created'], 'a plan grants no native execution');
 Assert::same($plan, $value($carrier->plan($scope)), 'allowed plans are stable and have no clock-only digest churn');
 Assert::same($before, $snapshot(), 'allowed planning writes no table at all');
 Assert::same('EVALUATION_CARRIER_PLAN_CHANGED', $carrier->apply($scope, str_repeat('0', 64))->reasonCode(), 'a forged digest refuses');
 Assert::same($before, $snapshot(), 'a forged digest writes nothing');
-Assert::throws(function () use ($db, $carrier, $scope, $plan, $value): void {
+$rolledBack = Assert::throws(function () use ($db, $carrier, $scope, $plan, $value): void {
     $db->transaction(function () use ($carrier, $scope, $plan, $value): void {
         $value($carrier->apply($scope, $plan['plan_digest']));
         throw new RuntimeException('intentional outer rollback');
     });
 }, RuntimeException::class, 'a caller can roll back the whole nested composition');
+Assert::same('intentional outer rollback', $rolledBack?->getMessage(), 'composition succeeded before the deliberately forced outer rollback');
 Assert::same($before, $snapshot(), 'outer rollback restores every table including owner audit records');
 $made = $value($carrier->apply($scope, $plan['plan_digest']));
 Assert::same('SYNTHETIC_CARRIER_CONFIGURED', $made['status'], 'existing owners configure the carrier');
 Assert::same($plan['plan_digest'], $made['reviewed_plan_digest'], 'the receipt preserves the approved before-state digest');
 Assert::same([false, false, 0], [$made['execution_authority_created'], $made['prompt_approval_created'], $made['provider_calls']], 'configuration is not approval or invocation');
 $writes = $changed($before, $snapshot());
-$permittedWrites = ['access_evaluation_records', 'runtime_host_instances', 'runtime_adapter_instances', 'runtime_host_bindings', 'governed_tools', 'governed_tool_operations', 'runtime_host_tool_refs', 'missions', 'mission_status_transitions', 'valkyries', 'capability_contracts', 'forbidden_action_clauses', 'tool_rights', 'output_class_bindings', 'mission_assignments', 'valkyrie_authority_evaluations'];
+$permittedWrites = ['access_evaluation_records', 'runtime_host_instances', 'runtime_adapter_instances', 'runtime_host_bindings', 'governed_tools', 'governed_tool_operations', 'runtime_host_tool_refs', 'missions', 'mission_status_transitions', 'valkyries', 'capability_contracts', 'forbidden_action_clauses', 'tool_rights', 'mission_assignments', 'valkyrie_authority_evaluations'];
 Assert::same([], array_values(array_diff($writes, $permittedWrites)), 'the complete database diff contains only the fixed owner composition');
 $governance = $made['governance'];
 Assert::notSame($governance['author']['valkyrie_id'], $governance['critic']['valkyrie_id'], 'author and critic are distinct');
@@ -83,12 +85,14 @@ Assert::same($governance['author']['mission_id'], $governance['critic']['mission
 Assert::same(1, $count('missions'), 'only one mission is made');
 Assert::same(2, $count('mission_assignments'), 'only two assignments are made');
 Assert::same('[]', $db->scalar('SELECT allowed_source_scope_ids FROM missions'), 'the mission has no source scope');
+Assert::same('[]', $db->scalar('SELECT permitted_output_classes FROM missions'), 'the mission has no product-output scope');
+Assert::same(0, (int) $db->scalar("SELECT COUNT(*) FROM mission_assignments WHERE assigned_output_classes <> '[]'"), 'neither assignment has product-output scope');
 Assert::same('["ANALYZE"]', $db->scalar('SELECT requested_action_classes FROM missions'), 'mission ceiling is analyze only');
 foreach ($governance as $command) {
     $eligible = (new Eligibility($db, $clock))->evaluateToolRight($command + ['requested_operation' => ModelRegistration::OPERATION_KEY, 'purpose' => 'MODEL_EVALUATION']);
     Assert::same('PERMITTED_BY_CONTRACT', $eligible['decision'], 'actual M03 eligibility accepts only the prepared model tool');
 }
-foreach (['provider_credentials', 'provider_model_attempts', 'monitor_execution_grants', 'monitor_runs', 'monitor_evaluation_runs', 'monitor_setup_receipts', 'competitors', 'source_license_cards', 'evidence_objects', 'released_briefings'] as $table) {
+foreach (['output_class_bindings', 'provider_credentials', 'provider_model_attempts', 'monitor_execution_grants', 'monitor_runs', 'monitor_evaluation_runs', 'monitor_setup_receipts', 'competitors', 'source_license_cards', 'evidence_objects', 'released_briefings'] as $table) {
     Assert::same(0, $count($table), 'no incidental ' . $table . ' is created');
 }
 
@@ -110,7 +114,6 @@ $db->run("UPDATE workspace_memberships SET status='REVOKED' WHERE principal_id=?
 Assert::same('EVALUATION_CARRIER_SETUP_DENIED', $carrier->apply($scope, $reuse['plan_digest'])->reasonCode(), 'even reuse rechecks current M02 authority');
 // Negative fixture restoration only; the carrier contains no role or revival writer.
 $db->run("UPDATE workspace_memberships SET status='ACTIVE' WHERE principal_id=? AND role_id=?", [$scope['operator_id'], $v2]);
-$before = $snapshot();
 $sibling = Seed::tenantWorkspace($db, $clock, 'carrier-foreign');
 $foreign = array_replace($scope, ['workspace_id' => $sibling['workspace_id']]);
 Assert::same('EVALUATION_CARRIER_SETUP_DENIED', $carrier->plan($foreign)->reasonCode(), 'a foreign selector is not a scope grant');
@@ -171,7 +174,7 @@ Assert::same('EVALUATION_CARRIER_STATE_CONFLICT', $carrier->plan($scope)->reason
 Assert::same('EVALUATION_CARRIER_STATE_CONFLICT', $carrier->apply($scope, $reuse['plan_digest'])->reasonCode(), 'apply cannot recreate or revive it');
 Assert::same($before, $snapshot(), 'refusal preserves all revoked state');
 $source = (string) file_get_contents($root . '/app/Evaluation/EvaluationCarrier.php');
-foreach (["->insert(", "->run(", 'CurlModelTransport', 'FetchTransport', 'SourceReadRegistration', 'PromptApprovalStore', 'ExecutionGrantStore', 'ReleaseStages'] as $absent) {
+foreach (["->insert(", "->run(", 'CurlModelTransport', 'FetchTransport', 'SourceReadRegistration', 'PromptApprovalStore', 'ExecutionGrantStore', 'ReleaseStages', 'bindOutputClass'] as $absent) {
     Assert::false(str_contains($source, $absent), 'carrier writes only through existing owners and contains no ' . $absent);
 }
 $cliSource = (string) file_get_contents($root . '/ops/evaluation/carrier.php');
