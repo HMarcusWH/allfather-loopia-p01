@@ -8,14 +8,15 @@ backup and successful local v1 recovery/v2-only refusal; full live key rotation 
 
 | Question | Current answer | Evidence |
 | --- | --- | --- |
-| **Source** — what application code is present? | The merged application baseline remains exact `2ada973c`; current repository main `d4ca9adc` adds evidence-only filings. This branch additionally carries the **unmerged P07 source candidate**; TenantAdmin v2 and later packages remain separate | Git history; 31 candidate migrations |
-| **Tested** — which exact commit was qualified? | `2ada973c` passed hosted run `37128711802`: both MariaDB 10.6/10.11 lanes 8,942/0/0. Its actual Loopia strict suite also passed 8,942/0/0 on the separate qualification database | Filed hosted and host conformance artifacts |
+| **Source** — what application code is present? | The source merge train is complete through main `ab6dc215`: TenantAdmin v2, EvaluationCarrier, P07 recurrence, P09 administration/views and inert P12 preflight scaffolding are merged. This backlog PR changes documentation only | Git history; 31 migrations; `POST_MERGE_TEST_BACKLOG.md` |
+| **Tested** — which exact commit was qualified? | Historical package candidates have green hosted receipts, but the exact source-complete merged main has **not yet** completed a fresh end-to-end qualification after the merge train; B0 tracks that requirement | Historical CI receipts; `POST_MERGE_TEST_BACKLOG.md` B0 |
 | **Deployed** — which release runs on staging? | `2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a`, inert, with all 30 migrations and the exact prepared source fingerprint | Filed deployment, probe and HTTPS smoke artifacts |
 | **Activated** — which missions may run? | No current/future execution grant; no Monitor run, source capture or model attempt in the measured counters. Scheduler handlers remain empty. ROAD_TEST_001 has not executed | Inert preflight and Monitor smoke counter readbacks |
 
 ```text
 canonical_pin                      = c6d9cf9a7a1001b001ca6118999e9cb75c831c4d
 implementation_baseline_merge      = 0b8c17e9a3457baf25f25babb43d61bc71633f6a
+source_merge_train_baseline          = ab6dc21590ef3ef89383c03846b2fed862474e4c
 deployed_staging_release           = 2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a
 evidence_records                   = 21
 candidate_migrations               = 31
@@ -24,23 +25,18 @@ candidate_migrations               = 31
 ## Source and qualification
 
 The canonical pin is unchanged. Selected later canonical repairs remain documented separately in
-`reconciliation/`; reading a newer upstream head does not advance the pin. Canonical PR369's exact
-scheduler-observer authority is adopted at `411aba91423265e578813afbc8f64318320ef08d`, without advancing
-the global pin. The implementation baseline merge remains PR30 `0b8c17e9`; `2ada973c` is the exact
-reviewed, prepared and deployed application object. Repository main `d4ca9adc` adds evidence-only
-filings. This branch additionally carries P07 source: bounded recurring observation, migration 250,
-the explicit v1 `ROLE_SYSTEM_SCHEDULER_OBSERVER` seat, and governed scheduler-principal
-plan/provision/status/stand-down. None of that is merged, deployed, admitted or activated yet.
+`reconciliation/`; reading a newer upstream head does not advance the pin. Canonical scheduler-observer
+v1 authority and TenantAdmin v2 are merged upstream and selectively reconciled here without advancing
+the global pin. The historical implementation baseline remains PR30 `0b8c17e9`; `2ada973c` is still the
+exact reviewed and deployed staging application object. The source merge train then completed through
+`ab6dc21590ef3ef89383c03846b2fed862474e4c`: PR36 TenantAdmin v2, PR39 EvaluationCarrier, PR32 bounded
+recurrence, PR33 operator administration/owner-safe views and PR34 inert production-preflight
+scaffolding are all merged **as source**. None of those later source merges proves deployment,
+activation, model-quality acceptance, recurrence admission, production GO or customer visibility.
 
-- **P09 source-candidate state:** stacked draft PR33 adds scriptless Monitor setup/schedule administration,
-  owner-safe P02/P03 detail reads, metadata-only Monitor run reads and the richer escaped workbench.
-  Its web authority vocabulary remains narrower than the private CLIs and it admits no execution or
-  schedule. Hosted requalification is required on this synchronized P07 base; deployed desktop/mobile
-  browser acceptance remains an operational P09 gate.
-
-**Candidate schema:** 31 migration files: the deployed 30 plus unmerged P07
-`250_monitor_schedule_control`. Staging still has exactly the original 30 applied; its next migration
-run was a no-op, and drift/pending counts were zero before this P07 source candidate existed. PHP 8.5.9 and MariaDB 10.11.19 were measured on
+**Candidate schema:** 31 migration files: the deployed staging release still has the original 30,
+while merged source adds P07 `250_monitor_schedule_control`. Staging has not yet been updated to this
+source-complete tree; its previous migration run was a no-op with drift/pending counts zero. PHP 8.5.9 and MariaDB 10.11.19 were measured on
 Loopia. The host strict suite used `.env.qualification` and a separately verified database/user;
 it did not truncate the runtime database.
 
@@ -119,14 +115,14 @@ No backup archive, plaintext dump, recovery identity or credential payload is co
 
 ## Activation and remaining work
 
-P06 still requires the separate reviewed model evaluation, exact prompt/admission records and a
-bounded owner-authorized road test. Storing a provider credential is not activation. Product prompt
-records remain inactive/offline-tested until their explicit evaluation and approval path succeeds.
-Scheduler transport remains UNVERIFIED and the deployed `2ada973c` handler registry remains empty.
-This P07 source candidate adds the bounded scheduler handler and explicit service seat, but no
-recurring schedule is admitted and no deployment/activation claim follows from the source branch.
-P03 assurance audits were deployed as source but are not scheduled or run against staging. P09/P12
-and optional expansion work remain separate; open package PRs are not represented as merged or deployed.
+All planned source packages are merged. The remaining work is operational testing and evidence, not
+another source package train. The complete sequence now lives in
+[`POST_MERGE_TEST_BACKLOG.md`](POST_MERGE_TEST_BACKLOG.md): exact merged-main qualification, inert staging
+update, bounded real model evaluation, ROAD_TEST_001, immediate stand-down/replay, optional separately
+authorized P07 recurrence acceptance, P09 desktop/mobile acceptance, populated-history restore, real
+key-rotation rehearsal and P12 negative production-preflight acceptance. Storing a provider credential
+is not activation. The deployed `2ada973c` scheduler registry remains empty and no source merge admits a
+schedule, grant, provider call, production GO or customer-visible output.
 
 Registry evidence may support observed deployment/conformance claims without changing a lock.
 All stored flags below are unchanged; this filing creates no authority transition:
