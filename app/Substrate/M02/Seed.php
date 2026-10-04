@@ -53,16 +53,27 @@ final class Seed
                 }
             }
 
-            foreach (Permissions::ROLES as $roleKey => $definition) {
-                $existing = $tx->one('SELECT role_id FROM roles WHERE role_key = ? AND role_version = 1', [$roleKey]);
+            foreach (Permissions::roleVersionDefinitions() as $definition) {
+                $roleKey = $definition['role_key'];
+                $roleVersion = $definition['role_version'];
+                $existing = $tx->one('SELECT role_id, display_name FROM roles WHERE role_key = ? AND role_version = ?', [$roleKey, $roleVersion]);
                 if ($existing !== null) {
+                    $actual = array_column($tx->all('SELECT permission_key FROM role_permissions WHERE role_id = ? ORDER BY permission_key', [$existing['role_id']]), 'permission_key');
+                    $expected = $definition['permissions'];
+                    // Compare in PHP byte order, independent of the database collation.
+                    sort($actual, SORT_STRING);
+                    sort($expected, SORT_STRING);
+                    if ($actual !== $expected || $existing['display_name'] !== $definition['display_name']) {
+                        throw new \LogicException("role {$roleKey} version {$roleVersion} definition conflicts with canonical vocabulary");
+                    }
+                    // Status and memberships belong to their explicit lifecycle. Never reactivate.
                     continue;
                 }
                 $roleId = Ids::new();
                 $tx->insert('roles', [
                     'role_id' => $roleId,
                     'role_key' => $roleKey,
-                    'role_version' => 1,
+                    'role_version' => $roleVersion,
                     'schema_version' => '1',
                     'display_name' => $definition['display_name'],
                     'purpose_summary' => null,
@@ -82,9 +93,9 @@ final class Seed
         return ['permissions' => $permissions, 'roles' => $roles];
     }
 
-    public function roleIdFor(string $roleKey): ?string
+    public function roleIdFor(string $roleKey, int $roleVersion = 1): ?string
     {
-        $row = $this->db->one('SELECT role_id FROM roles WHERE role_key = ? AND role_version = 1', [$roleKey]);
+        $row = $this->db->one('SELECT role_id FROM roles WHERE role_key = ? AND role_version = ?', [$roleKey, $roleVersion]);
 
         return $row === null ? null : (string) $row['role_id'];
     }

@@ -30,7 +30,7 @@ $clock = Harness::clock();
 $vocab = new M02Seed($db, $clock);
 $seeded = $vocab->ensureVocabulary();
 Assert::true($seeded['permissions'] > 50, 'the permission vocabulary seeds');
-Assert::same(14, $seeded['roles'], 'all 14 canonical roles seed');
+Assert::same(15, $seeded['roles'], 'all 14 legacy roles and additive TenantAdmin v2 seed');
 
 // Idempotent: a redeploy must not duplicate the vocabulary.
 $again = $vocab->ensureVocabulary();
