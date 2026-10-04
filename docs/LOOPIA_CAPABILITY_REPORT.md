@@ -7,7 +7,7 @@ Written to be read by someone deciding whether to launch. The uncomfortable part
 
 For the current source, tested, deployed and activated state in one place, read
 [`MVP_RELEASE_STATE.md`](MVP_RELEASE_STATE.md) first; this report describes capability, and the
-remaining sequence is [`MONITOR_COMPLETION_PLAN.md`](MONITOR_COMPLETION_PLAN.md).
+remaining sequence is [`MONITOR_COMPLETION_PLAN.md`](MONITOR_COMPLETION_PLAN.md). The post-merge operational test queue is [`POST_MERGE_TEST_BACKLOG.md`](POST_MERGE_TEST_BACKLOG.md).
 
 ---
 
@@ -44,7 +44,7 @@ nowhere else. M15 governed ingestion is present with the guarded egress path.
 | P05 | marketing drafts, claim citations, variants, admission, internal release, three audits |
 | P07-A | consent, PII firewall, outreach admission, approval, frozen artifacts, synthetic dispatch, five audits |
 
-**Storage** — 31 migrations in this unmerged P07 candidate on top of the merged PR30 baseline, MariaDB 10.6+ / InnoDB, with the invariants held as CHECK constraints,
+**Storage** — 31 migrations in merged source, MariaDB 10.6+ / InnoDB, with the invariants held as CHECK constraints,
 append-only triggers and the database-enforced uniqueness translations named in
 `SCHEMA_REACHABILITY.md`. **Loopia Företag is MariaDB 10.6**; 10.11 is Företag Plus only. Both are
 verified against real servers in the test matrix — see `CONFORMANCE_MATRIX.md` §1.
@@ -89,10 +89,10 @@ Working end to end today, given seeded authority:
 
 ## 4. Operational readiness
 
-The current merged implementation baseline has additional migrations and operational controls. PR16 staging
-evidence proves the prior 19-migration release only; candidate migration execution, repeatability
-and host qualification must be evidenced for the new exact release before claiming deployment
-readiness. P05 made named MariaDB advisory locking load-bearing for Monitor run/source serialization.
+The source merge train is complete through `ab6dc215`, with 31 migrations and the later operational
+controls present in source. The last evidenced staging release is still `2ada973c` with 30 migrations;
+therefore migration 250 execution, repeatability and host qualification must be evidenced for the new
+exact release before claiming deployment readiness. P05 made named MariaDB advisory locking load-bearing for Monitor run/source serialization.
 P10 now also makes **filesystem advisory locking (`flock`) load-bearing** for backup quiescence:
 ordinary runtime holds shared leases and maintenance takes an exclusive drain lease. The P10 probe
 therefore demonstrates both lock families separately. PR16 host evidence predates both additions,
@@ -107,10 +107,10 @@ Its implementation and static/fixture checks do not update the deployed PR16 cla
 
 | Area | State |
 | --- | --- |
-| schema migrations | 31 files in candidate; deployed-release count is recorded separately |
+| schema migrations | 31 files in merged source; deployed staging remains on 30 until the next inert update |
 | authority seeding | `Permissions` vocabulary + role seeds; product registrations provision their selected tenant capabilities |
 | audit profiles | created on demand per category |
-| CI | latest merged-main code qualification: PR30 `0b8c17e9`, hosted push run 37127292912, PHP 8.2.34, MariaDB 10.6.28/10.11.19 both 8,942/0/0; foundation, release preparation and aggregate qualification PASS. This is CI evidence only, not Loopia host proof. |
+| CI | historical package candidates have green hosted receipts, but exact source-complete main after the merge train still needs a fresh end-to-end qualification (post-merge backlog B0). Historical receipts remain evidence for their exact trees only. |
 | runbook | `DEPLOYMENT_RUNBOOK.md` for the mechanics, `BETA_RUNBOOK.md` for the sequence |
 | rollback | PR16 to PR15 to PR16 drill PASS for named immutable history and request-log prefix; no populated M10 stream or full database restore exercised |
 | host qualification | PR16 actual Loopia strict suite 5,552/0/0, probes, N/O/P and browser checks PASS under the staging deviation; **current P10 filesystem-flock/native backup-import capabilities are not yet host-qualified**; E.1 FAIL_READABLE, E.3 UNVERIFIED |
