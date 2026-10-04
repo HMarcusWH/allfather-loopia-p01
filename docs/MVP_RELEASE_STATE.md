@@ -32,7 +32,7 @@ filings. This branch additionally carries P07 source: bounded recurring observat
 the explicit v1 `ROLE_SYSTEM_SCHEDULER_OBSERVER` seat, and governed scheduler-principal
 plan/provision/status/stand-down. None of that is merged, deployed, admitted or activated yet.
 
-**Candidate schema:** this branch contains 31 migration files: the deployed 30 plus unmerged P07
+**Candidate schema:** 31 migration files: the deployed 30 plus unmerged P07
 `250_monitor_schedule_control`. Staging still has exactly the original 30 applied; its next migration
 run was a no-op, and drift/pending counts were zero before this P07 source candidate existed. PHP 8.5.9 and MariaDB 10.11.19 were measured on
 Loopia. The host strict suite used `.env.qualification` and a separately verified database/user;
