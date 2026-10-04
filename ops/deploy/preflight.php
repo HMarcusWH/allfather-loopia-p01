@@ -55,6 +55,8 @@ $fail = static function (string $message, int $code = 2): never {
  * deployment is not authorized, the pinned canonical identity vocabulary defines no production
  * tenant/workspace/environment class, and a preflight that offered the mode would be the first
  * half of a deployment path nobody has granted. See docs/LOOPIA_CAPABILITY_REPORT.md §5.
+ * `ops/deploy/production-preflight.php` (P12) is a separate, read-only REPORT of every missing
+ * production prerequisite; it has no deployment path and cannot grant GO.
  */
 $args = BetaCli::parseArgs($argv, ['env', 'release-ref', 'mode'], $fail);
 

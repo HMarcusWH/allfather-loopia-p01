@@ -134,6 +134,8 @@ an anonymous host record speak for a host.
 | `STAGING_DEPLOYMENT` | a release copied to the staging host and answering |
 | `LOOPIA_PROBE_001` | the host capability probe run **on the actual host**, not in a container |
 | `CROSS_SITE_ISOLATION` | the pre-secret canary and HTTP private-path probes, run on the real host |
+| `FULL_RESTORE_DRILL` | a native encrypted backup restored into a different initially empty target and fully verified; operational recovery evidence only |
+| `KEY_ROTATION_DRILL` | a versioned credential-key rotation/recovery drill proving retained-backup decryptability and v2-only refusal; operational recovery evidence only |
 | `STAGING_SMOKE` | the deployed site exercised over HTTPS from outside |
 | `ROLLBACK_DRILL` | a rollback and stand-down actually performed and verified |
 | `LIVE_READ_ACTIVATION` | live read wired and a real fetch performed, for one exact release |
@@ -212,22 +214,24 @@ lock asserts a claim the registry does not support (`CLAIM_WITHOUT_EVIDENCE`). I
 
 ## 8. Current state
 
-The registry carries 21 records: historical PR13/PR15/PR16 results, hosted-CI history, and the
-3 October actual deployment and qualification of exact main `2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a`.
-Both hosted MariaDB lanes and the separate actual Loopia strict suite measured 8,942/0/0.
-The preserved Monitor01 wrapper-report failure remains distinct from the fresh Monitor02 PASS.
+The registry carries 15 reviewed records: PR13/PR15 history, the completed PR16 inert staging
+qualification, and hosted-CI conformance records through merged PR30. The running application release is
+`392f48deef11380f6dccfe88f2a47ba1fd94575c` on `staging.allfatherbi.com`; this evidence-only filing
+does not substitute its own commit for that qualified runtime object.
 
-The registry supports observed conformance, staging deployment and paired host capability. It does
-not support live-read activation or ROAD_TEST_001 execution. The historical isolation FAIL remains;
-E.1 is FAIL_READABLE and E.3 UNVERIFIED under the owner-directed inert-staging deviation.
-All stored lock flags are unchanged. Evidence supports observations without creating authority.
+The registry supports `conformance_complete`, `staging_deployed` and
+`loopia_capability_validated`; the latest code-conformance record is merged PR30 `0b8c17e9` from
+hosted push run `37127292912`, while the latest host/deployment records remain PR16. It does not support live-read activation or ROAD_TEST_001 execution.
+The historical `CROSS_SITE_ISOLATION` FAIL is retained: E.1 is FAIL_READABLE and E.3 is UNVERIFIED.
+The supported staging result is explicitly limited by the owner-directed staging deviation and
+cannot qualify production hosting isolation.
 
-P10 native backup/off-host retention/clean-target restore is filed as supplemental evidence, not a
-new registry kind or a rollback drill. The first snapshot had no populated M10/Monitor history or
-provider credential row; P11 remained NOT_EXERCISED. A provider credential stored afterward is
-outside that first restore proof. See [the dated operations filing](STAGING_OPERATIONS_EVIDENCE_2026-10-03.md)
-and [current release state](MVP_RELEASE_STATE.md) for exact results and open limits.
+The lock is unchanged: all five stored operational states and all four permanent authority locks
+remain false, and `no_external_charge_executed` remains true. This follows the one-way rule:
+evidence may support a claim without automatically asserting it in the lock.
 
+See [the Gate R filing](STAGING_GATE_R_EVIDENCE_2026-09-26.md) for the exact release, source hashes,
+measured results, failed attempts, rollback/restore and remaining limits.
 
 ## Backup/restore evidence (P10)
 
@@ -241,9 +245,11 @@ read-only retained-output render models. Those facts may establish what was back
 clean-target rehearsal reproduced; they may not make `production_launch_authorized`,
 `owner_go_granted`, `customer_visible_output_authorized` or any execution grant true.
 
-The repository evidence registry does not yet invent a BACKUP or RESTORE record kind. P10 tooling
-therefore emits its own sanitized manifest and verification result; adding a registry kind is a
-separate versioned schema review. The encrypted archive, plaintext dump/evidence tree and recovery
+The registry now has two deliberately non-authorizing recovery kinds: `FULL_RESTORE_DRILL` and
+`KEY_ROTATION_DRILL`. They support none of the five claim-boundary booleans; they exist so a later
+production preflight can require reviewed production recovery observations without confusing those
+observations with owner GO. P10/P11 tooling still emits its own sanitized manifest/verification
+result, and a record is filed only after a real drill exists. The encrypted archive, plaintext dump/evidence tree and recovery
 identity are never registry payloads. A failed restore rehearsal must remain a failed observation,
 and a successful one proves only that the selected encrypted backup was imported into an explicitly
 empty, different target and reproduced its database/private-artifact/request-log/governed-history

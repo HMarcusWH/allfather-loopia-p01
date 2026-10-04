@@ -504,6 +504,17 @@ Assert::equalsList(
     $supports([$record(['kind' => 'ROLLBACK_DRILL', 'environment' => 'staging'])]),
     'a rollback drill supports none of the five on its own — it is filed, not inferred from',
 );
+Assert::equalsList(
+    [],
+    $supports([$record(['kind' => 'FULL_RESTORE_DRILL', 'environment' => 'production', 'target' => 'prod.example.test'])]),
+    'a full restore drill is recovery evidence only and supports no claim-boundary boolean',
+);
+Assert::equalsList(
+    [],
+    $supports([$record(['kind' => 'KEY_ROTATION_DRILL', 'environment' => 'production', 'target' => 'prod.example.test'])]),
+    'a key rotation drill is recovery evidence only and supports no claim-boundary boolean',
+);
+
 
 // ============================================================ nothing may write the governed files
 

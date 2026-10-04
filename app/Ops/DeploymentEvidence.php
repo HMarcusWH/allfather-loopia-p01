@@ -62,6 +62,8 @@ final class DeploymentEvidence
     public const KINDS = [
         'CONFORMANCE',
         'CROSS_SITE_ISOLATION',
+        'FULL_RESTORE_DRILL',
+        'KEY_ROTATION_DRILL',
         'LIVE_READ_ACTIVATION',
         'LIVE_READ_STAND_DOWN',
         'LOOPIA_PROBE_001',

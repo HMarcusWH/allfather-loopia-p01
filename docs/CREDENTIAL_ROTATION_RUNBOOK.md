@@ -180,7 +180,9 @@ successor mission-configuration path before proposing the new grant.
 ## 10. Evidence and authority boundary
 
 provider_credential_rotation_events is an append-only operational receipt. It stores IDs, versions and
-digests only.
+digests only. A completed recovery/rotation rehearsal may later be referenced by a separate reviewed
+`KEY_ROTATION_DRILL` deployment-evidence record; the row receipts are inputs to that evidence, not
+the registry record itself.
 
 It is not:
 
