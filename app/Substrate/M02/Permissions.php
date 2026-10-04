@@ -230,6 +230,38 @@ final class Permissions
         ],
     ];
 
+    /**
+     * Additive canonical role successors. The legacy ROLES map remains version 1.
+     * TenantAdmin v2 implements the three setup-admin permissions assigned by M02 specification
+     * permission-to-role table (doc 11). Defining a successor neither edits v1 nor upgrades any membership.
+     *
+     * @var list<array{role_key: string, role_version: int, display_name: string, permissions: list<string>}>
+     */
+    public const VERSIONED_ROLES = [
+        [
+            'role_key' => 'ROLE_TENANT_ADMIN',
+            'role_version' => 2,
+            'display_name' => 'Tenant Administrator',
+            'permissions' => [
+                'tenant.read', 'tenant.administer', 'workspace.read', 'workspace.create',
+                'workspace.administer', 'identity.read', 'identity.register',
+                'identity.suspend_revoke', 'role.assign', 'role.revoke',
+                'runtime_host_binding.administer', 'valkyrie.register', 'valkyrie.administer_contract',
+            ],
+        ],
+    ];
+
+    /** @return list<array{role_key: string, role_version: int, display_name: string, permissions: list<string>}> */
+    public static function roleVersionDefinitions(): array
+    {
+        $definitions = [];
+        foreach (self::ROLES as $key => $definition) {
+            $definitions[] = ['role_key' => $key, 'role_version' => 1, ...$definition];
+        }
+
+        return [...$definitions, ...self::VERSIONED_ROLES];
+    }
+
     public static function isExcluded(string $permission): bool
     {
         return in_array($permission, self::EXCLUDED, true);
@@ -249,7 +281,7 @@ final class Permissions
     public static function allRolePermissions(): array
     {
         $out = [];
-        foreach (self::ROLES as $role) {
+        foreach (self::roleVersionDefinitions() as $role) {
             foreach ($role['permissions'] as $permission) {
                 $out[$permission] = true;
             }
