@@ -279,8 +279,18 @@ preg_match(
     $claimUpdate,
 );
 Assert::true($claimUpdate !== [], 'the conditional claim statement is found');
+// Since P07 the state (and, for a typed job, its type) is re-checked through the SAME eligibility
+// predicate the candidate SELECT used, so the two statements cannot drift apart. The predicate itself
+// must still test state for every branch.
+preg_match('/private function eligibility\(.*?\n    \}/s', $machineSource, $eligibilitySource);
+Assert::true($eligibilitySource !== [], 'the shared claim eligibility predicate is found');
+Assert::same(
+    substr_count($eligibilitySource[0] ?? '', "\$clauses[] ="),
+    substr_count($eligibilitySource[0] ?? '', 'state IN ('),
+    'every eligibility branch — legacy and typed — re-checks the job state',
+);
 foreach ([
-    'state IN' => 'the state is re-checked, so a job that has since become terminal is not claimed',
+    '({$eligibility})' => 'the state is re-checked, so a job that has since become terminal is not claimed',
     'run_after <= ?' => 'the backoff is re-checked, so a just-failed job is not claimed before it elapses',
     'attempt_count < max_attempts' => 'the attempt budget is re-checked, so a claim cannot spend an exhausted one',
     'lease_expires_at <' => 'and the lease is re-checked, so two schedulers cannot both hold one job',

@@ -17,7 +17,7 @@ use Allfather\Loopia\Substrate\M06\Gateway;
 use Allfather\Loopia\Substrate\M08\PolicySets;
 use Allfather\Loopia\Substrate\M10\DecisionLedger;
 use Allfather\Loopia\Substrate\M16\ReleaseOutput;
-use Allfather\Loopia\Workflow\{ContextEnvelope,ExecutionAdmission,ExecutionGrantStore,MissionConfiguration,MonitorService,OwnerDecisionRegistry,ReleaseStages,RunArtifacts,RunJournal,SourceCaptureStage};
+use Allfather\Loopia\Workflow\{ContextEnvelope,ExecutionAdmission,ExecutionGrantStore,MissionConfiguration,MonitorService,OwnerDecisionRegistry,ReleaseStages,RunArtifacts,RunJournal,ScheduleService,SourceCaptureStage};
 
 require_once __DIR__ . '/MonitorModelFixture.php';
 
@@ -88,7 +88,7 @@ final class ExecutionFixture
     }
 
     /** The native composition, built the way MonitorFactory builds it, with a network-free transport. */
-    public static function service(Database $db, Clock $clock, array $f, FetchTransport $source, ModelTransport $model, PromptSelectionResolver $resolver, ExecutionAdmission $admission, bool $nativeEnabled = true): MonitorService
+    public static function service(Database $db, Clock $clock, array $f, FetchTransport $source, ModelTransport $model, PromptSelectionResolver $resolver, ExecutionAdmission $admission, bool $nativeEnabled = true, ?ScheduleService $schedules = null): MonitorService
     {
         $gateway = new Gateway($db, $clock, new AccessGuard($db, $clock), new Eligibility($db, $clock), new Invocation($db, $clock));
         $evidence = new EvidenceSpine($db, $clock);
@@ -97,11 +97,11 @@ final class ExecutionFixture
         return new MonitorService($db, $clock, new RunJournal($db, $clock), new MissionConfiguration($db, $clock),
             new SourceCaptureStage($db, $clock, new Capture($db, $clock, $gateway, $evidence), $evidence, $f['evidence_store'], $context, $source, new FixedHostResolver(['sources.example' => ['93.184.216.34']])),
             new ChangeDetection($db, $clock, $evidence), new ModelExecutor($db, $clock, $gateway, $f['credential_store'], $model, $context, new ModelArtifactStore($db, $clock, $f['evidence_store']), $resolver, $admission),
-            new RunArtifacts($f['evidence_store']), new ReleaseStages($db, $clock), $context, false, $nativeEnabled, $resolver, $admission);
+            new RunArtifacts($f['evidence_store']), new ReleaseStages($db, $clock), $context, false, $nativeEnabled, $resolver, $admission, $schedules);
     }
 
     /** Write a decision document where the registry looks, and return its ref and SHA-256. */
-    public static function decision(array $fx, array $purposes, array $prompts = [], array $grantDigests = [], string $name = ''): array
+    public static function decision(array $fx, array $purposes, array $prompts = [], array $grantDigests = [], string $name = '', ?array $scheduleDigests = null): array
     {
         $name = $name !== '' ? $name : 'decision-' . substr(Ids::new(), 0, 8) . '.json';
         $bytes = json_encode([
@@ -109,7 +109,7 @@ final class ExecutionFixture
             'decided_by' => 'Synthetic test owner', 'decided_at' => '2026-01-01T00:00:00Z',
             'canonical_authority_ref' => 'test-only authority standing in for a reviewed commit',
             'tenant_id' => $fx['scope']['tenant_id'], 'workspace_id' => $fx['scope']['workspace_id'], 'purposes' => $purposes,
-            'authorizes' => ['prompt_approvals' => $prompts, 'execution_grants' => $grantDigests],
+            'authorizes' => ['prompt_approvals' => $prompts, 'execution_grants' => $grantDigests] + ($scheduleDigests === null ? [] : ['monitor_schedules' => $scheduleDigests]),
             'disclosure_scope' => 'Synthetic fixture content only.', 'retention_scope' => 'Test database only.',
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         file_put_contents($fx['decision_dir'] . '/' . $name, $bytes);

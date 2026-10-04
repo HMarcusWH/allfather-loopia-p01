@@ -56,7 +56,29 @@ final class JobMachine
         'ABANDONED' => [],
     ];
 
-    public const TERMINAL_STATES = ['VISIBLE', 'ABANDONED'];
+    /**
+     * Job types with their OWN small graph (P07), instead of the source-monitoring lifecycle above.
+     *
+     * A MONITOR_STEP job advances one scheduled occurrence through the Monitor's capture-and-compare
+     * stages in a single claim, then rests. WAITING_FOR_OPERATOR is a SUCCESSFUL resting state — the
+     * run waits at the human request-inspection boundary — and is distinct from FAILED and from any
+     * release. SETTLED means the occurrence has its final outcome (baseline, no change, blocked or
+     * refused). The Monitor journal owns the run's stages; this graph owns only the job.
+     */
+    public const TYPE_TRANSITIONS = [
+        'MONITOR_STEP' => [
+            'PENDING' => ['WAITING_FOR_OPERATOR', 'SETTLED', 'FAILED', 'ABANDONED'],
+            'FAILED' => ['WAITING_FOR_OPERATOR', 'SETTLED', 'FAILED', 'ABANDONED'],
+            'WAITING_FOR_OPERATOR' => [],
+            'SETTLED' => [],
+            'ABANDONED' => [],
+        ],
+    ];
+
+    public const TERMINAL_STATES = ['VISIBLE', 'ABANDONED', 'WAITING_FOR_OPERATOR', 'SETTLED'];
+
+    /** States a typed job may be claimed from. */
+    private const TYPE_CLAIMABLE_STATES = ['MONITOR_STEP' => ['PENDING', 'FAILED']];
 
     /**
      * States a claim may pick up.
@@ -165,7 +187,12 @@ final class JobMachine
      * function call rather than a lease. `null` means every claimable state, which is what a fully
      * wired deployment asks for.
      *
+     * A TYPED job (see TYPE_TRANSITIONS) is never claimed through `$executableStates`: it is claimed
+     * only when `$typedStates` names its type and state, so wiring a legacy PENDING handler cannot
+     * pick up a MONITOR_STEP job and run it through the wrong graph.
+     *
      * @param list<string>|null $executableStates
+     * @param array<string, list<string>> $typedStates job_type => states the caller can advance
      * @return list<array<string, mixed>>
      */
     public function claim(
@@ -173,11 +200,19 @@ final class JobMachine
         int $limit,
         int $leaseSeconds = 300,
         ?array $executableStates = null,
+        array $typedStates = [],
     ): array {
         $states = $executableStates === null
             ? self::CLAIMABLE_STATES
             : array_values(array_intersect(self::CLAIMABLE_STATES, $executableStates));
-        if ($states === []) {
+        $typed = [];
+        foreach ($typedStates as $type => $wanted) {
+            $allowed = array_values(array_intersect(self::TYPE_CLAIMABLE_STATES[$type] ?? [], is_array($wanted) ? $wanted : []));
+            if ($allowed !== []) {
+                $typed[$type] = $allowed;
+            }
+        }
+        if ($states === [] && $typed === []) {
             // No query, no lease, no row touched. A tick that can run nothing must be indistinguish-
             // able from a tick that never happened, as far as the jobs are concerned.
             return [];
@@ -185,17 +220,17 @@ final class JobMachine
 
         $now = $this->clock->now();
         $leaseExpiry = $this->plusSeconds($now, $leaseSeconds);
-        $placeholders = implode(', ', array_fill(0, count($states), '?'));
+        [$eligibility, $eligibilityParams] = $this->eligibility($states, $typed);
 
         $candidates = $this->db->all(
             "SELECT job_id FROM jobs
-             WHERE state IN ({$placeholders})
+             WHERE ({$eligibility})
                AND run_after <= ?
                AND (lease_owner IS NULL OR lease_expires_at IS NULL OR lease_expires_at < ?)
                AND attempt_count < max_attempts
              ORDER BY run_after ASC, job_id ASC
              LIMIT " . max(1, min(100, $limit)),
-            [...$states, $now, $now]
+            [...$eligibilityParams, $now, $now]
         );
 
         $claimed = [];
@@ -213,11 +248,11 @@ final class JobMachine
                 "UPDATE jobs
                  SET lease_owner = ?, lease_expires_at = ?, attempt_count = attempt_count + 1, updated_at = ?
                  WHERE job_id = ?
-                   AND state IN ({$placeholders})
+                   AND ({$eligibility})
                    AND run_after <= ?
                    AND attempt_count < max_attempts
                    AND (lease_owner IS NULL OR lease_expires_at IS NULL OR lease_expires_at < ?)",
-                [$leaseOwner, $leaseExpiry, $now, $jobId, ...$states, $now, $now]
+                [$leaseOwner, $leaseExpiry, $now, $jobId, ...$eligibilityParams, $now, $now]
             );
             if ($affected === 1) {
                 $job = $this->db->one('SELECT * FROM jobs WHERE job_id = ?', [$jobId]);
@@ -298,13 +333,14 @@ final class JobMachine
         ?string $detailSafe = null,
         ?string $runAfter = null,
     ): Outcome {
-        $job = $this->db->one('SELECT state, attempt_count FROM jobs WHERE job_id = ?', [$jobId]);
+        $job = $this->db->one('SELECT state, attempt_count, job_type FROM jobs WHERE job_id = ?', [$jobId]);
         if ($job === null) {
             return Outcome::refuse('JOB_NOT_FOUND', ['job_id' => $jobId]);
         }
         $fromState = (string) $job['state'];
+        $graph = self::TYPE_TRANSITIONS[(string) $job['job_type']] ?? self::TRANSITIONS;
 
-        if (!in_array($toState, self::TRANSITIONS[$fromState] ?? [], true)) {
+        if (!in_array($toState, $graph[$fromState] ?? [], true)) {
             return Outcome::refuse('JOB_ILLEGAL_TRANSITION', [
                 'from_state' => $fromState,
                 'to_state' => $toState,
@@ -407,6 +443,31 @@ final class JobMachine
                 'retryable' => !$exhausted,
             ])
             : $outcome;
+    }
+
+    /**
+     * The claim predicate: legacy job types by state, each typed job type only by its own states.
+     *
+     * @param list<string> $states
+     * @param array<string, list<string>> $typed
+     * @return array{0: string, 1: list<string>}
+     */
+    private function eligibility(array $states, array $typed): array
+    {
+        $clauses = [];
+        $params = [];
+        $typedTypes = array_keys(self::TYPE_TRANSITIONS);
+        if ($states !== []) {
+            $clauses[] = '(job_type NOT IN (' . implode(', ', array_fill(0, count($typedTypes), '?')) . ') AND state IN ('
+                . implode(', ', array_fill(0, count($states), '?')) . '))';
+            $params = [...$params, ...$typedTypes, ...$states];
+        }
+        foreach ($typed as $type => $typeStates) {
+            $clauses[] = '(job_type = ? AND state IN (' . implode(', ', array_fill(0, count($typeStates), '?')) . '))';
+            $params = [...$params, $type, ...$typeStates];
+        }
+
+        return [implode(' OR ', $clauses), $params];
     }
 
     /** @return list<array<string, mixed>> */

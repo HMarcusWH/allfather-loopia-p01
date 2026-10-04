@@ -158,6 +158,12 @@ Assert::equalsList(
 );
 
 Assert::equalsList(
+    ['2 monitor schedule(s) are still admitted or future-admitted — suspend or revoke them with ops/monitor/stand-down.php'],
+    $with(['admitted_monitor_schedules' => 2]),
+    'an admitted monitor schedule prevents stand-down verification: the next tick would compose its handler',
+);
+
+Assert::equalsList(
     ['the deployment maintenance marker is invalid — runtime fails closed until an operator repairs it'],
     $with(['maintenance_state' => 'INVALID']),
     'an invalid maintenance marker cannot verify stand-down',

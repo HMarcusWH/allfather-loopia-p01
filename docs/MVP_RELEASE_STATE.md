@@ -8,7 +8,7 @@ backup and successful local v1 recovery/v2-only refusal; full live key rotation 
 
 | Question | Current answer | Evidence |
 | --- | --- | --- |
-| **Source** — what application code is present? | Exact main `2ada973c` contains the P00–P06 plus P08/P10/P11 implementation baseline through PR30; later open packages and the tenant-admin repair are separate | Git history; 30 migrations |
+| **Source** — what application code is present? | The merged application baseline remains exact `2ada973c`; current repository main `d4ca9adc` adds evidence-only filings. This branch additionally carries the **unmerged P07 source candidate**; TenantAdmin v2 and later packages remain separate | Git history; 31 candidate migrations |
 | **Tested** — which exact commit was qualified? | `2ada973c` passed hosted run `37128711802`: both MariaDB 10.6/10.11 lanes 8,942/0/0. Its actual Loopia strict suite also passed 8,942/0/0 on the separate qualification database | Filed hosted and host conformance artifacts |
 | **Deployed** — which release runs on staging? | `2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a`, inert, with all 30 migrations and the exact prepared source fingerprint | Filed deployment, probe and HTTPS smoke artifacts |
 | **Activated** — which missions may run? | No current/future execution grant; no Monitor run, source capture or model attempt in the measured counters. Scheduler handlers remain empty. ROAD_TEST_001 has not executed | Inert preflight and Monitor smoke counter readbacks |
@@ -18,18 +18,23 @@ canonical_pin                      = c6d9cf9a7a1001b001ca6118999e9cb75c831c4d
 implementation_baseline_merge      = 0b8c17e9a3457baf25f25babb43d61bc71633f6a
 deployed_staging_release           = 2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a
 evidence_records                   = 21
-candidate_migrations               = 30
+candidate_migrations               = 31
 ```
 
 ## Source and qualification
 
 The canonical pin is unchanged. Selected later canonical repairs remain documented separately in
-`reconciliation/`; reading a newer upstream head does not advance the pin. The implementation
-baseline merge remains PR30 `0b8c17e9`; `2ada973c` is the exact reviewed, prepared and deployed main
-object. This evidence branch contains observations and documentation only.
+`reconciliation/`; reading a newer upstream head does not advance the pin. Canonical PR369's exact
+scheduler-observer authority is adopted at `411aba91423265e578813afbc8f64318320ef08d`, without advancing
+the global pin. The implementation baseline merge remains PR30 `0b8c17e9`; `2ada973c` is the exact
+reviewed, prepared and deployed application object. Repository main `d4ca9adc` adds evidence-only
+filings. This branch additionally carries P07 source: bounded recurring observation, migration 250,
+the explicit v1 `ROLE_SYSTEM_SCHEDULER_OBSERVER` seat, and governed scheduler-principal
+plan/provision/status/stand-down. None of that is merged, deployed, admitted or activated yet.
 
-**Candidate schema:** 30 migration files. All 30 were applied on staging, the next migration run
-was a no-op, and drift/pending counts were zero. PHP 8.5.9 and MariaDB 10.11.19 were measured on
+**Candidate schema:** 31 migration files: the deployed 30 plus unmerged P07
+`250_monitor_schedule_control`. Staging still has exactly the original 30 applied; its next migration
+run was a no-op, and drift/pending counts were zero before this P07 source candidate existed. PHP 8.5.9 and MariaDB 10.11.19 were measured on
 Loopia. The host strict suite used `.env.qualification` and a separately verified database/user;
 it did not truncate the runtime database.
 
@@ -111,9 +116,11 @@ No backup archive, plaintext dump, recovery identity or credential payload is co
 P06 still requires the separate reviewed model evaluation, exact prompt/admission records and a
 bounded owner-authorized road test. Storing a provider credential is not activation. Product prompt
 records remain inactive/offline-tested until their explicit evaluation and approval path succeeds.
-Scheduler transport remains UNVERIFIED and its handler registry empty. P03 assurance audits were
-deployed as source but are not scheduled or run against staging. P07/P09/P12 and optional expansion
-work remain separate; open package PRs are not represented as merged or deployed.
+Scheduler transport remains UNVERIFIED and the deployed `2ada973c` handler registry remains empty.
+This P07 source candidate adds the bounded scheduler handler and explicit service seat, but no
+recurring schedule is admitted and no deployment/activation claim follows from the source branch.
+P03 assurance audits were deployed as source but are not scheduled or run against staging. P09/P12
+and optional expansion work remain separate; open package PRs are not represented as merged or deployed.
 
 Registry evidence may support observed deployment/conformance claims without changing a lock.
 All stored flags below are unchanged; this filing creates no authority transition:
