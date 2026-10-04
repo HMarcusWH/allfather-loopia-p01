@@ -30,7 +30,7 @@ $clock = Harness::clock();
 $vocab = new M02Seed($db, $clock);
 $seeded = $vocab->ensureVocabulary();
 Assert::true($seeded['permissions'] > 50, 'the permission vocabulary seeds');
-Assert::same(15, $seeded['roles'], 'all 15 canonical roles seed, including the narrow scheduler observer seat');
+Assert::same(16, $seeded['roles'], 'all 15 v1 roles including scheduler observer plus additive TenantAdmin v2 seed');
 
 // Idempotent: a redeploy must not duplicate the vocabulary.
 $again = $vocab->ensureVocabulary();
@@ -84,10 +84,15 @@ foreach ([
     Assert::true(Permissions::isExcluded($ceiling), "the action ceiling excludes {$ceiling}");
 }
 
-// The scheduler service role is a deliberately narrow canonical seat, never a Workspace Operator
-// synonym. Keep its exact four-permission surface pinned in the projection.
+// The scheduler service role is a deliberately narrow canonical v1 seat, never a Workspace Operator
+// synonym and never an implicit future-version selector.
 $schedulerRole = $vocab->roleIdFor('ROLE_SYSTEM_SCHEDULER_OBSERVER');
-Assert::true($schedulerRole !== null, 'the scheduler observer role is seeded');
+Assert::true($schedulerRole !== null, 'the scheduler observer v1 role is seeded');
+Assert::same(
+    1,
+    (int) $db->scalar('SELECT role_version FROM roles WHERE role_id = ?', [$schedulerRole]),
+    'the ordinary scheduler role lookup remains explicitly v1',
+);
 $schedulerPermissions = array_map(
     static fn (array $row): string => (string) $row['permission_key'],
     $db->all('SELECT permission_key FROM role_permissions WHERE role_id = ? ORDER BY permission_key', [$schedulerRole])
