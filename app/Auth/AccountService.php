@@ -414,13 +414,17 @@ final class AccountService
         );
     }
 
-    /** Grant one EXISTING role in one EXISTING workspace. */
+    /** Grant one explicitly versioned EXISTING role in one EXISTING workspace. Legacy callers stay on v1. */
     public function addRoleMembership(
         string $tenantId,
         string $workspaceKey,
         string $operatorId,
         string $roleKey,
+        int $roleVersion = 1,
     ): Outcome {
+        if ($roleVersion < 1) {
+            return Outcome::refuse('ROLE_VERSION_INVALID', [], 'INPUT');
+        }
         $workspace = $this->db->one(
             "SELECT workspace_id FROM workspaces WHERE tenant_id = ? AND workspace_key = ? AND status = 'ACTIVE'",
             [$tenantId, $workspaceKey]
@@ -430,9 +434,8 @@ final class AccountService
         }
 
         $role = $this->db->one(
-            "SELECT role_id, role_version FROM roles WHERE role_key = ? AND status = 'ACTIVE'
-             ORDER BY role_version DESC LIMIT 1",
-            [$roleKey]
+            "SELECT role_id, role_version FROM roles WHERE role_key = ? AND role_version = ? AND status = 'ACTIVE'",
+            [$roleKey, $roleVersion]
         );
         if ($role === null) {
             return Outcome::refuse('ROLE_NOT_DEFINED', ['role_key' => $roleKey], 'POLICY', 'S4');
