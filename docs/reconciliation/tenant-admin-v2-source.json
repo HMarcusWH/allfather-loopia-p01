@@ -1,8 +1,8 @@
 {
   "kind": "SELECTIVE_CANONICAL_CORRECTION",
   "upstream_repository": "HMarcusWH/Allfatherbusinessintelligence",
-  "upstream_base": "411aba91423265e578813afbc8f64318320ef08d",
-  "upstream_commit": "9c481153f5a5d37d76af2c27e57e2daaf4f01b09",
+  "upstream_base": "91bc170e726c574a45454e98f9746fb0ba7dca8d",
+  "upstream_commit": "be7962a4a7f67b40613ce8daedee17088b0db1ca",
   "projection_baseline": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
   "retained_base_pin": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
   "base_pin_changed": false,
@@ -39,6 +39,6 @@
     "execution_admission": false,
     "production_authority": false
   },
-  "upstream_merge_status_at_import": "UNMERGED_REVIEWED_CANDIDATE",
-  "note": "The source commit is fixed and independently reviewed. A source correction is not a live role assignment or activation."
+  "upstream_merge_status_at_import": "MERGED_CANONICAL_AUTHORITY",
+  "note": "The canonical TenantAdmin v2 authority is merged. The five recorded canonical source objects remain byte-identical to the reviewed candidate. This source correction is not a live role assignment or activation."
 }
