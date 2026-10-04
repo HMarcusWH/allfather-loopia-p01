@@ -38,8 +38,8 @@ nowhere else. M15 governed ingestion is present with the guarded egress path.
 | Plane | What it does |
 | --- | --- |
 | P01 | competition monitoring: sources, capture, change detection, signals, battlecards, release, surfacing, usage metering, two audits |
-| P02 | entity and relationship twins with four privacy screens, governed state-change admission, M10 release, and M16 entity/relationship snapshot artifacts; the released entity and relationship indexes are readable in the React console, entity detail is not built |
-| P03 | catalogue, ICP, fit hypotheses, prospect queue admission, **M10 release and two-gate surfacing**; the priority-queue and monitored-prospect indexes are readable in the React console, prospect detail is not built |
+| P02 | entity and relationship twins with four privacy screens, governed state-change admission, M10 release, and M16 entity/relationship snapshot artifacts; released indexes plus one owner-safe released entity snapshot detail read are wired into the React console through `TwinRelease::visibleSnapshotDetail` |
+| P03 | catalogue, ICP, fit hypotheses, prospect queue admission, **M10 release and two-gate surfacing**; released indexes plus one owner-safe released output detail read are wired into the React console through `Release::visibleProspectOutputDetail`; there is still no prospect-battlecard list |
 | P04 | stakeholder roles, role distribution, admission, release, three-gate surfacing, four audits |
 | P05 | marketing drafts, claim citations, variants, admission, internal release, three audits |
 | P07-A | consent, PII firewall, outreach admission, approval, frozen artifacts, synthetic dispatch, five audits |
@@ -243,6 +243,21 @@ merely present:
 - **An owner denial is never an empty result.** A 403 carrying `DENIED` and a 200 carrying `EMPTY`
   are different answers to different questions, and a console that showed the first as the second
   would tell a partner there is nothing to see when the truth is that they may not look.
+
+**P09 operator administration (implemented and offline-tested; nothing activated).** Two scriptless
+pages sit beside the workbench: `/console/monitor/setup` plans and applies a `MonitorSetup` request
+(apply must carry the reviewed plan digest; profile import and credentials stay private CLI), and
+`/console/monitor/schedule` plans, proposes, suspends and revokes a `ScheduleService` version
+(a proposal is bound to the digest the operator reviewed). **Neither page can admit anything** —
+schedule and grant admission need a reviewed owner decision and stay CLI acts.
+`tests/foundation/execution_authority_boundary.php` classifies authority-bearing public methods and
+pins the exact web allowance: setup may call only `plan` and `apply` on `MonitorSetup`; schedules
+only `plan`, `propose`, `suspend` and `revoke` on `ScheduleService`; every other web file none.
+The workbench shows structured escaped sections with exact JSON behind expanders, and the React
+console adds owner-safe P02/P03 detail reads plus metadata-only Monitor run reads. Tests include
+`tests/security/product_detail_reads.php`, `tests/security/monitor_administration.php`,
+`tests/security/monitor_setup_journey.php` and `frontend/console/tests/monitor-reads.test.js`.
+**Deployed-browser desktop/mobile journeys remain an operational gate**; offline tests do not satisfy it. The exact real-host procedure is [`P09_BROWSER_ACCEPTANCE.md`](P09_BROWSER_ACCEPTANCE.md).
 
 **Released-intelligence read surfaces use governed projections.** The new Monitor workbench has
 a different purpose: it reads the scoped run journal and private content-addressed request,

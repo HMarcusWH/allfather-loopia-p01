@@ -7,6 +7,9 @@ namespace Allfather\Loopia\Http\Controllers;
 use Allfather\Loopia\Http\ConsoleReadEnvelope;
 use Allfather\Loopia\Http\ReadAdapters\ConsoleContextAdapter;
 use Allfather\Loopia\Http\ReadAdapters\DecisionLedgerAdapter;
+use Allfather\Loopia\Http\ReadAdapters\MonitorReadAdapter;
+use Allfather\Loopia\Http\ReadAdapters\P02SnapshotDetailAdapter;
+use Allfather\Loopia\Http\ReadAdapters\P03ProspectDetailAdapter;
 use Allfather\Loopia\Http\Request;
 use Allfather\Loopia\Http\Response;
 use Allfather\Loopia\Product\P01\Surfacing;
@@ -28,6 +31,7 @@ final class ConsoleReadController
         private readonly P03Release $p03,
         private readonly P04Release $p04,
         private readonly P05Release $p05,
+        private readonly ?MonitorReadAdapter $monitor = null,
     ) {
     }
 
@@ -94,6 +98,35 @@ final class ConsoleReadController
     public function decisions(Request $request, ?array $session): Response
     {
         return $this->safe(fn (): Response => ConsoleReadEnvelope::adapter('m10.decisions', $this->decisions->read($session)), 'm10.decisions');
+    }
+
+    /**
+     * P09 detail reads. The query value is a SELECTOR only: the owner re-checks the object against the
+     * session's tenant and workspace, and an id from elsewhere answers exactly like an unknown one.
+     */
+    public function p02EntityDetail(Request $request, ?array $session): Response
+    {
+        return $this->safe(fn (): Response => ConsoleReadEnvelope::adapter('p02.entityContextDetail', (new P02SnapshotDetailAdapter($this->p02Twins))->read($session, (string) ($request->query['snapshot'] ?? ''))), 'p02.entityContextDetail');
+    }
+
+    public function p03ProspectDetail(Request $request, ?array $session): Response
+    {
+        return $this->safe(fn (): Response => ConsoleReadEnvelope::adapter('p03.prospectDetail', (new P03ProspectDetailAdapter($this->p03))->read($session, (string) ($request->query['output'] ?? ''))), 'p03.prospectDetail');
+    }
+
+    /** Monitor metadata for the React console; inspection and every mutation stay in the SSR workbench. */
+    public function monitorRuns(Request $request, ?array $session): Response
+    {
+        return $this->safe(fn (): Response => $this->monitor === null
+            ? ConsoleReadEnvelope::unavailable('monitor.runs')
+            : ConsoleReadEnvelope::adapter('monitor.runs', $this->monitor->runs($session)), 'monitor.runs');
+    }
+
+    public function monitorRun(Request $request, ?array $session): Response
+    {
+        return $this->safe(fn (): Response => $this->monitor === null
+            ? ConsoleReadEnvelope::unavailable('monitor.run')
+            : ConsoleReadEnvelope::adapter('monitor.run', $this->monitor->run($session, (string) ($request->query['run'] ?? ''))), 'monitor.run');
     }
 
     private function p03Read(?array $session, string $kind, string $source): Response

@@ -14,9 +14,17 @@ const ENDPOINTS=Object.freeze({
   [READS.P03_WATCH]: "/console/api/v1/p03/monitored",
   [READS.P04_DISTRIBUTIONS]: "/console/api/v1/p04/distributions",
   [READS.P05_DRAFTS]: "/console/api/v1/p05/drafts",
-  [READS.LEDGER]: "/console/api/v1/m10/decisions"
+  [READS.LEDGER]: "/console/api/v1/m10/decisions",
+  [READS.P02_ENTITY_DETAIL]: "/console/api/v1/p02/entity-detail",
+  [READS.P03_PROSPECT_DETAIL]: "/console/api/v1/p03/prospect-detail",
+  [READS.MONITOR_RUNS]: "/console/api/v1/monitor/runs",
+  [READS.MONITOR_RUN]: "/console/api/v1/monitor/run"
 });
-const EXPECTED_STATUSES=Object.freeze(new Set([200,403,409,503]));
+// 404 is a governed answer for detail reads: the caller may read, and the selector names nothing
+// they can see — an unknown id and another workspace's id look the same.
+const EXPECTED_STATUSES=Object.freeze(new Set([200,403,404,409,503]));
+// Detail reads take exactly one selector each. It is an identifier, never scope; the owner re-checks it.
+const SELECTORS=Object.freeze({[READS.P02_ENTITY_DETAIL]:"snapshot",[READS.P03_PROSPECT_DETAIL]:"output",[READS.MONITOR_RUN]:"run"});
 export const LIVE_READ_IDS=Object.freeze(Object.keys(ENDPOINTS));
 
 function failureEnvelope(source,reason){
@@ -25,6 +33,8 @@ function failureEnvelope(source,reason){
 function queryFor(readId,query){
   if(readId===READS.P02_ENTITY_INDEX||readId===READS.P02_RELATION_INDEX) return {visibility_scope:query?.visibility_scope??""};
   if(readId===READS.P04_DISTRIBUTIONS) return {target_org_role:query?.target_org_role??""};
+  const selector=SELECTORS[readId];
+  if(selector) return {[selector]:typeof query?.[selector]==="string"?query[selector]:""};
   return {};
 }
 function isEnvelope(payload,readId){ return payload && payload.source===readId && payload.access && payload.projection && Array.isArray(payload.reason_codes); }

@@ -123,13 +123,18 @@ $tag = static fn (string $term, string $kind = 'state'): string =>
 <section class="section">
   <h2 class="section__title">Known beta limitations</h2>
   <ul class="page__meta">
-    <li>Reads only. Nothing in this console creates, edits, approves or dispatches.</li>
     <li>
-      Sources are not being captured live. What you see is what the governed evidence chain already
-      holds; the console does not go and fetch anything while you look at it.
+      Released-intelligence views are read-only. Authorized operators can configure Monitor setup,
+      propose or stand down schedules, and record human reviews through the governed workbench.
+      Those actions do not admit execution grants or schedules.
     </li>
     <li>
-      Recurring work is not running. Nothing refreshes on a schedule during the beta.
+      Viewing a page does not capture a source or call a model. Explicit workbench execution requires
+      separately admitted authority and the appropriate operator permissions.
+    </li>
+    <li>
+      A console proposal or source-code merge does not enable recurrence. Recurring observation
+      requires a separately admitted schedule and bounded execution grant.
     </li>
     <li>
       Some screens are deliberately unavailable and say so. They are waiting on a governed read

@@ -2,7 +2,9 @@
 declare(strict_types=1);
 
 /**
- * Private CLI for recurring Monitor observation schedules (P07). There is no HTTP mutation route.
+ * Private CLI for recurring Monitor observation schedules (P07). The scriptless console page
+ * /console/monitor/schedule (P09) offers plan, propose, suspend and revoke over the same owner;
+ * `admit` exists ONLY here, because it needs a reviewed owner decision file in the deployed tree.
  *
  * Usage (every command also takes --env=<private env> --tenant-id --workspace-id --operator-id):
  *   plan            --schedule=<definition.json>   normalize and print the digest a decision must list

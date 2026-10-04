@@ -32,6 +32,12 @@ filings. This branch additionally carries P07 source: bounded recurring observat
 the explicit v1 `ROLE_SYSTEM_SCHEDULER_OBSERVER` seat, and governed scheduler-principal
 plan/provision/status/stand-down. None of that is merged, deployed, admitted or activated yet.
 
+- **P09 source-candidate state:** stacked draft PR33 adds scriptless Monitor setup/schedule administration,
+  owner-safe P02/P03 detail reads, metadata-only Monitor run reads and the richer escaped workbench.
+  Its web authority vocabulary remains narrower than the private CLIs and it admits no execution or
+  schedule. Hosted requalification is required on this synchronized P07 base; deployed desktop/mobile
+  browser acceptance remains an operational P09 gate.
+
 **Candidate schema:** 31 migration files: the deployed 30 plus unmerged P07
 `250_monitor_schedule_control`. Staging still has exactly the original 30 applied; its next migration
 run was a no-op, and drift/pending counts were zero before this P07 source candidate existed. PHP 8.5.9 and MariaDB 10.11.19 were measured on

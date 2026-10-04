@@ -232,3 +232,13 @@ td.mono { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
 .monitor-form { display: flex; flex-direction: column; align-items: flex-start; gap: .65rem; margin: 1rem 0 1.6rem; }
 .monitor-form select, .monitor-form textarea { width: min(100%, 48rem); padding: .6rem; font: inherit; }
 .monitor-json { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 32rem; overflow: auto; padding: 1rem; border: 1px solid currentColor; border-radius: .35rem; }
+
+/* P09 structured Monitor sections and administration forms: still scriptless, still text-only. */
+.facts { display: grid; grid-template-columns: minmax(9rem, max-content) 1fr; gap: .35rem 1rem; margin: .5rem 0 1.2rem; font-size: 13px; }
+.facts dt { color: var(--text-dim); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.monitor-form input:not([type="checkbox"]):not([type="hidden"]) { width: min(100%, 48rem); padding: .55rem; font: inherit; background: var(--bg-sunken); color: var(--text); border: 1px solid var(--line); border-radius: 4px; }
+.monitor-form fieldset { display: flex; flex-direction: column; gap: .5rem; width: min(100%, 50rem); border: 1px solid var(--line); border-radius: 6px; padding: .8rem 1rem; margin: 0; }
+.monitor-form legend { padding: 0 .4rem; color: var(--text-dim); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+tr[aria-current="true"] td { background: color-mix(in srgb, var(--authority) 8%, transparent); }
+@media (max-width: 640px) { .facts { grid-template-columns: 1fr; } .facts dd { margin-bottom: .4rem; } }

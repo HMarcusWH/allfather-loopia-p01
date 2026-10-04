@@ -2,7 +2,9 @@
 declare(strict_types=1);
 
 /**
- * Private CLI for repeatable Monitor mission setup. There is no HTTP route to any of this.
+ * Private CLI for repeatable Monitor mission setup. The scriptless console page /console/monitor/setup
+ * (P09) builds the same request from a form and calls the same plan/apply/receipt; profile import and
+ * credentials have no HTTP route.
  *
  * Usage (every command also takes --env=<private env> --tenant-id --workspace-id --operator-id):
  *   plan     --request=<setup.json> [--successor-of=<setup_receipt_id>]   read-only dry run
