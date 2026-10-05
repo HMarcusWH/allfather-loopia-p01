@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "kind": "POST_MERGE_TEST_BACKLOG",
+  "source_ref_at_creation": "ab6dc21590ef3ef89383c03846b2fed862474e4c",
+  "canonical_ref_at_creation": "be7962a4a7f67b40613ce8daedee17088b0db1ca",
+  "deployed_staging_ref_at_creation": "2ada973c520a32a2a4d03e79d9c1e3a55b10ee6a",
+  "state_model": [
+    "SOURCE",
+    "QUALIFIED",
+    "DEPLOYED",
+    "ACTIVATED",
+    "AUTHORIZED"
+  ],
+  "statuses": [
+    "PENDING",
+    "BLOCKED",
+    "PASS",
+    "FAIL",
+    "NOT_APPLICABLE"
+  ],
+  "items": [
+    {
+      "id": "B0",
+      "title": "Exact merged-main qualification",
+      "status": "PENDING",
+      "environment": "ci",
+      "authority_required": false,
+      "mutates_runtime": false,
+      "provider_calls": false,
+      "pass_condition": "Exact merged source tree has complete strict qualification with zero fail/skip on MariaDB 10.6 and 10.11 and a bound receipt."
+    },
+    {
+      "id": "B1",
+      "title": "Inert staging update and host qualification",
+      "status": "PENDING",
+      "environment": "staging",
+      "authority_required": true,
+      "mutates_runtime": true,
+      "provider_calls": false,
+      "pass_condition": "Exact release is deployed inertly, 31 migrations/no drift, host strict suite passes on qualification DB2, 16 role definitions exist, and no implicit v2 assignment/execution/schedule activation occurs."
+    },
+    {
+      "id": "B2",
+      "title": "Bounded real model evaluation",
+      "status": "PENDING",
+      "environment": "staging",
+      "authority_required": true,
+      "mutates_runtime": true,
+      "provider_calls": true,
+      "pass_condition": "Approved 18-case bounded evaluation executes with genuine human grounding/usefulness assessments and accepted quality evidence."
+    },
+    {
+      "id": "B3",
+      "title": "MANUAL_MONITOR ROAD_TEST_001",
+      "status": "BLOCKED",
+      "blocked_by": [
+        "B1",
+        "B2"
+      ],
+      "environment": "staging",
+      "authority_required": true,
+      "mutates_runtime": true,
+      "provider_calls": true,
+      "pass_condition": "Baseline/changed road test completes with 2 captures, bounded model attempts, exact request inspection, 2 actual human reviews and internal-only durable provenance."
+    },
+    {
+      "id": "B4",
+      "title": "Immediate stand-down and replay",
+      "status": "BLOCKED",
+      "blocked_by": [
+        "B3"
+      ],
+      "environment": "staging",
+      "authority_required": true,
+      "mutates_runtime": true,
+      "provider_calls": false,
+      "pass_condition": "All current/future execution authority is stood down, no recurrence remains, counters are zero and Monitor/M10 replay verifies."
+    },
+    {
+      "id": "B5",
+      "title": "P07 recurring-observation acceptance",
+      "status": "BLOCKED",
+      "blocked_by": [
+        "B3",
+        "B4"
+      ],
+      "environment": "staging",
+      "authority_required": true,
+      "mutates_runtime": true,
+      "provider_calls": false,
+      "pass_condition": "One separately authorized bounded schedule captures/diffs only, queues changed work for a human, uses scheduler role v1, makes zero model calls unattended, and is stood down."
+    },
+    {
+      "id": "B6",
+      "title": "P09 desktop/mobile browser acceptance",
+      "status": "BLOCKED",
+      "blocked_by": [
+        "B1"
+      ],
+      "environment": "staging",
+      "authority_required": false,
+      "mutates_runtime": true,
+      "provider_calls": false,
+      "pass_condition": "Full desktop/mobile and negative HTTP/browser protocol passes on the exact deployed release with sanitized evidence."
+    },
+    {
+      "id": "B7",
+      "title": "Populated-history backup and empty-target restore",
+      "status": "BLOCKED",
+      "blocked_by": [
+        "B3",
+        "B4"
+      ],
+      "environment": "recovery",
+      "authority_required": true,
+      "mutates_runtime": false,
+      "provider_calls": false,
+      "pass_condition": "A new post-road-test encrypted backup restores to a new empty target with all governed history, 31 migration hashes, triggers and immutability intact."
+    },
+    {
+      "id": "B8",
+      "title": "Real key-rotation rehearsal",
+      "status": "PENDING",
+      "environment": "staging/recovery",
+      "authority_required": true,
+      "mutates_runtime": true,
+      "provider_calls": false,
+      "pass_condition": "Disposable credential rewrap/recovery and wrong/unavailable-version refusals succeed with no provider call or retained plaintext."
+    },
+    {
+      "id": "B9",
+      "title": "P12 negative production-preflight acceptance",
+      "status": "PENDING",
+      "environment": "offline/production-preflight",
+      "authority_required": false,
+      "mutates_runtime": false,
+      "provider_calls": false,
+      "pass_condition": "Current tree remains NOT_READY for production with exact target/release binding, fail-closed evidence selection, unknown/non-adopted customer audience and grants_go/customer_visibility false."
+    },
+    {
+      "id": "B10",
+      "title": "Evidence filing and closure",
+      "status": "BLOCKED",
+      "blocked_by": [
+        "B0",
+        "B1",
+        "B2",
+        "B3",
+        "B4",
+        "B6",
+        "B7"
+      ],
+      "environment": "repository",
+      "authority_required": true,
+      "mutates_runtime": false,
+      "provider_calls": false,
+      "pass_condition": "Sanitized reviewed evidence is filed per exact source/target/environment without relabelling failures or conflating source, qualification, deployment, activation or authority."
+    }
+  ],
+  "explicit_non_authority": {
+    "source_merge_grants_execution": false,
+    "source_merge_admits_schedule": false,
+    "source_merge_grants_production_go": false,
+    "source_merge_grants_customer_visibility": false
+  }
+}
