@@ -1,13 +1,6 @@
 .git
-.github
 .env
-.env.*
-!.env.example
+.env.testing
 frontend/console/node_modules
 frontend/console/dist
-public_html/assets/operator-console
-storage/*
-!storage/README.md
-!storage/.htaccess
 vendor
-*.log
