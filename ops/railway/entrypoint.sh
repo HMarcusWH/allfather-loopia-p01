@@ -3,6 +3,20 @@
 set -eu
 umask 077
 
+# Recheck Apache modules in the actual Railway container, not only the image build.
+# The first staging boot observed AH00534 despite a successful image build.
+for mpm in mpm_event mpm_worker; do
+    if [ -e "/etc/apache2/mods-enabled/$mpm.load" ]; then
+        a2dismod -f "$mpm" >&2
+    fi
+done
+a2enmod mpm_prefork >&2
+for module in /etc/apache2/mods-enabled/mpm_*.load; do
+    [ -e "$module" ] || continue
+    printf 'allfather-railway: apache MPM: %s\n' "${module##*/}" >&2
+done
+apache2ctl -t >&2 || { echo 'allfather-railway: invalid runtime Apache configuration' >&2; exit 1; }
+
 if [ "${APP_ENV:-}" != "staging" ]; then
     echo 'allfather-railway: refusing non-staging APP_ENV' >&2
     exit 1
