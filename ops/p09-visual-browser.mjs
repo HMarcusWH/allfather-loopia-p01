@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 const base="https://allfather-php-mvp-staging.up.railway.app";
 const email=process.env.TEST_LOGIN_EMAIL, password=process.env.TEST_LOGIN_PASSWORD;
 if (!email || !password || !email.endsWith("@example.test")) throw Error("TEST-only credentials required");
@@ -22,6 +22,8 @@ try {
       if(request.method()!=="GET" && request.method()!=="HEAD") autoPosts.push({method:request.method(),path:url.pathname.slice(0,120)});
     });
     try {
+      const anonymousApi=await context.request.get(base+"/console/api/v1/monitor/runs",{maxRedirects:0});
+      emit({viewport:name,route:"/console/api/v1/monitor/runs:anonymous",status:anonymousApi.status(),result:anonymousApi.status()===401?"PASS":"FAIL"});
       const login=await page.goto(base+"/login",{waitUntil:"domcontentloaded",timeout:30000});
       const inputCount=await page.locator('input[name="password"]').count();
       if(login?.status()!==200||inputCount!==1){emit({viewport:name,route:"/login",status:login?.status(),result:"FAIL",reason:"login form not available"});continue;}
@@ -72,8 +74,52 @@ try {
       for(const detail of ["P02 entity detail","P03 prospect detail","React Monitor run detail","setup reviewed apply","schedule proposal/revoke","stale digest refusal"]) emit({viewport:name,route:detail,result:"NOT_COVERED",reason:"requires authorized fixture/object or explicit reviewed operation; not inferred from page load"});
       await page.reload({waitUntil:"domcontentloaded"});
       emit({viewport:name,route:"/account:reload",result:new URL(page.url()).pathname==="/account"?"PASS":"FAIL"});
+
       measuring=false;
       emit({viewport:name,route:"passive-browser-network",autoMutatingRequests:autoPosts.length,offOriginRequests:offOriginRequests.length,result:autoPosts.length===0&&offOriginRequests.length===0?"PASS":"FAIL"});
+
+      // Read-only metadata APIs. This empty synthetic scope must not disclose private model or evidence content.
+      const runsResponse=await context.request.get(base+"/console/api/v1/monitor/runs",{failOnStatusCode:false});
+      if(runsResponse.status()===200){
+        const envelope=await runsResponse.json();
+        const records=envelope?.data?.rows;
+        const allowed=new Set(["monitor_run_id","mission_id","execution_mode","stage","revision","created_at","updated_at","workbench_href"]);
+        const validRows=Array.isArray(records)&&records.every(row=>row && Object.keys(row).every(key=>allowed.has(key)));
+        emit({viewport:name,route:"/console/api/v1/monitor/runs:metadata",status:200,rowsCount:Array.isArray(records)?records.length:null,result:validRows?"PASS":"FAIL"});
+      }else{
+        emit({viewport:name,route:"/console/api/v1/monitor/runs:metadata",status:runsResponse.status(),result:runsResponse.status()===403?"NOT_COVERED":"FAIL",reason:"metadata read not granted for TEST role"});
+      }
+      for(const [nameOfRead,pathOfRead] of [
+        ["P02 selector","/console/api/v1/p02/entity-detail?snapshot="],
+        ["P03 selector","/console/api/v1/p03/prospect-detail?output="],
+        ["Monitor run selector","/console/api/v1/monitor/run?run="],
+      ]){
+        const response=await context.request.get(base+pathOfRead+randomUUID(),{failOnStatusCode:false});
+        const status=response.status();
+        let ownerState=null;
+        if([200,403,404].includes(status)){
+          try {const payload=await response.json();ownerState=payload?.owner_state??null;} catch {}
+        }
+        emit({viewport:name,route:nameOfRead+":unknown-valid-uuid",status,ownerState,result:status===404&&ownerState==="NOT_FOUND"?"PASS":status===403?"NOT_COVERED":"FAIL"});
+      }
+      for(const surface of ["/console/monitor/setup","/console/monitor/schedule"]){
+        await page.goto(base+surface,{waitUntil:"domcontentloaded",timeout:30000});
+        const formDetails=await page.evaluate(()=>({
+          scopedNames:[...document.querySelectorAll("input,select,textarea")].map(el=>el.name).filter(n=>/^(tenant|workspace|operator)(_id|_key)?$/i.test(n)),
+          admissionControls:[...document.querySelectorAll("button,a,input[type=submit]")].filter(el=>/^(admit( schedule| execution)?|approve prompt|activate recurrence)$/i.test((el.textContent||el.value||"").trim())).length,
+          hasCsrf:!!document.querySelector('input[name="csrf_token"]')
+        }));
+        emit({viewport:name,route:surface+":form-scope",scopedFieldCount:formDetails.scopedNames.length,admissionControlCount:formDetails.admissionControls,hasCsrf:formDetails.hasCsrf,result:formDetails.scopedNames.length===0&&formDetails.admissionControls===0&&formDetails.hasCsrf?"PASS":"FAIL"});
+        const missing=await context.request.post(base+surface,{form:{action:"apply"},failOnStatusCode:false,maxRedirects:0});
+        emit({viewport:name,route:surface+":missing-csrf",status:missing.status(),result:missing.status()===403?"PASS":"FAIL"});
+        const csrf=await page.locator('input[name="csrf_token"]').first().inputValue();
+        // Submit only controller-level rejection cases, never a valid proposal/apply.
+        const badAction=surface.endsWith("/setup")?{action:"apply"}:{action:"admit"};
+        const blocked=await context.request.post(base+surface,{form:{csrf_token:csrf,...badAction},failOnStatusCode:false,maxRedirects:0});
+        emit({viewport:name,route:surface+(surface.endsWith("/setup")?":missing-plan-digest":":browser-admission-refused"),status:blocked.status(),result:blocked.status()===409?"PASS":"FAIL"});
+      }
+      const unregistered=await context.request.get(base+"/console/monitor/schedule/admit",{failOnStatusCode:false,maxRedirects:0});
+      emit({viewport:name,route:"/console/monitor/schedule/admit:unregistered",status:unregistered.status(),result:unregistered.status()===404?"PASS":"FAIL"});
       if(jsErrors.length)emit({viewport:name,route:"browser-js",errorCount:jsErrors.length,errorTypes:jsErrors.slice(0,5),result:"FAIL"});
     } catch(error){
       emit({viewport:name,route:"journey",result:"FAIL",errorName:error?.name||"Error"});
