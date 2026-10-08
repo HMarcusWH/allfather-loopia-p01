@@ -138,3 +138,50 @@ Assert::same('P09_TEST_TARGET_NOT_ACTIVE_IN_TENANT',
         'ROLE_WORKSPACE_OPERATOR', 1, $start, $until)->reasonCode(),
     'foreign-tenant target cannot be enrolled');
 Assert::same(1, $count(), 'the only target membership remains the revoked historical record');
+
+// Expiry is an AccessGuard decision, not a cron cleanup or login-side effect.
+$expiring = Seed::operator($db, $clock, $scope['tenant_id'], 'Expiring synthetic test operator');
+$expiryStart = $clock->now();
+$expiryUntil = \Allfather\Loopia\Core\Clock::format(
+    \Allfather\Loopia\Core\Clock::parse($expiryStart)->modify('+30 minutes')
+);
+$expiryPlan = $owner->planAssign($scope, $expiring,
+    'ROLE_COMPETITION_MONITOR', 1, $expiryStart, $expiryUntil);
+Assert::true($expiryPlan->isOk(), 'a second finite member can be planned');
+Assert::true($owner->assign($scope, $expiring, 'ROLE_COMPETITION_MONITOR', 1,
+    $expiryStart, $expiryUntil, $expiryPlan->value()['plan_digest'])->isOk(),
+    'finite role assigned to a separate operator');
+Assert::same('ALLOW',
+    $guard->evaluate('OPERATOR', $expiring, $scope['tenant_id'], $scope['workspace_id'],
+        'competition_monitoring.read', 'P09_TEST')['decision'], 'finite role works before expiry');
+$clock->advanceMs(31 * 60 * 1000);
+Assert::same('DENY',
+    $guard->evaluate('OPERATOR', $expiring, $scope['tenant_id'], $scope['workspace_id'],
+        'competition_monitoring.read', 'P09_TEST')['decision'], 'role automatically stops at expiry');
+Assert::same('P09_TEST_MEMBERSHIP_ALREADY_EXISTS',
+    $owner->planAssign($scope, $expiring, 'ROLE_COMPETITION_MONITOR', 1,
+        $clock->now(), \Allfather\Loopia\Core\Clock::format(
+            \Allfather\Loopia\Core\Clock::parse($clock->now())->modify('+30 minutes')
+        ))->reasonCode(), 'expired membership is never silently renewed');
+
+// The trusted host environment is an independent guard, not inferred from a TEST tenant.
+Assert::same('P09_TEST_ENVIRONMENT_REQUIRED',
+    (new TestMembershipLifecycle($db, $clock, 'production'))->planAssign(
+        $scope, $unauthorized, 'ROLE_WORKSPACE_OPERATOR', 1,
+        $clock->now(), \Allfather\Loopia\Core\Clock::format(
+            \Allfather\Loopia\Core\Clock::parse($clock->now())->modify('+30 minutes')
+        )
+    )->reasonCode(), 'even an active TEST tenant cannot obtain assignments on a production environment');
+
+// Drift in the shared role permission set must never be papered over by a plan.
+$compRole = (string) $db->scalar(
+    "SELECT role_id FROM roles WHERE role_key='ROLE_COMPETITION_MONITOR' AND role_version=1"
+);
+$db->run('DELETE FROM role_permissions WHERE role_id=? AND permission_key=?',
+    [$compRole, 'competition_monitoring.read']);
+$fresh = Seed::operator($db, $clock, $scope['tenant_id'], 'Role vocabulary drift target');
+Assert::same('P09_TEST_ROLE_VOCABULARY_CONFLICT',
+    $owner->planAssign($scope, $fresh, 'ROLE_COMPETITION_MONITOR', 1,
+        $clock->now(), \Allfather\Loopia\Core\Clock::format(
+            \Allfather\Loopia\Core\Clock::parse($clock->now())->modify('+30 minutes')
+        ))->reasonCode(), 'narrow owner detects canonical role-permission drift');
