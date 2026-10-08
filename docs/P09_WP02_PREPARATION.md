@@ -77,8 +77,11 @@ future explicitly authorized P07 gate and record NOT_COVERED here.
 
 - ops/acceptance/p09-fixture-contract.mjs: pure TEST fixture contract and safe selector
   /metadata comparison guards, no imports from the live app.
-- tests/p09_fixture_contract.test.mjs: offline Node test suite. Command:
-  node --test tests/p09_fixture_contract.test.mjs
+- frontend/console/tests/p09-fixture-contract.test.js: offline Node test suite.
+  Included by existing frontend package "npm test" glob, and therefore by the
+  existing single-procedure qualification runner when hosted CI resumes.
+  To run only this focused suite from the repository root:
+  node --test frontend/console/tests/p09-fixture-contract.test.js
 - ops/acceptance/p09-browser.mjs: source-only Playwright 1.56.1 Chromium harness copied
   from the previously executed negative-browser subset, enhanced to optionally check
   approved owned/foreign P02, P03, Monitor details. Does not intercept CSS.
