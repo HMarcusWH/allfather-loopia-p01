@@ -75,6 +75,8 @@ php -r '$x=json_decode(file_get_contents($argv[1]),true);if(($x["status"]??"")!=
 phase='beta-journey'
 printf '%s\n%s\n' "$pw" "$newpw" | php ops/staging-smoke.php --base-url=https://allfather-php-mvp-staging.up.railway.app --mode=beta-journey --email="$email" --password-stdin >/tmp/allfather-beta.json
 php -r '$x=json_decode(file_get_contents($argv[1]),true);if(($x["status"]??"")!=="SMOKE_PASS")exit(1);echo "STAGING_BETA_JOURNEY_PASS steps=",($x["step_count"]??"?")," failures=",($x["failures"]??"?"),PHP_EOL;' /tmp/allfather-beta.json
+phase='p09-browser-visual'
+TEST_LOGIN_EMAIL="$email" TEST_LOGIN_PASSWORD="$newpw" node /opt/browser/p09-visual-browser.mjs
 phase='monitor-boundary'
 printf '%s\n' "$newpw" | php ops/staging-monitor-smoke.php --base-url=https://allfather-php-mvp-staging.up.railway.app --email="$email" --password-stdin >/tmp/allfather-monitor.json
 php -r '$x=json_decode(file_get_contents($argv[1]),true);if(($x["status"]??"")!=="SMOKE_PASS")exit(1);echo "STAGING_MONITOR_BOUNDARY_PASS steps=",($x["step_count"]??"?")," failures=",($x["failures"]??"?"),PHP_EOL;' /tmp/allfather-monitor.json
