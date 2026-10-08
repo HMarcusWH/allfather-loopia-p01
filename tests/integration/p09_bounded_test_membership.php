@@ -20,7 +20,7 @@ $workspaceKey = (string) $db->scalar('SELECT workspace_key FROM workspaces WHERE
 $admin = $accounts->addRoleMembership($scope['tenant_id'], $workspaceKey,
     $scope['operator_id'], 'ROLE_TENANT_ADMIN', 2);
 Assert::true($admin->isOk(), 'harness grantor has explicitly seeded TenantAdmin v2');
-$owner = new TestMembershipLifecycle($db, $clock);
+$owner = new TestMembershipLifecycle($db, $clock, 'testing');
 $guard = new AccessGuard($db, $clock);
 $target = Seed::operator($db, $clock, $scope['tenant_id'], 'Synthetic P09 reader');
 $start = '2026-10-08T22:00:00.000Z';
