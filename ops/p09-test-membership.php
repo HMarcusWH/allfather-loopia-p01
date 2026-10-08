@@ -74,7 +74,7 @@ if (in_array($command, ['plan-assign','assign'], true)) {
 $digest = in_array($command, ['assign','revoke'], true) ? $need('plan-digest') : null;
 
 $db = BetaCli::connect($configuration['env'], $fail);
-$owner = new TestMembershipLifecycle($db, new Clock());
+$owner = new TestMembershipLifecycle($db, new Clock(), $configuration['environment']);
 $outcome = match ($command) {
     'plan-assign' => $owner->planAssign($scope, ...$definition),
     'assign' => $owner->assign($scope, ...[...$definition, $digest]),
