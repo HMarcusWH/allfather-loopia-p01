@@ -12,7 +12,7 @@
 
 ## Runtime layout
 
-`Dockerfile.railway` builds the pinned Node.js operator-console assets and runs PHP 8.2/Apache. Apache serves **only** `/srv/allfather/public_html`. Application code, private storage, migrations and `.env` remain outside the public document root. `.dockerignore` excludes secret and ephemeral files from the build.
+`Dockerfile` builds the pinned Node.js operator-console assets and runs PHP 8.2/Apache. Apache serves **only** `/srv/allfather/public_html`. Application code, private storage, migrations and `.env` remain outside the public document root. `.dockerignore` excludes secret and ephemeral files from the build.
 
 `ops/railway/entrypoint.sh` requires `APP_ENV=staging` and required database/key variables. It writes an atomically replaced private `.env` readable by the Apache worker and refuses CR/LF injection. No database migrations, test runs, seed data, network collection, model calls, scheduler admission, or external actions are performed by this entrypoint. An absent master key or database variable refuses startup.
 
@@ -20,7 +20,7 @@
 
 | Service | Source | Durable state |
 | --- | --- | --- |
-| `allfather-php-mvp` | This GitHub branch via `Dockerfile.railway` | Private volume at `/srv/allfather/storage` |
+| `allfather-php-mvp` | This GitHub branch via `Dockerfile` | Private volume at `/srv/allfather/storage` |
 | `allfather-mariadb` | `mariadb:10.11` (pin digest for qualified release) | Private volume at `/var/lib/mysql` |
 | `allfather-canonical-adapter` | **No source** until a reviewed host adapter exists | None |
 
