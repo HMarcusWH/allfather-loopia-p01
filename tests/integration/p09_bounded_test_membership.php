@@ -93,7 +93,22 @@ Assert::same('DENY',
     $guard->evaluate('OPERATOR', $target, $scope['tenant_id'], $otherWorkspace, 'mission.read', 'P09_TEST')['decision'],
     'membership cannot bleed across TEST workspaces');
 
-$revocation = $owner->planRevoke($scope, $id);
+// An emergency stand-down must still reduce privileges if a target role is
+// suspended or its permission set has drifted; only *new* grants demand a
+// pristine/active canonical role. The revoker's independent v2 seat remains live.
+$targetRole = (string) $db->scalar(
+    "SELECT role_id FROM roles WHERE role_key='ROLE_WORKSPACE_OPERATOR' AND role_version=1"
+);
+$db->run('DELETE FROM role_permissions WHERE role_id=? AND permission_key=?',
+    [$targetRole, 'mission.read']);
+$db->run("UPDATE roles SET status='SUSPENDED' WHERE role_id=?", [$targetRole]);
+$driftedRevoke = $owner->planRevoke($scope, $id);
+Assert::true($driftedRevoke->isOk(),
+    'revocation still plans for a previously adopted bounded role whose vocabulary drifted');
+Assert::same('P09_TEST_ROLE_VOCABULARY_CONFLICT',
+    $owner->planAssign($scope, $unauthorized, 'ROLE_WORKSPACE_OPERATOR', 1, $start, $until)->reasonCode(),
+    'a suspended/mutated role cannot be newly assigned');
+$revocation = $driftedRevoke;
 Assert::true($revocation->isOk(), 'revocation is planned separately from assignment');
 Assert::same('P09_TEST_PLAN_CHANGED',
     $owner->revoke($scope, $id, str_repeat('0', 64))->reasonCode(),
@@ -104,6 +119,8 @@ Assert::true($owner->revoke($scope, $id, $revocation->value()['plan_digest'])->i
     'reviewed stand-down revokes the exact membership');
 Assert::same('REVOKED', $db->scalar('SELECT status FROM workspace_memberships WHERE membership_id=?', [$id]),
     'membership state is permanently withdrawn');
+$db->run("UPDATE roles SET status='ACTIVE' WHERE role_id=?", [$targetRole]);
+$db->insert('role_permissions', ['role_id' => $targetRole, 'permission_key' => 'mission.read']);
 Assert::same('DENY',
     $guard->evaluate('OPERATOR', $target, $scope['tenant_id'], $scope['workspace_id'], 'mission.read', 'P09_TEST')['decision'],
     'revocation takes effect immediately without depending on login lifecycle');
