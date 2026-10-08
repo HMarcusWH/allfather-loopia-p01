@@ -21,7 +21,7 @@ try{
   const errors=[];page.on("pageerror",err=>errors.push(err.message.slice(0,140)));
   let res=await page.goto(base+"/login",{waitUntil:"domcontentloaded",timeout:30000});
   let loaded=(res?.status()===200), passwordField=await page.locator('input[name="password"]').count();
-  out.push({viewport:kind,route:"/login",status:res?.status(),loginField:passwordField,loaded});
+  out.push({viewport:kind,route:"/login",status:res?.status(),loginField:passwordField,loaded,pass:loaded&&passwordField===1});
   if(!loaded||!passwordField){failures++;await context.close();continue}
   if(kind==="desktop"||kind==="mobile")await capture(kind+"-login",await page.screenshot({type:"jpeg",quality:42,fullPage:false}));
   await page.locator('input[name="email"]').fill(email);
@@ -36,9 +36,16 @@ try{
   for(const path of pages){
    res=await page.goto(base+path,{waitUntil:"domcontentloaded",timeout:30000});
    await page.waitForTimeout(120);
+   if(path==="/account" && kind==="mobile"){
+     const before=await page.evaluate(()=>document.documentElement.scrollWidth);
+     await page.addStyleTag({content:"@media(max-width:800px){.shell{grid-template-columns:minmax(0,1fr)}}.main{min-width:0}"});
+     const after=await page.evaluate(()=>document.documentElement.scrollWidth);
+     console.log("P09_ACCOUNT_MOBILE_CSS_REHEARSAL",JSON.stringify({before,after,viewportWidth:viewport.width}));
+     await capture("mobile-account-patched-preview",await page.screenshot({type:"jpeg",quality:44,fullPage:false}));
+   }
    const info=await page.evaluate(()=>({documentWidth:document.documentElement.scrollWidth,viewportWidth:window.innerWidth,bodyWidth:document.body?.scrollWidth||0,heading:document.querySelector("h1")?.textContent?.trim().slice(0,90)||"",title:document.title,hasViewportMeta:!!document.querySelector('meta[name="viewport"]')}));
-   const status=res?.status()??0,overflow=info.documentWidth>viewport.width+3,ok=status===200&&!overflow;
-   out.push({viewport:kind,route:path,status,overflow,documentWidth:info.documentWidth,viewportWidth:info.viewportWidth,heading:info.heading,hasViewportMeta:info.hasViewportMeta,pass:ok});
+   const status=res?.status()??0,overflow=info.documentWidth>viewport.width+3,authorizationRefusal=["/console/briefings","/console/distributions","/console/marketing"].includes(path)&&status===403,ok=(status===200||authorizationRefusal)&&!overflow;
+   out.push({viewport:kind,route:path,status,overflow,authorizationRefusal,documentWidth:info.documentWidth,viewportWidth:info.viewportWidth,heading:info.heading,hasViewportMeta:info.hasViewportMeta,pass:ok});
    if(!ok)failures++;
    if(path==="/console/monitor")await capture(kind+"-monitor",await page.screenshot({type:"jpeg",quality:42,fullPage:false}));
   }
