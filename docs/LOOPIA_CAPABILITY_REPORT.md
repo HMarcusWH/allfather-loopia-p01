@@ -107,7 +107,7 @@ Its implementation and static/fixture checks do not update the deployed PR16 cla
 
 | Area | State |
 | --- | --- |
-| schema migrations | 31 files in merged source; deployed staging remains on 30 until the next inert update |
+| schema migrations | 31 files in candidate; deployed-release count is recorded separately |
 | authority seeding | `Permissions` vocabulary + role seeds; product registrations provision their selected tenant capabilities |
 | audit profiles | created on demand per category |
 | CI | historical package candidates have green hosted receipts, but exact source-complete main after the merge train still needs a fresh end-to-end qualification (post-merge backlog B0). Historical receipts remain evidence for their exact trees only. |
