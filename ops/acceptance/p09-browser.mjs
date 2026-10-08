@@ -153,9 +153,11 @@ try {
           return {status,payload};
         }
         const own=await readSelector(fixtures[kind].owned);
+        const data=own.payload?.data;
         const visible=own.status===200&&own.payload?.owner_state==="VISIBLE"&&
-          own.payload?.data!==null&&own.payload?.data!==undefined&&
-          (kind!=="monitor"||monitorMetadataOnly(own.payload.data,true));
+          own.payload?.projection?.state==="READY"&&
+          data!==null&&typeof data==="object"&&!Array.isArray(data)&&Object.keys(data).length>0&&
+          (kind!=="monitor"||monitorMetadataOnly(data,true));
         emit({viewport:name,route:kind+":owner-visible-read",status:own.status,ownerState:own.payload?.owner_state??null,
           result:visible?"PASS":"FAIL"});
         const absent=await readSelector(randomUUID());
