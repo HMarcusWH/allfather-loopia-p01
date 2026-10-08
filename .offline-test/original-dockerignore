@@ -1,0 +1,13 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+frontend/console/node_modules
+frontend/console/dist
+public_html/assets/operator-console
+storage/*
+!storage/README.md
+!storage/.htaccess
+vendor
+*.log
