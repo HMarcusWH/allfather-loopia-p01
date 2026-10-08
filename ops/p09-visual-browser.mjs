@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 const base="https://allfather-php-mvp-staging.up.railway.app";
 const email=process.env.TEST_LOGIN_EMAIL, password=process.env.TEST_LOGIN_PASSWORD;
 if (!email || !password || !email.endsWith("@example.test")) throw Error("TEST-only credentials required");
-const routes=["/console","/console/app","/console/monitor","/console/monitor/setup","/console/monitor/schedule","/console/monitor/runs","/console/briefings","/console/distributions","/console/marketing","/account"];
+const routes=["/console","/console/app","/console/monitor","/console/monitor/setup","/console/monitor/schedule","/console/briefings","/console/distributions","/console/marketing","/account"];
 const views=[["desktop",{width:1440,height:900}],["mobile",{width:390,height:844}]];
 const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
 const observations=[]; let failures=0,covered=0,notCovered=0;
@@ -69,6 +69,7 @@ try {
           emit({viewport:name,route:"/account:mobile-width",expectedMax:390,actual:geometry.scrollWidth,result:geometry.scrollWidth<=390?"PASS":"FAIL"});
         }
       }
+      for(const detail of ["P02 entity detail","P03 prospect detail","React Monitor run detail","setup reviewed apply","schedule proposal/revoke","stale digest refusal"]) emit({viewport:name,route:detail,result:"NOT_COVERED",reason:"requires authorized fixture/object or explicit reviewed operation; not inferred from page load"});
       await page.reload({waitUntil:"domcontentloaded"});
       emit({viewport:name,route:"/account:reload",result:new URL(page.url()).pathname==="/account"?"PASS":"FAIL"});
       measuring=false;
