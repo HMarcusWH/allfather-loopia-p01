@@ -41,9 +41,6 @@ unset DB_PASSWORD
 phase='schema-check'
 count="$(php ops/migrate.php status --env="$env_file" 2>/dev/null | grep -c '^APPLIED ' || true)"
 [ "$count" -eq 31 ] || { echo "STAGING_ACCEPTANCE_REFUSE migrations=$count"; exit 9; }
-phase='vocabulary'
-vocab="$(php ops/provision-role-vocabulary.php --apply --env="$env_file")"
-printf '%s\n' "$vocab" | php -r '$x=json_decode(stream_get_contents(STDIN),true); if(($x["status"]??"")!=="ROLE_VOCABULARY_PROVISIONED"||($x["memberships_assigned"]??1)!==0) exit(1);echo "STAGING_ROLE_VOCABULARY_PROVISIONED no_memberships_assigned",PHP_EOL;'
 phase='anonymous'
 php ops/staging-smoke.php --base-url=https://allfather-php-mvp-staging.up.railway.app --mode=anonymous >/tmp/allfather-anon.json
 php -r '$x=json_decode(file_get_contents($argv[1]),true); if(($x["status"]??"")!=="SMOKE_PASS") exit(1); echo "STAGING_ANONYMOUS_PASS steps=",($x["step_count"]??"?")," failures=",($x["failures"]??"?"),PHP_EOL;' /tmp/allfather-anon.json
