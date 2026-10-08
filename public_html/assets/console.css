@@ -61,7 +61,7 @@ a:hover, a:focus-visible { text-decoration: underline; }
 /* ---------------------------------------------------------------- shell */
 
 .shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
-@media (max-width: 800px) { .shell { grid-template-columns: 1fr; } }
+@media (max-width: 800px) { .shell { grid-template-columns: minmax(0, 1fr); } }
 
 .rail {
   background: var(--bg-sunken);
@@ -99,7 +99,7 @@ a:hover, a:focus-visible { text-decoration: underline; }
   font-size: 11px; color: var(--text-faint); line-height: 1.45;
 }
 
-.main { padding: 24px 28px 64px; max-width: 1120px; }
+.main { padding: 24px 28px 64px; max-width: 1120px; min-width: 0; }
 
 /* ---------------------------------------------------------------- headings */
 
