@@ -38,7 +38,11 @@ expires in M02 access evaluation even without a cleanup job. A separate reviewed
 revocation immediately changes the *specific* existing bounded membership to
 `REVOKED`. Historical rows remain; revoked/expired/pre-existing assignments are
 never extended, revived or converted by repeating this API. Legacy unlimited seats
-cannot be revoked through this narrow tool.
+cannot be revoked through this narrow tool. Stand-down deliberately does **not**
+require the target role to remain ACTIVE or its permission set to remain unchanged:
+a known bounded membership must still be revocable after target-role drift.
+The independently authorized revoker must themselves still hold current
+`tenant.administer` and `role.revoke` permissions.
 
 ## Exact plan and execution boundaries
 
