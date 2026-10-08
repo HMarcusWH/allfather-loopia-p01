@@ -183,7 +183,8 @@ final class TestMembershipLifecycle
         if (!Ids::isValid($membershipId)) return Outcome::refuse('P09_TEST_MEMBERSHIP_ID_INVALID');
         $row = $this->db->one(
             "SELECT m.membership_id, m.principal_id, m.role_id, m.role_version,
-                    m.status, m.valid_from, m.valid_until, r.role_key
+                    m.status, m.valid_from, m.valid_until, r.role_key,
+                    r.role_version AS defined_role_version
              FROM workspace_memberships m JOIN roles r ON r.role_id=m.role_id
              WHERE m.membership_id=? AND m.tenant_id=? AND m.workspace_id=?
                AND m.principal_type='OPERATOR'",
@@ -192,8 +193,11 @@ final class TestMembershipLifecycle
         if ($row === null || $row['valid_until'] === null) {
             return Outcome::refuse('P09_TEST_MEMBERSHIP_NOT_BOUNDED_IN_SCOPE');
         }
-        $role = $this->role((string) $row['role_key'], (int) $row['role_version']);
-        if (!$role->isOk() || $role->value()['role_id'] !== $row['role_id']) {
+        // Revocation removes rights; never make stand-down depend on the
+        // role still being ACTIVE or its permission set remaining pristine.
+        // Only a previously adopted key/version and exact role binding qualify.
+        if (!in_array((int) $row['role_version'], self::ALLOWED[(string) $row['role_key']] ?? [], true)
+            || (int) $row['defined_role_version'] !== (int) $row['role_version']) {
             return Outcome::refuse('P09_TEST_ROLE_NOT_ADOPTED');
         }
         if ((string) $row['status'] !== 'ACTIVE') {
