@@ -34,13 +34,24 @@ try{
   if(await first.count()){await first.evaluate(el=>el.closest("form").requestSubmit());await page.waitForURL(u=>u.pathname==="/console",{timeout:12000});}
   else {out.push({viewport:kind,stage:"workspace-selection",pass:false});failures++;}
   for(const path of pages){
+   if(path==="/account" && kind==="mobile"){
+      await page.route("**/assets/console.css*",async route=>{
+        const response=await route.fetch();
+        let css=await response.text();
+        const oldGrid="@media (max-width: 800px) { .shell { grid-template-columns: 1fr; } }";
+        const oldMain=".main { padding: 24px 28px 64px; max-width: 1120px; }";
+        if(!css.includes(oldGrid)||!css.includes(oldMain))throw new Error("expected stylesheet anchors missing");
+        css=css.replace(oldGrid,"@media (max-width: 800px) { .shell { grid-template-columns: minmax(0, 1fr); } }");
+        css=css.replace(oldMain,".main { padding: 24px 28px 64px; max-width: 1120px; min-width: 0; }");
+        await route.fulfill({response,body:css});
+        console.log("P09_PROPOSED_CSS_NETWORK_REPLACEMENT",JSON.stringify({route:"/assets/console.css",replacementApplied:true}));
+      });
+   }
    res=await page.goto(base+path,{waitUntil:"domcontentloaded",timeout:30000});
    await page.waitForTimeout(120);
    if(path==="/account" && kind==="mobile"){
-     const before=await page.evaluate(()=>document.documentElement.scrollWidth);
-     await page.addStyleTag({content:"@media(max-width:800px){.shell{grid-template-columns:minmax(0,1fr)}}.main{min-width:0}"});
      const after=await page.evaluate(()=>document.documentElement.scrollWidth);
-     console.log("P09_ACCOUNT_MOBILE_CSS_REHEARSAL",JSON.stringify({before,after,viewportWidth:viewport.width}));
+     console.log("P09_ACCOUNT_MOBILE_CSS_REHEARSAL",JSON.stringify({previouslyObservedWidth:482,after,viewportWidth:viewport.width}));
      await capture("mobile-account-patched-preview",await page.screenshot({type:"jpeg",quality:44,fullPage:false}));
    }
    const info=await page.evaluate(()=>({documentWidth:document.documentElement.scrollWidth,viewportWidth:window.innerWidth,bodyWidth:document.body?.scrollWidth||0,heading:document.querySelector("h1")?.textContent?.trim().slice(0,90)||"",title:document.title,hasViewportMeta:!!document.querySelector('meta[name="viewport"]')}));
