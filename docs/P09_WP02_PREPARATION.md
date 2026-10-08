@@ -93,9 +93,17 @@ Optional P09_FIXTURES_FILE (0600 JSON) MUST be paired with P09_REVIEWED_PLAN_DIG
 
 Private fixture file JSON shape:
     {"test_only":true,"release_sha":"<40 hex>",
+     "reviewed_plan_digest":"<64 lowercase hex>",
      "p02":{"owned":"<uuidv4>","foreign":"<uuidv4>"},
      "p03":{"owned":"<uuidv4>","foreign":"<uuidv4>"},
      "monitor":{"owned":"<uuidv4>","foreign":"<uuidv4>"}}
+
+The runner requires the fixture's reviewed_plan_digest to match the separately
+provided P09_REVIEWED_PLAN_DIGEST. This prevents accidental mismatched QA input,
+but is **not a signature, authorization verifier, or proof that an owner reviewed
+a plan**. Only the independently retained and approved M02 packet establishes
+that fact. The runner does not independently attest the deployed release SHA:
+an operator must first compare it to Railway's exact live deployment receipt.
 
 Kinds not supplied are NOT_COVERED. Never commit raw cookies, credentials, CSRF,
 private profile material or unsanitized evidence. The helper accepts only a
