@@ -30,7 +30,7 @@ final class TestMembershipLifecycle
         'ROLE_LEAD_QUALIFIER' => [1],
     ];
 
-    public function __construct(private readonly Database $db, private readonly Clock $clock) {}
+    public function __construct(private readonly Database $db, private readonly Clock $clock, private readonly string $appEnvironment) {}
 
     /** Validate a finite 24h TEST window independently of any database. */
     public static function validateWindow(string $from, string $until, string $now): Outcome
@@ -232,6 +232,14 @@ final class TestMembershipLifecycle
             if (!hash_equals((string) $plan->value()['plan_digest'], $reviewedPlanDigest)) {
                 return Outcome::refuse('P09_TEST_PLAN_CHANGED');
             }
+            // Record the revoker's authority BEFORE withdrawing a possible last
+            // self-held membership; otherwise legitimate self stand-down fails.
+            $guard = new AccessGuard($tx, $this->clock);
+            $record = $guard->evaluate('OPERATOR', $scope['operator_id'], $scope['tenant_id'],
+                $scope['workspace_id'], 'role.revoke', 'P09_TEST_MEMBERSHIP', $membershipId, null, true);
+            if ($record['decision'] !== 'ALLOW') {
+                return Outcome::refuse('P09_TEST_REVOKER_AUTHORITY_CHANGED');
+            }
             $changed = $tx->run(
                 "UPDATE workspace_memberships SET status='REVOKED'
                  WHERE membership_id=? AND tenant_id=? AND workspace_id=?
@@ -239,12 +247,6 @@ final class TestMembershipLifecycle
                 [$membershipId, $scope['tenant_id'], $scope['workspace_id']]
             );
             if ($changed !== 1) return Outcome::refuse('P09_TEST_MEMBERSHIP_STATE_CHANGED');
-            $guard = new AccessGuard($tx, $this->clock);
-            $record = $guard->evaluate('OPERATOR', $scope['operator_id'], $scope['tenant_id'],
-                $scope['workspace_id'], 'role.revoke', 'P09_TEST_MEMBERSHIP', $membershipId, null, true);
-            if ($record['decision'] !== 'ALLOW') {
-                return Outcome::refuse('P09_TEST_REVOKER_AUTHORITY_CHANGED');
-            }
             return Outcome::ok([
                 'membership_id' => $membershipId, 'status' => 'REVOKED',
                 'plan_digest' => $reviewedPlanDigest,
@@ -255,6 +257,9 @@ final class TestMembershipLifecycle
 
     private function context(array $scope, string $permission): Outcome
     {
+        if (!in_array($this->appEnvironment, ['staging', 'testing'], true)) {
+            return Outcome::refuse('P09_TEST_ENVIRONMENT_REQUIRED');
+        }
         foreach (['tenant_id', 'workspace_id', 'operator_id'] as $key) {
             if (!isset($scope[$key]) || !is_string($scope[$key]) || !Ids::isValid($scope[$key])) {
                 return Outcome::refuse('P09_TEST_SCOPE_INVALID');
