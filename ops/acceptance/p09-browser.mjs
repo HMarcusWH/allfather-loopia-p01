@@ -10,7 +10,7 @@ const fixtureFile=process.env.P09_FIXTURES_FILE;
 const reviewDigest=process.env.P09_REVIEWED_PLAN_DIGEST;
 if(Boolean(fixtureFile)!==Boolean(reviewDigest))throw Error("fixtures and reviewed membership plan digest must be provided together");
 if(reviewDigest&&!/^[a-f0-9]{64}$/.test(reviewDigest))throw Error("reviewed plan digest must be SHA-256");
-const fixtures=fixtureFile?validateP09Fixtures(JSON.parse(readFileSync(fixtureFile,"utf8")),expected):null;
+const fixtures=fixtureFile?validateP09Fixtures(JSON.parse(readFileSync(fixtureFile,"utf8")),expected,reviewDigest):null;
 
 const email=process.env.TEST_LOGIN_EMAIL, password=process.env.TEST_LOGIN_PASSWORD;
 if (!email || !password || !email.endsWith("@example.test")) throw Error("TEST-only credentials required");
@@ -44,7 +44,7 @@ try {
       await page.locator('input[name="password"]').evaluate(el=>el.closest("form").requestSubmit());
       await page.waitForURL(u=>u.pathname!=="/login",{timeout:20000});
       const afterLogin=new URL(page.url()).pathname;
-      if(afterLogin==="/change-password"||afterLogin.startsWith("/password")){
+      if(afterLogin==="/account/password"||afterLogin==="/change-password"||afterLogin.startsWith("/password")){
         emit({viewport:name,route:"/login",result:"FAIL",reason:"fresh password reset unexpectedly required"});continue;
       }
       emit({viewport:name,route:"/login-session",result:"PASS",redirectPath:afterLogin});
@@ -65,6 +65,9 @@ try {
         const response=await page.goto(base+path,{waitUntil:"domcontentloaded",timeout:30000});
         await page.waitForTimeout(400);
         const status=response?.status()??0;
+        // A redirect to /login, workspace chooser or another route is NOT success.
+        const actualPath=new URL(page.url()).pathname;
+        const unexpectedRedirect=actualPath!==path;
         const geometry=await page.evaluate(()=>({
           scrollWidth:document.documentElement.scrollWidth,
           innerWidth:window.innerWidth,
@@ -76,10 +79,10 @@ try {
         }));
         const overflow=geometry.scrollWidth>geometry.innerWidth+1;
         const denied=status===403;
-        const result=denied?"NOT_COVERED":status===200&&!overflow&&!geometry.forbiddenScopeParams&&!geometry.forbiddenAdmissionControl?"PASS":"FAIL";
-        emit({viewport:name,route:path,status,documentWidth:geometry.scrollWidth,viewportWidth:geometry.innerWidth,overflow,buttonCount:geometry.buttonCount,forbiddenScopeParams:geometry.forbiddenScopeParams,forbiddenAdmissionControl:geometry.forbiddenAdmissionControl,result,reason:denied?"owner-safe denied; visual detail untested":undefined});
+        const result=denied&&!unexpectedRedirect?"NOT_COVERED":status===200&&!unexpectedRedirect&&!overflow&&!geometry.forbiddenScopeParams&&!geometry.forbiddenAdmissionControl?"PASS":"FAIL";
+        emit({viewport:name,route:path,status,unexpectedRedirect,actualPath,documentWidth:geometry.scrollWidth,viewportWidth:geometry.innerWidth,overflow,buttonCount:geometry.buttonCount,forbiddenScopeParams:geometry.forbiddenScopeParams,forbiddenAdmissionControl:geometry.forbiddenAdmissionControl,result,reason:denied&&!unexpectedRedirect?"owner-safe denied; visual detail untested":undefined});
         if(path==="/account"&&name==="mobile"){
-          emit({viewport:name,route:"/account:mobile-width",expectedMax:390,actual:geometry.scrollWidth,result:geometry.scrollWidth<=390?"PASS":"FAIL"});
+          emit({viewport:name,route:"/account:mobile-width",expectedMax:390,actual:geometry.scrollWidth,result:!unexpectedRedirect&&geometry.scrollWidth<=390?"PASS":"FAIL"});
         }
       }
       for(const detail of ["setup reviewed apply","schedule proposal/revoke","stale digest refusal"]) emit({viewport:name,route:detail,result:"NOT_COVERED",reason:"requires authorized fixture/object or explicit reviewed operation; not inferred from page load"});
@@ -94,7 +97,7 @@ try {
       if(runsResponse.status()===200){
         const envelope=await runsResponse.json();
         const records=envelope?.data?.rows;
-        const validRows=monitorMetadataOnly(envelope?.data);
+        const validRows=runsResponse.status()===200 && envelope?.owner_state==="VISIBLE" && monitorMetadataOnly(envelope?.data);
         emit({viewport:name,route:"/console/api/v1/monitor/runs:metadata",status:200,rowsCount:Array.isArray(records)?records.length:null,result:validRows?"PASS":"FAIL"});
       }else{
         emit({viewport:name,route:"/console/api/v1/monitor/runs:metadata",status:runsResponse.status(),result:runsResponse.status()===403?"NOT_COVERED":"FAIL",reason:"metadata read not granted for TEST role"});
