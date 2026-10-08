@@ -95,6 +95,14 @@ const safeReliance = value => (
   onlyKeys(value, RELIANCE_KEYS) &&
     Object.values(value).every(s => s === null || typeof s === "string" && /^[A-Z_]{1,64}$/.test(s))
 );
+const safeCounter = value => onlyKeys(value, ["used", "limit"]) &&
+  Number.isSafeInteger(value.used) && value.used >= 0 &&
+  Number.isSafeInteger(value.limit) && value.limit >= 0;
+const safeAdmission = value => onlyKeys(value, ADMISSION_KEYS) &&
+  Object.entries(value).every(([key, v]) =>
+    ["model_attempts", "source_captures"].includes(key)
+      ? safeCounter(v)
+      : safePrimitive(v));
 export function monitorMetadataOnly(data, detail = false) {
   if (!detail) return onlyKeys(data, SUMMARY_KEYS) &&
     Array.isArray(data.rows) && data.rows.every(row => safeFlat(row, ROW_KEYS)) &&
@@ -107,7 +115,7 @@ export function monitorMetadataOnly(data, detail = false) {
       onlyKeys(ev, EVENT_KEYS) && safeActor(ev.actor) &&
       Object.entries(ev).every(([k, v]) => k === "actor" || safePrimitive(v))) &&
     Array.isArray(data.artifacts) && data.artifacts.every(a => safeFlat(a, ARTIFACT_KEYS)) &&
-    safeFlat(data.execution_admission, ADMISSION_KEYS) &&
+    safeAdmission(data.execution_admission) &&
     safeReliance(data.current_reliance ?? []) &&
     Object.entries(data).every(([k, v]) =>
       ["run", "events", "artifacts", "execution_admission", "current_reliance"].includes(k) ||
