@@ -68,6 +68,6 @@ restored_migrations="$(mariadb --protocol=socket -uroot "$localdb" -N -B -e 'SEL
 phase=retain-encrypted
 snapshot_key="staging/manual-$(date -u +%Y%m%dT%H%M%SZ)-$digest.tar.age"
 export SNAPSHOT_FILE="$w/backup.tar.age" SNAPSHOT_KEY="$snapshot_key" SNAPSHOT_PLAINTEXT_SHA256="$digest"
-node /opt/backup-upload.mjs
+node /opt/backup-modules/backup-upload.mjs
 echo "STAGING_ENCRYPTED_SNAPSHOT_RETAINED restore_verified=YES database_storage_untouched=YES scope=DB_ONLY"
 phase=complete
