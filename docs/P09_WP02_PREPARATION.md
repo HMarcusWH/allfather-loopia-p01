@@ -18,6 +18,11 @@ a proposal digest and passing offline tests do not confer owner execution author
 
 Use a dedicated synthetic TEST tenant/workspace, not a beta partner or customer identity.
 Prefer separate TEST operators for setup administration and product read fixtures.
+**WARNING:** the available P02/P03/P04 product roles are not read-only: they also include
+proposal, review, release, routing or related write permissions. A browser runner that
+only issues GETs does NOT make the underlying memberships read-only. Each such broader
+role requires a specific necessity/least-privilege review or a future separately adopted
+narrow role definition; do not silently weaken M02 or fabricate new rights.
 Proposed roles are version-pinned; all IDs and actual validity dates are PENDING
 a real current-state query, never invented:
 
@@ -25,10 +30,10 @@ a real current-state query, never invented:
 | --- | --- | --- |
 | Setup-only TEST operator | ROLE_TENANT_ADMIN v2 | tenant administration plus runtime_host_binding.administer, valkyrie.register, valkyrie.administer_contract |
 | Setup-only TEST operator | ROLE_WORKSPACE_OPERATOR v1 | mission.create, mission.activate, evidence.submit and monitor reads |
-| Setup-only TEST operator | ROLE_INTELLIGENCE_DISTRIBUTOR v1 | distribution.configure_targets |
+| Setup-only TEST operator | ROLE_INTELLIGENCE_DISTRIBUTOR v1 (includes routing rights) | distribution.configure_targets |
 | Setup-only TEST operator | ROLE_COMPETITION_MONITOR v1 | P01-specific visibility where needed |
-| P02 read-only TEST operator | ROLE_ENTITY_TWIN_CURATOR v1 | entity_twin.read plus governed released snapshot reads |
-| P03 read-only TEST operator | ROLE_LEAD_QUALIFIER v1 | priority_outreach_queue.read plus governed released prospect reads |
+| P02 browser-read QA seat | ROLE_ENTITY_TWIN_CURATOR v1 (broader than read-only) | entity_twin.read plus other propose/review/release rights |
+| P03 browser-read QA seat | ROLE_LEAD_QUALIFIER v1 (broader than read-only) | priority_outreach_queue.read plus upload/review rights |
 | Monitor-read TEST operator | ROLE_WORKSPACE_OPERATOR v1 | mission.read and evidence.read |
 
 Important: TenantAdmin v2 inherits powerful role.assign and role.revoke permissions.
