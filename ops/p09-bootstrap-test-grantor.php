@@ -3,17 +3,17 @@
 declare(strict_types=1);
 
 /**
- * P09 first TEST grantor. Private CLI only; never HTTP or an automatic boot path.
+ * P09 owner-signed TEST QA VIEWER. Private CLI only, with no role delegation.
  * plan: --env=... --tenant-id=... --workspace-id=... --operator-id=...
  *       --valid-from=... --valid-until=...
  * apply: same plus --plan-digest=... --signature-file=/private/approval.sig
  *
- * The owner must sign "P09_TEST_BOOTSTRAP_V1\n<PLAN_DIGEST>\n" with an
+ * The owner must sign "P09_TEST_QA_VIEWER_V2\n<PLAN_DIGEST>\n" with an
  * independently held Ed25519 private key. The public key is enrolled at the
  * FIXED, non-web, root-controlled storage path BEFORE execution; there is no
  * --public-key argument and no self-registration of a trust anchor.
  *
- * This does not create logins, run setup, admit a schedule or call providers.
+ * Only ROLE_DEMO_VIEWER v1 is permitted, for at most one hour. No login, role delegation, schedules or provider calls.
  */
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
@@ -21,7 +21,7 @@ if (PHP_SAPI !== 'cli') {
 }
 require __DIR__ . '/../app/autoload.php';
 
-use Allfather\Loopia\Auth\TestAuthorityBootstrap;
+use Allfather\Loopia\Auth\TestQaViewerBootstrap;
 use Allfather\Loopia\Core\Clock;
 use Allfather\Loopia\Ops\BetaCli;
 
@@ -100,7 +100,7 @@ if ($command === 'apply') {
 }
 
 $db = BetaCli::connect($config['env'], $fail);
-$bootstrap = new TestAuthorityBootstrap($db, new Clock(), $config['environment']);
+$bootstrap = new TestQaViewerBootstrap($db, new Clock(), $config['environment']);
 $outcome = $command === 'plan'
     ? $bootstrap->plan($scope, $operator, $from, $until)
     : $bootstrap->apply($scope, $operator, $from, $until, $digest, $signature, $trustedKey);
