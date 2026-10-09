@@ -35,8 +35,9 @@ Assert::same("P09_TEST_BOOTSTRAP_V1\nabc\n", TestAuthorityBootstrap::signatureMe
 Assert::same('P09_BOOTSTRAP_ENVIRONMENT_REQUIRED',
     (new TestAuthorityBootstrap($db, $clock, 'production'))->plan($loc, $target, $from, $until)->reasonCode(),
     'no bootstrap in production, even with TEST tenant');
+$over = $bootstrap->plan($loc, $target, $from, '2026-10-09T15:00:00.001Z');
 Assert::same('P09_BOOTSTRAP_WINDOW_INVALID',
-    $bootstrap->plan($loc, $target, $from, '2026-10-09T15:00:00.001Z')->reasonCode(),
+    $over->isOk() ? 'UNEXPECTED_OK' : $over->reasonCode(),
     'one-hour plus 1ms refused');
 Assert::same('P09_BOOTSTRAP_WINDOW_INVALID',
     $bootstrap->plan($loc, $target, '2026-10-09T14:06:00.000Z',
