@@ -3,6 +3,9 @@
 FROM node:22.16.0-bookworm-slim AS console
 WORKDIR /src
 COPY frontend/console /src/frontend/console
+# The P09 console unit suite imports this pure shared contract from outside frontend/console.
+# Copy only that offline helper into the Node build stage; no private runtime configuration.
+COPY ops/acceptance/p09-fixture-contract.mjs /src/ops/acceptance/p09-fixture-contract.mjs
 RUN npm install -g npm@10.9.2 \
     && cd /src/frontend/console \
     && test "$(node --version)" = "v22.16.0" \
