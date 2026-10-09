@@ -57,7 +57,7 @@ Assert::same("P09_TEST_QA_LOGIN_V1\n" . $loginDigest . "\n",
 Assert::same('P09_TEST_QA_LOGIN_V1', $planned->value()['signature_domain'],
     'new credentials require a distinct owner-signed login plan');
 Assert::same(false, $planned->value()['owner_signature_verified'], 'plan does not claim authorization');
-Assert::same(true, $planned->value()['must_change_password'], 'forced first-password change is retained');
+Assert::same(true, $planned->value()['definition']['must_change_password'], 'forced first-password change is retained');
 Assert::same('P09_QA_LOGIN_EMAIL_NOT_TEST_ONLY',
     $login->plan($scope, $target, $membershipId, 'customer@example.com', $digest)->reasonCode(),
     'non-synthetic email refused');
