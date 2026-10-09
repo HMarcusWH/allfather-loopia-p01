@@ -9,7 +9,8 @@ declare(strict_types=1);
  *
  * plan: --env, --tenant-id, --workspace-id, --operator-id, --membership-id,
  *       --email, --viewer-plan-digest
- * create: same plus --signature-file=ABSOLUTE_PRIVATE_PATH --password-stdin
+ * create: same plus --login-plan-digest=<SHA256> --signature-file=ABSOLUTE_PRIVATE_PATH
+ *         --login-signature-file=ANOTHER_PRIVATE_PATH --password-stdin
  *
  * No beta onboarding, subscription, operator creation, role assignment or
  * account reset. An initial forced password change remains mandatory.
@@ -33,7 +34,7 @@ if (!in_array($command, ['plan', 'create'], true)) $fail('command must be plan o
 $args = BetaCli::parseArgs(
     [$argv[0], ...array_slice($argv, 2)],
     ['env','tenant-id','workspace-id','operator-id','membership-id','email',
-     'viewer-plan-digest','signature-file','password-stdin'],
+     'viewer-plan-digest','login-plan-digest','signature-file','login-signature-file','password-stdin'],
     $fail
 );
 $need = static function (string $name) use ($args, $fail): string {
@@ -42,7 +43,8 @@ $need = static function (string $name) use ($args, $fail): string {
     }
     return $args[$name];
 };
-if ($command === 'plan' && (isset($args['signature-file']) || isset($args['password-stdin']))) {
+if ($command === 'plan' && (isset($args['signature-file']) || isset($args['login-signature-file'])
+    || isset($args['login-plan-digest']) || isset($args['password-stdin']))) {
     $fail('plan accepts neither signature nor password');
 }
 if ($command === 'create' && (($args['password-stdin'] ?? '') !== '1')) {
@@ -57,6 +59,8 @@ $membershipId = $need('membership-id');
 $email = $need('email');
 $viewerDigest = $need('viewer-plan-digest');
 $signature = '';
+$loginSignature = '';
+$loginPlanDigest = '';
 $trustedKey = '';
 
 if ($command === 'create') {
@@ -69,15 +73,19 @@ if ($command === 'create') {
     $keyDir = $root . '/.private-ops';
     $pubFile = $keyDir . '/p09_bootstrap_owner_ed25519.pub';
     $sigFile = $need('signature-file');
+    $loginSigFile = $need('login-signature-file');
+    $loginPlanDigest = $need('login-plan-digest');
+    if ($sigFile === $loginSigFile) $fail('viewer and login approvals require separate signature files');
     $publicRoot = realpath($root . '/public_html');
     $storageRoot = realpath($root . '/storage');
     clearstatcache(true);
     if (is_link($keyDir) || !is_dir($keyDir) || fileowner($keyDir) !== 0
         || (fileperms($keyDir) & 0777) !== 0700
-        || $publicRoot === false || $storageRoot === false || !str_starts_with($sigFile, '/')) {
+        || $publicRoot === false || $storageRoot === false || !str_starts_with($sigFile, '/')
+        || !str_starts_with($loginSigFile, '/')) {
         $fail('private trust directory or paths invalid');
     }
-    foreach ([$pubFile, $sigFile] as $file) {
+    foreach ([$pubFile, $sigFile, $loginSigFile] as $file) {
         $real = realpath($file);
         if (is_link($file) || $real === false || !is_file($real)
             || !is_readable($real) || fileowner($real) !== 0
@@ -90,6 +98,7 @@ if ($command === 'create') {
     }
     $trustedKey = trim((string) file_get_contents($pubFile));
     $signature = trim((string) file_get_contents($sigFile));
+    $loginSignature = trim((string) file_get_contents($loginSigFile));
 }
 
 $db = BetaCli::connect($config['env'], $fail);
@@ -100,7 +109,7 @@ if ($command === 'plan') {
     $password = BetaCli::readPassword(true, 'open this reviewed TEST-only QA login', $fail);
     $outcome = $login->create(
         $scope, $operatorId, $membershipId, $email, $viewerDigest,
-        $signature, $trustedKey, $password
+        $loginPlanDigest, $signature, $loginSignature, $trustedKey, $password
     );
     unset($password);
 }
