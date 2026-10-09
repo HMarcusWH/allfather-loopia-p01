@@ -1,5 +1,10 @@
 .git
-.github
+# Only the non-secret CI workflow contract is shipped for the foundation parity check.
+# Other .github files remain excluded from the private application image.
+.github/*
+!.github/workflows/
+.github/workflows/*
+!.github/workflows/ci.yml
 .env
 .env.*
 !.env.example
