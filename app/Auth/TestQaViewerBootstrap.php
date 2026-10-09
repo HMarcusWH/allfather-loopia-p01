@@ -223,7 +223,7 @@ final class TestQaViewerBootstrap
                 'membership_id' => $id,
                 'target_operator_id' => $operatorId,
                 'role_key' => 'ROLE_DEMO_VIEWER',
-                'role_version' => 2,
+                'role_version' => 1,
                 'valid_from' => $validFrom,
                 'valid_until' => $validUntil,
                 'plan_digest' => $reviewedPlanDigest,
