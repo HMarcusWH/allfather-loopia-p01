@@ -96,6 +96,22 @@ $count = static fn (): int => (int) $db->scalar(
 Assert::same(0, $count(), 'plan created no membership');
 
 $signature = $sign($digest);
+$stagingBootstrap = new TestAuthorityBootstrap($db, $clock, 'staging');
+$stagingPlan = $stagingBootstrap->plan($loc, $target, $from, $until);
+Assert::true($stagingPlan->isOk(), 'parallel TEST deployment class can plan independently');
+Assert::same('testing', $plan->value()['definition']['app_environment'],
+    'approved authority digest binds exact testing runtime');
+Assert::same('staging', $stagingPlan->value()['definition']['app_environment'],
+    'staging digest binds exact staging runtime');
+Assert::notSame($digest, $stagingPlan->value()['plan_digest'],
+    'signature cannot replay across testing and staging');
+$crossEnvApply = $stagingBootstrap->apply(
+    $loc, $target, $from, $until, $digest, $signature, $public
+);
+Assert::same('P09_BOOTSTRAP_PLAN_CHANGED',
+    $crossEnvApply->isOk() ? 'UNEXPECTED_OK' : $crossEnvApply->reasonCode(),
+    'valid testing signature cannot authorize staging');
+Assert::same(0, $count(), 'cross-environment replay created no membership');
 Assert::same('P09_BOOTSTRAP_OWNER_SIGNATURE_INVALID',
     $bootstrap->apply($loc, $target, $from, $until, $digest, $signature, $otherPublic)->reasonCode(),
     'self-signed approval cannot pass the independently enrolled owner key');
