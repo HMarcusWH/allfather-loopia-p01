@@ -140,6 +140,8 @@ Assert::true($made->isOk(), 'valid signed plan creates exactly one finite read-o
 $receipt = $made->value();
 Assert::same(true, $receipt['owner_signature_verified'], 'signed receipt marks owner signature verification');
 Assert::same($digest, $receipt['plan_digest'], 'exact approval bound to receipt');
+Assert::same('ROLE_DEMO_VIEWER', $receipt['role_key'], 'signed receipt identifies only viewer role');
+Assert::same(1, $receipt['role_version'], 'signed receipt reports canonical viewer v1');
 Assert::same(1, $count(), 'exactly one row was inserted');
 $persisted = $db->one(
     'SELECT m.status, m.valid_until, m.role_version, r.role_key
@@ -149,6 +151,8 @@ $persisted = $db->one(
 Assert::same(['ACTIVE',$until,1,'ROLE_DEMO_VIEWER'],
     [$persisted['status'],$persisted['valid_until'],(int)$persisted['role_version'],$persisted['role_key']],
     'correct role, version, status, finite expiry');
+Assert::same((int)$persisted['role_version'], $receipt['role_version'],
+    'receipt role version must exactly equal committed DB membership');
 
 $guard = new AccessGuard($db, $clock);
 foreach (['workspace.read', 'decision.read', 'internal_release.read'] as $permission) {
