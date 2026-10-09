@@ -83,6 +83,11 @@ Assert::same('P09_BOOTSTRAP_ROLE_DRIFT',
     $bootstrap->plan($loc, $target, $from, $until)->reasonCode(),
     'no drifted viewer role set accepted');
 $db->insert('role_permissions', ['role_id'=>$role,'permission_key'=>'decision.read']);
+$db->insert('role_permissions', ['role_id'=>$role,'permission_key'=>'role.assign']);
+Assert::same('P09_BOOTSTRAP_ROLE_DRIFT',
+    $bootstrap->plan($loc, $target, $from, $until)->reasonCode(),
+    'a canonical DemoViewer widened with role.assign must fail closed');
+$db->run("DELETE FROM role_permissions WHERE role_id=? AND permission_key='role.assign'", [$role]);
 
 $plan = $bootstrap->plan($loc, $target, $from, $until);
 Assert::true($plan->isOk(), 'unbound TEST operator can be planned without mutation');
@@ -181,7 +186,20 @@ Assert::same('P09_BOOTSTRAP_OPERATOR_NOT_EMPTY',
 Assert::same('DENY', $guard->evaluate('OPERATOR',$target,$loc['tenant_id'],$loc['workspace_id'],
     'decision.read','P09_QA_VIEWER')['decision'], 'revocation stands down viewer immediately');
 
+// Independent second plan/signature is the only route for a second recipient.
+// Its own expiry prevents a long-lived delegated authority even without cleanup.
+$nextApproval = $sign($nextPlan->value()['plan_digest']);
+$second = $bootstrap->apply($loc, $next, $from, $until,
+    $nextPlan->value()['plan_digest'], $nextApproval, $public);
+Assert::true($second->isOk(), 'a separately owner-signed QA viewer may be admitted');
+Assert::same('ALLOW', $guard->evaluate('OPERATOR',$next,$loc['tenant_id'],$loc['workspace_id'],
+    'decision.read','P09_QA_VIEWER')['decision'], 'second signed viewer may read before expiry');
+Assert::same('DENY', $guard->evaluate('OPERATOR',$next,$loc['tenant_id'],$loc['workspace_id'],
+    'role.assign','P09_QA_VIEWER')['decision'], 'second signed viewer still cannot delegate');
+
 $clock->advanceMs(61 * 60 * 1000);
+Assert::same('DENY', $guard->evaluate('OPERATOR',$next,$loc['tenant_id'],$loc['workspace_id'],
+    'decision.read','P09_QA_VIEWER')['decision'], 'finite signed viewer loses access after expiry');
 Assert::same('P09_BOOTSTRAP_WINDOW_INVALID',
     $bootstrap->plan($loc, Seed::operator($db,$clock,$scope['tenant_id'],'Late attempt'),$from,$until)->reasonCode(),
     'expired bootstrap plan cannot be used as a late replay');
