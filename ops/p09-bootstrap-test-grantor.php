@@ -60,19 +60,38 @@ if ($command === 'apply') {
     // Trust material may never reside on the www-data-writable storage mount.
     // The enrollment directory and key must be root-owned and immutable to
     // the web process; creating/enrolling it is a separate owner operation.
-    $trustDir = dirname($pubPath);
-    if (is_link($trustDir) || !is_dir($trustDir) ||
-        fileowner($trustDir) !== 0 || ((fileperms($trustDir) & 0022) !== 0) ||
-        !is_file($pubPath) || fileowner($pubPath) !== 0) {
-        $fail('trusted owner key not enrolled in root-controlled directory');
+    // The original Railway PHP image starts as root, then serves requests as
+    // www-data. A non-root CLI cannot claim this exceptional authority.
+    if (!function_exists('posix_geteuid') || posix_geteuid() !== 0) {
+        $fail('bootstrap apply requires root-controlled private CLI');
     }
-    // Neither the signing key nor the approval signature may be sourced from a
-    // web-visible location or through a link into another filesystem.
+    $trustDir = dirname($pubPath);
+    clearstatcache(true);
+    if (is_link($trustDir) || !is_dir($trustDir) ||
+        fileowner($trustDir) !== 0 ||
+        (fileperms($trustDir) & 0777) !== 0700 ||
+        is_link($pubPath) || !is_file($pubPath) ||
+        fileowner($pubPath) !== 0 ||
+        (fileperms($pubPath) & 0777) !== 0400 ||
+        !is_readable($pubPath)) {
+        $fail('trusted owner key must be root-owned directory 0700 and file 0400');
+    }
+    // Both public verification key and detached signature must stay out of
+    // the served tree AND out of the www-data-writable persistent volume.
+    $publicRoot = realpath($root . '/public_html');
+    $writableRoot = realpath($root . '/storage');
+    if ($publicRoot === false || $writableRoot === false || !str_starts_with($sigPath, '/')) {
+        $fail('private approval paths not canonical');
+    }
     foreach ([$pubPath, $sigPath] as $path) {
-        if (is_link($path) || !is_file($path) || !is_readable($path) ||
-            (realpath($path) !== false &&
-             str_starts_with(realpath($path), realpath($root . '/public_html') . DIRECTORY_SEPARATOR)) ||
-            ((fileperms($path) & 0022) !== 0)) {
+        $real = realpath($path);
+        if (is_link($path) || $real === false || !is_file($real) || !is_readable($real) ||
+            $real === $publicRoot ||
+            str_starts_with($real, $publicRoot . DIRECTORY_SEPARATOR) ||
+            $real === $writableRoot ||
+            str_starts_with($real, $writableRoot . DIRECTORY_SEPARATOR) ||
+            fileowner($real) !== 0 ||
+            ((fileperms($real) & 0077) !== 0)) {
             $fail('missing or unsafe private approval material');
         }
     }
