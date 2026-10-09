@@ -79,7 +79,13 @@ try {
       await page.locator('input[name="password"]').fill(password);
       await page.locator('input[name="password"]').evaluate(el => el.closest("form").requestSubmit());
       await page.waitForURL(u => u.pathname !== "/login", { timeout: 20000 });
-      const landed = new URL(page.url()).pathname;
+      const landedUrl = new URL(page.url());
+      const landed = landedUrl.pathname;
+      if (landedUrl.origin !== base) {
+        record({ viewport: name, check: "login-origin", result: "FAIL",
+          reason: "authentication redirected outside pinned staging origin" });
+        continue;
+      }
       if (landed === "/account/password" || landed.startsWith("/password")
           || landed === "/change-password") {
         record({ viewport: name, check: "first-password-change",
@@ -133,7 +139,9 @@ try {
         ["p03", "/console/api/v1/p03/prospect-detail?output="],
         ["monitor-run", "/console/api/v1/monitor/run?run="],
       ]) {
-        const response = await context.request.get(base + path + randomUUID(), { failOnStatusCode: false });
+        const response = await context.request.get(base + path + randomUUID(), {
+          failOnStatusCode: false, maxRedirects: 0
+        });
         const status = response.status();
         if (status === 403 || status === 401) {
           record({ viewport: name, check: label + "-unknown", status,
