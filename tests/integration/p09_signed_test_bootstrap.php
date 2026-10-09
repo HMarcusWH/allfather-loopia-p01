@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Allfather\Loopia\Auth\{AccountService,Authenticator,TestAuthorityBootstrap,TestMembershipLifecycle};
+use Allfather\Loopia\Auth\{AccountService,Authenticator,TestQaViewerBootstrap,TestMembershipLifecycle};
 use Allfather\Loopia\Core\{Clock,Ids};
 use Allfather\Loopia\Substrate\M02\{AccessGuard,Seed as M02Seed};
 use Allfather\Loopia\Tests\{Assert,Harness,Seed};
@@ -15,26 +15,26 @@ if (!function_exists('sodium_crypto_sign_detached')) {
 $clock = Harness::clock('2026-10-09T14:00:00.000Z');
 $scope = Seed::tenantWorkspace($db, $clock, 'p09-signed-bootstrap');
 (new M02Seed($db, $clock))->ensureVocabulary();
-$target = Seed::operator($db, $clock, $scope['tenant_id'], 'First grantor, no login');
+$target = Seed::operator($db, $clock, $scope['tenant_id'], 'QA viewer candidate, no login');
 $reader = Seed::operator($db, $clock, $scope['tenant_id'], 'QA read target');
 $loc = ['tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id']];
 $from = $clock->now();
 $until = Clock::format(Clock::parse($from)->modify('+1 hour'));
 $overUntil = Clock::format(Clock::parse($from)->modify('+3600001 milliseconds'));
-$bootstrap = new TestAuthorityBootstrap($db, $clock, 'testing');
+$bootstrap = new TestQaViewerBootstrap($db, $clock, 'testing');
 $pair = sodium_crypto_sign_keypair();
 $public = base64_encode(sodium_crypto_sign_publickey($pair));
 $secret = sodium_crypto_sign_secretkey($pair);
 $otherPair = sodium_crypto_sign_keypair();
 $otherPublic = base64_encode(sodium_crypto_sign_publickey($otherPair));
 $sign = static fn (string $digest): string => base64_encode(
-    sodium_crypto_sign_detached(TestAuthorityBootstrap::signatureMessage($digest), $secret)
+    sodium_crypto_sign_detached(TestQaViewerBootstrap::signatureMessage($digest), $secret)
 );
 
-Assert::same("P09_TEST_BOOTSTRAP_V1\nabc\n", TestAuthorityBootstrap::signatureMessage('abc'),
+Assert::same("P09_TEST_QA_VIEWER_V2\nabc\n", TestQaViewerBootstrap::signatureMessage('abc'),
     'owner signs a domain-separated, exact plan digest');
 Assert::same('P09_BOOTSTRAP_ENVIRONMENT_REQUIRED',
-    (new TestAuthorityBootstrap($db, $clock, 'production'))->plan($loc, $target, $from, $until)->reasonCode(),
+    (new TestQaViewerBootstrap($db, $clock, 'production'))->plan($loc, $target, $from, $until)->reasonCode(),
     'no bootstrap in production, even with TEST tenant');
 $over = $bootstrap->plan($loc, $target, $from, $overUntil);
 Assert::same('P09_BOOTSTRAP_WINDOW_INVALID',
@@ -76,13 +76,13 @@ Assert::same('P09_BOOTSTRAP_OPERATOR_NOT_EMPTY',
     'even retired login binding excludes bootstrap');
 
 $role = (string) $db->scalar(
-    "SELECT role_id FROM roles WHERE role_key='ROLE_TENANT_ADMIN' AND role_version=2"
+    "SELECT role_id FROM roles WHERE role_key='ROLE_DEMO_VIEWER' AND role_version=1"
 );
-$db->run("DELETE FROM role_permissions WHERE role_id=? AND permission_key='role.assign'", [$role]);
+$db->run("DELETE FROM role_permissions WHERE role_id=? AND permission_key='decision.read'", [$role]);
 Assert::same('P09_BOOTSTRAP_ROLE_DRIFT',
     $bootstrap->plan($loc, $target, $from, $until)->reasonCode(),
-    'no drifted Admin v2 role set accepted');
-$db->insert('role_permissions', ['role_id'=>$role,'permission_key'=>'role.assign']);
+    'no drifted viewer role set accepted');
+$db->insert('role_permissions', ['role_id'=>$role,'permission_key'=>'decision.read']);
 
 $plan = $bootstrap->plan($loc, $target, $from, $until);
 Assert::true($plan->isOk(), 'unbound TEST operator can be planned without mutation');
@@ -96,7 +96,7 @@ $count = static fn (): int => (int) $db->scalar(
 Assert::same(0, $count(), 'plan created no membership');
 
 $signature = $sign($digest);
-$stagingBootstrap = new TestAuthorityBootstrap($db, $clock, 'staging');
+$stagingBootstrap = new TestQaViewerBootstrap($db, $clock, 'staging');
 $stagingPlan = $stagingBootstrap->plan($loc, $target, $from, $until);
 Assert::true($stagingPlan->isOk(), 'parallel TEST deployment class can plan independently');
 Assert::same('testing', $plan->value()['definition']['app_environment'],
@@ -131,7 +131,7 @@ Assert::same('P09_BOOTSTRAP_PLAN_CHANGED',
 Assert::same(0, $count(), 'stale digest created no role');
 
 $made = $bootstrap->apply($loc, $target, $from, $until, $digest, $signature, $public);
-Assert::true($made->isOk(), 'valid signed plan creates exactly one finite Admin-v2 seat');
+Assert::true($made->isOk(), 'valid signed plan creates exactly one finite read-only viewer seat');
 $receipt = $made->value();
 Assert::same(true, $receipt['owner_signature_verified'], 'signed receipt marks owner signature verification');
 Assert::same($digest, $receipt['plan_digest'], 'exact approval bound to receipt');
@@ -141,31 +141,45 @@ $persisted = $db->one(
      FROM workspace_memberships m JOIN roles r ON r.role_id=m.role_id
      WHERE m.membership_id=?', [$receipt['membership_id']]
 );
-Assert::same(['ACTIVE',$until,2,'ROLE_TENANT_ADMIN'],
+Assert::same(['ACTIVE',$until,1,'ROLE_DEMO_VIEWER'],
     [$persisted['status'],$persisted['valid_until'],(int)$persisted['role_version'],$persisted['role_key']],
     'correct role, version, status, finite expiry');
 
 $guard = new AccessGuard($db, $clock);
-foreach (['tenant.administer', 'role.assign', 'role.revoke'] as $permission) {
+foreach (['workspace.read', 'decision.read', 'internal_release.read'] as $permission) {
     Assert::same('ALLOW', $guard->evaluate('OPERATOR',$target,$loc['tenant_id'],$loc['workspace_id'],
-        $permission,'P09_BOOTSTRAP')['decision'], 'bootstrap seat grants canonical ' . $permission);
+        $permission,'P09_QA_VIEWER')['decision'], 'QA viewer may read only: ' . $permission);
+}
+foreach (['tenant.administer','role.assign','role.revoke','mission.activate','tool.invoke',
+          'workspace.create','identity.register','approval.decide_exact_artifact'] as $permission) {
+    Assert::same('DENY', $guard->evaluate('OPERATOR',$target,$loc['tenant_id'],$loc['workspace_id'],
+        $permission,'P09_QA_VIEWER')['decision'], 'QA viewer cannot delegate/execute: ' . $permission);
 }
 $member = new TestMembershipLifecycle($db, $clock, 'testing');
-Assert::true($member->planAssign([...$loc,'operator_id'=>$target], $reader,
-    'ROLE_COMPETITION_MONITOR',1,$from,$until)->isOk(), 'new grantor can PLAN regular bounded role');
+$delegation = $member->planAssign([...$loc,'operator_id'=>$target], $reader,
+    'ROLE_COMPETITION_MONITOR',1,$from,$until);
+Assert::same('P09_TEST_MEMBERSHIP_ADMIN_DENIED',
+    $delegation->isOk() ? 'UNEXPECTED_OK' : $delegation->reasonCode(),
+    'QA viewer cannot use P09 role-delegation API');
 Assert::same('P09_BOOTSTRAP_OPERATOR_NOT_EMPTY',
     $bootstrap->plan($loc, $target, $from, $until)->reasonCode(),
-    'same operator can never bootstrap again');
-$next = Seed::operator($db, $clock, $scope['tenant_id'], 'Different proposed bootstrapper');
-Assert::same('P09_BOOTSTRAP_ALREADY_USED',
-    $bootstrap->plan($loc, $next, $from, $until)->reasonCode(),
-    'tenant-wide durable one-use marker blocks subsequent operators');
+    'same operator cannot silently renew/reissue');
+$next = Seed::operator($db, $clock, $scope['tenant_id'], 'Separate QA viewer candidate');
+$nextPlan = $bootstrap->plan($loc, $next, $from, $until);
+Assert::true($nextPlan->isOk(), 'a separate recipient requires a separate plan and signature');
+Assert::notSame($digest,$nextPlan->value()['plan_digest'],
+    'owner signature cannot be replayed for a different QA viewer');
+$crossRecipient = $bootstrap->apply($loc, $next, $from, $until,
+    $nextPlan->value()['plan_digest'], $signature, $public);
+Assert::same('P09_BOOTSTRAP_OWNER_SIGNATURE_INVALID',
+    $crossRecipient->isOk() ? 'UNEXPECTED_OK' : $crossRecipient->reasonCode(),
+    'another recipient cannot reuse the prior signature');
 $db->run("UPDATE workspace_memberships SET status='REVOKED' WHERE membership_id=?", [$receipt['membership_id']]);
-Assert::same('P09_BOOTSTRAP_ALREADY_USED',
-    $bootstrap->plan($loc, $next, $from, $until)->reasonCode(),
-    'revocation never makes bootstrap repeatable');
+Assert::same('P09_BOOTSTRAP_OPERATOR_NOT_EMPTY',
+    $bootstrap->plan($loc, $target, $from, $until)->reasonCode(),
+    'revocation still blocks re-enrolling the same operator');
 Assert::same('DENY', $guard->evaluate('OPERATOR',$target,$loc['tenant_id'],$loc['workspace_id'],
-    'role.assign','P09_BOOTSTRAP')['decision'], 'revocation stands down role immediately');
+    'decision.read','P09_QA_VIEWER')['decision'], 'revocation stands down viewer immediately');
 
 $clock->advanceMs(61 * 60 * 1000);
 Assert::same('P09_BOOTSTRAP_WINDOW_INVALID',
