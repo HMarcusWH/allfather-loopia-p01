@@ -89,7 +89,7 @@ final class TestQaViewerBootstrap
         if ($operator === null || $operator['status'] !== 'ACTIVE') {
             return Outcome::refuse('P09_BOOTSTRAP_OPERATOR_NOT_ACTIVE');
         }
-        // Never attach bootstrap authority to a historical credential, retired
+        // Never attach a QA viewer to a historical credential, retired
         // login, or operator with any pre-existing (including foreign) seat.
         if ((int) $this->db->scalar(
             'SELECT COUNT(*) FROM platform_users WHERE operator_id=?', [$operatorId]
@@ -105,7 +105,7 @@ final class TestQaViewerBootstrap
         // demands a different owner-signed, exact plan.
         $expected = null;
         foreach (Permissions::roleVersionDefinitions() as $definition) {
-            if ($definition['role_key'] === 'ROLE_DEMO_VIEWER' && $definition['role_version'] === 2) {
+            if ($definition['role_key'] === 'ROLE_DEMO_VIEWER' && $definition['role_version'] === 1) {
                 $expected = $definition;
                 break;
             }
@@ -149,7 +149,7 @@ final class TestQaViewerBootstrap
             'valid_from' => $validFrom,
             'valid_until' => $validUntil,
             'existing_operator_memberships' => 0,
-                    ];
+        ];
         return Outcome::ok([
             'action' => 'SIGNED_BOUNDED_TEST_QA_VIEWER',
             'definition' => $definition,
