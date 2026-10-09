@@ -46,13 +46,22 @@ try {
     let observing = false;
     const mutating = [], external = [], jsErrors = [];
     page.on("pageerror", e => jsErrors.push(e.name.slice(0, 60)));
-    page.on("request", req => {
-      if (!observing) return;
+    // Enforce network constraints before dispatch. The login POST is outside
+    // the read-only observation phase; all later page requests are GET/HEAD
+    // and same-origin only. A merely logged forbidden request is too late.
+    await page.route("**/*", async route => {
+      if (!observing) return route.continue();
+      const req = route.request();
       const parsed = new URL(req.url());
-      if (parsed.origin !== base) external.push(parsed.hostname.slice(0, 80));
       if (!["GET", "HEAD"].includes(req.method())) {
         mutating.push({ method: req.method(), path: parsed.pathname.slice(0, 100) });
+        return route.abort("blockedbyclient");
       }
+      if (parsed.origin !== base) {
+        external.push(parsed.hostname.slice(0, 80));
+        return route.abort("blockedbyclient");
+      }
+      return route.continue();
     });
     try {
       // Anonymous negative check is a GET; no session or privileged scope.
