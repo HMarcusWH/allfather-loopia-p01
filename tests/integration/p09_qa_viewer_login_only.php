@@ -47,6 +47,15 @@ Assert::same(0, $accountCount(), 'login does not pre-exist before its separate a
 
 $planned = $login->plan($scope, $target, $membershipId, $email, $digest);
 Assert::true($planned->isOk(), 'private login plan matches persisted signed viewer seat');
+$loginDigest = $planned->value()['login_plan_digest'];
+$loginSignature = base64_encode(sodium_crypto_sign_detached(
+    TestQaViewerLogin::signatureMessage($loginDigest), $secret
+));
+Assert::notSame($loginDigest, $digest, 'login-only approval is a distinct typed digest');
+Assert::same("P09_TEST_QA_LOGIN_V1\n" . $loginDigest . "\n",
+    TestQaViewerLogin::signatureMessage($loginDigest), 'separate login signing domain');
+Assert::same('P09_TEST_QA_LOGIN_V1', $planned->value()['signature_domain'],
+    'new credentials require a distinct owner-signed login plan');
 Assert::same(false, $planned->value()['owner_signature_verified'], 'plan does not claim authorization');
 Assert::same(true, $planned->value()['must_change_password'], 'forced first-password change is retained');
 Assert::same('P09_QA_LOGIN_EMAIL_NOT_TEST_ONLY',
@@ -55,13 +64,24 @@ Assert::same('P09_QA_LOGIN_EMAIL_NOT_TEST_ONLY',
 Assert::same('P09_QA_LOGIN_SIGNED_VIEWER_PLAN_CHANGED',
     $login->plan($scope, $target, $membershipId, $email, str_repeat('0', 64))->reasonCode(),
     'missing/wrong original plan digest refused');
+Assert::same('P09_QA_LOGIN_VIEWER_SIGNATURE_INVALID',
+    $login->create($scope, $target, $membershipId, $email, $digest,
+        $loginDigest, base64_encode(str_repeat('a', 64)), $loginSignature,
+        $public, $password)->reasonCode(),
+    'fake ORIGINAL viewer signature refuses before any login');
 Assert::same('P09_QA_LOGIN_OWNER_SIGNATURE_INVALID',
     $login->create($scope, $target, $membershipId, $email, $digest,
-        base64_encode(str_repeat('a', 64)), $public, $password)->reasonCode(),
-    'fake signature refuses before any login');
+        $loginDigest, $signature, $signature, $public, $password)->reasonCode(),
+    'valid viewer signature alone cannot authorize a TEST login');
 Assert::same('P09_QA_LOGIN_OWNER_SIGNATURE_INVALID',
     $login->create($scope, $target, $membershipId, $email, $digest,
-        $signature, base64_encode(str_repeat('b', 32)), $password)->reasonCode(),
+        $loginDigest, $signature, base64_encode(str_repeat('a', 64)),
+        $public, $password)->reasonCode(),
+    'forged LOGIN signature cannot authorize a TEST credential');
+Assert::same('P09_QA_LOGIN_VIEWER_SIGNATURE_INVALID',
+    $login->create($scope, $target, $membershipId, $email, $digest,
+        $loginDigest, $signature, $loginSignature,
+        base64_encode(str_repeat('b', 32)), $password)->reasonCode(),
     'untrusted replacement verifier refuses');
 Assert::same(0, $accountCount(), 'signature failures have no write');
 Assert::same('P09_QA_LOGIN_ENVIRONMENT_REQUIRED',
@@ -85,9 +105,20 @@ Assert::same('P09_QA_LOGIN_VIEWER_ROLE_DRIFT',
     'a viewer role widened with delegation cannot receive a login');
 $db->run("DELETE FROM role_permissions WHERE role_id=? AND permission_key='role.assign'", [$role]);
 
-$created = $login->create($scope, $target, $membershipId, $email, $digest, $signature, $public, $password);
+Assert::same('P09_QA_LOGIN_PLAN_CHANGED',
+    $login->create($scope, $target, $membershipId, $email, $digest,
+        str_repeat('b', 64), $signature,
+        base64_encode(sodium_crypto_sign_detached(
+            TestQaViewerLogin::signatureMessage(str_repeat('b', 64)), $secret
+        )), $public, $password)->reasonCode(),
+    'separately signed but different login plan cannot create credentials');
+Assert::same(0, $accountCount(), 'wrong login plan left database unchanged');
+$created = $login->create($scope, $target, $membershipId, $email, $digest,
+    $loginDigest, $signature, $loginSignature, $public, $password);
 Assert::true($created->isOk(), 'verified original signed viewer creates login only');
-Assert::same(true, $created->value()['owner_signature_verified'], 'matching signature verified for login path');
+Assert::same(true, $created->value()['owner_signature_verified'], 'matching separate login signature verified');
+Assert::same(true, $created->value()['viewer_signature_verified'], 'original viewer signature independently verified');
+Assert::same($loginDigest, $created->value()['login_plan_digest'], 'receipt binds exact signed login plan');
 Assert::same(true, $created->value()['must_change_password'], 'credential lifecycle is not bypassed');
 Assert::same(1, $accountCount(), 'one new login bound to existing TEST operator');
 Assert::same(1, $membershipCount(), 'login creation does not assign any further role');
