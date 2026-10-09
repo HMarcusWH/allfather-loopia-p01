@@ -14,3 +14,6 @@ Thumbs.db
 /frontend/console/node_modules/
 /frontend/console/dist/
 /public_html/assets/operator-console/
+
+# Owner approval verification material is enrolled only in a running private container.
+/.private-ops/
