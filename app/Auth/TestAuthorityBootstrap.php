@@ -1,0 +1,234 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Allfather\Loopia\Auth;
+
+use Allfather\Loopia\Core\{Clock,Digest,Ids,Outcome};
+use Allfather\Loopia\Db\Database;
+use Allfather\Loopia\Substrate\M02\Permissions;
+
+/**
+ * P09 initial-authority exception only for an existing, UNBOUND TEST operator.
+ *
+ * No actor may assert that a digest is owner approval. Applying the one-hour
+ * canonical TenantAdmin-v2 bootstrap requires an Ed25519 signature from the
+ * independently enrolled owner verification key. The private CLI, not this
+ * library, controls the trust anchor and prevents caller-selected keys.
+ *
+ * An irreversible membership record is the one-use marker within its tenant:
+ * even REVOKED/EXPIRED rows block a second bootstrap. This is not a production
+ * or beta onboarding mechanism; it never creates a user or a credential.
+ */
+final class TestAuthorityBootstrap
+{
+    public const MAX_WINDOW_SECONDS = 3600;
+    public const SIGNATURE_DOMAIN = "P09_TEST_BOOTSTRAP_V1\n";
+
+    public function __construct(
+        private readonly Database $db,
+        private readonly Clock $clock,
+        private readonly string $appEnvironment,
+    ) {}
+
+    public static function signatureMessage(string $digest): string
+    {
+        return self::SIGNATURE_DOMAIN . $digest . "\n";
+    }
+
+    /** @param array{tenant_id:string,workspace_id:string} $scope */
+    public function plan(array $scope, string $operatorId, string $validFrom, string $validUntil): Outcome
+    {
+        if (!in_array($this->appEnvironment, ['staging', 'testing'], true)) {
+            return Outcome::refuse('P09_BOOTSTRAP_ENVIRONMENT_REQUIRED');
+        }
+        foreach (['tenant_id', 'workspace_id'] as $key) {
+            if (!isset($scope[$key]) || !is_string($scope[$key]) || !Ids::isValid($scope[$key])) {
+                return Outcome::refuse('P09_BOOTSTRAP_SCOPE_INVALID');
+            }
+        }
+        if (!Ids::isValid($operatorId)) return Outcome::refuse('P09_BOOTSTRAP_OPERATOR_INVALID');
+
+        $row = $this->db->one(
+            'SELECT t.tenant_type, t.status AS tenant_status, w.workspace_type,
+                    w.environment_class, w.external_side_effects_allowed,
+                    w.status AS workspace_status
+             FROM workspaces w JOIN tenants t ON t.tenant_id=w.tenant_id
+             WHERE w.tenant_id=? AND w.workspace_id=?',
+            [$scope['tenant_id'], $scope['workspace_id']]
+        );
+        if ($row === null || $row['tenant_type'] !== 'TEST' ||
+            $row['tenant_status'] !== 'ACTIVE' || $row['workspace_type'] !== 'TEST' ||
+            $row['environment_class'] !== 'TEST' ||
+            (int) $row['external_side_effects_allowed'] !== 0 ||
+            $row['workspace_status'] !== 'ACTIVE') {
+            return Outcome::refuse('P09_BOOTSTRAP_NOT_ISOLATED_TEST');
+        }
+
+        $window = TestMembershipLifecycle::validateWindow($validFrom, $validUntil, $this->clock->now());
+        if (!$window->isOk()) return Outcome::refuse('P09_BOOTSTRAP_WINDOW_INVALID');
+        $start = Clock::parse($validFrom);
+        $now = Clock::parse($this->clock->now());
+        if ($start === null || $now === null ||
+            ((float) $start->format('U.u') - (float) $now->format('U.u')) > 300 ||
+            ((float) $now->format('U.u') - (float) $start->format('U.u')) > 300 ||
+            ((float) Clock::parse($validUntil)->format('U.u') - (float) $start->format('U.u')) > self::MAX_WINDOW_SECONDS) {
+            return Outcome::refuse('P09_BOOTSTRAP_WINDOW_INVALID');
+        }
+
+        $operator = $this->db->one(
+            'SELECT status FROM operators WHERE operator_id=? AND tenant_id=?',
+            [$operatorId, $scope['tenant_id']]
+        );
+        if ($operator === null || $operator['status'] !== 'ACTIVE') {
+            return Outcome::refuse('P09_BOOTSTRAP_OPERATOR_NOT_ACTIVE');
+        }
+        // Never attach bootstrap authority to a historical credential, retired
+        // login, or operator with any pre-existing (including foreign) seat.
+        if ((int) $this->db->scalar(
+            'SELECT COUNT(*) FROM platform_users WHERE operator_id=?', [$operatorId]
+        ) !== 0 || (int) $this->db->scalar(
+            "SELECT COUNT(*) FROM workspace_memberships
+             WHERE principal_type='OPERATOR' AND principal_id=?", [$operatorId]
+        ) !== 0) {
+            return Outcome::refuse('P09_BOOTSTRAP_OPERATOR_NOT_EMPTY');
+        }
+
+        // Tenant-serialized, durable one-use rule: a historical Admin-v2 seat
+        // closes this exception even if revoked, expired or in another workspace.
+        $previous = (int) $this->db->scalar(
+            "SELECT COUNT(*) FROM workspace_memberships m
+             JOIN roles r ON r.role_id=m.role_id
+             WHERE m.tenant_id=? AND r.role_key='ROLE_TENANT_ADMIN' AND r.role_version=2",
+            [$scope['tenant_id']]
+        );
+        if ($previous !== 0) return Outcome::refuse('P09_BOOTSTRAP_ALREADY_USED');
+
+        $expected = null;
+        foreach (Permissions::roleVersionDefinitions() as $definition) {
+            if ($definition['role_key'] === 'ROLE_TENANT_ADMIN' && $definition['role_version'] === 2) {
+                $expected = $definition;
+                break;
+            }
+        }
+        if ($expected === null) return Outcome::refuse('P09_BOOTSTRAP_ROLE_UNAVAILABLE');
+        $role = $this->db->one(
+            "SELECT role_id,display_name FROM roles
+             WHERE role_key='ROLE_TENANT_ADMIN' AND role_version=2 AND status='ACTIVE'"
+        );
+        if ($role === null || $role['display_name'] !== $expected['display_name']) {
+            return Outcome::refuse('P09_BOOTSTRAP_ROLE_DRIFT');
+        }
+        $actual = array_column($this->db->all(
+            'SELECT permission_key FROM role_permissions WHERE role_id=? ORDER BY permission_key',
+            [$role['role_id']]
+        ), 'permission_key');
+        $allowed = $expected['permissions'];
+        sort($allowed, SORT_STRING);
+        sort($actual, SORT_STRING);
+        if ($actual !== $allowed ||
+            !in_array('tenant.administer', $allowed, true) ||
+            !in_array('role.assign', $allowed, true) ||
+            !in_array('role.revoke', $allowed, true)) {
+            return Outcome::refuse('P09_BOOTSTRAP_ROLE_DRIFT');
+        }
+
+        $definition = [
+            'tenant_id' => $scope['tenant_id'],
+            'workspace_id' => $scope['workspace_id'],
+            'operator_id' => $operatorId,
+            'role_key' => 'ROLE_TENANT_ADMIN',
+            'role_version' => 2,
+            'role_id' => (string) $role['role_id'],
+            'permissions' => $allowed,
+            'valid_from' => $validFrom,
+            'valid_until' => $validUntil,
+            'existing_operator_memberships' => 0,
+            'prior_tenant_admin_v2_memberships' => 0,
+        ];
+        return Outcome::ok([
+            'action' => 'ONE_USE_SIGNED_TEST_BOOTSTRAP',
+            'definition' => $definition,
+            'plan_digest' => Digest::canonicalDigest(['operation' => 'P09_TEST_BOOTSTRAP_V1', 'definition' => $definition]),
+            'signature_domain' => 'P09_TEST_BOOTSTRAP_V1',
+            'max_window_seconds' => self::MAX_WINDOW_SECONDS,
+            'owner_signature_verified' => false,
+            'creates_login' => false,
+            'grants_model_execution' => false,
+            'admits_schedule' => false,
+        ]);
+    }
+
+    /** Apply only after independent approval of the EXACT plan digest. */
+    public function apply(
+        array $scope,
+        string $operatorId,
+        string $validFrom,
+        string $validUntil,
+        string $reviewedPlanDigest,
+        string $signatureB64,
+        string $trustedOwnerPublicKeyB64,
+    ): Outcome {
+        if (preg_match('/^[a-f0-9]{64}$/D', $reviewedPlanDigest) !== 1) {
+            return Outcome::refuse('P09_BOOTSTRAP_PLAN_DIGEST_INVALID');
+        }
+        if (!function_exists('sodium_crypto_sign_verify_detached')) {
+            return Outcome::refuse('P09_BOOTSTRAP_SIGNATURE_ENGINE_UNAVAILABLE');
+        }
+        $signature = base64_decode(trim($signatureB64), true);
+        $verifyKey = base64_decode(trim($trustedOwnerPublicKeyB64), true);
+        if ($signature === false || $verifyKey === false ||
+            strlen($signature) !== SODIUM_CRYPTO_SIGN_BYTES ||
+            strlen($verifyKey) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES ||
+            !sodium_crypto_sign_verify_detached(
+                $signature, self::signatureMessage($reviewedPlanDigest), $verifyKey
+            )) {
+            return Outcome::refuse('P09_BOOTSTRAP_OWNER_SIGNATURE_INVALID');
+        }
+
+        return $this->db->transaction(function (Database $tx) use (
+            $scope, $operatorId, $validFrom, $validUntil, $reviewedPlanDigest, $signature
+        ): Outcome {
+            $tenant = $tx->one(
+                'SELECT tenant_id FROM tenants WHERE tenant_id=? FOR UPDATE',
+                [$scope['tenant_id'] ?? '']
+            );
+            if ($tenant === null) return Outcome::refuse('P09_BOOTSTRAP_SCOPE_NOT_FOUND');
+            $plan = $this->plan($scope, $operatorId, $validFrom, $validUntil);
+            if (!$plan->isOk()) return $plan;
+            $p = $plan->value();
+            if (!hash_equals($p['plan_digest'], $reviewedPlanDigest)) {
+                return Outcome::refuse('P09_BOOTSTRAP_PLAN_CHANGED');
+            }
+            $d = $p['definition'];
+            $id = Ids::new();
+            $tx->insert('workspace_memberships', [
+                'membership_id' => $id,
+                'tenant_id' => $d['tenant_id'],
+                'workspace_id' => $d['workspace_id'],
+                'principal_type' => 'OPERATOR',
+                'principal_id' => $d['operator_id'],
+                'role_id' => $d['role_id'],
+                'role_version' => 2,
+                'status' => 'ACTIVE',
+                'valid_from' => $d['valid_from'],
+                'valid_until' => $d['valid_until'],
+                'created_at' => $this->clock->now(),
+            ]);
+            return Outcome::ok([
+                'membership_id' => $id,
+                'target_operator_id' => $operatorId,
+                'role_key' => 'ROLE_TENANT_ADMIN',
+                'role_version' => 2,
+                'valid_from' => $validFrom,
+                'valid_until' => $validUntil,
+                'plan_digest' => $reviewedPlanDigest,
+                'owner_signature_sha256' => hash('sha256', $signature),
+                'owner_signature_verified' => true,
+                'creates_login' => false,
+                'grants_model_execution' => false,
+                'admits_schedule' => false,
+            ]);
+        });
+    }
+}
