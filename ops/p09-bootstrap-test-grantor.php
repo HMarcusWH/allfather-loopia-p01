@@ -55,8 +55,17 @@ $trustedKey = '';
 if ($command === 'apply') {
     $digest = $need('plan-digest');
     $root = dirname(__DIR__);
-    $pubPath = $root . '/storage/p09_bootstrap_owner_ed25519.pub';
+    $pubPath = $root . '/.private-ops/p09_bootstrap_owner_ed25519.pub';
     $sigPath = $need('signature-file');
+    // Trust material may never reside on the www-data-writable storage mount.
+    // The enrollment directory and key must be root-owned and immutable to
+    // the web process; creating/enrolling it is a separate owner operation.
+    $trustDir = dirname($pubPath);
+    if (is_link($trustDir) || !is_dir($trustDir) ||
+        fileowner($trustDir) !== 0 || ((fileperms($trustDir) & 0022) !== 0) ||
+        !is_file($pubPath) || fileowner($pubPath) !== 0) {
+        $fail('trusted owner key not enrolled in root-controlled directory');
+    }
     // Neither the signing key nor the approval signature may be sourced from a
     // web-visible location or through a link into another filesystem.
     foreach ([$pubPath, $sigPath] as $path) {
