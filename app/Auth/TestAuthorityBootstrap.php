@@ -68,11 +68,18 @@ final class TestAuthorityBootstrap
         $window = TestMembershipLifecycle::validateWindow($validFrom, $validUntil, $this->clock->now());
         if (!$window->isOk()) return Outcome::refuse('P09_BOOTSTRAP_WINDOW_INVALID');
         $start = Clock::parse($validFrom);
+        $end = Clock::parse($validUntil);
         $now = Clock::parse($this->clock->now());
-        if ($start === null || $now === null ||
-            ((float) $start->format('U.u') - (float) $now->format('U.u')) > 300 ||
-            ((float) $now->format('U.u') - (float) $start->format('U.u')) > 300 ||
-            ((float) Clock::parse($validUntil)->format('U.u') - (float) $start->format('U.u')) > self::MAX_WINDOW_SECONDS) {
+        if ($start === null || $end === null || $now === null) {
+            return Outcome::refuse('P09_BOOTSTRAP_WINDOW_INVALID');
+        }
+        // Integer milliseconds; never round a +1ms overrun back to exactly 1h.
+        $toMs = static fn (\DateTimeImmutable $d): int =>
+            ((int) $d->format('U') * 1000) + (int) $d->format('v');
+        $offsetMs = $toMs($start) - $toMs($now);
+        $durationMs = $toMs($end) - $toMs($start);
+        if (abs($offsetMs) > 300000 || $durationMs <= 0 ||
+            $durationMs > self::MAX_WINDOW_SECONDS * 1000) {
             return Outcome::refuse('P09_BOOTSTRAP_WINDOW_INVALID');
         }
 
