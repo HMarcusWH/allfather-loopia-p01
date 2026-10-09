@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /**
  * P09 signed TEST DemoViewer v1: CREATE LOGIN ONLY for an already applied
- * membership. The original owner-signed viewer plan is required; it is not a
+ * membership. The original owner-signed viewer plan must be present; it is not a
  * substitute for a separately recorded owner login-creation decision.
  *
  * plan: --env, --tenant-id, --workspace-id, --operator-id, --membership-id,
