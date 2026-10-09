@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Allfather\Loopia\Auth\{AccountService,Authenticator,TestAuthorityBootstrap,TestMembershipLifecycle};
-use Allfather\Loopia\Core\{Ids};
+use Allfather\Loopia\Core\{Clock,Ids};
 use Allfather\Loopia\Substrate\M02\{AccessGuard,Seed as M02Seed};
 use Allfather\Loopia\Tests\{Assert,Harness,Seed};
 
@@ -19,7 +19,8 @@ $target = Seed::operator($db, $clock, $scope['tenant_id'], 'First grantor, no lo
 $reader = Seed::operator($db, $clock, $scope['tenant_id'], 'QA read target');
 $loc = ['tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id']];
 $from = $clock->now();
-$until = '2026-10-09T15:00:00.000Z';
+$until = Clock::format(Clock::parse($from)->modify('+1 hour'));
+$overUntil = Clock::format(Clock::parse($from)->modify('+3600001 milliseconds'));
 $bootstrap = new TestAuthorityBootstrap($db, $clock, 'testing');
 $pair = sodium_crypto_sign_keypair();
 $public = base64_encode(sodium_crypto_sign_publickey($pair));
@@ -35,7 +36,7 @@ Assert::same("P09_TEST_BOOTSTRAP_V1\nabc\n", TestAuthorityBootstrap::signatureMe
 Assert::same('P09_BOOTSTRAP_ENVIRONMENT_REQUIRED',
     (new TestAuthorityBootstrap($db, $clock, 'production'))->plan($loc, $target, $from, $until)->reasonCode(),
     'no bootstrap in production, even with TEST tenant');
-$over = $bootstrap->plan($loc, $target, $from, '2026-10-09T15:00:00.001Z');
+$over = $bootstrap->plan($loc, $target, $from, $overUntil);
 Assert::same('P09_BOOTSTRAP_WINDOW_INVALID',
     $over->isOk() ? 'UNEXPECTED_OK' : $over->reasonCode(),
     'one-hour plus 1ms refused');
