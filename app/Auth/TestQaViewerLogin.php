@@ -11,8 +11,10 @@ use Allfather\Loopia\Substrate\M02\Permissions;
 /**
  * P09 login-only follow-up to a separately owner-signed, already-applied
  * DemoViewer-v1 TEST membership. No operator, membership or subscription writes.
- * The signature is the ORIGINAL P09_TEST_QA_VIEWER_V2 approval: a plan digest alone
- * is not authorization.
+ * Two independent owner signatures are required: the ORIGINAL viewer approval
+ * (P09_TEST_QA_VIEWER_V2) and a fresh login-specific approval
+ * (P09_TEST_QA_LOGIN_V1). Neither a plan digest nor a viewer signature alone
+ * can authorize creation of credentials.
  */
 final class TestQaViewerLogin
 {
@@ -21,6 +23,11 @@ final class TestQaViewerLogin
         private readonly Clock $clock,
         private readonly string $appEnvironment,
     ) {}
+
+    public static function signatureMessage(string $digest): string
+    {
+        return "P09_TEST_QA_LOGIN_V1\n" . $digest . "\n";
+    }
 
     /** @param array{tenant_id:string,workspace_id:string} $scope */
     public function plan(array $scope, string $operatorId, string $membershipId, string $email, string $viewerDigest): Outcome
@@ -123,44 +130,68 @@ final class TestQaViewerLogin
         if (!hash_equals($actualDigest, $viewerDigest)) {
             return Outcome::refuse('P09_QA_LOGIN_SIGNED_VIEWER_PLAN_CHANGED');
         }
-        return Outcome::ok([
-            'action' => 'CREATE_TEST_QA_LOGIN_ONLY',
+        $loginDefinition = [
             'app_environment' => $this->appEnvironment,
             'tenant_id' => $scope['tenant_id'], 'workspace_id' => $scope['workspace_id'],
             'operator_id' => $operatorId, 'membership_id' => $membershipId,
-            'email' => $email, 'role_key' => 'ROLE_DEMO_VIEWER', 'role_version' => 1,
+            'email' => $email, 'viewer_plan_digest' => $viewerDigest,
+            'role_key' => 'ROLE_DEMO_VIEWER', 'role_version' => 1,
             'permissions' => $pinned, 'valid_until' => (string) $row['valid_until'],
-            'viewer_plan_digest' => $viewerDigest, 'owner_signature_verified' => false,
             'must_change_password' => true, 'creates_operator' => false,
             'assigns_role' => false, 'creates_subscription' => false,
+        ];
+        return Outcome::ok([
+            'action' => 'CREATE_TEST_QA_LOGIN_ONLY',
+            'definition' => $loginDefinition,
+            'login_plan_digest' => Digest::canonicalDigest([
+                'operation' => 'P09_TEST_QA_LOGIN_V1', 'definition' => $loginDefinition
+            ]),
+            'signature_domain' => 'P09_TEST_QA_LOGIN_V1',
+            'owner_signature_verified' => false,
+            'viewer_signature_verified' => false,
         ]);
     }
 
     /** @param array{tenant_id:string,workspace_id:string} $scope */
     public function create(
         array $scope, string $operatorId, string $membershipId, string $email,
-        string $viewerDigest, string $signatureB64, string $trustedOwnerPublicKeyB64, string $password,
+        string $viewerDigest, string $reviewedLoginDigest,
+        string $viewerSignatureB64, string $loginSignatureB64,
+        string $trustedOwnerPublicKeyB64, string $password,
     ): Outcome {
         if (!function_exists('sodium_crypto_sign_verify_detached')) {
             return Outcome::refuse('P09_QA_LOGIN_SIGNATURE_ENGINE_UNAVAILABLE');
         }
-        $signature = base64_decode(trim($signatureB64), true);
+        if (preg_match('/^[a-f0-9]{64}$/D', $reviewedLoginDigest) !== 1) {
+            return Outcome::refuse('P09_QA_LOGIN_PLAN_DIGEST_INVALID');
+        }
+        $viewerSignature = base64_decode(trim($viewerSignatureB64), true);
+        $loginSignature = base64_decode(trim($loginSignatureB64), true);
         $publicKey = base64_decode(trim($trustedOwnerPublicKeyB64), true);
-        if ($signature === false || $publicKey === false
-            || strlen($signature) !== SODIUM_CRYPTO_SIGN_BYTES
+        if ($viewerSignature === false || $loginSignature === false || $publicKey === false
+            || strlen($viewerSignature) !== SODIUM_CRYPTO_SIGN_BYTES
+            || strlen($loginSignature) !== SODIUM_CRYPTO_SIGN_BYTES
             || strlen($publicKey) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES
             || !sodium_crypto_sign_verify_detached(
-                $signature, TestQaViewerBootstrap::signatureMessage($viewerDigest), $publicKey
+                $viewerSignature, TestQaViewerBootstrap::signatureMessage($viewerDigest), $publicKey
             )) {
+            return Outcome::refuse('P09_QA_LOGIN_VIEWER_SIGNATURE_INVALID');
+        }
+        if (!sodium_crypto_sign_verify_detached(
+            $loginSignature, self::signatureMessage($reviewedLoginDigest), $publicKey
+        )) {
             return Outcome::refuse('P09_QA_LOGIN_OWNER_SIGNATURE_INVALID');
         }
         return $this->db->transaction(function (Database $tx) use (
-            $scope, $operatorId, $membershipId, $email, $viewerDigest, $password
+            $scope, $operatorId, $membershipId, $email, $viewerDigest, $reviewedLoginDigest, $password
         ): Outcome {
             $tenant = $tx->one('SELECT tenant_id FROM tenants WHERE tenant_id=? FOR UPDATE', [$scope['tenant_id'] ?? '']);
             if ($tenant === null) return Outcome::refuse('P09_QA_LOGIN_SCOPE_NOT_FOUND');
             $checked = $this->plan($scope, $operatorId, $membershipId, $email, $viewerDigest);
             if (!$checked->isOk()) return $checked;
+            if (!hash_equals((string) $checked->value()['login_plan_digest'], $reviewedLoginDigest)) {
+                return Outcome::refuse('P09_QA_LOGIN_PLAN_CHANGED');
+            }
             $accounts = new AccountService($tx, $this->clock, new Authenticator($tx, $this->clock));
             $created = $accounts->createLogin($operatorId, $email, 'P09 QA Viewer', $password, true);
             if (!$created->isOk()) return $created;
@@ -170,7 +201,9 @@ final class TestQaViewerLogin
             return Outcome::ok([
                 'platform_user_id' => $created->value()['platform_user_id'],
                 'operator_id' => $operatorId, 'membership_id' => $membershipId,
-                'viewer_plan_digest' => $viewerDigest, 'owner_signature_verified' => true,
+                'viewer_plan_digest' => $viewerDigest,
+                'login_plan_digest' => $reviewedLoginDigest,
+                'owner_signature_verified' => true, 'viewer_signature_verified' => true,
                 'must_change_password' => true, 'creates_subscription' => false,
                 'assigns_role' => false, 'creates_operator' => false,
             ]);
