@@ -26,6 +26,7 @@ for an EXISTING active, otherwise unbound TEST operator:
 
 - TEST tenant and TEST workspace must be ACTIVE, environment_class TEST,
   external_side_effects_allowed=0, and PHP APP_ENV=staging/testing.
+  The signed plan includes exact app_environment to defeat testing/staging replay.
 - Target must already belong to the tenant and have **no previous platform login
   or any operator workspace membership**, in any workspace.
 - Role is **exact canonical ROLE_TENANT_ADMIN v2**, checked against the complete
@@ -66,8 +67,10 @@ key at the FIXED path (relative to the repository runtime root):
 
     .private-ops/p09_bootstrap_owner_ed25519.pub
 
-The directory AND file must be root-owned, non-symlinked, unreadable to the web
-runtime, and group/world non-writable. **Do not use the application storage
+The verification directory must be root-owned mode 0700, its public key file
+root-owned mode 0400, and the private CLI must run with effective UID 0. A
+signature file must be root-owned, not accessible to group/world, and outside
+both the served public_html and writable storage trees. **Do not use the application storage
 volume** (owned by www-data) for this trust anchor. Neither the CLI nor the
 library generates, enrolls or accepts an arbitrary caller-supplied public key.
 No trust-on-first-use is allowed. Creating the root-controlled location is an
@@ -79,6 +82,42 @@ The operator must retain the signed decision artifact, full plan, signed digest,
 owner identity, chosen scope, proof of current role vocabulary, the expiry and
 stand-down instructions in the protected evidence register. An exact digest
 alone is not a signature and cannot authorize applying the plan.
+
+## Railway SSH trust-anchor route (not executed)
+
+The actual Docker image is php:8.2-apache-bookworm with no USER override.
+The entrypoint runs as root while Apache PHP serves as www-data. App storage
+is a separate www-data-writable volume; it must NEVER hold the verifier.
+The proposed key directory is /srv/allfather/.private-ops on the container's
+non-volume filesystem, which is excluded from Docker and git contexts.
+
+Railway documents railway ssh with project/environment/service selectors and
+single-command mode, plus SCP support. A private preflight is:
+
+    railway ssh -p 670b0540-04ad-441d-a88e-4a107c74dfda \
+      -e staging -s allfather-php-mvp -- id -u
+
+The result must equal 0. Otherwise do not attempt key enrollment or apply.
+The owner-controlled operator must separately authorize creating the directory
+with owner root and mode 0700, and uploading ONLY the pre-reviewed base64 public
+verification key with mode 0400 and detached approval signature with mode 0600.
+Both files must be root-owned. Use Railway SSH/SFTP and verify modes/owners
+through SSH before invoking plan/apply. The signing PRIVATE key remains OFF
+Railway, in offline owner custody. No extra service, TCP proxy, public DB
+endpoint, persistent volume or HTTP grant endpoint is needed.
+
+Railway's container filesystem is EPHEMERAL: enrollment disappears after each
+restart or redeploy. Re-enroll only after a new owner-approved session, never
+assume a previously enrolled key remains valid. An absent anchor refuses.
+
+Security limitation: Railway administrators who can replace the runtime source,
+write to the database or switch root-owned files are effectively inside this
+trust boundary. Root-owned files do NOT substitute for independent owner review,
+signature custody and Railway/GitHub admin access controls. The owner must
+independently verify the public-key fingerprint and exact signed plan before
+each authorization. Current SHA pinning, root posture and SSH documentation were
+verified, but the actual live id -u, SCP, chmod, signature check and CLI apply
+have NOT been exercised. This is a source-only operating proposal.
 
 ## Proposed procedure (not executed)
 
