@@ -16,3 +16,6 @@ storage/*
 !storage/.htaccess
 vendor
 *.log
+
+# Owner approval verification material is enrolled only in a running private container.
+/.private-ops/
