@@ -141,6 +141,9 @@ final class TestAuthorityBootstrap
         }
 
         $definition = [
+            // Bind owner authorization to the exact TEST runtime class so a
+            // signature made in testing is not replayable against staging.
+            'app_environment' => $this->appEnvironment,
             'tenant_id' => $scope['tenant_id'],
             'workspace_id' => $scope['workspace_id'],
             'operator_id' => $operatorId,
