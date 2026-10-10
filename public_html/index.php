@@ -139,6 +139,10 @@ $kernel->route('GET', '/login', $session->showLogin(...));
 $kernel->route('POST', '/login', $session->login(...));
 $kernel->route('POST', '/logout', $session->logout(...));
 
+// The service root is an authenticated entry point, not a second public surface.
+// Kernel still redirects anonymous requests to /login and enforces password change.
+$kernel->route('GET', '/', static fn (Request $request, ?array $session): Response => Response::redirect('/console/app'));
+
 $workspaces = new WorkspaceController($db, $auth, $view);
 $kernel->route('GET', '/console/workspaces', $workspaces->choose(...));
 $kernel->route('POST', '/console/workspace', $workspaces->select(...));
