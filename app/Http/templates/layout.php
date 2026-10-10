@@ -17,65 +17,83 @@ use Allfather\Loopia\Http\View;
 <?= $content ?>
 <?php else: ?>
 <div class="shell">
-  <nav class="rail" aria-label="Console sections">
+  <aside class="rail">
     <div class="rail__brand">
-      <p class="rail__title">Allfather</p>
+      <a href="/console/app" aria-label="Allfather BI Operator Console">
+        <img class="rail__logo" src="/assets/allfather-logo.svg" width="168" height="41" alt="Allfather BI — Governed Intelligence Console">
+      </a>
       <p class="rail__sub"><?= View::e($session['display_name']) ?></p>
     </div>
 
-    <div class="rail__group">
-      <p class="rail__label">Governance</p>
-      <a class="rail__link" href="/console/app">Operator Console</a>
-      <a class="rail__link" href="/console"<?= ($nav['current'] ?? '') === 'console' ? ' aria-current="page"' : '' ?>>Workspace</a>
+    <!-- Scriptless navigation. Permissions are still decided on every destination by its owner,
+         never by whether a link appears in this presentation. The protected React shell uses
+         context-derived navigation; these are safe anchors, not authority grants. -->
+    <nav class="rail__primary" aria-label="Console sections">
+      <div class="rail__group">
+        <p class="rail__label">Intelligence</p>
+        <a class="rail__link" href="/console/app?view=p01">Competition Monitor</a>
+        <a class="rail__link" href="/console/app?view=monitor-runs">Monitor runs</a>
+        <a class="rail__link" href="/console/app?view=p02">Entity Context</a>
+        <a class="rail__link" href="/console/app?view=p03">Lead Intelligence</a>
+        <a class="rail__link" href="/console/app?view=p04">Distribution</a>
+        <a class="rail__link" href="/console/app?view=p05">Marketing Drafts</a>
+      </div>
+
+      <div class="rail__group">
+        <p class="rail__label">Governance</p>
+        <a class="rail__link" href="/console"<?= ($nav['current'] ?? '') === 'console' ? ' aria-current="page"' : '' ?>>Workspace summary</a>
+        <a class="rail__link" href="/console/decisions"<?= ($nav['current'] ?? '') === 'decisions' ? ' aria-current="page"' : '' ?>>Decision ledger</a>
+        <a class="rail__link" href="/console/monitor"<?= ($nav['current'] ?? '') === 'monitor' ? ' aria-current="page"' : '' ?>>Monitor workbench</a>
+        <a class="rail__link" href="/console/monitor/setup"<?= ($nav['current'] ?? '') === 'monitor-setup' ? ' aria-current="page"' : '' ?>>Monitor setup</a>
+        <a class="rail__link" href="/console/monitor/schedule"<?= ($nav['current'] ?? '') === 'monitor-schedule' ? ' aria-current="page"' : '' ?>>Monitor schedules</a>
+      </div>
+
+      <div class="rail__group">
+        <p class="rail__label">Released output</p>
+        <a class="rail__link" href="/console/briefings"<?= ($nav['current'] ?? '') === 'briefings' ? ' aria-current="page"' : '' ?>>Competition briefings</a>
+        <a class="rail__link" href="/console/distributions"<?= ($nav['current'] ?? '') === 'distributions' ? ' aria-current="page"' : '' ?>>Role distributions</a>
+        <a class="rail__link" href="/console/marketing"<?= ($nav['current'] ?? '') === 'marketing' ? ' aria-current="page"' : '' ?>>Marketing drafts</a>
+      </div>
+    </nav>
+
+    <nav class="rail__utilities" aria-label="Session">
+      <p class="rail__label">Session</p>
       <a class="rail__link" href="/console/workspaces"<?= ($nav['current'] ?? '') === 'workspaces' ? ' aria-current="page"' : '' ?>>Choose workspace</a>
-      <a class="rail__link" href="/console/monitor"<?= ($nav['current'] ?? '') === 'monitor' ? ' aria-current="page"' : '' ?>>Monitor workbench</a>
-      <a class="rail__link" href="/console/monitor/setup"<?= ($nav['current'] ?? '') === 'monitor-setup' ? ' aria-current="page"' : '' ?>>Monitor setup</a>
-      <a class="rail__link" href="/console/monitor/schedule"<?= ($nav['current'] ?? '') === 'monitor-schedule' ? ' aria-current="page"' : '' ?>>Monitor schedules</a>
-      <a class="rail__link" href="/console/decisions"<?= ($nav['current'] ?? '') === 'decisions' ? ' aria-current="page"' : '' ?>>Decision ledger</a>
-    </div>
-
-    <div class="rail__group">
-      <p class="rail__label">Released output</p>
-      <a class="rail__link" href="/console/briefings"<?= ($nav['current'] ?? '') === 'briefings' ? ' aria-current="page"' : '' ?>>Competition briefings</a>
-      <a class="rail__link" href="/console/distributions"<?= ($nav['current'] ?? '') === 'distributions' ? ' aria-current="page"' : '' ?>>Role distributions</a>
-      <a class="rail__link" href="/console/marketing"<?= ($nav['current'] ?? '') === 'marketing' ? ' aria-current="page"' : '' ?>>Marketing drafts</a>
-    </div>
-
-    <div class="rail__group">
-      <p class="rail__label">Your account</p>
       <a class="rail__link" href="/account"<?= ($nav['current'] ?? '') === 'account' ? ' aria-current="page"' : '' ?>>Account</a>
       <a class="rail__link" href="/support"<?= ($nav['current'] ?? '') === 'support' ? ' aria-current="page"' : '' ?>>Help &amp; support</a>
-    </div>
 
-    <!--
-      Sign-out is a POST carrying the session's own CSRF token, and stays one. A GET link would be
-      a link any page on the internet could make somebody follow — and "it is only a logout" is how
-      that argument starts every time.
-    -->
-    <form method="post" action="/logout" class="rail__group">
-      <input type="hidden" name="csrf_token" value="<?= View::e($session['csrf_token'] ?? '') ?>">
-      <button class="rail__link rail__button" type="submit">Sign out</button>
-    </form>
+      <!-- Sign out remains CSRF-checked POST, never a GET navigation link. -->
+      <form method="post" action="/logout" class="rail__logout">
+        <input type="hidden" name="csrf_token" value="<?= View::e($session['csrf_token'] ?? '') ?>">
+        <button class="rail__link rail__button" type="submit">Sign out</button>
+      </form>
+    </nav>
 
     <p class="rail__note">
-      Navigation is a convenience. Hiding an item is not a permission and showing one is not
-      either — every surface re-checks authority on the server.
+      <strong>Internal presentation only</strong>
+      No control grants authority.
     </p>
-  </nav>
+  </aside>
 
-  <main class="main">
-    <?= $content ?>
-    <p class="ceiling">
-      <strong>Claim ceiling.</strong>
-      <?php if (in_array($nav['current'] ?? '', ['monitor', 'monitor-setup', 'monitor-schedule'], true)): ?>
-      This workbench includes unreleased requests, drafts and review records. Those records are not
-      released intelligence or authority to execute. Nothing here is customer-visible output.
-      <?php else: ?>
-      This console shows internally released intelligence only. Nothing here is customer-visible
-      output, and no surface in this projection sends, publishes or performs an external action.
-      <?php endif; ?>
-    </p>
-  </main>
+  <div class="shell__main">
+    <header class="shell__topbar">
+      <span class="shell__topbar-title">Operator Console</span>
+      <span class="shell__topbar-sub"><?= View::e($title) ?> · Protected account session</span>
+    </header>
+    <main class="main" id="main-content">
+      <?= $content ?>
+      <p class="ceiling">
+        <strong>Claim ceiling.</strong>
+        <?php if (in_array($nav['current'] ?? '', ['monitor', 'monitor-setup', 'monitor-schedule'], true)): ?>
+        This workbench includes unreleased requests, drafts and review records. Those records are not
+        released intelligence or authority to execute. Nothing here is customer-visible output.
+        <?php else: ?>
+        This console shows internally released intelligence only. Nothing here is customer-visible
+        output, and no surface in this projection sends, publishes or performs an external action.
+        <?php endif; ?>
+      </p>
+    </main>
+  </div>
 </div>
 <?php endif; ?>
 </body>
