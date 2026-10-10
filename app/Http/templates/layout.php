@@ -71,7 +71,7 @@ use Allfather\Loopia\Http\View;
 
     <p class="rail__note">
       <strong>Internal presentation only</strong>
-      No control grants authority.
+      <span>Hiding an item is not a permission; showing one is not either. Every surface re-checks authority on the server.</span>
     </p>
   </aside>
 
