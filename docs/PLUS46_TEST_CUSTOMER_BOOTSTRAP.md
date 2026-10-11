@@ -63,7 +63,7 @@ Do **not** reuse the imported M05 upload reference as if it were already a sourc
 
 ### 4. Existing-operator TEST login (separate identity decision)
 
-The existing email bound to the synthetic smoke tenant cannot be reused: platform login email addresses are globally unique. The owner must select a separate unique email and consent to a **zero-fee** `LOOPIA_SME_BETA` trial. The command checks that the operator holds exactly `ROLE_TENANT_ADMIN` and `ROLE_WORKSPACE_OPERATOR` v1, creates no new operator or role, and forces a password change.
+The existing email bound to the synthetic smoke tenant cannot be reused: platform login email addresses are globally unique. The owner must select a separate unique email and consent to a **zero-fee** `LOOPIA_SME_BETA` trial. The command requires the operator to hold `ROLE_TENANT_ADMIN` and `ROLE_WORKSPACE_OPERATOR` v1 and binds the owner-reviewed **complete current membership snapshot** into the plan digest. Additional explicitly authorized roles may exist; none is created by this command. It creates no new operator and forces a password change.
 
 ```sh
 php ops/bind-existing-test-operator.php plan --env=/srv/allfather/.env \
