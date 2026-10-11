@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /**
  * Create ONE new login for an ALREADY governed TEST operator, without minting a second operator.
- * Unlike onboard-beta-user.php this preserves the exact existing two role memberships.
+ * Unlike onboard-beta-user.php this preserves the existing governed role memberships.
  * A separate globally unused email is mandatory; passwords enter via stdin only.
  *
  * plan|verify --env=... --tenant-id=... --workspace-id=... --operator-id=...
@@ -62,8 +62,9 @@ $plan=static function () use ($db,$tenant,$workspace,$operator,$email,$args,$bet
         JOIN roles r ON r.role_id=m.role_id WHERE m.tenant_id=? AND m.workspace_id=?
         AND m.principal_id=? AND m.principal_type='OPERATOR'",[$tenant,$workspace,$operator]);
     $roleKeys=array_column($rows,'role_key'); sort($roleKeys,SORT_STRING);
-    if ($roleKeys!==['ROLE_TENANT_ADMIN','ROLE_WORKSPACE_OPERATOR'])
-        throw new RuntimeException('EXACT_TWO_APPROVED_ROLES_REQUIRED');
+    if (!in_array('ROLE_TENANT_ADMIN',$roleKeys,true)
+        || !in_array('ROLE_WORKSPACE_OPERATOR',$roleKeys,true))
+        throw new RuntimeException('BASE_APPROVED_TEST_ROLES_MISSING');
     $now=gmdate('Y-m-d\TH:i:s.000\Z');
     foreach ($rows as $row) if ($row['status']!=='ACTIVE' || (int)$row['role_version']!==1
         || $row['valid_from']>$now || ($row['valid_until']!==null && $row['valid_until']<=$now))
