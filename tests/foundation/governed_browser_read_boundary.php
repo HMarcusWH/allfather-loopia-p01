@@ -143,6 +143,7 @@ Assert::contains('[READS.OVERVIEW_PULSE,"M12","NEEDS_READ_MODEL",false]', $meta,
 
 $ownDraft = (string) file_get_contents($root . '/app/Product/P02/OwnCompanyDraftRead.php');
 Assert::contains("'entity_twin.read'", $ownDraft, 'P02 draft requires the existing M02 entity-read authority');
+Assert::contains("'tenant.administer'", $ownDraft, 'unreleased own-company draft also requires tenant-admin authority');
 Assert::contains('$this->access->evaluate(', $ownDraft, 'P02 draft uses the real M02 guard');
 Assert::contains('$this->entitlements->tenantTierGrants(', $ownDraft, 'P02 draft is narrowed by the tenant tier');
 Assert::contains("t.tenant_id=? AND t.workspace_id=?", $ownDraft, 'first-party draft rows remain tenant/workspace scoped');
