@@ -10,14 +10,14 @@ This PR adds `GET /console/api/v1/p02/own-company-drafts` and a **separate** P02
 
 ## Authority and content
 
-- Requires current **M02 `entity_twin.read`** and **an ACTIVE tenant subscription tier containing the same permission**, in the same order as the existing released P02 owner. Both are independently rechecked server-side.
+- Requires **both** M02 `tenant.administer` (restricts unreleased first-party drafts to a tenant admin) and M02 `entity_twin.read`, plus **an ACTIVE tenant subscription tier granting `entity_twin.read`**. Existing released-snapshot readers with only `entity_twin.read` do not automatically gain access to unreleased company data. Both are independently rechecked server-side.
 - Restricts to `t.entity_kind='OWN_COMPANY'`, `t.is_first_party=1`, active twin and the **latest** version with `claim_ceiling='INTERNAL_DRAFT'`; a prior draft is not shown if the current version has advanced.
 - Returns company attributes and version fields marked `TENANT_PROVIDED`, `UNKNOWN` or `INFERRED_HYPOTHESIS`, an uncertainty summary and source **classification only**. No raw evidence objects, physical file paths, model output, inferred competitors or customer-release claims.
 - A denied request gets the existing sanitized 403 `DENIED` envelope without revealing customer data; anonymous API calls get JSON 401. An EMPTY governed read is legitimate and distinct from permission denial.
 
 ## Separate authorization requirement
 
-The October 12 Plus 46 staging evidence reports that the first customer operator did not hold `entity_twin.read`, despite the beta tier already containing that permission. **This PR does not silently grant the user a curator role or bypass the guard**. Showing the actual draft for that user requires a separately reviewed *minimal read-only* role/membership plan and a private browser acceptance; new role definitions require a canonical owner decision. The second existing customer account is not recreated.
+The October 12 Plus 46 staging evidence reports that the first customer operator held tenant-admin authority but did not hold `entity_twin.read`, despite the beta tier already containing that permission. **This PR does not silently grant the user a curator role or bypass the guard**. Showing the actual draft for that user requires a separately reviewed *minimal read-only* role/membership plan and a private browser acceptance; new role definitions require a canonical owner decision. The second existing customer account is not recreated.
 
 The beta subscription does **not** presently grant `customer_catalogue.read` or `competition_monitoring.read`. Do not opportunistically expose P03 catalogue/ICP or P01 draft competitor views by routing them through unrelated permissions. Those are separate commercial and M02 authority decisions before wiring the corresponding read models.
 
