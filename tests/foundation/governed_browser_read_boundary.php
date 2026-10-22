@@ -19,6 +19,7 @@ $routes = [
     '/console/api/v1/context',
     '/console/api/v1/p01/battlecards',
     '/console/api/v1/p02/entities',
+    '/console/api/v1/p02/own-company-drafts',
     '/console/api/v1/p02/relationships',
     '/console/api/v1/p03/priority-queue',
     '/console/api/v1/p03/monitored',
@@ -70,11 +71,11 @@ foreach ((new ReflectionClass(\Allfather\Loopia\Http\Controllers\ConsoleReadCont
 sort($readMethods, SORT_STRING);
 Assert::equalsList(
     [
-        'context', 'decisions', 'monitorRun', 'monitorRuns', 'p01Battlecards', 'p02Entities', 'p02EntityDetail', 'p02Relationships',
+        'context', 'decisions', 'monitorRun', 'monitorRuns', 'p01Battlecards', 'p02Entities', 'p02EntityDetail', 'p02OwnCompanyDrafts', 'p02Relationships',
         'p03Monitored', 'p03PriorityQueue', 'p03ProspectDetail', 'p04Distributions', 'p05Drafts',
     ],
     $readMethods,
-    'the browser read controller exposes exactly the thirteen registered reads (nine PR6 + four P09) and nothing else',
+    'the browser read controller exposes exactly the fourteen registered reads (plus own-company draft) and nothing else',
 );
 // P09 detail selectors are the only other query values a read accepts, and each is a SELECTOR the
 // owner re-checks against the session scope — never scope itself.
@@ -131,7 +132,7 @@ Assert::contains('verifyStream', $ledgerAdapter, 'ledger integrity is recomputed
 
 Assert::contains('HttpConsoleDataSource', $entry, 'production React entry uses the governed HTTP datasource');
 Assert::false(str_contains($entry, 'CanonicalConsoleDataSource'), 'production entry no longer uses the inert Phase-1 datasource');
-foreach (['P01_BATTLECARDS','P02_ENTITY_INDEX','P02_RELATION_INDEX','P02_ENTITY_DETAIL','P03_QUEUE','P03_WATCH','P03_PROSPECT_DETAIL','P04_DISTRIBUTIONS','P05_DRAFTS','LEDGER','MONITOR_RUNS','MONITOR_RUN'] as $read) {
+foreach (['P01_BATTLECARDS','P02_OWN_DRAFT','P02_ENTITY_INDEX','P02_RELATION_INDEX','P02_ENTITY_DETAIL','P03_QUEUE','P03_WATCH','P03_PROSPECT_DETAIL','P04_DISTRIBUTIONS','P05_DRAFTS','LEDGER','MONITOR_RUNS','MONITOR_RUN'] as $read) {
     Assert::contains("READS.{$read}", $httpDatasource, "HTTP datasource explicitly maps {$read}");
 }
 Assert::false(str_contains($httpDatasource, 'P03_BATTLECARDS]:'), 'HTTP datasource contains no P03 battlecard endpoint mapping');
@@ -139,3 +140,13 @@ Assert::false(str_contains($httpDatasource, 'OVERVIEW_PULSE]:'), 'unimplemented 
 Assert::contains('[READS.LEDGER,"M10","OWNER_READ_WIRED_ENV_PINNED",true]', $meta, 'metadata states the exact repaired M10 browser-read condition without implying source activation');
 Assert::contains('[READS.P03_BATTLECARDS,"P03","NEEDS_READ_MODEL",true]', $meta, 'deferred P03 battlecard stays explicitly unavailable');
 Assert::contains('[READS.OVERVIEW_PULSE,"M12","NEEDS_READ_MODEL",false]', $meta, 'Overview remains unavailable rather than being fabricated');
+
+$ownDraft = (string) file_get_contents($root . '/app/Product/P02/OwnCompanyDraftRead.php');
+Assert::contains("'entity_twin.read'", $ownDraft, 'P02 draft requires the existing M02 entity-read authority');
+Assert::contains('$this->access->evaluate(', $ownDraft, 'P02 draft uses the real M02 guard');
+Assert::contains('$this->entitlements->tenantTierGrants(', $ownDraft, 'P02 draft is narrowed by the tenant tier');
+Assert::contains("t.tenant_id=? AND t.workspace_id=?", $ownDraft, 'first-party draft rows remain tenant/workspace scoped');
+Assert::contains("t.entity_kind='OWN_COMPANY'", $ownDraft, 'no third-party draft is leaked');
+Assert::contains("v.claim_ceiling='INTERNAL_DRAFT'", $ownDraft, 'read never manufactures released output');
+Assert::contains('MAX(v2.version_sequence)', $ownDraft, 'older draft versions are not surfaced after later updates');
+Assert::false(str_contains($ownDraft, 'SELECT *'), 'no unreviewed fields enter P02 draft response');
