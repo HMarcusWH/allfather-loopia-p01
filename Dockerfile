@@ -15,7 +15,7 @@ RUN npm install -g npm@10.9.2 \
     && npm run build \
     && npm run stage
 
-FROM php:8.2-apache-bookworm
+FROM php:8.5.12-apache-bookworm
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates libonig-dev libcurl4-openssl-dev mariadb-client \
     && docker-php-ext-install -j"$(nproc)" pdo_mysql mbstring curl \
