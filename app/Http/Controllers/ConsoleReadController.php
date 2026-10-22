@@ -13,6 +13,7 @@ use Allfather\Loopia\Http\ReadAdapters\P03ProspectDetailAdapter;
 use Allfather\Loopia\Http\Request;
 use Allfather\Loopia\Http\Response;
 use Allfather\Loopia\Product\P01\Surfacing;
+use Allfather\Loopia\Product\P02\OwnCompanyDraftRead;
 use Allfather\Loopia\Product\P02\RelationshipRelease;
 use Allfather\Loopia\Product\P02\TwinRelease;
 use Allfather\Loopia\Product\P03\Release as P03Release;
@@ -32,6 +33,7 @@ final class ConsoleReadController
         private readonly P04Release $p04,
         private readonly P05Release $p05,
         private readonly ?MonitorReadAdapter $monitor = null,
+        private readonly ?OwnCompanyDraftRead $ownCompany = null,
     ) {
     }
 
@@ -56,6 +58,19 @@ final class ConsoleReadController
             if ($scope instanceof Response) return $scope;
             return ConsoleReadEnvelope::owner('p02.entitySnapshots', $this->p02Twins->listVisibleSnapshots($scope + ['visibility_scope' => $request->query['visibility_scope'] ?? '']), 'rows');
         }, 'p02.entitySnapshots');
+    }
+
+    /** A separately authorized own-company INTERNAL_DRAFT read, never a released snapshot. */
+    public function p02OwnCompanyDrafts(Request $request, ?array $session): Response
+    {
+        return $this->safe(function () use ($session): Response {
+            $source = 'p02.ownCompanyDrafts';
+            $scope = $this->scope($session, $source);
+            if ($scope instanceof Response) return $scope;
+            return $this->ownCompany === null
+                ? ConsoleReadEnvelope::unavailable($source)
+                : ConsoleReadEnvelope::owner($source, $this->ownCompany->listInternalDrafts($scope), 'rows');
+        }, 'p02.ownCompanyDrafts');
     }
 
     public function p02Relationships(Request $request, ?array $session): Response

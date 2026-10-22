@@ -5,6 +5,9 @@ const columns = Object.freeze({
   [READS.P01_BATTLECARDS]: [
     {key:"released_at",label:"Released"},{key:"signal_summary_safe",label:"Summary"},{key:"confidence_band",label:"Confidence"}
   ],
+  [READS.P02_OWN_DRAFT]: [
+    {key:"display_name",label:"Company"},{key:"country",label:"Country"},{key:"industry",label:"Industry"},{key:"claim_ceiling",label:"Status"}
+  ],
   [READS.P02_ENTITY_INDEX]: [
     {key:"released_at",label:"Released"},{key:"entity_twin_id",label:"Entity"},{key:"claim_ceiling",label:"Claim ceiling"},{key:"visibility_scope",label:"Scope"}
   ],

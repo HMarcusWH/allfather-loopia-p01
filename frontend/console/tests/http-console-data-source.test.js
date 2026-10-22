@@ -10,7 +10,7 @@ function envelope(source,data,state="READY"){return {source,as_of:"2026-09-10T00
 
 test("production datasource exposes only the explicit PR6 + P09 read allowlist",()=>{
   const ds=new HttpConsoleDataSource({fetchImpl:async()=>jsonResponse(503,{})});
-  assert.deepEqual(new Set(LIVE_READ_IDS),new Set([READS.CONTEXT,READS.P01_BATTLECARDS,READS.P02_ENTITY_INDEX,READS.P02_RELATION_INDEX,READS.P03_QUEUE,READS.P03_WATCH,READS.P04_DISTRIBUTIONS,READS.P05_DRAFTS,READS.LEDGER,READS.P02_ENTITY_DETAIL,READS.P03_PROSPECT_DETAIL,READS.MONITOR_RUNS,READS.MONITOR_RUN]));
+  assert.deepEqual(new Set(LIVE_READ_IDS),new Set([READS.CONTEXT,READS.P01_BATTLECARDS,READS.P02_ENTITY_INDEX,READS.P02_OWN_DRAFT,READS.P02_RELATION_INDEX,READS.P03_QUEUE,READS.P03_WATCH,READS.P04_DISTRIBUTIONS,READS.P05_DRAFTS,READS.LEDGER,READS.P02_ENTITY_DETAIL,READS.P03_PROSPECT_DETAIL,READS.MONITOR_RUNS,READS.MONITOR_RUN]));
   assert.equal(LIVE_READ_IDS.includes(READS.P03_BATTLECARDS),false);
   assert.equal(LIVE_READ_IDS.includes(READS.OVERVIEW_PULSE),false);
   assert.deepEqual(ds.getUsableNavigationIds(),[],"production has no unconditional usable route before context permissions are resolved");
@@ -72,4 +72,19 @@ test("audited display policy remains no-prefetch and no-transparent-retry",()=>{
   assert.deepEqual(transportPolicyFor(readMeta(READS.LEDGER)),READ_TRANSPORT.AUDITED_DISPLAY);
   assert.equal(READ_TRANSPORT.AUDITED_DISPLAY.allowPrefetch,false);
   assert.equal(READ_TRANSPORT.AUDITED_DISPLAY.transparentRetry,"NEVER");
+});
+
+test("P02 own-company drafts use fixed session scope without user-supplied selectors",async()=>{
+  let called="";
+  const ds=new HttpConsoleDataSource({fetchImpl:async(url)=>{called=url;return jsonResponse(200,envelope(READS.P02_OWN_DRAFT,[{display_name:"Customer owned",claim_ceiling:"INTERNAL_DRAFT"}]));}});
+  const result=await ds.readDescriptor(READS.P02_OWN_DRAFT,{tenant_id:"other",workspace_id:"foreign",snapshot:"s"});
+  assert.equal(called,"/console/api/v1/p02/own-company-drafts");
+  assert.equal(result.projection.state,PROJECTION.READY);
+  assert.equal(result.data.rows[0].claim_ceiling,"INTERNAL_DRAFT");
+});
+
+test("unreleased own-company drafts disable prefetch and transparent retry",()=>{
+  const policy=transportPolicyFor(readMeta(READS.P02_OWN_DRAFT));
+  assert.equal(policy.allowPrefetch,false);
+  assert.equal(policy.transparentRetry,"NEVER");
 });

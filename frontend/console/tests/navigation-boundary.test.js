@@ -36,6 +36,8 @@ test("current context permissions narrow wired navigation without granting autho
 });
 
 test("multi-read routes gate each live read by its exact owner permission",()=>{
+  assert.equal(readUsableForPermissions(READS.P02_OWN_DRAFT,["entity_twin.read"]),true);
+  assert.equal(readUsableForPermissions(READS.P02_OWN_DRAFT,["decision.read"]),false);
   assert.equal(readUsableForPermissions(READS.P03_QUEUE,["priority_outreach_queue.read"]),true);
   assert.equal(readUsableForPermissions(READS.P03_WATCH,["priority_outreach_queue.read"]),false);
   assert.equal(readUsableForPermissions(READS.P03_QUEUE,["prospect.read"]),false);

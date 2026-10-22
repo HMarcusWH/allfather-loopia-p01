@@ -504,13 +504,15 @@ foreach (['P02\\TwinRelease', 'P02\\RelationshipRelease', 'P03\\Release'] as $no
     );
 }
 
-// INDEX_AND_DETAIL_READS_WIRED (P09): the four index reads plus exactly one owner-safe detail read
-// per product are registered, and nothing else for P02/P03 is — no second list endpoint.
+// INDEX_AND_DETAIL_READS_WIRED (P09): four released indexes plus one released detail per product.
+// An additional P02 OWN_COMPANY INTERNAL_DRAFT read is separately gated and must never be
+// confused with another released list endpoint or an M10 release.
 $frontController = (string) file_get_contents(dirname(__DIR__, 2) . '/public_html/index.php');
 preg_match_all('#\$kernel->route\(\'GET\', \'(/console/api/v1/p0[23]/[a-z-]+)\'#', $frontController, $productRoutes);
 Assert::equalsList(
     [
         '/console/api/v1/p02/entities',
+        '/console/api/v1/p02/own-company-drafts',
         '/console/api/v1/p02/relationships',
         '/console/api/v1/p03/priority-queue',
         '/console/api/v1/p03/monitored',
@@ -518,7 +520,7 @@ Assert::equalsList(
         '/console/api/v1/p03/prospect-detail',
     ],
     $productRoutes[1],
-    'P02/P03 are served as their four index reads and one detail read each — INDEX_AND_DETAIL_READS_WIRED',
+    'P02/P03 released index/detail reads retain their contract alongside one separately scoped P02 own-company draft read',
 );
 
 // Each detail read asks its OWNER's scoped getter; no adapter selects rows itself.

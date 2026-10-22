@@ -30,6 +30,7 @@ use Allfather\Loopia\Ops\MaintenanceGate;
 use Allfather\Loopia\Product\P01\Entitlements;
 use Allfather\Loopia\Product\P01\Surfacing;
 use Allfather\Loopia\Product\P02\EntityTwins;
+use Allfather\Loopia\Product\P02\OwnCompanyDraftRead;
 use Allfather\Loopia\Product\P02\RelationshipRelease;
 use Allfather\Loopia\Product\P02\RelationshipTwins;
 use Allfather\Loopia\Product\P02\TwinRelease;
@@ -217,10 +218,11 @@ $p02TwinRelease = new TwinRelease($db, $clock, $ledger, new EntityTwins($db, $cl
 $p02RelationshipRelease = new RelationshipRelease($db, $clock, $ledger, new RelationshipTwins($db, $clock), $access, $entitlements, $p02M16);
 $p03Release = new P03Release($db, $clock, $ledger, $access, $entitlements);
 
-$reads = new ConsoleReadController($contextAdapter, $decisionAdapter, $p01Surfacing, $p02TwinRelease, $p02RelationshipRelease, $p03Release, $p04Release, $p05Release, new \Allfather\Loopia\Http\ReadAdapters\MonitorReadAdapter($monitorFor));
+$reads = new ConsoleReadController($contextAdapter, $decisionAdapter, $p01Surfacing, $p02TwinRelease, $p02RelationshipRelease, $p03Release, $p04Release, $p05Release, new \Allfather\Loopia\Http\ReadAdapters\MonitorReadAdapter($monitorFor), new OwnCompanyDraftRead($db, $access, $entitlements));
 $kernel->route('GET', '/console/api/v1/context', $reads->context(...), 'JSON_401');
 $kernel->route('GET', '/console/api/v1/p01/battlecards', $reads->p01Battlecards(...), 'JSON_401');
 $kernel->route('GET', '/console/api/v1/p02/entities', $reads->p02Entities(...), 'JSON_401');
+$kernel->route('GET', '/console/api/v1/p02/own-company-drafts', $reads->p02OwnCompanyDrafts(...), 'JSON_401');
 $kernel->route('GET', '/console/api/v1/p02/relationships', $reads->p02Relationships(...), 'JSON_401');
 $kernel->route('GET', '/console/api/v1/p03/priority-queue', $reads->p03PriorityQueue(...), 'JSON_401');
 $kernel->route('GET', '/console/api/v1/p03/monitored', $reads->p03Monitored(...), 'JSON_401');
