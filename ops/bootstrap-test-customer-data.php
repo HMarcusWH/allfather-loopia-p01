@@ -55,6 +55,7 @@ if ($command!=='apply' && (isset($args['plan-digest']) || isset($args['ack']))) 
 $config=BetaCli::configuration($root,['env'=>$args['env']],$fail);
 if (!in_array($config['environment'],['testing','staging'],true)) $fail('TEST runtime required',4);
 $db=BetaCli::connect($config['env'],$fail);
+$clock=new Clock();
 $scope=$data['scope'];
 foreach (['tenant_id','workspace_id','operator_id','evidence_id','evidence_sha256','source_ref_id'] as $k) {
     if (!is_string($scope[$k]??null) || trim($scope[$k])==='') $fail("missing manifest scope {$k}");
