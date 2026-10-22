@@ -1,6 +1,8 @@
 # Plus 46 Studio — isolated TEST customer bootstrap
 
-**State:** engineering candidate, not runtime activation. All three scripts are inert until explicitly invoked by a private CLI operator. This patch changes no HTTP routes, subscriptions, role memberships, existing customer records, prompt approvals, execution grants or release policy.
+**State (22 Oct 2026):** Source-level TEST-only private replay and verification tools. The separately retained 12 October Plus 46 staging execution archive records actual completion and independent database verification of the original bootstrap; do **not** rerun the module, business-record or login creation workflows merely because these examples exist. This source repair makes subsequent replay checks fail closed; it does not migrate, change, or activate any existing customer, role, subscription, prompt, source, model or production state.
+
+**Verification contract:** `plan` is a read-only description and may return `CREATE`, `APPEND_VERSION`, `CREATE_DRAFT`, or `BLOCK` while exiting 0. `verify` exits 0 **only when every requested object is exactly reusable** and all current authorizations are valid; otherwise it prints `status: INCOMPLETE` and exits 5. Under-lock `apply`/login creation re-read current role and capability validity; successful writes also recheck completeness. The reviewed input digest is based on the exact bytes parsed, not a second file read. Company versions include uncertainty and source lineage; catalogue replay blocks unexpected active offers, duplicate tenant-wide keys, expired review cards and non-string fit attributes. Negative unit tests cover pending or blocked actions, and real MariaDB state still requires an independent read-only runtime audit.
 
 ## Workflows and commands
 
@@ -81,5 +83,5 @@ Stop for approval. To execute, use a trusted no-echo private terminal and `--pas
 - The P02 `OWN_COMPANY` state is `INTERNAL_DRAFT` with an M05 evidence link. P03's one primary ICP does not represent a verified buyer-intent claim.
 - No fixture, M10 release, published output, live model call or P04/P05 released marketing asset is produced by these tools.
 - Account creation does not require a duplicate operator. The standard beta onboarding tool remains unchanged.
-- Offline PHP lint and the `tests/foundation/plus46_bootstrap_boundary.php` source-contract check can run without a database. **MariaDB-backed plan/apply and authenticated browser acceptance are not yet evidenced** and must be performed through Work against the actual release.
+- Offline PHP lint, `tests/foundation/plus46_bootstrap_boundary.php` and `tests/unit/bootstrap_verification.php` can run without a database. The **historical October 12 execution** is evidenced by the separately retained Plus 46 archive, but is not an authorization to repeat writes. This newer source repair needs exact-head syntax/unit qualification and disposable MariaDB negative/replay tests before merging/deploying; a fresh read-only TEST observation is required to claim current live verification.
 - Do not merge/deploy the code while other qualified staging tests are running without coordinating exact release SHA.
