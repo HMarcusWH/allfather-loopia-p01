@@ -66,7 +66,7 @@ Assert::contains('c.valid_from',$modules,'registration replay checks contract ef
 Assert::contains('$clock->now()',$modules,'registration authority clock refreshed for locked plan');
 Assert::contains('review_expires_at',$data,'catalogue review age is re-checked');
 Assert::contains('array_diff($actualKeys,$expectedKeys)',$data,'unknown active offer is not silently reused');
-Assert::contains("'manifest_hash'=>$manifestHash",$data,'digest is bound to already validated bytes');
+Assert::contains("'manifest_hash'=>".'$manifestHash',$data,'digest is bound to already validated bytes');
 Assert::false(str_contains($data,"file_get_contents(".'$args'."['manifest'])"),
     'the parsed manifest path is never reopened during approval digest');
 Assert::contains("r.status='ACTIVE'",$login,'binding rejects superseded role definitions');
