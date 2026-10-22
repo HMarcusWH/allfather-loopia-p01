@@ -275,7 +275,8 @@ $plan=static function () use ($db,$clock,$manifestHash,$scope,$tenant,$workspace
                     [$tenant,$catId]);
                 $actualKeys=array_column($actualActive,'product_key');
                 $expectedKeys=array_column($offers,'key');sort($actualKeys,SORT_STRING);sort($expectedKeys,SORT_STRING);
-                if ($actualKeys!==$expectedKeys && $actualKeys!==array_values(array_intersect($actualKeys,$expectedKeys))) {
+                if (array_diff($actualKeys,$expectedKeys)!==[]
+                    || count($actualKeys)!==count(array_unique($actualKeys))) {
                     // An unexpected active offer would influence fit-scoring beyond the approved manifest.
                     $result['catalogue']=['action'=>'BLOCK','reason'=>'UNREVIEWED_ACTIVE_PRODUCTS'];
                 } else {
