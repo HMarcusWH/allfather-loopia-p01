@@ -82,3 +82,9 @@ test("P02 own-company drafts use fixed session scope without user-supplied selec
   assert.equal(result.projection.state,PROJECTION.READY);
   assert.equal(result.data.rows[0].claim_ceiling,"INTERNAL_DRAFT");
 });
+
+test("unreleased own-company drafts disable prefetch and transparent retry",()=>{
+  const policy=transportPolicyFor(readMeta(READS.P02_OWN_DRAFT));
+  assert.equal(policy.allowPrefetch,false);
+  assert.equal(policy.transparentRetry,"NEVER");
+});
