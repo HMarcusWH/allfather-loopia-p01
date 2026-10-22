@@ -17,7 +17,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(404); exit(1); }
 require __DIR__ . '/../app/autoload.php';
 
 use Allfather\Loopia\Core\{Clock, Digest, Outcome};
-use Allfather\Loopia\Ops\BetaCli;
+use Allfather\Loopia\Ops\{BetaCli,BootstrapVerification};
 use Allfather\Loopia\Product\P01\{Entitlements, Registration as P01Registration};
 use Allfather\Loopia\Product\P02\Registration as P02Registration;
 use Allfather\Loopia\Product\P03\{Assurance as P03Assurance, Registration as P03Registration};
@@ -59,8 +59,9 @@ $classes = [
     'P04'=>'INTELLIGENCE_DISTRIBUTOR_VALKYRIE',
     'P05'=>'MARKETING_CUSTOMIZER_VALKYRIE',
 ];
-$at=$clock->now();
-$plan = static function () use ($db,$tenant,$workspace,$operator,$classes,$at): array {
+$plan = static function () use ($db,$clock,$tenant,$workspace,$operator,$classes): array {
+    // Re-evaluate at the time of EACH snapshot, especially after acquiring FOR UPDATE.
+    $at=$clock->now();
     $scope = $db->one('SELECT t.tenant_key,t.tenant_type,t.status AS tenant_status,
         w.workspace_key,w.workspace_type,w.environment_class,w.status AS workspace_status,
         w.external_side_effects_allowed,w.active_v1_capability_ceiling,w.created_by_operator_id,
@@ -87,14 +88,17 @@ $plan = static function () use ($db,$tenant,$workspace,$operator,$classes,$at): 
     foreach ($classes as $key=>$role) {
         $rows=$db->all('SELECT v.valkyrie_id,v.status,v.active_capability_contract_id,
             c.role_class AS contract_role,c.status AS contract_status,c.tenant_id AS contract_tenant,
-            c.workspace_id AS contract_workspace FROM valkyries v
+            c.workspace_id AS contract_workspace,c.valid_from AS contract_valid_from,
+             c.valid_until AS contract_valid_until FROM valkyries v
             LEFT JOIN capability_contracts c ON c.capability_contract_id=v.active_capability_contract_id
             WHERE v.tenant_id=? AND v.workspace_id=? AND v.canonical_role_class=?
             ORDER BY v.valkyrie_id',[$tenant,$workspace,$role]);
         if ($rows === []) $modules[$key]=['action'=>'CREATE','role'=>$role];
         elseif (count($rows) === 1 && $rows[0]['status'] === 'ACTIVE'
             && $rows[0]['contract_status'] === 'ACTIVE' && $rows[0]['contract_role'] === $role
-            && $rows[0]['contract_tenant'] === $tenant && $rows[0]['contract_workspace'] === $workspace) {
+            && $rows[0]['contract_tenant'] === $tenant && $rows[0]['contract_workspace'] === $workspace
+             && $rows[0]['contract_valid_from'] !== null && $rows[0]['contract_valid_from'] <= $at
+             && ($rows[0]['contract_valid_until'] === null || $rows[0]['contract_valid_until'] > $at)) {
             $modules[$key]=['action'=>'REUSE','role'=>$role,'valkyrie_id'=>$rows[0]['valkyrie_id'],
                 'contract_id'=>$rows[0]['active_capability_contract_id']];
         } else $modules[$key]=['action'=>'BLOCK','role'=>$role,'reason'=>'AMBIGUOUS_OR_NONACTIVE_REGISTRATION'];
@@ -106,9 +110,14 @@ $plan = static function () use ($db,$tenant,$workspace,$operator,$classes,$at): 
         'plan_digest'=>Digest::canonicalDigest($fingerprint)];
 };
 try { $before=$plan(); } catch (Throwable $e) { $fail($e->getMessage(), 4); }
-if ($command!=='apply') {
-    BetaCli::emit(['status'=>$command==='plan'?'DRY_RUN_OK':'INSPECTED', ...$before,
+if ($command==='plan') {
+    BetaCli::emit(['status'=>'DRY_RUN_OK', ...$before,
         'writes_performed'=>0,'native_execution_enabled'=>false]);
+}
+if ($command==='verify') {
+    $complete=BootstrapVerification::modulesComplete($before);
+    BetaCli::emit(['status'=>$complete?'VERIFIED':'INCOMPLETE', ...$before,
+        'writes_performed'=>0,'native_execution_enabled'=>false], $complete?0:5);
 }
 if ($before['blocked'] !== []) $fail('blocked modules: '.implode(',',$before['blocked']), 5);
 if (!hash_equals($before['plan_digest'],$args['plan-digest'])) $fail('plan digest changed', 5);
@@ -151,6 +160,7 @@ $operation = $db->transaction(static function () use ($db,$clock,$tenant,$worksp
 } catch (Throwable $e) { $fail('atomic registration error (rolled back)', 5); }
 if (!$operation->isOk()) $fail('atomic registration refused: '.$operation->reasonCode(), 5);
 $after=$plan();
+if (!BootstrapVerification::modulesComplete($after)) $fail('postwrite module verification incomplete',6);
 BetaCli::emit(['status'=>'APPLIED','created_modules'=>$operation->value()['created'],
     'module_status'=>$after['modules'],'tenant_id'=>$tenant,'workspace_id'=>$workspace,
     'external_effects_authorized'=>false,'subscription_changed'=>false,'roles_granted'=>false]);

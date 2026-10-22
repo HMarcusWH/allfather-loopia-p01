@@ -17,7 +17,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(404); exit(1); }
 require __DIR__ . '/../app/autoload.php';
 
 use Allfather\Loopia\Core\{Clock,Digest,Outcome};
-use Allfather\Loopia\Ops\BetaCli;
+use Allfather\Loopia\Ops\{BetaCli,BootstrapVerification};
 use Allfather\Loopia\Product\P01\Registry as CompetitorRegistry;
 use Allfather\Loopia\Product\P02\EntityTwins;
 use Allfather\Loopia\Product\P03\{Catalogue,Icp};
@@ -38,7 +38,8 @@ if ($input===false || !is_file($input) || filesize($input)>131072 || filesize($i
     || ($web!==false && str_starts_with($input,$web.DIRECTORY_SEPARATOR))
     || !preg_match('/^[a-f0-9]{64}$/D',$args['manifest-sha256'])) $fail('invalid private input');
 $bytes=file_get_contents($input);
-if (!is_string($bytes) || !hash_equals($args['manifest-sha256'],hash('sha256',$bytes))) $fail('input hash mismatch',4);
+$manifestHash=is_string($bytes)?hash('sha256',$bytes):'';
+if (!is_string($bytes) || !hash_equals($args['manifest-sha256'],$manifestHash)) $fail('input hash mismatch',4);
 try { $data=json_decode($bytes,true,24,JSON_THROW_ON_ERROR); }
 catch (Throwable $e) { $fail('invalid JSON',4); }
 if (!is_array($data) || ($data['schema']??null)!=='allfather-customer-bootstrap-v1'
@@ -54,6 +55,7 @@ if ($command!=='apply' && (isset($args['plan-digest']) || isset($args['ack']))) 
 $config=BetaCli::configuration($root,['env'=>$args['env']],$fail);
 if (!in_array($config['environment'],['testing','staging'],true)) $fail('TEST runtime required',4);
 $db=BetaCli::connect($config['env'],$fail);
+$clock=new Clock();
 $scope=$data['scope'];
 foreach (['tenant_id','workspace_id','operator_id','evidence_id','evidence_sha256','source_ref_id'] as $k) {
     if (!is_string($scope[$k]??null) || trim($scope[$k])==='') $fail("missing manifest scope {$k}");
@@ -65,11 +67,16 @@ if (($company['entity_kind']??null)!=='OWN_COMPANY' || ($company['claim_ceiling'
     || !is_string($company['display_name']??null) || !is_array($company['attributes']??null)
     || !is_array($company['fields']??null) || !is_string($company['uncertainty']??null)
     || trim($company['uncertainty'])==='') $fail('invalid own-company record');
+foreach ($company['attributes'] as $key=>$value) {
+    if (!in_array($key,['legal_name','domain','country','jurisdiction','industry','segment'],true)
+        || ($value!==null && !is_string($value))) $fail('invalid company attribute');
+}
 if (!is_string($icp['display_name']??null) || !is_array($icp['industries']??null)
     || !is_array($icp['geographies']??null) || !is_array($icp['buyer_role_classes']??null)
     || trim((string)($icp['uncertainty_notes_safe']??''))==='') $fail('invalid primary ICP');
 foreach ($company['fields'] as $field) {
     if (!is_array($field) || !is_string($field['field_key']??null)
+        || count(array_diff(array_keys($field),['field_key','field_value_safe','value_status']))!==0
         || !in_array($field['value_status']??null,['TENANT_PROVIDED','UNKNOWN','INFERRED_HYPOTHESIS'],true)
         || (!is_string($field['field_value_safe']??null) && ($field['field_value_safe']??null)!==null)) $fail('invalid twin field');
 }
@@ -77,6 +84,8 @@ foreach ($offers as $offer) {
     if (!is_string($offer['key']??null) || !is_string($offer['name']??null)
         || !in_array($offer['kind']??null,['SERVICE','PRODUCT','BUNDLE','VALUE_PROPOSITION'],true)
         || !is_array($offer['attributes']??null) || $offer['attributes'] === []
+        || !array_is_list($offer['attributes'])
+        || count(array_filter($offer['attributes'],static fn($v): bool => !is_string($v) || trim($v)===''))!==0
         || !is_string($offer['value_proposition_safe']??null)) $fail('invalid offer');
 }
 foreach ($competitors as $competitor) {
@@ -86,7 +95,9 @@ foreach ($competitors as $competitor) {
 if (count($offers)!==count(array_unique(array_column($offers,'key')))
     || count($competitors)!==count(array_unique(array_column($competitors,'name')))) $fail('duplicate manifest items');
 
-$plan=static function () use ($db,$scope,$tenant,$workspace,$operator,$company,$icp,$offers,$competitors,$sections,$args): array {
+$plan=static function () use ($db,$clock,$manifestHash,$scope,$tenant,$workspace,$operator,$company,$icp,$offers,$competitors,$sections,$args): array {
+    // Re-evaluate temporal validity inside each plan, including the under-lock plan.
+    $now=$clock->now();
     $w=$db->one('SELECT t.tenant_key,t.tenant_type,t.status AS tenant_status,
         w.workspace_key,w.workspace_type,w.environment_class,w.status AS workspace_status,
         w.external_side_effects_allowed,w.active_v1_capability_ceiling,o.status AS operator_status
@@ -112,14 +123,21 @@ $plan=static function () use ($db,$scope,$tenant,$workspace,$operator,$company,$
         'competitors'=>'COMPETITION_MONITOR_VALKYRIE','catalogue'=>'LEAD_QUALIFIER_VALKYRIE'];
     foreach (array_unique(array_map(static fn($section)=>$classBySection[$section],$sections)) as $roleClass) {
         $registrations=$db->all('SELECT v.valkyrie_id,v.status,v.active_capability_contract_id,
-            c.status AS contract_status,c.role_class AS contract_role
+            c.status AS contract_status,c.role_class AS contract_role,
+            c.tenant_id AS contract_tenant,c.workspace_id AS contract_workspace,
+            c.valid_from AS contract_valid_from,c.valid_until AS contract_valid_until
             FROM valkyries v LEFT JOIN capability_contracts c
                 ON c.capability_contract_id=v.active_capability_contract_id
             WHERE v.tenant_id=? AND v.workspace_id=? AND v.canonical_role_class=?',
             [$tenant,$workspace,$roleClass]);
         if (count($registrations)!==1 || $registrations[0]['status']!=='ACTIVE'
             || $registrations[0]['contract_status']!=='ACTIVE'
-            || $registrations[0]['contract_role']!==$roleClass) {
+            || $registrations[0]['contract_role']!==$roleClass
+            || $registrations[0]['contract_tenant']!==$tenant
+            || $registrations[0]['contract_workspace']!==$workspace
+            || $registrations[0]['contract_valid_from']===null
+            || $registrations[0]['contract_valid_from']>$now
+            || ($registrations[0]['contract_valid_until']!==null && $registrations[0]['contract_valid_until']<=$now)) {
             throw new RuntimeException('MISSING_OR_INVALID_PRODUCT_REGISTRATION:'.$roleClass);
         }
     }
@@ -132,18 +150,28 @@ $plan=static function () use ($db,$scope,$tenant,$workspace,$operator,$company,$
         JOIN role_permissions rp ON rp.role_id=r.role_id
         WHERE m.tenant_id=? AND m.workspace_id=? AND m.principal_id=?
         AND m.principal_type='OPERATOR' AND m.status='ACTIVE' AND m.valid_from<=?
-        AND (m.valid_until IS NULL OR m.valid_until>?)", [$tenant,$workspace,$operator,gmdate('Y-m-d\TH:i:s.000\Z'),gmdate('Y-m-d\TH:i:s.000\Z')]), 'permission_key');
+        AND (m.valid_until IS NULL OR m.valid_until>?)", [$tenant,$workspace,$operator,$now,$now]), 'permission_key');
     $missing=array_values(array_diff(array_unique($required),$perms));
     $result=['company'=>[],'icp'=>[],'catalogue'=>[],'competitors'=>[]];
     if (in_array('company',$sections,true)) {
-        $twins=$db->all("SELECT entity_twin_id,display_name,legal_name,domain,status FROM entity_twins
+        $twins=$db->all("SELECT entity_twin_id,display_name,legal_name,domain,country,jurisdiction,industry,segment,
+            is_first_party,is_external,created_by_actor_id,status FROM entity_twins
             WHERE tenant_id=? AND workspace_id=? AND entity_kind='OWN_COMPANY' AND status<>'RETIRED'",[$tenant,$workspace]);
         if ($twins===[]) $result['company']=['action'=>'CREATE'];
-        elseif (count($twins)!==1 || $twins[0]['display_name']!==$company['display_name']
-            || $twins[0]['legal_name']!==($company['attributes']['legal_name']??null)
-            || $twins[0]['domain']!==($company['attributes']['domain']??null)
-            || $twins[0]['status']!=='ACTIVE') $result['company']=['action'=>'BLOCK','reason'=>'EXISTING_TWIN_CONFLICT'];
         else {
+            $exact=count($twins)===1;
+            if ($exact) {
+                $twin=$twins[0];
+                $exact=$twin['display_name']===$company['display_name']
+                    && $twin['status']==='ACTIVE'
+                    && (int)$twin['is_first_party']===1 && (int)$twin['is_external']===0
+                    && $twin['created_by_actor_id']===$operator;
+                foreach (['legal_name','domain','country','jurisdiction','industry','segment'] as $attr) {
+                    if ($twin[$attr]!==($company['attributes'][$attr]??null)) $exact=false;
+                }
+            }
+            if (!$exact) $result['company']=['action'=>'BLOCK','reason'=>'EXISTING_TWIN_CONFLICT'];
+            else {
             $id=$twins[0]['entity_twin_id'];
             $versions=$db->all('SELECT entity_twin_version_id,claim_ceiling FROM entity_twin_versions
                 WHERE tenant_id=? AND workspace_id=? AND entity_twin_id=? ORDER BY version_sequence DESC',[$tenant,$workspace,$id]);
@@ -152,11 +180,34 @@ $plan=static function () use ($db,$scope,$tenant,$workspace,$operator,$company,$
                 $last=$versions[0];
                 $saved=$db->all('SELECT field_key,field_value_safe,value_status FROM entity_twin_state_summaries
                     WHERE tenant_id=? AND entity_twin_version_id=? ORDER BY field_key',[$tenant,$last['entity_twin_version_id']]);
-                $wanted=$company['fields'];usort($wanted,static fn($a,$b)=>strcmp($a['field_key'],$b['field_key']));
-                $link=$db->one('SELECT 1 AS ok FROM entity_twin_source_links WHERE tenant_id=?
-                    AND entity_twin_version_id=? AND evidence_id=?',[$tenant,$last['entity_twin_version_id'],$scope['evidence_id']]);
-                $result['company']=($saved===$wanted && $last['claim_ceiling']==='INTERNAL_DRAFT' && $link!==null)
+                $wanted=array_map(static fn(array $f): array => [
+                    'field_key'=>$f['field_key'],'field_value_safe'=>$f['field_value_safe'],
+                    'value_status'=>$f['value_status']],$company['fields']);
+                usort($wanted,static fn($a,$b)=>strcmp($a['field_key'],$b['field_key']));
+                $uncertainty=$db->one('SELECT summary_safe,unknown_field_count,has_conflict,conflict_summary_safe
+                    FROM entity_twin_uncertainty_summaries
+                    WHERE tenant_id=? AND entity_twin_version_id=?',
+                    [$tenant,$last['entity_twin_version_id']]);
+                $unknownCount=count(array_filter($wanted,static fn($f): bool => $f['value_status']==='UNKNOWN'));
+                $sourceLinks=$db->all('SELECT evidence_id,source_ref_id,source_basis,allowed_use,
+                    license_basis_safe,freshness_observed_at FROM entity_twin_source_links
+                    WHERE tenant_id=? AND entity_twin_version_id=?',
+                    [$tenant,$last['entity_twin_version_id']]);
+                $link=count($sourceLinks)===1?$sourceLinks[0]:null;
+                $exactSource=$link!==null && $link['evidence_id']===$scope['evidence_id']
+                    && $link['source_ref_id']===$scope['source_ref_id']
+                    && $link['source_basis']==='TENANT_PROVIDED_MANUAL'
+                    && $link['allowed_use']==='INTERNAL_ONLY'
+                    && $link['license_basis_safe']==='Customer-provided profile; internal TEST only'
+                    && $link['freshness_observed_at']===null;
+                $exactUncertainty=$uncertainty!==null && $uncertainty['summary_safe']===$company['uncertainty']
+                    && (int)$uncertainty['unknown_field_count']===$unknownCount
+                    && (int)$uncertainty['has_conflict']===0
+                    && $uncertainty['conflict_summary_safe']===null;
+                $result['company']=($saved===$wanted && $last['claim_ceiling']==='INTERNAL_DRAFT'
+                    && $exactSource && $exactUncertainty)
                     ? ['action'=>'REUSE','entity_twin_id'=>$id] : ['action'=>'BLOCK','reason'=>'TWIN_VERSION_CONFLICT'];
+            }
             }
         }
     }
@@ -189,19 +240,22 @@ $plan=static function () use ($db,$scope,$tenant,$workspace,$operator,$company,$
     }
     if (in_array('catalogue',$sections,true)) {
         $cardId=$args['catalogue-card-id']??null;
-        $card=$cardId===null?null:$db->one('SELECT c.source_ref_id,c.data_ownership,c.review_status,
+        $card=$cardId===null?null:$db->one('SELECT c.source_ref_id,c.data_ownership,c.review_status,c.review_expires_at,
             r.status AS source_status FROM source_license_cards c
             JOIN source_references r ON r.source_ref_id=c.source_ref_id
             WHERE c.source_license_card_id=? AND c.tenant_id=? AND r.tenant_id=?',[$cardId,$tenant,$tenant]);
         if ($card===null || $card['data_ownership']!=='TENANT_OWNED'
-            || $card['review_status']!=='approved' || $card['source_status']!=='ACTIVE_FOR_CAPTURE') {
+            || $card['review_status']!=='approved' || $card['source_status']!=='ACTIVE_FOR_CAPTURE'
+            || ($card['review_expires_at']!==null && $card['review_expires_at']<=$now)) {
             $result['catalogue']=['action'=>'BLOCK','reason'=>'APPROVED_TENANT_OWNED_CARD_REQUIRED'];
         } else {
-            $catalogues=$db->all('SELECT customer_product_catalogue_id,display_name,source_license_card_id,source_ref_id,catalogue_status
-                FROM customer_product_catalogues WHERE tenant_id=? AND workspace_id=? AND catalogue_key=?',
-                [$tenant,$workspace,'plus46-offers-v1']);
+            $catalogues=$db->all('SELECT customer_product_catalogue_id,workspace_id,display_name,
+                source_license_card_id,source_ref_id,catalogue_status FROM customer_product_catalogues
+                WHERE tenant_id=? AND catalogue_key=?',[$tenant,'plus46-offers-v1']);
             if ($catalogues===[]) $result['catalogue']=['action'=>'CREATE','card_id'=>$cardId,'source_ref_id'=>$card['source_ref_id']];
-            elseif (count($catalogues)!==1 || $catalogues[0]['source_license_card_id']!==$cardId
+            elseif (count($catalogues)!==1 || $catalogues[0]['workspace_id']!==$workspace
+                || $catalogues[0]['display_name']!=='Plus 46 Studio — Customer Offers'
+                || $catalogues[0]['source_license_card_id']!==$cardId
                 || $catalogues[0]['source_ref_id']!==$card['source_ref_id'] || $catalogues[0]['catalogue_status']!=='ACTIVE') {
                 $result['catalogue']=['action'=>'BLOCK','reason'=>'CATALOGUE_CONFLICT'];
             } else {
@@ -217,7 +271,18 @@ $plan=static function () use ($db,$scope,$tenant,$workspace,$operator,$company,$
                             && $rows[0]['product_status']==='ACTIVE'
                             ? ['action'=>'REUSE'] : ['action'=>'BLOCK','reason'=>'PRODUCT_CONFLICT']);
                 }
-                $result['catalogue']=['action'=>'REUSE','catalogue_id'=>$catId,'products'=>$products];
+                $actualActive=$db->all("SELECT product_key FROM customer_products
+                    WHERE tenant_id=? AND customer_product_catalogue_id=? AND product_status='ACTIVE'",
+                    [$tenant,$catId]);
+                $actualKeys=array_column($actualActive,'product_key');
+                $expectedKeys=array_column($offers,'key');sort($actualKeys,SORT_STRING);sort($expectedKeys,SORT_STRING);
+                if (array_diff($actualKeys,$expectedKeys)!==[]
+                    || count($actualKeys)!==count(array_unique($actualKeys))) {
+                    // An unexpected active offer would influence fit-scoring beyond the approved manifest.
+                    $result['catalogue']=['action'=>'BLOCK','reason'=>'UNREVIEWED_ACTIVE_PRODUCTS'];
+                } else {
+                    $result['catalogue']=['action'=>'REUSE','catalogue_id'=>$catId,'products'=>$products];
+                }
             }
         }
     }
@@ -230,12 +295,16 @@ $plan=static function () use ($db,$scope,$tenant,$workspace,$operator,$company,$
     }
     foreach ($missing as $key) $blocked[]='permission:'.$key;
     $digest=Digest::canonicalDigest(['scope'=>$scope,'sections'=>$sections,'intended'=>$result,
-        'missing_permissions'=>$missing,'manifest_hash'=>hash('sha256',file_get_contents($args['manifest']))]);
+        'missing_permissions'=>$missing,'manifest_hash'=>$manifestHash]);
     return ['sections'=>$sections,'intended'=>$result,'blocked_by'=>$blocked,'plan_digest'=>$digest,
         'required_permissions'=>$required,'missing_permissions'=>$missing];
 };
 try { $before=$plan(); } catch(Throwable $e) { $fail('plan refused: '.$e->getMessage(),4); }
-if ($command!=='apply') BetaCli::emit(['status'=>$command==='plan'?'DRY_RUN_OK':'INSPECTED',...$before,'writes_performed'=>0]);
+if ($command==='plan') BetaCli::emit(['status'=>'DRY_RUN_OK',...$before,'writes_performed'=>0]);
+if ($command==='verify') {
+    $complete=BootstrapVerification::customerComplete($before);
+    BetaCli::emit(['status'=>$complete?'VERIFIED':'INCOMPLETE',...$before,'writes_performed'=>0],$complete?0:5);
+}
 if ($before['blocked_by']!==[]) $fail('plan blocked: '.implode(',',$before['blocked_by']),5);
 if (!hash_equals($before['plan_digest'],$args['plan-digest'])) $fail('plan digest changed',5);
 try {
@@ -305,6 +374,7 @@ $out=$db->transaction(static function () use ($db,$plan,$args,$tenant,$workspace
 } catch (Throwable $e) { $fail('atomic write failed (rolled back)',5); }
 if (!$out->isOk()) $fail('atomic write refused: '.$out->reasonCode(),5);
 try { $after=$plan(); } catch(Throwable $e) { $fail('postwrite verification failed',6); }
+if (!BootstrapVerification::customerComplete($after)) $fail('postwrite business-record verification incomplete',6);
 BetaCli::emit(['status'=>'APPLIED','created'=>$out->value()['created'],
     'postwrite'=>$after,'wrote_releases'=>false,'wrote_model_outputs'=>false,
     'external_effects_authorized'=>false]);

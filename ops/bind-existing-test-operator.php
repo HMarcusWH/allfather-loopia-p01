@@ -17,7 +17,7 @@ require __DIR__ . '/../app/autoload.php';
 use Allfather\Loopia\Auth\{AccountService,Authenticator,PasswordPolicy};
 use Allfather\Loopia\Beta\BetaBundle;
 use Allfather\Loopia\Core\{Clock,Digest,Outcome};
-use Allfather\Loopia\Ops\BetaCli;
+use Allfather\Loopia\Ops\{BetaCli,BootstrapVerification};
 use Allfather\Loopia\Product\P01\Entitlements;
 
 $fail=static function (string $reason,int $code=2): never {
@@ -44,7 +44,9 @@ $beta=new BetaBundle($db,new Entitlements($db,$clock));
 $tenant=$args['tenant-id'];$workspace=$args['workspace-id'];$operator=$args['operator-id'];
 $email=AccountService::normalizeEmailAddress($args['email']);
 if ($email==='' || !str_contains($email,'@')) $fail('email invalid');
-$plan=static function () use ($db,$tenant,$workspace,$operator,$email,$args,$beta): array {
+$plan=static function () use ($db,$clock,$tenant,$workspace,$operator,$email,$args,$beta): array {
+    // Time must be sampled again inside the FOR UPDATE transaction.
+    $now=$clock->now();
     $scope=$db->one('SELECT t.tenant_type,t.status AS tenant_status,w.workspace_type,w.environment_class,
         w.status AS workspace_status,w.external_side_effects_allowed,w.active_v1_capability_ceiling,
         o.status AS operator_status,o.display_name AS operator_name
@@ -59,17 +61,15 @@ $plan=static function () use ($db,$tenant,$workspace,$operator,$email,$args,$bet
         throw new RuntimeException('TEST_SCOPE_OR_OPERATOR_INVALID');
     }
     $rows=$db->all("SELECT m.membership_id,r.role_key,r.role_version,m.status,m.valid_from,m.valid_until FROM workspace_memberships m
-        JOIN roles r ON r.role_id=m.role_id WHERE m.tenant_id=? AND m.workspace_id=?
-        AND m.principal_id=? AND m.principal_type='OPERATOR'",[$tenant,$workspace,$operator]);
+        JOIN roles r ON r.role_id=m.role_id AND r.status='ACTIVE' AND r.role_version=1
+        WHERE m.tenant_id=? AND m.workspace_id=? AND m.principal_id=? AND m.principal_type='OPERATOR'
+        AND m.status='ACTIVE' AND m.valid_from<=? AND (m.valid_until IS NULL OR m.valid_until>?)
+        ORDER BY r.role_key,m.membership_id",[$tenant,$workspace,$operator,$now,$now]);
     $roleKeys=array_column($rows,'role_key'); sort($roleKeys,SORT_STRING);
     if (!in_array('ROLE_TENANT_ADMIN',$roleKeys,true)
         || !in_array('ROLE_WORKSPACE_OPERATOR',$roleKeys,true))
         throw new RuntimeException('BASE_APPROVED_TEST_ROLES_MISSING');
-    $now=gmdate('Y-m-d\TH:i:s.000\Z');
-    foreach ($rows as $row) if ($row['status']!=='ACTIVE' || (int)$row['role_version']!==1
-        || $row['valid_from']>$now || ($row['valid_until']!==null && $row['valid_until']<=$now))
-        throw new RuntimeException('NONACTIVE_OR_EXPIRED_MEMBERSHIP');
-    $existing=$db->one('SELECT platform_user_id,email,status FROM platform_users WHERE operator_id=?',[$operator]);
+    $existing=$db->one('SELECT platform_user_id,email,display_name,tenant_id,status FROM platform_users WHERE operator_id=?',[$operator]);
     $other=$db->one('SELECT platform_user_id,operator_id FROM platform_users WHERE email=?',[$email]);
     $live=$db->all("SELECT ts.tenant_subscription_id,st.tier_key,ts.status FROM tenant_subscriptions ts
         JOIN subscription_tiers st ON st.subscription_tier_id=ts.subscription_tier_id
@@ -77,7 +77,9 @@ $plan=static function () use ($db,$tenant,$workspace,$operator,$email,$args,$bet
     $tier=$beta->inspectTier();
     $blocked=[];
     if (!$tier->isOk() || $tier->value()['subscription_tier_id']===null) $blocked[]='BETA_TIER_NOT_AVAILABLE';
-    if ($existing!==null && ($existing['email']!==$email || $existing['status']!=='ACTIVE')) $blocked[]='OPERATOR_LOGIN_CONFLICT';
+    if ($existing!==null && ($existing['email']!==$email || $existing['status']!=='ACTIVE'
+        || $existing['tenant_id']!==$tenant || $existing['display_name']!==trim($args['display-name'])))
+        $blocked[]='OPERATOR_LOGIN_CONFLICT';
     if ($other!==null && ($existing===null || $other['platform_user_id']!==$existing['platform_user_id'])) $blocked[]='EMAIL_GLOBALLY_USED';
     if (count($live)>1 || ($live!==[] && $live[0]['tier_key']!==BetaBundle::TIER_KEY)) $blocked[]='EXISTING_SUBSCRIPTION_CONFLICT';
     $facts=['tenant_id'=>$tenant,'workspace_id'=>$workspace,'operator_id'=>$operator,
@@ -87,8 +89,13 @@ $plan=static function () use ($db,$tenant,$workspace,$operator,$email,$args,$bet
     return [...$facts,'plan_digest'=>Digest::canonicalDigest($facts)];
 };
 try { $before=$plan(); } catch(Throwable $e) { $fail('plan refused: '.$e->getMessage(),4); }
-if ($command!=='create') BetaCli::emit(['status'=>$command==='plan'?'DRY_RUN_OK':'INSPECTED',...$before,
+if ($command==='plan') BetaCli::emit(['status'=>'DRY_RUN_OK',...$before,
     'created_operator'=>false,'new_roles_granted'=>false,'external_effects_authorized'=>false]);
+if ($command==='verify') {
+    $complete=BootstrapVerification::loginComplete($before);
+    BetaCli::emit(['status'=>$complete?'VERIFIED':'INCOMPLETE',...$before,
+        'created_operator'=>false,'new_roles_granted'=>false,'external_effects_authorized'=>false],$complete?0:5);
+}
 if ($before['blocked_by']!==[]) $fail('plan blocked: '.implode(',',$before['blocked_by']),5);
 if (!hash_equals($before['plan_digest'],$args['plan-digest'])) $fail('plan digest changed',5);
 if (!$before['would_create_login'] && !$before['would_create_trial']) {
@@ -113,5 +120,7 @@ $out=$db->transaction(static function () use ($db,$plan,$args,$account,$beta,$te
 });
 } catch(Throwable $e) { $fail('atomic binding error (rolled back)',5); }
 if (!$out->isOk()) $fail('atomic binding refused: '.$out->reasonCode(),5);
+$after=$plan();
+if (!BootstrapVerification::loginComplete($after)) $fail('postwrite login/trial verification incomplete',6);
 BetaCli::emit(['status'=>'BOUND','result'=>$out->value(),'operator_id'=>$operator,
     'must_change_password'=>true,'new_operator_created'=>false,'new_roles_granted'=>false]);

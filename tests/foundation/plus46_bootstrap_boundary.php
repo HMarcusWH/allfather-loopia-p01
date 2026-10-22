@@ -48,3 +48,26 @@ Assert::contains('readPassword(true',$login,'password from stdin only');
 Assert::contains('ROLE_TENANT_ADMIN',$login,'login checks exact approved existing roles');
 Assert::contains('ROLE_WORKSPACE_OPERATOR',$login,'login checks exact approved existing roles');
 Assert::contains('must_change_password',$login,'login retains mandatory password-change posture');
+
+// A READ-ONLY verify result must not reuse the plan's success exit status.
+// The runtime predicates are unit-tested separately; source assertions keep each private CLI wired.
+foreach ([
+    'complete-existing-test-modules.php' => 'modulesComplete($before)',
+    'bootstrap-test-customer-data.php' => 'customerComplete($before)',
+    'bind-existing-test-operator.php' => 'loginComplete($before)',
+] as $path => $predicate) {
+    $code=(string)file_get_contents($root.'/ops/'.$path);
+    Assert::contains($predicate,$code,$path.' checks full replay completion before success');
+    Assert::contains("?'VERIFIED':'INCOMPLETE'",$code,$path.' exposes an explicit verification verdict');
+    Assert::contains('$complete?0:5',$code,$path.' exits nonzero on pending/blocked verification');
+}
+Assert::contains('contract_valid_until',$modules,'registration replay rejects expired capability contracts');
+Assert::contains('c.valid_from',$modules,'registration replay checks contract effective time');
+Assert::contains('$clock->now()',$modules,'registration authority clock refreshed for locked plan');
+Assert::contains('review_expires_at',$data,'catalogue review age is re-checked');
+Assert::contains('array_diff($actualKeys,$expectedKeys)',$data,'unknown active offer is not silently reused');
+Assert::contains("'manifest_hash'=>".'$manifestHash',$data,'digest is bound to already validated bytes');
+Assert::false(str_contains($data,"file_get_contents(".'$args'."['manifest'])"),
+    'the parsed manifest path is never reopened during approval digest');
+Assert::contains("r.status='ACTIVE'",$login,'binding rejects superseded role definitions');
+Assert::contains("m.status='ACTIVE'",$login,'binding ignores historical inactive memberships');
