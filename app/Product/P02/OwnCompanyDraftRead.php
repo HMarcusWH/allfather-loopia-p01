@@ -29,6 +29,19 @@ final class OwnCompanyDraftRead
      */
     public function listInternalDrafts(array $scope): array
     {
+        // A released-twin read alone must never expand into access to unreleased
+        // first-party customer drafts. Require the same operator to hold the
+        // tenant-administrator authority as an additional M02 gate.
+        $admin = $this->access->evaluate(
+            $scope['actor_type'], $scope['actor_id'], $scope['tenant_id'],
+            $scope['workspace_id'], 'tenant.administer', 'entity_twin',
+        );
+        if ($admin['decision'] !== 'ALLOW') {
+            return [
+                'decision' => 'DENIED', 'required_permission' => 'tenant.administer',
+                'reason_codes' => $admin['reason_codes'], 'rows' => [],
+            ];
+        }
         $permission = 'entity_twin.read';
         $access = $this->access->evaluate(
             $scope['actor_type'], $scope['actor_id'], $scope['tenant_id'],
