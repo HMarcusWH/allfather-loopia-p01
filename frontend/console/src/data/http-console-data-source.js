@@ -9,6 +9,7 @@ const ENDPOINTS=Object.freeze({
   [READS.CONTEXT]: "/console/api/v1/context",
   [READS.P01_BATTLECARDS]: "/console/api/v1/p01/battlecards",
   [READS.P02_ENTITY_INDEX]: "/console/api/v1/p02/entities",
+  [READS.P02_OWN_DRAFT]: "/console/api/v1/p02/own-company-drafts",
   [READS.P02_RELATION_INDEX]: "/console/api/v1/p02/relationships",
   [READS.P03_QUEUE]: "/console/api/v1/p03/priority-queue",
   [READS.P03_WATCH]: "/console/api/v1/p03/monitored",
