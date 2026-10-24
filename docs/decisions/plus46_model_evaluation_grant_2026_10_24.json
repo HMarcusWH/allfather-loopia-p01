@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "kind": "OWNER_EXECUTION_DECISION",
+  "decision_id": "OWNER-2026-10-24-PLUS46-EVAL-GRANT-01",
+  "decided_by": "Marcus Hermansson, Allfather BI owner (owner directive recorded by assistant)",
+  "decided_at": "2026-10-24T18:45:13Z",
+  "canonical_authority_ref": "HMarcusWH/Allfatherbusinessintelligence@8c38fd25bdf3124f3658dced644535620de387b0:docs/allfather-bi/implementation/plus46_synthetic_model_eval_grant_owner_record_2026_10_24.md",
+  "tenant_id": "0898de2a-7c6d-42dd-886b-08116cbebdf5",
+  "workspace_id": "cb282a3f-9df5-447f-899f-05078c5b1767",
+  "purposes": [
+    "MODEL_EVALUATION"
+  ],
+  "authorizes": {
+    "prompt_approvals": [],
+    "execution_grants": [
+      "4e0aa5a0189774b57f5f9239aca3a025fe7bbfbfd19aef1a7ac84acd80c1da75"
+    ],
+    "monitor_schedules": []
+  },
+  "disclosure_scope": "One existing PROPOSED MODEL_EVALUATION grant only. OpenAI may receive only frozen fictional evaluation-case material, four previously approved immutable prompt bodies and output schemas, under the pre-existing scoped credential and exact model policy. No real customer material, live source, personal data, external action, source capture, product release, scheduling or production use.",
+  "retention_scope": "Provider request includes store=false; zero provider retention is NOT asserted. Candidate/evaluation evidence persists privately in staging's append-only evidence store, without automatic deletion. Review/release is human-held. No live customer data is authorized.",
+  "notes": "Exact grant digest 4e0aa5a0189774b57f5f9239aca3a025fe7bbfbfd19aef1a7ac84acd80c1da75 is tied to existing PROPOSED grant ID b9ca7d62-74de-4595-a9b6-464e2a63b1e8; purpose MODEL_EVALUATION, manifest cd21a4224b4b1c54f4378657b1950d5d399a0a743738739799f2341eeddf7c70, model-policy digest 11e8084c8b00d1ac1a37d350cf6a2940d194a79f57ff6f2f0337c882ca82bd92, application fingerprint 28bf0b0adfc81b28608372bf70aa609f33285c51eea5eddd467dd4c50d3b525e, 18 model attempts and 0 source captures, interval 2026-10-24T18:42:15.553Z to 2026-10-24T20:43:15.553Z. Owner opted to retain the previously pasted staging API key for this evaluation. The claimed US$5 project balance is not proven to be a hard spend cap. This decision does not create grant admission or dispatch; an authorized human must separately run admit, inspect a start/preview, and explicitly execute if all gates still pass. A new grant, longer window, changed credential or policy would require a new owner decision."
+}
