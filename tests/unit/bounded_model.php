@@ -63,6 +63,22 @@ foreach ([400=>'MODEL_HTTP_BAD_REQUEST',404=>'MODEL_HTTP_NOT_FOUND',422=>'MODEL_
  Assert::false(str_contains(json_encode($r,JSON_THROW_ON_ERROR),'SECRET PROVIDER DIAGNOSTIC'),'provider messages do not leak for HTTP '.$status);
  Assert::false(str_contains(json_encode($r,JSON_THROW_ON_ERROR),'PRIVATE'),'provider request metadata does not leak for HTTP '.$status);
 }
+// A structurally valid generated response can still fail PromptOps. Retain provider
+// usage (possible billed tokens), but never log the candidate or an arbitrary message.
+$generatedForGate = ['kind'=>'GENERATED','input_tokens'=>173,'output_tokens'=>49,'candidate'=>['private_text'=>'DO_NOT_LEAK_CANDIDATE']];
+$criticGate = ModelExecutor::candidateValidationRefusal(
+    \Allfather\Loopia\Core\Outcome::refuse('PROMPT_CANDIDATE_REVIEW_INCONSISTENT'), $generatedForGate
+);
+Assert::same('MODEL_CANDIDATE_REFERENCE_INVALID',$criticGate['reason_code'],'candidate remains a generic, terminal public refusal');
+Assert::same('PROMPT_CANDIDATE_REVIEW_INCONSISTENT',$criticGate['validation_reason_code'],'fixed gate code is available only to private call telemetry');
+Assert::same('FAILED',$criticGate['telemetry_outcome'],'rejected candidate is not a provider success for acceptance');
+Assert::same(173,$criticGate['input_tokens'],'received usage persists after candidate gate refusal');
+Assert::same(49,$criticGate['output_tokens'],'received output usage persists after candidate gate refusal');
+Assert::false(str_contains(json_encode($criticGate,JSON_THROW_ON_ERROR),'DO_NOT_LEAK_CANDIDATE'),'candidate bytes are not returned from post-schema gate');
+$unknownGate = ModelExecutor::candidateValidationRefusal(\Allfather\Loopia\Core\Outcome::refuse('PRIVATE ARBITRARY ERROR TEXT'),$generatedForGate);
+Assert::same('MODEL_CANDIDATE_REFERENCE_INVALID',$unknownGate['validation_reason_code'],'unknown candidate errors are masked to generic fixed code');
+Assert::false(str_contains(json_encode($unknownGate,JSON_THROW_ON_ERROR),'PRIVATE ARBITRARY ERROR TEXT'),'unreviewed error codes cannot leak via call telemetry');
+
 Assert::same('MODEL_RESPONSE_TOO_LARGE',ModelExecutor::interpret(new ModelResponse(200,str_repeat('x',131073)),$request)['reason_code'],'bounded raw response');
 Assert::same('MODEL_NETWORK_OUTCOME_UNKNOWN',ModelExecutor::interpret(new ModelResponse(0,'',null,'MODEL_NETWORK_OUTCOME_UNKNOWN'),$request)['reason_code'],'unknown outcome remains unknown');
 foreach([[401,'','MODEL_AUTHENTICATION_REFUSED'],[403,'<html>denied</html>','MODEL_AUTHENTICATION_REFUSED'],[502,'<html>gateway</html>','MODEL_PROVIDER_UNAVAILABLE'],[503,'','MODEL_PROVIDER_UNAVAILABLE'],[429,'not-json','MODEL_RATE_LIMITED'],[400,'<html>bad request</html>','MODEL_HTTP_BAD_REQUEST'],[404,'<html>missing or retired model</html>','MODEL_HTTP_NOT_FOUND'],[422,'<html>bad schema</html>','MODEL_HTTP_UNPROCESSABLE']] as [$status,$raw,$reason])Assert::same($reason,ModelExecutor::interpret(new ModelResponse($status,$raw),$request)['reason_code'],'HTTP error classification does not depend on JSON body: '.$status);
