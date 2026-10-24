@@ -88,3 +88,24 @@ test("unreleased own-company drafts disable prefetch and transparent retry",()=>
   assert.equal(policy.allowPrefetch,false);
   assert.equal(policy.transparentRetry,"NEVER");
 });
+
+
+test("customer draft reads use only fixed session-owned endpoints and audited transport",async()=>{
+  for(const [id,url] of [
+    [READS.P01_SOURCE_WATCH,"/console/api/v1/p01/source-watch"],
+    [READS.P03_DECLARED_ICP,"/console/api/v1/p03/declared-icp"],
+    [READS.P03_CUSTOMER_OFFERS,"/console/api/v1/p03/customer-offers"]
+  ]){
+    let called="";
+    const ds=new HttpConsoleDataSource({fetchImpl:async(path)=>{
+      called=path;return jsonResponse(200,envelope(id,[{display_name:"Customer declaration"}]));
+    }});
+    const r=await ds.readDescriptor(id,{tenant_id:"attacker",workspace_id:"foreign",operator_id:"spoof",record:"other"});
+    assert.equal(called,url,"client cannot select another tenant or a record");
+    assert.equal(r.projection.state,PROJECTION.READY);
+    assert.equal(r.data.rows[0].display_name,"Customer declaration");
+    const policy=transportPolicyFor(readMeta(id));
+    assert.equal(policy.allowPrefetch,false,id);
+    assert.equal(policy.transparentRetry,"NEVER",id);
+  }
+});
