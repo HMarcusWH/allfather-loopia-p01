@@ -326,7 +326,7 @@ final class BetaBundle
                 'tier_key' => (string) $live['tier_key'],
                 'status' => (string) $live['subscription_status'],
                 'started_at' => (string) $live['started_at'],
-                'is_beta_tier' => (string) $live['tier_key'] === self::TIER_KEY,
+                'is_beta_tier' => in_array((string) $live['tier_key'], [self::TIER_KEY, Plus46ReadUpgrade::TIER_KEY], true),
             ],
         ];
     }
