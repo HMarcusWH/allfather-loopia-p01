@@ -13,7 +13,7 @@ exact approved prompts, the model policy, the credential, the source and target,
 budgets and the application release — and every prompt it runs needs a **prompt approval** for that
 exact content. Both are admitted only by a **reviewed owner decision** committed under
 [`docs/decisions/`](decisions/README.md). A database row, a CLI command, a preflight mode or a model
-output cannot mint that authority. The 2026-10-24 Plus 46 TEST decision authorizes four exact **MODEL_EVALUATION prompt approvals only** and lists no execution grants; consequently no model execution is admitted by shipping that decision.
+output cannot mint that authority. The first 2026-10-24 Plus 46 TEST decision authorizes four exact **MODEL_EVALUATION prompt approvals only**. A second, separate decision names **one** previously proposed 18-model-attempt, zero-source MODEL_EVALUATION grant digest. Shipping those files still does not admit the grant, start a run, or make any model call; private `admit`, preview and explicit execution remain separate guarded operations.
 
 ## Objects
 
@@ -99,5 +99,4 @@ It does not activate anything. The deployed web composition uses
 `MonitorFactory::forWorkspace()`. With no ADMITTED `MANUAL_MONITOR` grant it constructs the inert
 source/model leaves; with an admitted grant it may construct the live leaves, but every capture,
 model and release checkpoint still revalidates that exact grant, the current prompt approval and
-its accepted evaluation evidence. No execution-grant decision ships in this candidate; the prompt-only owner decision admits no execution. Merging code alone admits nothing. It is not canonical law either: where canonical authority does not yet
-cover an operation, the decision belongs upstream first.
+its accepted evaluation evidence. The separately reviewed Plus 46 synthetic-evaluation grant decision can authorize admission only of its exact already-proposed grant. Until a private authorized operator calls `admit`, the grant remains PROPOSED; admitting it does not itself start or execute a run. No real-source MANUAL_MONITOR or scheduled-observation grant is included. Merging code alone admits nothing. The projection does not override canonical law: where canonical authority does not cover an operation, the decision belongs upstream first.
