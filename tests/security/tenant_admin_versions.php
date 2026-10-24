@@ -28,8 +28,8 @@ $beforeRole = $db->one('SELECT * FROM roles WHERE role_id=?', [$legacy['role_id'
 $beforePermissions = $db->all('SELECT * FROM role_permissions WHERE role_id=? ORDER BY permission_key', [$legacy['role_id']]);
 $beforeMembership = $db->one('SELECT * FROM workspace_memberships WHERE membership_id=?', [$membership]);
 $seeded = $vocabulary->ensureVocabulary();
-Assert::same(16, count(Permissions::roleVersionDefinitions()), 'the canonical definition set includes fifteen v1 roles and one successor');
-Assert::same(15, $seeded['roles'], 'adds the other fourteen v1 roles plus exactly one successor');
+Assert::same(17, count(Permissions::roleVersionDefinitions()), 'fifteen v1 plus TenantAdmin v2 and additive reader v1');
+Assert::same(16, $seeded['roles'], 'adds fourteen other legacy roles plus two new definitions');
 Assert::same($beforeRole, $db->one('SELECT * FROM roles WHERE role_id=?', [$legacy['role_id']]), 'existing role bytes preserved');
 Assert::same($beforePermissions, $db->all('SELECT * FROM role_permissions WHERE role_id=? ORDER BY permission_key', [$legacy['role_id']]), 'v1 permission rows preserved');
 Assert::same($beforeMembership, $db->one('SELECT * FROM workspace_memberships WHERE membership_id=?', [$membership]), 'existing membership including ID/version/window preserved');
