@@ -18,10 +18,13 @@ $meta = (string) file_get_contents($root . '/frontend/console/src/data/surface-r
 $routes = [
     '/console/api/v1/context',
     '/console/api/v1/p01/battlecards',
+    '/console/api/v1/p01/source-watch',
     '/console/api/v1/p02/entities',
     '/console/api/v1/p02/own-company-drafts',
     '/console/api/v1/p02/relationships',
     '/console/api/v1/p03/priority-queue',
+    '/console/api/v1/p03/declared-icp',
+    '/console/api/v1/p03/customer-offers',
     '/console/api/v1/p03/monitored',
     '/console/api/v1/p04/distributions',
     '/console/api/v1/p05/drafts',
@@ -71,11 +74,11 @@ foreach ((new ReflectionClass(\Allfather\Loopia\Http\Controllers\ConsoleReadCont
 sort($readMethods, SORT_STRING);
 Assert::equalsList(
     [
-        'context', 'decisions', 'monitorRun', 'monitorRuns', 'p01Battlecards', 'p02Entities', 'p02EntityDetail', 'p02OwnCompanyDrafts', 'p02Relationships',
-        'p03Monitored', 'p03PriorityQueue', 'p03ProspectDetail', 'p04Distributions', 'p05Drafts',
+        'context', 'decisions', 'monitorRun', 'monitorRuns', 'p01Battlecards', 'p01SourceWatch', 'p02Entities', 'p02EntityDetail', 'p02OwnCompanyDrafts', 'p02Relationships',
+        'p03CustomerOffers', 'p03DeclaredIcp', 'p03Monitored', 'p03PriorityQueue', 'p03ProspectDetail', 'p04Distributions', 'p05Drafts',
     ],
     $readMethods,
-    'the browser read controller exposes exactly the fourteen registered reads (plus own-company draft) and nothing else',
+    'the browser read controller exposes exactly the seventeen registered fixed reads and nothing else',
 );
 // P09 detail selectors are the only other query values a read accepts, and each is a SELECTOR the
 // owner re-checks against the session scope — never scope itself.
@@ -132,7 +135,7 @@ Assert::contains('verifyStream', $ledgerAdapter, 'ledger integrity is recomputed
 
 Assert::contains('HttpConsoleDataSource', $entry, 'production React entry uses the governed HTTP datasource');
 Assert::false(str_contains($entry, 'CanonicalConsoleDataSource'), 'production entry no longer uses the inert Phase-1 datasource');
-foreach (['P01_BATTLECARDS','P02_OWN_DRAFT','P02_ENTITY_INDEX','P02_RELATION_INDEX','P02_ENTITY_DETAIL','P03_QUEUE','P03_WATCH','P03_PROSPECT_DETAIL','P04_DISTRIBUTIONS','P05_DRAFTS','LEDGER','MONITOR_RUNS','MONITOR_RUN'] as $read) {
+foreach (['P01_BATTLECARDS','P01_SOURCE_WATCH','P02_OWN_DRAFT','P02_ENTITY_INDEX','P02_RELATION_INDEX','P02_ENTITY_DETAIL','P03_DECLARED_ICP','P03_CUSTOMER_OFFERS','P03_QUEUE','P03_WATCH','P03_PROSPECT_DETAIL','P04_DISTRIBUTIONS','P05_DRAFTS','LEDGER','MONITOR_RUNS','MONITOR_RUN'] as $read) {
     Assert::contains("READS.{$read}", $httpDatasource, "HTTP datasource explicitly maps {$read}");
 }
 Assert::false(str_contains($httpDatasource, 'P03_BATTLECARDS]:'), 'HTTP datasource contains no P03 battlecard endpoint mapping');
