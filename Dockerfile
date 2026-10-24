@@ -31,7 +31,20 @@ RUN php -l app/Auth/Authenticator.php \
     && php -l app/Http/Kernel.php \
     && php -l tests/security/session_csrf_recovery.php \
     && php -l tests/foundation/session_csrf_recovery_boundary.php \
-    && php tests/run.php --layer=foundation --filter=session_csrf_recovery_boundary --strict
+    && php tests/run.php --layer=foundation --filter=session_csrf_recovery_boundary --strict \
+    && php -l app/Product/P01/WatchlistRead.php \
+    && php -l app/Product/P03/CustomerProfileRead.php \
+    && php -l app/Beta/Plus46ReadUpgrade.php \
+    && php -l app/Beta/BetaBundle.php \
+    && php -l app/Substrate/M02/Permissions.php \
+    && php -l app/Http/Controllers/ConsoleReadController.php \
+    && php -l public_html/index.php \
+    && php -l ops/activate-plus46-reads.php \
+    && php -l tests/integration/plus46_customer_reads.php \
+    && php -l tests/foundation/plus46_customer_reads_boundary.php \
+    && php tests/run.php --layer=foundation --filter=plus46_customer_reads_boundary --strict \
+    && php tests/run.php --layer=foundation --filter=governed_browser_read_boundary --strict \
+    && php tests/run.php --layer=foundation --filter=deployment_boundary --strict
 COPY --from=console /src/public_html/assets/operator-console/ /srv/allfather/public_html/assets/operator-console/
 COPY ops/railway/entrypoint.sh /usr/local/bin/allfather-railway-entrypoint
 RUN chmod 0755 /usr/local/bin/allfather-railway-entrypoint \
