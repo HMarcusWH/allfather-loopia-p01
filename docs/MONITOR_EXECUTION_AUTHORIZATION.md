@@ -13,7 +13,7 @@ exact approved prompts, the model policy, the credential, the source and target,
 budgets and the application release — and every prompt it runs needs a **prompt approval** for that
 exact content. Both are admitted only by a **reviewed owner decision** committed under
 [`docs/decisions/`](decisions/README.md). A database row, a CLI command, a preflight mode or a model
-output cannot mint that authority. The repository ships no decision, so nothing can be admitted.
+output cannot mint that authority. The 2026-10-24 Plus 46 TEST decision authorizes four exact **MODEL_EVALUATION prompt approvals only** and lists no execution grants; consequently no model execution is admitted by shipping that decision.
 
 ## Objects
 
