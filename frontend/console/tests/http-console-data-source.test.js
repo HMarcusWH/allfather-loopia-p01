@@ -10,7 +10,7 @@ function envelope(source,data,state="READY"){return {source,as_of:"2026-09-10T00
 
 test("production datasource exposes only the explicit PR6 + P09 read allowlist",()=>{
   const ds=new HttpConsoleDataSource({fetchImpl:async()=>jsonResponse(503,{})});
-  assert.deepEqual(new Set(LIVE_READ_IDS),new Set([READS.CONTEXT,READS.P01_BATTLECARDS,READS.P02_ENTITY_INDEX,READS.P02_OWN_DRAFT,READS.P02_RELATION_INDEX,READS.P03_QUEUE,READS.P03_WATCH,READS.P04_DISTRIBUTIONS,READS.P05_DRAFTS,READS.LEDGER,READS.P02_ENTITY_DETAIL,READS.P03_PROSPECT_DETAIL,READS.MONITOR_RUNS,READS.MONITOR_RUN]));
+  assert.deepEqual(new Set(LIVE_READ_IDS),new Set([READS.CONTEXT,READS.P01_BATTLECARDS,READS.P01_SOURCE_WATCH,READS.P02_ENTITY_INDEX,READS.P02_OWN_DRAFT,READS.P02_RELATION_INDEX,READS.P03_DECLARED_ICP,READS.P03_CUSTOMER_OFFERS,READS.P03_QUEUE,READS.P03_WATCH,READS.P04_DISTRIBUTIONS,READS.P05_DRAFTS,READS.LEDGER,READS.P02_ENTITY_DETAIL,READS.P03_PROSPECT_DETAIL,READS.MONITOR_RUNS,READS.MONITOR_RUN]));
   assert.equal(LIVE_READ_IDS.includes(READS.P03_BATTLECARDS),false);
   assert.equal(LIVE_READ_IDS.includes(READS.OVERVIEW_PULSE),false);
   assert.deepEqual(ds.getUsableNavigationIds(),[],"production has no unconditional usable route before context permissions are resolved");
@@ -87,4 +87,25 @@ test("unreleased own-company drafts disable prefetch and transparent retry",()=>
   const policy=transportPolicyFor(readMeta(READS.P02_OWN_DRAFT));
   assert.equal(policy.allowPrefetch,false);
   assert.equal(policy.transparentRetry,"NEVER");
+});
+
+
+test("customer draft reads use only fixed session-owned endpoints and audited transport",async()=>{
+  for(const [id,url] of [
+    [READS.P01_SOURCE_WATCH,"/console/api/v1/p01/source-watch"],
+    [READS.P03_DECLARED_ICP,"/console/api/v1/p03/declared-icp"],
+    [READS.P03_CUSTOMER_OFFERS,"/console/api/v1/p03/customer-offers"]
+  ]){
+    let called="";
+    const ds=new HttpConsoleDataSource({fetchImpl:async(path)=>{
+      called=path;return jsonResponse(200,envelope(id,[{display_name:"Customer declaration"}]));
+    }});
+    const r=await ds.readDescriptor(id,{tenant_id:"attacker",workspace_id:"foreign",operator_id:"spoof",record:"other"});
+    assert.equal(called,url,"client cannot select another tenant or a record");
+    assert.equal(r.projection.state,PROJECTION.READY);
+    assert.equal(r.data.rows[0].display_name,"Customer declaration");
+    const policy=transportPolicyFor(readMeta(id));
+    assert.equal(policy.allowPrefetch,false,id);
+    assert.equal(policy.transparentRetry,"NEVER",id);
+  }
 });

@@ -2,6 +2,11 @@ import { PROJECTION } from "./response-types.js";
 import { READS } from "./surface-reads.js";
 
 const columns = Object.freeze({
+  [READS.P01_SOURCE_WATCH]: [
+    {key:"display_name",label:"Competitor"},{key:"competitor_class",label:"Class"},
+    {key:"status",label:"Record"},{key:"monitored_sources_count",label:"Sources"},
+    {key:"readiness",label:"Readiness"}
+  ],
   [READS.P01_BATTLECARDS]: [
     {key:"released_at",label:"Released"},{key:"signal_summary_safe",label:"Summary"},{key:"confidence_band",label:"Confidence"}
   ],
@@ -13,6 +18,14 @@ const columns = Object.freeze({
   ],
   [READS.P02_RELATION_INDEX]: [
     {key:"released_at",label:"Released"},{key:"relationship_edge_id",label:"Relationship"},{key:"claim_ceiling",label:"Claim ceiling"},{key:"visibility_scope",label:"Scope"}
+  ],
+  [READS.P03_DECLARED_ICP]: [
+    {key:"display_name",label:"ICP"},{key:"company_size_band",label:"Size band"},
+    {key:"version_number",label:"Version"},{key:"declaration_status",label:"Status"}
+  ],
+  [READS.P03_CUSTOMER_OFFERS]: [
+    {key:"display_name",label:"Customer offer"},{key:"product_offer_kind",label:"Type"},
+    {key:"product_status",label:"Status"},{key:"provenance_status",label:"Source review"}
   ],
   [READS.P03_QUEUE]: [
     {key:"released_at",label:"Released"},{key:"fit_band",label:"Fit"},{key:"claim_kind",label:"Claim kind"}

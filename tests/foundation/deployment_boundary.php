@@ -515,12 +515,14 @@ Assert::equalsList(
         '/console/api/v1/p02/own-company-drafts',
         '/console/api/v1/p02/relationships',
         '/console/api/v1/p03/priority-queue',
+        '/console/api/v1/p03/declared-icp',
+        '/console/api/v1/p03/customer-offers',
         '/console/api/v1/p03/monitored',
         '/console/api/v1/p02/entity-detail',
         '/console/api/v1/p03/prospect-detail',
     ],
     $productRoutes[1],
-    'P02/P03 released index/detail reads retain their contract alongside one separately scoped P02 own-company draft read',
+    'P02/P03 released reads retain their contracts alongside separately scoped, explicitly authorized customer-declaration reads',
 );
 
 // Each detail read asks its OWNER's scoped getter; no adapter selects rows itself.

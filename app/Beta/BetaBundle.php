@@ -318,7 +318,8 @@ final class BetaBundle
 
         return [
             'tier_key' => self::TIER_KEY,
-            'tier_permissions' => self::PERMISSIONS,
+            'tier_permissions' => ($live !== null && (string) $live['tier_key'] === Plus46ReadUpgrade::TIER_KEY)
+                ? Plus46ReadUpgrade::TIER_PERMISSIONS : self::PERMISSIONS,
             'monthly_fee_minor_units' => self::MONTHLY_FEE_MINOR_UNITS,
             'currency' => self::CURRENCY,
             'live_subscription' => $live === null ? null : [
@@ -326,7 +327,7 @@ final class BetaBundle
                 'tier_key' => (string) $live['tier_key'],
                 'status' => (string) $live['subscription_status'],
                 'started_at' => (string) $live['started_at'],
-                'is_beta_tier' => (string) $live['tier_key'] === self::TIER_KEY,
+                'is_beta_tier' => in_array((string) $live['tier_key'], [self::TIER_KEY, Plus46ReadUpgrade::TIER_KEY], true),
             ],
         ];
     }

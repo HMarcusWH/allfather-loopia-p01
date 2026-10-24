@@ -15,7 +15,7 @@ function recorder(status,payload){const calls=[];return {calls,ds:new HttpConsol
 
 test("P09 adds exactly four reads: two product details and two Monitor metadata reads",()=>{
   for(const id of [READS.P02_ENTITY_DETAIL,READS.P03_PROSPECT_DETAIL,READS.MONITOR_RUNS,READS.MONITOR_RUN]) assert.ok(LIVE_READ_IDS.includes(id),id);
-  assert.equal(LIVE_READ_IDS.length,14,"P09 four reads plus the separately guarded P02 own-company draft read");
+  assert.equal(LIVE_READ_IDS.length,17,"P09 + P02 draft + P01 watchlist + P03 owned ICP/offers");
   assert.ok(LIVE_READ_IDS.includes(READS.P02_OWN_DRAFT),"unreleased first-party draft is a distinct guarded endpoint");
   assert.equal(LIVE_READ_IDS.includes(READS.P03_BATTLECARDS),false,"there is still no prospect-battlecard list read");
 });

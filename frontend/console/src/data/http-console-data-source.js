@@ -8,9 +8,12 @@ import { adaptLiveRead } from "./live-read-adapters.js";
 const ENDPOINTS=Object.freeze({
   [READS.CONTEXT]: "/console/api/v1/context",
   [READS.P01_BATTLECARDS]: "/console/api/v1/p01/battlecards",
+  [READS.P01_SOURCE_WATCH]: "/console/api/v1/p01/source-watch",
   [READS.P02_ENTITY_INDEX]: "/console/api/v1/p02/entities",
   [READS.P02_OWN_DRAFT]: "/console/api/v1/p02/own-company-drafts",
   [READS.P02_RELATION_INDEX]: "/console/api/v1/p02/relationships",
+  [READS.P03_DECLARED_ICP]: "/console/api/v1/p03/declared-icp",
+  [READS.P03_CUSTOMER_OFFERS]: "/console/api/v1/p03/customer-offers",
   [READS.P03_QUEUE]: "/console/api/v1/p03/priority-queue",
   [READS.P03_WATCH]: "/console/api/v1/p03/monitored",
   [READS.P04_DISTRIBUTIONS]: "/console/api/v1/p04/distributions",
