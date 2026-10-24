@@ -67,7 +67,7 @@ final class PreparedModelRequest
             // The entire user-input document is inspected and hashed. Source text remains data,
             // never a role/message/tool definition. No provider tools or arbitrary URLs are enabled.
             $body = [
-                'model'=>$model, 'instructions'=>$prompt['instructions'],
+                'model'=>$model, 'reasoning'=>['effort'=>ModelPolicy::REASONING_EFFORT], 'instructions'=>$prompt['instructions'],
                 'input'=>Digest::canonicalize($inputDocument), 'max_output_tokens'=>$tokens, 'store'=>ModelPolicy::STORE,
                 'text'=>['format'=>['type'=>'json_schema','name'=>'monitor_candidate_v1','strict'=>true,'schema'=>$prompt['output_schema']]],
             ];
