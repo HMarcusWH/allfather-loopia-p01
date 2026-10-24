@@ -25,6 +25,13 @@ RUN apt-get update \
 
 WORKDIR /srv/allfather
 COPY . /srv/allfather
+# This repository has no hosted CI minutes: qualify the session-security patch on the actual PHP 8.5 runtime.
+# The DB-backed end-to-end test remains a separate disposable MariaDB gate.
+RUN php -l app/Auth/Authenticator.php \
+    && php -l app/Http/Kernel.php \
+    && php -l tests/security/session_csrf_recovery.php \
+    && php -l tests/foundation/session_csrf_recovery_boundary.php \
+    && php tests/run.php --layer=foundation --filter=session_csrf_recovery_boundary --strict
 COPY --from=console /src/public_html/assets/operator-console/ /srv/allfather/public_html/assets/operator-console/
 COPY ops/railway/entrypoint.sh /usr/local/bin/allfather-railway-entrypoint
 RUN chmod 0755 /usr/local/bin/allfather-railway-entrypoint \
