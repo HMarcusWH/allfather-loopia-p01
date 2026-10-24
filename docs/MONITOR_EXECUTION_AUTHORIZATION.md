@@ -13,7 +13,7 @@ exact approved prompts, the model policy, the credential, the source and target,
 budgets and the application release — and every prompt it runs needs a **prompt approval** for that
 exact content. Both are admitted only by a **reviewed owner decision** committed under
 [`docs/decisions/`](decisions/README.md). A database row, a CLI command, a preflight mode or a model
-output cannot mint that authority. The first 2026-10-24 Plus 46 TEST decision authorizes four exact **MODEL_EVALUATION prompt approvals only**. A second, separate decision names **one** previously proposed 18-model-attempt, zero-source MODEL_EVALUATION grant digest. Shipping those files still does not admit the grant, start a run, or make any model call; private `admit`, preview and explicit execution remain separate guarded operations.
+output cannot mint that authority. The first 2026-10-24 Plus 46 TEST decision authorizes four exact **MODEL_EVALUATION prompt approvals only**. A second, separate decision names **one** previously proposed 18-model-attempt, zero-source MODEL_EVALUATION grant digest. The third, post-retirement decision authorizes **only** four new Luna-policy MODEL_EVALUATION prompts and no grant. The original nano-policy grant is exhausted and has no authority over a new model policy. Shipping these files alone does not admit any successor grant, start a run, or call a model; private `admit`, preview and explicit execution remain separate guarded operations.
 
 ## Objects
 

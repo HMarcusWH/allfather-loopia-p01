@@ -1,7 +1,7 @@
 # Owner execution decisions
 
 This directory holds **reviewed owner decisions** that authorize exact execution grants and prompt
-approvals. The repository contains **two separately scoped 2026-10-24 Plus 46 TEST decisions**: the first authorizes four exact MODEL_EVALUATION prompt approvals (zero execution grants); the second authorizes **only one** previously proposed 18-attempt/zero-source MODEL_EVALUATION grant digest. Neither file alone dispatches a model, fetches a source, or schedules work; a private authorized operator must separately admit the exact grant and deliberately preview/execute inside its fixed, expiring window. Both records cite immutable upstream owner decisions in `HMarcusWH/Allfatherbusinessintelligence`. Their scopes must not be combined into an assumed broader product authorization.
+approvals. As of 2026-10-24 the repository records **three separately scoped Plus 46 TEST decisions**: four original nano-policy MODEL_EVALUATION prompt approvals, the one previously proposed/exhausted 18-attempt grant, and four new **Luna-policy** MODEL_EVALUATION prompt approvals with **zero** new execution grants. Each decision has an immutable upstream owner-record reference in `HMarcusWH/Allfatherbusinessintelligence`. Deploying the new prompt-only decision does not call a model or authorize a successor execution grant. A separate exact grant decision, private admission, preview and explicit execution are still required. Never combine old and new grant/policy scopes.
 
 A decision is a JSON document added by a reviewed commit — never written by the application.
 `app/Workflow/OwnerDecisionRegistry.php` reads it, and every admission check re-reads it: editing,
