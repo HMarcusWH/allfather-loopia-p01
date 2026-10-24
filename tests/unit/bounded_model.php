@@ -18,7 +18,9 @@ $request=$prepared->value();$inspection=$request->inspect();$body=json_decode($r
 Assert::same('https://api.openai.com/v1/responses',$inspection['endpoint'],'endpoint is fixed');
 Assert::same(['Authorization','Content-Type','Accept'],$inspection['header_names'],'inspection discloses header names only');
 Assert::same(false,$body['store'],'provider storage is explicitly off');
-Assert::same('gpt-4.1-nano',$body['model'],'one approved model identifier');
+Assert::same('gpt-5.6-luna',$body['model'],'retired model is replaced by the documented supported substitute');
+Assert::same(['effort'=>'none'],$body['reasoning'],'fixed no-reasoning budget is part of the approved request');
+Assert::same('none',\Allfather\Loopia\Provider\ModelPolicy::definition()['reasoning_effort'],'reasoning effort is included in the policy digest');
 Assert::same(true,$body['text']['format']['strict'],'structured output strict mode');
 Assert::same($prompt['instructions'],$body['instructions'],'only bundle instructions');
 Assert::same(Digest::canonicalize($context['envelope']),$body['input'],'input is exactly canonical scoped context data');
@@ -29,6 +31,7 @@ Assert::same('MODEL_PROMPT_NOT_CURRENT_APPROVED_BUNDLE',ModelRequestBuilder::pre
 $prompt=ProductPromptPack::resolve('P01_SIGNAL_CLASSIFIER')->value();$context=$request->provenance()['context'];
 foreach(['url'=>'https://other.test','instructions'=>'override','tools'=>[],'timeout'=>1] as $key=>$value)Assert::same('MODEL_OPTION_NOT_ALLOWED',ModelRequestBuilder::prepare($prompt,$context,[$key=>$value])->reasonCode(),'non-allowlisted option refuses: '.$key);
 Assert::same('MODEL_NOT_APPROVED_FOR_BOUNDED_ADAPTER',ModelRequestBuilder::prepare($prompt,$context,['model'=>'gpt-other'])->reasonCode(),'model cannot be selected arbitrarily');
+Assert::same('MODEL_NOT_APPROVED_FOR_BOUNDED_ADAPTER',ModelRequestBuilder::prepare($prompt,$context,['model'=>'gpt-4.1-nano'])->reasonCode(),'retired model is no longer an executable option');
 Assert::same('MODEL_OUTPUT_BUDGET_INVALID',ModelRequestBuilder::prepare($prompt,$context,['max_output_tokens'=>2049])->reasonCode(),'token cap');
 $modified=$context;$modified['envelope']['purpose']='changed';
 Assert::same('MODEL_CONTEXT_DIGEST_MISMATCH',ModelRequestBuilder::prepare($prompt,$modified)->reasonCode(),'changed context without binding refuses');
@@ -53,10 +56,16 @@ foreach(['insufficient_quota','credit_balance_exhausted','organization_spend_lim
  Assert::same('MODEL_QUOTA_EXHAUSTED',$r['reason_code'],'billing code terminal: '.$code);
  Assert::false(str_contains(json_encode($r),'DO-NOT-LEAK'),'provider error message is absent');
 }
-foreach([[401,'{}','MODEL_AUTHENTICATION_REFUSED'],[403,'{}','MODEL_AUTHENTICATION_REFUSED'],[429,'{"error":{"code":"rate_limit_exceeded"}}','MODEL_RATE_LIMITED'],[429,'{"error":{"code":"new_code","type":"insufficient_quota"}}','MODEL_QUOTA_EXHAUSTED'],[500,'{}','MODEL_PROVIDER_UNAVAILABLE'],[400,'{}','MODEL_HTTP_REFUSED'],[200,'not json','MODEL_RESPONSE_INVALID_JSON'],[200,'{"status":"incomplete","output":[]}','MODEL_RESPONSE_NOT_COMPLETED'],[200,'{"status":"completed","output":[]}','MODEL_OUTPUT_CARDINALITY_INVALID'],[200,'{"status":"completed","output":[{"type":"function_call"}]}','MODEL_UNEXPECTED_OUTPUT_ITEM'],[200,'{"status":"completed","output":[{"type":"message","content":[{"type":"refusal","refusal":"secret-message"}]}]}','MODEL_DECLARED_REFUSAL']] as [$status,$json,$reason])Assert::same($reason,ModelExecutor::interpret(new ModelResponse($status,$json),$request)['reason_code'],'fixed response classification: '.$reason);
+foreach([[401,'{}','MODEL_AUTHENTICATION_REFUSED'],[403,'{}','MODEL_AUTHENTICATION_REFUSED'],[429,'{"error":{"code":"rate_limit_exceeded"}}','MODEL_RATE_LIMITED'],[429,'{"error":{"code":"new_code","type":"insufficient_quota"}}','MODEL_QUOTA_EXHAUSTED'],[500,'{}','MODEL_PROVIDER_UNAVAILABLE'],[400,'{}','MODEL_HTTP_BAD_REQUEST'],[404,'{}','MODEL_HTTP_NOT_FOUND'],[422,'{}','MODEL_HTTP_UNPROCESSABLE'],[409,'{}','MODEL_HTTP_REFUSED'],[200,'not json','MODEL_RESPONSE_INVALID_JSON'],[200,'{"status":"incomplete","output":[]}','MODEL_RESPONSE_NOT_COMPLETED'],[200,'{"status":"completed","output":[]}','MODEL_OUTPUT_CARDINALITY_INVALID'],[200,'{"status":"completed","output":[{"type":"function_call"}]}','MODEL_UNEXPECTED_OUTPUT_ITEM'],[200,'{"status":"completed","output":[{"type":"message","content":[{"type":"refusal","refusal":"secret-message"}]}]}','MODEL_DECLARED_REFUSAL']] as [$status,$json,$reason])Assert::same($reason,ModelExecutor::interpret(new ModelResponse($status,$json),$request)['reason_code'],'fixed response classification: '.$reason);
+foreach ([400=>'MODEL_HTTP_BAD_REQUEST',404=>'MODEL_HTTP_NOT_FOUND',422=>'MODEL_HTTP_UNPROCESSABLE'] as $status=>$reason) {
+ $r=ModelExecutor::interpret(new ModelResponse($status,json_encode(['error'=>['message'=>'SECRET PROVIDER DIAGNOSTIC','request_id'=>'PRIVATE']],JSON_THROW_ON_ERROR)),$request);
+ Assert::same($reason,$r['reason_code'],'fixed status classification for HTTP '.$status);
+ Assert::false(str_contains(json_encode($r,JSON_THROW_ON_ERROR),'SECRET PROVIDER DIAGNOSTIC'),'provider messages do not leak for HTTP '.$status);
+ Assert::false(str_contains(json_encode($r,JSON_THROW_ON_ERROR),'PRIVATE'),'provider request metadata does not leak for HTTP '.$status);
+}
 Assert::same('MODEL_RESPONSE_TOO_LARGE',ModelExecutor::interpret(new ModelResponse(200,str_repeat('x',131073)),$request)['reason_code'],'bounded raw response');
 Assert::same('MODEL_NETWORK_OUTCOME_UNKNOWN',ModelExecutor::interpret(new ModelResponse(0,'',null,'MODEL_NETWORK_OUTCOME_UNKNOWN'),$request)['reason_code'],'unknown outcome remains unknown');
-foreach([[401,'','MODEL_AUTHENTICATION_REFUSED'],[403,'<html>denied</html>','MODEL_AUTHENTICATION_REFUSED'],[502,'<html>gateway</html>','MODEL_PROVIDER_UNAVAILABLE'],[503,'','MODEL_PROVIDER_UNAVAILABLE'],[429,'not-json','MODEL_RATE_LIMITED'],[400,'<html>bad request</html>','MODEL_HTTP_REFUSED']] as [$status,$raw,$reason])Assert::same($reason,ModelExecutor::interpret(new ModelResponse($status,$raw),$request)['reason_code'],'HTTP error classification does not depend on JSON body: '.$status);
+foreach([[401,'','MODEL_AUTHENTICATION_REFUSED'],[403,'<html>denied</html>','MODEL_AUTHENTICATION_REFUSED'],[502,'<html>gateway</html>','MODEL_PROVIDER_UNAVAILABLE'],[503,'','MODEL_PROVIDER_UNAVAILABLE'],[429,'not-json','MODEL_RATE_LIMITED'],[400,'<html>bad request</html>','MODEL_HTTP_BAD_REQUEST'],[404,'<html>missing or retired model</html>','MODEL_HTTP_NOT_FOUND'],[422,'<html>bad schema</html>','MODEL_HTTP_UNPROCESSABLE']] as [$status,$raw,$reason])Assert::same($reason,ModelExecutor::interpret(new ModelResponse($status,$raw),$request)['reason_code'],'HTTP error classification does not depend on JSON body: '.$status);
 
 $prior=['role'=>'P01_SIGNAL_CLASSIFIER','context_digest'=>$context['digest'],'request_digest'=>$request->digest(),'candidate_digest'=>$result['result_digest'],'candidate'=>$result['candidate']];
 $draftPrompt=ProductPromptPack::resolve('BATTLECARD_GENERATOR')->value();
