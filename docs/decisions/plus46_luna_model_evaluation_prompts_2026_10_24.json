@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "kind": "OWNER_EXECUTION_DECISION",
+  "decision_id": "OWNER-2026-10-24-PLUS46-LUNA-EVAL-PROMPTS-01",
+  "decided_by": "Marcus Hermansson, Allfather BI owner (owner direction transcribed by assistant)",
+  "decided_at": "2026-10-24T20:34:28Z",
+  "canonical_authority_ref": "HMarcusWH/Allfatherbusinessintelligence@b7570d49e8db9134fd3540fe3897e57811f64864:docs/allfather-bi/implementation/plus46_luna_synthetic_retest_owner_record_2026_10_24.md",
+  "tenant_id": "0898de2a-7c6d-42dd-886b-08116cbebdf5",
+  "workspace_id": "cb282a3f-9df5-447f-899f-05078c5b1767",
+  "purposes": [
+    "MODEL_EVALUATION"
+  ],
+  "authorizes": {
+    "prompt_approvals": [
+      {
+        "purpose": "MODEL_EVALUATION",
+        "role": "P01_SIGNAL_CLASSIFIER",
+        "pack_version": "2026-09-27.monitor.v1",
+        "prompt_version_id": "loopia.monitor.P01_SIGNAL_CLASSIFIER@2026-09-27.monitor.v1",
+        "binding_id": "loopia.monitor.P01_SIGNAL_CLASSIFIER@2026-09-27.monitor.v1",
+        "prompt_sha256": "5310cb3b488db2a56a322b2a131872c934a3b69bd4edbc4a4822ec42c3ca180f",
+        "schema_sha256": "4b8d4acef7d2938e8d3a159c41d42f5ba9e52c6d5ce6bf3cd0e2e893d79649c9",
+        "model_policy_digest": "ed44f3baba20619e4c26c9b1f63c35540f88114fc8477dd3ea9c3058068b7917"
+      },
+      {
+        "purpose": "MODEL_EVALUATION",
+        "role": "BATTLECARD_GENERATOR",
+        "pack_version": "2026-09-27.monitor.v1",
+        "prompt_version_id": "loopia.monitor.BATTLECARD_GENERATOR@2026-09-27.monitor.v1",
+        "binding_id": "loopia.monitor.BATTLECARD_GENERATOR@2026-09-27.monitor.v1",
+        "prompt_sha256": "e14131b69834f91f8a2602e7596c13995a3390359a10cca2c59f22a5e4907076",
+        "schema_sha256": "7f86e8a44100aa366581e19649802a6e59053a181fcc6f33cd4063467545e50f",
+        "model_policy_digest": "ed44f3baba20619e4c26c9b1f63c35540f88114fc8477dd3ea9c3058068b7917"
+      },
+      {
+        "purpose": "MODEL_EVALUATION",
+        "role": "MONITOR_REVIEW_CRITIC",
+        "pack_version": "2026-09-27.monitor.v1",
+        "prompt_version_id": "loopia.monitor.MONITOR_REVIEW_CRITIC@2026-09-27.monitor.v1",
+        "binding_id": "loopia.monitor.MONITOR_REVIEW_CRITIC@2026-09-27.monitor.v1",
+        "prompt_sha256": "46c3b39172a3ca0f1209d8d41df739e17a844702d1ed5519ed86bd9dc50944e6",
+        "schema_sha256": "35f5aec661c42ffafc4921dad7a2d522d0a9bf4c5305a235fbe2ad6eff901130",
+        "model_policy_digest": "ed44f3baba20619e4c26c9b1f63c35540f88114fc8477dd3ea9c3058068b7917"
+      },
+      {
+        "purpose": "MODEL_EVALUATION",
+        "role": "MONITOR_ROUTING_CRITIC",
+        "pack_version": "2026-09-27.monitor.v1",
+        "prompt_version_id": "loopia.monitor.MONITOR_ROUTING_CRITIC@2026-09-27.monitor.v1",
+        "binding_id": "loopia.monitor.MONITOR_ROUTING_CRITIC@2026-09-27.monitor.v1",
+        "prompt_sha256": "10cf884c2cebf7be6f6989cfe065d60e576566cef7df558e03a79064a8b513b7",
+        "schema_sha256": "fc1119f7d0e49a0f418bd3e1c476bc756a49a1855535da34550b98a4c5362623",
+        "model_policy_digest": "ed44f3baba20619e4c26c9b1f63c35540f88114fc8477dd3ea9c3058068b7917"
+      }
+    ],
+    "execution_grants": [],
+    "monitor_schedules": []
+  },
+  "disclosure_scope": "No outbound provider calls, real sources, production, customer data or public/customer output is authorized by this prompt-only approval decision. Future independently admitted MODEL_EVALUATION may send only frozen fictional 2026-09-27.v1 cases through gpt-5.6-luna.",
+  "retention_scope": "Only private TEST prompt-approval metadata and append-only audit records are created by registration. No model candidates or provider transmission is authorized here. Later synthetic case evidence would be private and append-only; provider store=false is requested, not a zero-retention guarantee.",
+  "notes": "Owner directed quickest governed synthetic retest after model retirement repair PR #61. This file authorizes four fresh model-policy-bound prompt approvals ONLY; no execution grants, source captures, schedules, or product releases. Reusing old prompt approval IDs from nano policy is forbidden. The separate execution grant must be reviewed and named by a new decision after plan/propose; no grant digest is implied by this document."
+}
