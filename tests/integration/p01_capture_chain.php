@@ -292,6 +292,24 @@ Assert::same(
     'and carrying the same content hash the snapshot does',
 );
 
+// #65: caller must carry the full CURRENT card URL scope into EgressGuard on redirects.
+$escapeFixture = new FixtureTransport([
+    'https://sources.example/pricing' => new FetchResponse(302, 'text/html', '/outside', ''),
+    'https://sources.example/outside' => new FetchResponse(200, 'text/html', null, 'outside card'),
+]);
+$redirectEscape = $capture->captureMonitoredSource([
+    'tenant_id' => $scope['tenant_id'],
+    'workspace_id' => $scope['workspace_id'],
+    'monitored_source_id' => $monitoredSourceId,
+    'capture_url' => 'https://sources.example/pricing',
+    'idempotency_key' => 'cap-redirect-path-scope',
+    'correlation_id' => Ids::new(),
+    'governance' => $governance,
+], $escapeFixture, $resolver);
+Assert::same('REFUSED_REDIRECT_CROSSED_BOUNDARY', $redirectEscape->reasonCode(), '#65 P01 refuses escaped path');
+Assert::same(['https://sources.example/pricing'], $escapeFixture->attemptedUrls(), '#65 P01 never dispatches outside card');
+Assert::same(1, (int) $db->scalar('SELECT COUNT(*) FROM source_snapshots WHERE monitored_source_id=?', [$monitoredSourceId]), '#65 refused redirect never writes a snapshot');
+
 // ============================================================ the capture URL must be in scope
 
 $outOfScope = $capture->captureMonitoredSource([

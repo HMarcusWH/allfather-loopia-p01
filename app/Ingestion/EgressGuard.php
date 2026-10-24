@@ -311,6 +311,7 @@ final class EgressGuard
      *
      * @param list<string>      $allowedHosts
      * @param list<string>|null $allowedContentTypes
+     * @param string|null $allowedUrlScope Full source-card URL authority (origin + path), if applicable.
      * @return array{outcome: 'FETCHED', status: int, content_type: ?string, body: string, content_hash: string, final_url: string}
      *        |array{outcome: 'REFUSED', reason_code: string}
      *        |array{outcome: 'FETCH_FAILED', reason_code: string}
@@ -326,6 +327,7 @@ final class EgressGuard
         ?int $maxRedirects = null,
         ?array $allowedContentTypes = null,
         ?string $allowedOrigin = null,
+        ?string $allowedUrlScope = null,
     ): array {
         $timeoutMs ??= self::DEFAULT_TIMEOUT_MS;
         $maxBytes = $maxResponseBytes ?? self::DEFAULT_MAX_BYTES;
@@ -335,8 +337,19 @@ final class EgressGuard
         $currentUrl = $url;
         $redirectsFollowed = 0;
 
-        // Bounded redirect loop. Each hop is fully re-evaluated by the same policy.
+        // Bounded redirect loop. The source card's full path authority is checked BEFORE
+        // even DNS resolution, and again for EVERY redirect hop, not only the initial URL.
+        // SourcePolicy owns path normalization/segment boundaries; no second parser here.
         for (;;) {
+            if ($allowedUrlScope !== null && !SourcePolicy::urlWithinScope($allowedUrlScope, $currentUrl)) {
+                return [
+                    'outcome' => 'REFUSED',
+                    'reason_code' => $redirectsFollowed > 0
+                        ? self::REFUSED_REDIRECT_CROSSED_BOUNDARY
+                        : self::REFUSED_HOST_NOT_ALLOWLISTED,
+                ];
+            }
+
             $resolvedIps = [];
             $parsed = self::parseUrl($currentUrl);
             if ($parsed !== null) {
