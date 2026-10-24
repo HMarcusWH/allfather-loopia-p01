@@ -117,6 +117,32 @@ final class Kernel
             return $this->error(404, 'No such surface.', $request);
         }
 
+        // A Strict-cookie navigation from an external site can render /login
+        // without sending the existing session cookie, replacing its CSRF cookie
+        // with a pre-auth value. Once the browser resumes same-site navigation,
+        // the live session returns but the logout form has no usable CSRF token.
+        //
+        // Repair ONLY on an authenticated, routed HTML GET. Never reissue on
+        // POST (which must remain 403 on mismatch), an API GET, or /healthz.
+        // CAS against the resolved session digest prevents a racing tab from
+        // overwriting a newer session token. The response delivers the matching
+        // __Host- cookie and HTML form token together.
+        $restoredCsrfCookie = null;
+        if ($session !== null && $request->method === 'GET'
+            && $request->path !== '/healthz'
+            && ($this->unauthenticatedModes[$key] ?? 'REDIRECT_LOGIN') === 'REDIRECT_LOGIN'
+            && ($session['csrf_token'] ?? '') === '') {
+            $restored = $this->auth->renewSessionCsrf(
+                (string) $session['session_id'],
+                (string) $session['csrf_token_hash'],
+            );
+            if (!$restored->isOk()) {
+                return $this->error(409, 'Your session protection changed. Reload the console and try again.', $request);
+            }
+            $session['csrf_token'] = (string) $restored->value()['csrf_token'];
+            $restoredCsrfCookie = Csrf::cookie($session['csrf_token']);
+        }
+
         if ($session === null && !in_array($request->path, $this->publicPaths, true)) {
             if (($this->unauthenticatedModes[$key] ?? 'REDIRECT_LOGIN') === 'JSON_401') {
                 return Response::json([
@@ -139,10 +165,12 @@ final class Kernel
                 ], 403);
             }
 
-            return Response::redirect(self::PASSWORD_CHANGE_PATH);
+            $redirect = Response::redirect(self::PASSWORD_CHANGE_PATH);
+            return $restoredCsrfCookie === null ? $redirect : $redirect->withCookie($restoredCsrfCookie);
         }
 
-        return $handler($request, $session);
+        $response = $handler($request, $session);
+        return $restoredCsrfCookie === null ? $response : $response->withCookie($restoredCsrfCookie);
     }
 
     /** @return array<string, mixed>|null */
