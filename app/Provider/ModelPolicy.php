@@ -18,7 +18,9 @@ final class ModelPolicy
 {
     public const ID = 'loopia.model-policy.bounded-v1';
     public const PROVIDER = 'OPENAI';
-    public const MODEL = 'gpt-4.1-nano';
+    public const MODEL = 'gpt-5.6-luna';
+    // Fixed cost-sensitive no-reasoning mode; part of this policy's hash and request.
+    public const REASONING_EFFORT = 'none';
     public const ENDPOINT = 'https://api.openai.com/v1/responses';
     public const MAX_OUTPUT_TOKENS = 2048;
     public const MIN_OUTPUT_TOKENS = 16;
@@ -36,7 +38,7 @@ final class ModelPolicy
     public static function definition(): array
     {
         return [
-            'id' => self::ID, 'provider' => self::PROVIDER, 'model' => self::MODEL, 'endpoint' => self::ENDPOINT,
+            'id' => self::ID, 'provider' => self::PROVIDER, 'model' => self::MODEL, 'reasoning_effort' => self::REASONING_EFFORT, 'endpoint' => self::ENDPOINT,
             'max_output_tokens' => self::MAX_OUTPUT_TOKENS, 'min_output_tokens' => self::MIN_OUTPUT_TOKENS,
             'max_request_bytes' => self::MAX_REQUEST_BYTES, 'max_response_bytes' => self::MAX_RESPONSE_BYTES,
             'max_instruction_bytes' => self::MAX_INSTRUCTION_BYTES, 'connect_timeout_ms' => self::CONNECT_TIMEOUT_MS,
