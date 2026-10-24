@@ -13,10 +13,12 @@ use Allfather\Loopia\Http\ReadAdapters\P03ProspectDetailAdapter;
 use Allfather\Loopia\Http\Request;
 use Allfather\Loopia\Http\Response;
 use Allfather\Loopia\Product\P01\Surfacing;
+use Allfather\Loopia\Product\P01\WatchlistRead;
 use Allfather\Loopia\Product\P02\OwnCompanyDraftRead;
 use Allfather\Loopia\Product\P02\RelationshipRelease;
 use Allfather\Loopia\Product\P02\TwinRelease;
 use Allfather\Loopia\Product\P03\Release as P03Release;
+use Allfather\Loopia\Product\P03\CustomerProfileRead;
 use Allfather\Loopia\Product\P04\Release as P04Release;
 use Allfather\Loopia\Product\P05\Release as P05Release;
 
@@ -34,6 +36,8 @@ final class ConsoleReadController
         private readonly P05Release $p05,
         private readonly ?MonitorReadAdapter $monitor = null,
         private readonly ?OwnCompanyDraftRead $ownCompany = null,
+        private readonly ?WatchlistRead $watchlist = null,
+        private readonly ?CustomerProfileRead $customerProfile = null,
     ) {
     }
 
@@ -49,6 +53,18 @@ final class ConsoleReadController
             if ($scope instanceof Response) return $scope;
             return ConsoleReadEnvelope::owner('p01.releasedBattlecards', $this->p01->listVisibleReleasedBriefings($scope + ['briefing_kind' => 'BATTLECARD_BRIEF']), 'briefings');
         }, 'p01.releasedBattlecards');
+    }
+
+    /** Candidate state and rights readiness, never released intelligence or a capture command. */
+    public function p01SourceWatch(Request $request, ?array $session): Response
+    {
+        return $this->safe(function () use ($session): Response {
+            $source='p01.sourceWatch';
+            $scope=$this->scope($session,$source);
+            if ($scope instanceof Response) return $scope;
+            return $this->watchlist===null?ConsoleReadEnvelope::unavailable($source)
+                :ConsoleReadEnvelope::owner($source,$this->watchlist->listCandidates($scope),'rows');
+        },'p01.sourceWatch');
     }
 
     public function p02Entities(Request $request, ?array $session): Response
@@ -80,6 +96,29 @@ final class ConsoleReadController
             if ($scope instanceof Response) return $scope;
             return ConsoleReadEnvelope::owner('p02.relationshipSnapshots', $this->p02Relationships->listVisibleSnapshots($scope + ['visibility_scope' => $request->query['visibility_scope'] ?? '']), 'rows');
         }, 'p02.relationshipSnapshots');
+    }
+
+    /** Existing customer-supplied P03 declarations, not inferred leads or released outputs. */
+    public function p03DeclaredIcp(Request $request, ?array $session): Response
+    {
+        return $this->safe(function () use ($session): Response {
+            $source='p03.declaredIcp';
+            $scope=$this->scope($session,$source);
+            if ($scope instanceof Response) return $scope;
+            return $this->customerProfile===null?ConsoleReadEnvelope::unavailable($source)
+                :ConsoleReadEnvelope::owner($source,$this->customerProfile->listDeclaredIcp($scope),'rows');
+        },'p03.declaredIcp');
+    }
+
+    public function p03CustomerOffers(Request $request, ?array $session): Response
+    {
+        return $this->safe(function () use ($session): Response {
+            $source='p03.customerOffers';
+            $scope=$this->scope($session,$source);
+            if ($scope instanceof Response) return $scope;
+            return $this->customerProfile===null?ConsoleReadEnvelope::unavailable($source)
+                :ConsoleReadEnvelope::owner($source,$this->customerProfile->listCustomerOffers($scope),'rows');
+        },'p03.customerOffers');
     }
 
     public function p03PriorityQueue(Request $request, ?array $session): Response
