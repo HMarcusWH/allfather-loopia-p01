@@ -238,6 +238,14 @@ final class Permissions
      * @var list<array{role_key: string, role_version: int, display_name: string, permissions: list<string>}>
      */
     public const VERSIONED_ROLES = [
+        // Additive read-only role: never grant the much broader twin curator
+        // just to let a TEST customer view its own INTERNAL_DRAFT.
+        [
+            'role_key' => 'ROLE_ENTITY_TWIN_READER',
+            'role_version' => 1,
+            'display_name' => 'Entity Twin Reader',
+            'permissions' => ['workspace.read', 'entity_twin.read'],
+        ],
         [
             'role_key' => 'ROLE_TENANT_ADMIN',
             'role_version' => 2,
