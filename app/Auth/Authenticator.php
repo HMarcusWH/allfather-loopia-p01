@@ -248,6 +248,36 @@ final class Authenticator
     }
 
     /**
+     * Recover an authenticated HTML session whose CSRF cookie is missing or stale.
+     *
+     * The caller MUST have resolved the live session first. Only its stored digest
+     * may be replaced, and only once (compare-and-swap) while that SAME session
+     * is unrevoked and unexpired. Never supply a token through a URL or recover
+     * as a side effect of a POST: an invalid POST remains a hard 403.
+     *
+     * @return Outcome Outcome::ok(array{csrf_token:string}) on a successful rotation
+     */
+    public function renewSessionCsrf(string $sessionId, string $expectedDigest): Outcome
+    {
+        if ($sessionId === '' || !preg_match('/^[a-f0-9]{64}$/D', $expectedDigest)) {
+            return Outcome::refuse('SESSION_CSRF_RENEWAL_INVALID', [], 'AUTHENTICATION');
+        }
+
+        $token = Ids::token(32);
+        $changed = $this->db->run(
+            'UPDATE platform_sessions SET csrf_token_hash = ?
+             WHERE session_id = ? AND csrf_token_hash = ?
+               AND revoked_at IS NULL AND expires_at > ?',
+            [self::digest($token), $sessionId, $expectedDigest, $this->clock->now()],
+        );
+        if ($changed !== 1) {
+            return Outcome::refuse('SESSION_CSRF_RENEWAL_STALE', [], 'AUTHENTICATION');
+        }
+
+        return Outcome::ok(['csrf_token' => $token]);
+    }
+
+    /**
      * Set the session's active workspace.
      *
      * The membership is re-checked here rather than trusted from the caller: a workspace id in a
