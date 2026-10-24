@@ -124,3 +124,13 @@ $missing=$kernel->handle($request('GET','/login',[],['af_session'=>$second['sess
 Assert::same(303,$missing->status,'authenticated /login redirects to console on a stale/missing cookie');
 Assert::same('/console',$missing->headers['Location']??null,'authenticated login GET retains its redirect target');
 Assert::same(1,count($missing->cookies),'redirect also repairs and sets a new CSRF cookie');
+
+
+$db->run('UPDATE platform_users SET must_change_password = 1 WHERE platform_user_id = ?',
+    [$user['platform_user_id']]);
+$forced=$kernel->handle($request('GET','/console',[],['af_session'=>$second['session_token']]));
+Assert::same(303,$forced->status,'password-change gate stays enforced during CSRF recovery');
+Assert::same('/account/password',$forced->headers['Location']??null,
+    'password-change redirect is not bypassed by a stale token');
+Assert::same(1,count($forced->cookies),
+    'password-change redirect also reissues CSRF so the operator can submit their password form');
