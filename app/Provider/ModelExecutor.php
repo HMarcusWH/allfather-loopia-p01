@@ -157,7 +157,12 @@ final class ModelExecutor
         }
         if(strlen($response->body)>OpenAIResponsesTransport::MAX_RESPONSE_BYTES)return $failure('MODEL_RESPONSE_TOO_LARGE');
         if($response->httpStatus===401||$response->httpStatus===403)return $failure('MODEL_AUTHENTICATION_REFUSED');
+        // Keep provider error bodies and messages private. Fixed HTTP classes are enough to
+        // distinguish a retired/unavailable model (404) from a malformed payload (400/422).
         if($response->httpStatus>=500)return $failure('MODEL_PROVIDER_UNAVAILABLE');
+        if($response->httpStatus===400)return $failure('MODEL_HTTP_BAD_REQUEST');
+        if($response->httpStatus===404)return $failure('MODEL_HTTP_NOT_FOUND');
+        if($response->httpStatus===422)return $failure('MODEL_HTTP_UNPROCESSABLE');
         if($response->httpStatus!==429&&($response->httpStatus<200||$response->httpStatus>=300))return $failure('MODEL_HTTP_REFUSED');
         try { $decoded=json_decode($response->body,false,48,JSON_THROW_ON_ERROR); }
         catch(\Throwable) { return $failure($response->httpStatus===429?'MODEL_RATE_LIMITED':'MODEL_RESPONSE_INVALID_JSON'); }
