@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "kind": "OWNER_EXECUTION_DECISION",
+  "decision_id": "OWNER-2026-10-24-PLUS46-EVAL-PROMPTS-01",
+  "decided_by": "Marcus Hermansson, Allfather BI owner (owner directive recorded by assistant)",
+  "decided_at": "2026-10-24T17:47:49Z",
+  "canonical_authority_ref": "HMarcusWH/Allfatherbusinessintelligence@cfcf09aca938cf0d87d6049dd72084ecf273b561:docs/allfather-bi/implementation/plus46_synthetic_prompt_approval_owner_record_2026_10_24.md",
+  "tenant_id": "0898de2a-7c6d-42dd-886b-08116cbebdf5",
+  "workspace_id": "cb282a3f-9df5-447f-899f-05078c5b1767",
+  "purposes": [
+    "MODEL_EVALUATION"
+  ],
+  "authorizes": {
+    "prompt_approvals": [
+      {
+        "purpose": "MODEL_EVALUATION",
+        "role": "P01_SIGNAL_CLASSIFIER",
+        "pack_version": "2026-09-27.monitor.v1",
+        "prompt_version_id": "loopia.monitor.P01_SIGNAL_CLASSIFIER@2026-09-27.monitor.v1",
+        "binding_id": "loopia.monitor.P01_SIGNAL_CLASSIFIER@2026-09-27.monitor.v1",
+        "prompt_sha256": "5310cb3b488db2a56a322b2a131872c934a3b69bd4edbc4a4822ec42c3ca180f",
+        "schema_sha256": "4b8d4acef7d2938e8d3a159c41d42f5ba9e52c6d5ce6bf3cd0e2e893d79649c9",
+        "model_policy_digest": "11e8084c8b00d1ac1a37d350cf6a2940d194a79f57ff6f2f0337c882ca82bd92"
+      },
+      {
+        "purpose": "MODEL_EVALUATION",
+        "role": "BATTLECARD_GENERATOR",
+        "pack_version": "2026-09-27.monitor.v1",
+        "prompt_version_id": "loopia.monitor.BATTLECARD_GENERATOR@2026-09-27.monitor.v1",
+        "binding_id": "loopia.monitor.BATTLECARD_GENERATOR@2026-09-27.monitor.v1",
+        "prompt_sha256": "e14131b69834f91f8a2602e7596c13995a3390359a10cca2c59f22a5e4907076",
+        "schema_sha256": "7f86e8a44100aa366581e19649802a6e59053a181fcc6f33cd4063467545e50f",
+        "model_policy_digest": "11e8084c8b00d1ac1a37d350cf6a2940d194a79f57ff6f2f0337c882ca82bd92"
+      },
+      {
+        "purpose": "MODEL_EVALUATION",
+        "role": "MONITOR_REVIEW_CRITIC",
+        "pack_version": "2026-09-27.monitor.v1",
+        "prompt_version_id": "loopia.monitor.MONITOR_REVIEW_CRITIC@2026-09-27.monitor.v1",
+        "binding_id": "loopia.monitor.MONITOR_REVIEW_CRITIC@2026-09-27.monitor.v1",
+        "prompt_sha256": "46c3b39172a3ca0f1209d8d41df739e17a844702d1ed5519ed86bd9dc50944e6",
+        "schema_sha256": "35f5aec661c42ffafc4921dad7a2d522d0a9bf4c5305a235fbe2ad6eff901130",
+        "model_policy_digest": "11e8084c8b00d1ac1a37d350cf6a2940d194a79f57ff6f2f0337c882ca82bd92"
+      },
+      {
+        "purpose": "MODEL_EVALUATION",
+        "role": "MONITOR_ROUTING_CRITIC",
+        "pack_version": "2026-09-27.monitor.v1",
+        "prompt_version_id": "loopia.monitor.MONITOR_ROUTING_CRITIC@2026-09-27.monitor.v1",
+        "binding_id": "loopia.monitor.MONITOR_ROUTING_CRITIC@2026-09-27.monitor.v1",
+        "prompt_sha256": "10cf884c2cebf7be6f6989cfe065d60e576566cef7df558e03a79064a8b513b7",
+        "schema_sha256": "fc1119f7d0e49a0f418bd3e1c476bc756a49a1855535da34550b98a4c5362623",
+        "model_policy_digest": "11e8084c8b00d1ac1a37d350cf6a2940d194a79f57ff6f2f0337c882ca82bd92"
+      }
+    ],
+    "execution_grants": [],
+    "monitor_schedules": []
+  },
+  "disclosure_scope": "Prompt approvals only; this decision authorizes no provider requests, external transmission, live source fetch, customer data, personal data, product release, scheduling, or production. Any later request may use only the frozen synthetic manifest under a separately reviewed and admitted MODEL_EVALUATION grant.",
+  "retention_scope": "Only scoped prompt approval metadata, immutable identities and audit events may be retained according to the existing private append-only governance lifecycle. This decision authorizes no provider exchanges or model candidate artifacts; provider-side retention, evaluation artifact retention duration, and deletion/redaction rules remain UNREVIEWED and must be resolved in a separate decision before any funded grant. No automatic retention/deletion deadline is asserted.",
+  "notes": "Owner directly approved deployment of the exact prepared four-prompt review draft on 2026-10-24 (\"Granted, deploy it\"). This records that act at 2026-10-24T17:47:49Z, not a cryptographic signature or an independently attested identity. The referenced upstream owner record is merged at the immutable SHA above. The frozen 18-case synthetic manifest is cd21a4224b4b1c54f4378657b1950d5d399a0a743738739799f2341eeddf7c70. This decision names no execution grants or schedules; it creates no prompt approval rows itself. Provider retention and spend require separate review."
+}
