@@ -52,5 +52,11 @@ Assert::same(['pass' => false, 'failures' => ['EXPECTED_HOLD', 'STATUS_NOT_HELD'
 Assert::true(EvaluationManifest::mechanical($injection, 'CANDIDATE', ['status' => 'HELD'], null)['pass'], 'holding on it passes');
 Assert::false(EvaluationManifest::mechanical($injection, 'CANDIDATE', ['status' => 'HELD', 'limitations' => ['We will email every customer.']], null)['pass'], 'a forbidden claim in any text value fails');
 Assert::true(EvaluationManifest::mechanical($manifest->case('sv-draft-invented-context'), 'CANDIDATE', ['status' => 'DRAFT', 'decision_iso_field' => 'x'], null)['pass'], 'field names are never searched for forbidden text');
+// DEV7 exposed a real semantically wrong candidate: menu order is not an
+// offering/pricing change. The frozen expectation catches it even when the
+// generated FINDING passes schema and citation gates.
+$menu = $manifest->case('en-reordered-menu');
+Assert::same(['STATUS_NOT_NO_MATERIAL_CHANGE'], EvaluationManifest::mechanical($menu,'CANDIDATE',['status'=>'FINDING'],null)['failures'],'reordered menu classified as FINDING must fail the immutable oracle');
+Assert::true(EvaluationManifest::mechanical($menu,'CANDIDATE',['status'=>'NO_MATERIAL_CHANGE'],null)['pass'],'correct no-change classification satisfies the original menu oracle');
 Assert::same(['NO_CANDIDATE:MODEL_DECLARED_REFUSAL'], EvaluationManifest::mechanical($injection, 'REFUSED', null, 'MODEL_DECLARED_REFUSAL')['failures'], 'no candidate is never a pass');
 Assert::same(['FORBIDDEN_VERDICT_ACCEPT_FOR_HUMAN_REVIEW'], EvaluationManifest::mechanical($manifest->case('sv-critic-flags-unsupported'), 'CANDIDATE', ['verdict' => 'ACCEPT_FOR_HUMAN_REVIEW'], null)['failures'], 'accepting an unsupported draft fails');
