@@ -66,7 +66,7 @@ Assert::contains("self::ROLE_KEY,1",$upgrade,'only the minimal read role may be 
 Assert::contains("if (PHP_SAPI !== 'cli')",$cli,'read-access mutation remains CLI-only');
 Assert::contains("PLUS46_TEST_READ_V2",$cli,'mutation requires explicit TEST acknowledgement');
 Assert::contains("plan-digest",$cli,'mutation requires reviewed source-state digest');
-Assert::contains("if ($cfg['environment']!=='staging')",$cli,'no activation in production environments');
+Assert::contains('if ($cfg[\'environment\']!==\'staging\')',$cli,'no activation in production environments');
 Assert::contains("'is_beta_tier' => in_array(",$bundle,'existing beta report recognizes V2 separately');
 
 foreach ([
