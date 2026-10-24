@@ -89,5 +89,4 @@ Refusals, declared refusals and incomplete responses are counted in every report
 
 ## Status
 
-The harness is implemented and tested offline. **No funded evaluation has run**, no evaluation grant
-is admitted, and no prompt is approved for product use.
+The harness is implemented and tested offline. On 2026-10-24, one funded attempt under the now-retired `gpt-4.1-nano` policy recorded 18/18 model-attempt budget units used, 18/18 `MODEL_HTTP_REFUSED` evaluation results and 0 candidates. The frozen report verdict was `REJECTED` because no candidates passed the mechanical checks, not evidence of poor model reasoning or prompt-injection compliance. The previous grant, prompts and recorded results cannot be reused under the new `gpt-5.6-luna` model-policy digest and changed application fingerprint; they remain append-only history. No live evaluation of the new policy has run, and no prompt is approved for product use.
