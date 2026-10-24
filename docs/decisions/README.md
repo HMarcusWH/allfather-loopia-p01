@@ -1,8 +1,7 @@
 # Owner execution decisions
 
 This directory holds **reviewed owner decisions** that authorize exact execution grants and prompt
-approvals. It is empty of decisions on purpose: this repository ships no authority to call a model,
-fetch a live source or run a scheduled observation.
+approvals. The repository contains one **2026-10-24 Plus 46 TEST prompt-only decision** for four exact MODEL_EVALUATION identities. It lists **zero execution grants** and **zero schedules**; deploying it alone cannot call a model, fetch a live source, or run a scheduled observation. Its canonical preparation-only owner record is pinned to an exact commit in `HMarcusWH/Allfatherbusinessintelligence`. A separate reviewed owner decision is mandatory before any funded model request.
 
 A decision is a JSON document added by a reviewed commit — never written by the application.
 `app/Workflow/OwnerDecisionRegistry.php` reads it, and every admission check re-reads it: editing,
