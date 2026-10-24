@@ -20,21 +20,21 @@ Assert::contains('if (Csrf::required($request->method))',$kernel,
     'all unsafe methods are still checked before route dispatch');
 Assert::contains('if (!Csrf::verify(',$kernel,
     'invalid POSTs remain rejected before reaching logout');
-Assert::contains("return $this->error(403, 'This request could not be verified.",$kernel,
+Assert::contains('return $this->error(403, \'This request could not be verified.',$kernel,
     'invalid CSRF remains HTTP 403');
-Assert::contains("$request->method === 'GET'",$kernel,
+Assert::contains('$request->method === \'GET\'',$kernel,
     'CSRF recovery is limited to GET');
-Assert::contains("$request->path !== '/healthz'",$kernel,
+Assert::contains('$request->path !== \'/healthz\'',$kernel,
     'health checks never refresh login state');
-Assert::contains("($this->unauthenticatedModes[$key] ?? 'REDIRECT_LOGIN') === 'REDIRECT_LOGIN'",$kernel,
+Assert::contains('($this->unauthenticatedModes[$key] ?? \'REDIRECT_LOGIN\') === \'REDIRECT_LOGIN\'',$kernel,
     'JSON APIs do not perform HTML CSRF recovery');
 Assert::contains('if ($handler === null)',$kernel,
     'unknown routes cannot rotate session CSRF');
-Assert::contains("($session['csrf_token'] ?? '') === ''",$kernel,
+Assert::contains('($session[\'csrf_token\'] ?? \'\') === \'\'',$kernel,
     'recovery only happens when the authenticated token is missing/invalid');
 Assert::contains('$this->auth->renewSessionCsrf(',$kernel,
     'Kernel delegates session mutation to the Authenticator');
-Assert::contains("Csrf::cookie($session['csrf_token'])",$kernel,
+Assert::contains('Csrf::cookie($session[\'csrf_token\'])',$kernel,
     'recovery sends an updated browser CSRF cookie alongside the new token');
 Assert::contains('return $restoredCsrfCookie === null ? $response : $response->withCookie($restoredCsrfCookie);',$kernel,
     'session repair attaches a cookie without downgrading page security headers');
