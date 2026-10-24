@@ -124,6 +124,30 @@ final class Plus46ReadUpgrade
             || !in_array($live[0]['tier_key'],[BetaBundle::TIER_KEY,self::TIER_KEY],true)) {
             return Outcome::refuse('PLUS46_EXPECTED_SINGLE_READ_ONLY_TRIAL_REQUIRED');
         }
+        // The original six-read commercial contract is immutable: refuse
+        // migration if somebody has widened/repriced or disabled that tier.
+        if ($live[0]['tier_key']===BetaBundle::TIER_KEY) {
+            $original=$this->db->one(
+                "SELECT st.subscription_tier_id,st.status,st.monthly_fee_minor_units,
+                        st.currency,st.billing_period FROM tenant_subscriptions ts
+                 JOIN subscription_tiers st ON st.subscription_tier_id=ts.subscription_tier_id
+                 WHERE ts.tenant_subscription_id=? AND ts.tenant_id=?",
+                [$live[0]['tenant_subscription_id'],$tenantId],
+            );
+            if ($original===null || $original['status']!=='ACTIVE'
+                || (int)$original['monthly_fee_minor_units']!==0
+                || $original['currency']!=='SEK'||$original['billing_period']!=='MONTHLY') {
+                return Outcome::refuse('PLUS46_BASE_TIER_CONTRACT_CHANGED');
+            }
+            $basePermissions=array_column($this->db->all(
+                'SELECT permission_key FROM subscription_tier_permissions
+                 WHERE subscription_tier_id=? ORDER BY permission_key',
+                [$original['subscription_tier_id']],
+            ),'permission_key');
+            if ($basePermissions!==BetaBundle::PERMISSIONS) {
+                return Outcome::refuse('PLUS46_BASE_TIER_PERMISSIONS_CHANGED');
+            }
+        }
         $v2=$this->db->all(
             'SELECT subscription_tier_id,status,monthly_fee_minor_units,currency,billing_period
              FROM subscription_tiers WHERE tier_key=?',
