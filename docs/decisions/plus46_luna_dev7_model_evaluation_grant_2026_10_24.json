@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "kind": "OWNER_EXECUTION_DECISION",
+  "decision_id": "OWNER-2026-10-24-PLUS46-LUNA-DEV7-GRANT-01",
+  "decided_by": "Marcus Hermansson, Allfather BI owner (owner direction transcribed by assistant)",
+  "decided_at": "2026-10-24T20:49:06Z",
+  "canonical_authority_ref": "HMarcusWH/Allfatherbusinessintelligence@1169428f8163ba7ec81e4c739fea855b4b246cba:docs/allfather-bi/implementation/plus46_luna_synthetic_dev7_grant_owner_record_2026_10_24.md",
+  "tenant_id": "0898de2a-7c6d-42dd-886b-08116cbebdf5",
+  "workspace_id": "cb282a3f-9df5-447f-899f-05078c5b1767",
+  "purposes": [
+    "MODEL_EVALUATION"
+  ],
+  "authorizes": {
+    "prompt_approvals": [],
+    "execution_grants": [
+      "7210421288dab23d0f0e5af51f7dce931201f6576ecced206c18df9cb2289f5c"
+    ],
+    "monitor_schedules": []
+  },
+  "disclosure_scope": "Only one currently PROPOSED synthetic DEVELOPMENT 7-case MODEL_EVALUATION grant; bounded provider-backed requests may disclose frozen fictional test context and the approved immutable prompt/schema bytes to OpenAI. No real customer content, personal data, source fetches, production, publishing, scheduling or customer output.",
+  "retention_scope": "Responses store=false requested, not proof of zero provider-side retention. Synthetic evaluation result/provenance artifacts stay in private staging append-only evidence storage without automatic deletion. No customer data retention is authorized.",
+  "notes": "Owner requested quickest governed retest after gpt-4.1-nano retirement repair; exact existing grant ID b421137b-c0db-43ad-9144-c395d1a51273, digest 7210421288dab23d0f0e5af51f7dce931201f6576ecced206c18df9cb2289f5c, gpt-5.6-luna policy digest ed44f3baba20619e4c26c9b1f63c35540f88114fc8477dd3ea9c3058068b7917, application fingerprint 31c4842bcfd644ed14fc025fff1e580c0c1b9a6a32e8dea9b907e7b315aa14ab, manifest cd21a4224b4b1c54f4378657b1950d5d399a0a743738739799f2341eeddf7c70, window 2026-10-24T20:43:43.117Z to 2026-10-24T22:44:43.117Z, at most seven model attempts and zero source captures, use selection DEVELOPMENT. Exact prepared prompt approval IDs sorted: 1aec6610-dbdf-45bc-93a6-04d816c08e47, 2839700f-31a4-4ca0-a0d3-9cd6a4b3eb38, 7ff69050-a095-4872-a694-61001f3e22ca, 98300391-c33d-4e3d-bb79-c78cc4cb883c. Admission, evaluation-run preview and deliberate execution are separate actions. No credential rotation or provider spending is performed by this decision."
+}
