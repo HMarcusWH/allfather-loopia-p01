@@ -42,8 +42,14 @@ RUN php -l app/Auth/Authenticator.php \
     && php -l ops/activate-plus46-reads.php \
     && php -l tests/integration/plus46_customer_reads.php \
     && php -l tests/foundation/plus46_customer_reads_boundary.php \
+    && php -l app/Provider/ModelPolicy.php \
+    && php -l app/Provider/PreparedModelRequest.php \
+    && php -l app/Provider/ModelExecutor.php \
+    && php -l tests/unit/bounded_model.php \
+    && php tests/run.php --layer=unit --filter=bounded_model --strict \
     && php tests/run.php --layer=foundation --filter=plus46_customer_reads_boundary --strict \
     && php tests/run.php --layer=foundation --filter=governed_browser_read_boundary --strict \
+    && php tests/run.php --layer=foundation --filter=execution_authority_boundary --strict \
     && php tests/run.php --layer=foundation --filter=deployment_boundary --strict
 COPY --from=console /src/public_html/assets/operator-console/ /srv/allfather/public_html/assets/operator-console/
 COPY ops/railway/entrypoint.sh /usr/local/bin/allfather-railway-entrypoint
