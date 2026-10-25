@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "kind": "HISTORICAL_REVIEW_HELDOUT_REGISTRY",
+  "status": "RESERVED_NOT_FROZEN_NOT_RUN",
+  "prepared_date": "2026-10-25",
+  "warning": "These IDs are reserved; payload, oracle, independent human assessors and content commitments are NOT yet available. No evaluation may claim a held-out pass. Freeze independently before any model tuning.",
+  "slots": [
+    {
+      "case_id": "heldout-01",
+      "category": "NOISE_VS_FACT",
+      "payload": "NOT_SUPPLIED",
+      "status": "NOT_FROZEN"
+    },
+    {
+      "case_id": "heldout-02",
+      "category": "TIME_CUT_DELAY",
+      "payload": "NOT_SUPPLIED",
+      "status": "NOT_FROZEN"
+    },
+    {
+      "case_id": "heldout-03",
+      "category": "SOURCE_RIGHTS",
+      "payload": "NOT_SUPPLIED",
+      "status": "NOT_FROZEN"
+    },
+    {
+      "case_id": "heldout-04",
+      "category": "FALSE_CORROBORATION",
+      "payload": "NOT_SUPPLIED",
+      "status": "NOT_FROZEN"
+    },
+    {
+      "case_id": "heldout-05",
+      "category": "CONTRADICTION",
+      "payload": "NOT_SUPPLIED",
+      "status": "NOT_FROZEN"
+    },
+    {
+      "case_id": "heldout-06",
+      "category": "ALERT_DEDUPLICATION",
+      "payload": "NOT_SUPPLIED",
+      "status": "NOT_FROZEN"
+    }
+  ]
+}

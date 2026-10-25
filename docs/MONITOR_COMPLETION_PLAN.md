@@ -1,5 +1,7 @@
 # Monitor completion plan — three releases
 
+> **New longitudinal train notice — 2026-10-25:** This September P00–P12 completion plan remains historical work-package authority for the original manual Monitor/beta/production split. It does not describe the later LI-00..LI-21 longitudinal expansion. Consult the full [October 25 longitudinal implementation plan](longitudinal/source/Allfather_PHP_Longitudinal_Intelligence_Plan_2026-10-25.md) and its [dated currentness ledger](longitudinal/LONGITUDINAL_INTELLIGENCE_STATE.md). None of those proposals authorizes new paid inference, capture, roles or customer output.
+
 **Adopted as the engineering plan of record:** 27 September 2026. **Status:** the planned source train is
 now merged through P12 scaffolding. PR32/P07 merged as `90bbb214`, PR33/P09 as `955e28e4`, and the inert
 P12 scaffold as `ab6dc215`; TenantAdmin v2 and EvaluationCarrier were merged immediately before them.

@@ -1,5 +1,7 @@
 # MVP release state
 
+> **Dated currentness notice — 2026-10-25:** The table and measurements below preserve the October 3 historical release-state filing. They are not today's live deployment readback. The newer [longitudinal source/host/qualification/authority ledger](longitudinal/LONGITUDINAL_INTELLIGENCE_STATE.md) records merged PHP main `2a1a7eb5`, the separately Railway-qualified exact Git tree, later staging deployment and the unchanged adopted canonical pin. Runtime grants and model-quality acceptance are not inferred from a Git merge. Keep this historical filing and its evidence-bound foundation assertions intact.
+
 **The current-state entrypoint.** Source, testing, deployment and authority remain separate.
 The [3 October evidence filing](STAGING_OPERATIONS_EVIDENCE_2026-10-03.md) records the underlying
 observations and their limits. This documentation change does not deploy itself or grant execution.

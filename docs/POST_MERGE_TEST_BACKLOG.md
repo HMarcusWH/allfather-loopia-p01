@@ -1,5 +1,7 @@
 # Post-merge test backlog — source-complete Monitor stack
 
+> **Dated follow-up — 2026-10-25:** This backlog is the historical post-September source-merge plan, not the current status of the October 25 source head. Issue #65 and the test repairs #71/#72 have merged; the identical tested full source tree passed 12,458/0/0 on Railway disposable MariaDB 10.6 and 10.11; GitHub Actions credit-blocked jobs had zero steps. The dated [LI-00 ledger](longitudinal/LONGITUDINAL_INTELLIGENCE_STATE.md) holds the later observations and preserves separate execution/quality/production gates. Do not rewrite historical B0 attempts as passing CI.
+
 **Status:** OPEN TEST BACKLOG.  
 **Source main:** `ab6dc21590ef3ef89383c03846b2fed862474e4c`  
 **Canonical authority main:** `be7962a4a7f67b40613ce8daedee17088b0db1ca`  
