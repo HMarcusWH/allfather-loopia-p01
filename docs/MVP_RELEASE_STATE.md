@@ -2,6 +2,8 @@
 
 > **Dated currentness notice — 2026-10-25:** The table and measurements below preserve the October 3 historical release-state filing. They are not today's live deployment readback. The newer [longitudinal source/host/qualification/authority ledger](longitudinal/LONGITUDINAL_INTELLIGENCE_STATE.md) records merged PHP main `2a1a7eb5`, the separately Railway-qualified exact Git tree, later staging deployment and the unchanged adopted canonical pin. Runtime grants and model-quality acceptance are not inferred from a Git merge. Keep this historical filing and its evidence-bound foundation assertions intact.
 
+> **Code-qualification reconciliation (25 October 2026):** For source trees containing `app/Ops/CodeQualification.php`, ordinary PR/main CI is the independent `CODE_ONLY` contract and produces `CODE_QUALIFICATION_RECEIPT` v2. A PASS means the exact code and prepared package qualified, **not** that an inert staging copy, manual pilot or production promotion is authorized. The strict `READY_FOR_INERT_STAGING_COPY` check remains separately available by manually dispatched workflow and correctly refuses the existing four owner decisions. See [qualification profiles](ci/QUALIFICATION_PROFILES.md). The v1 release-qualification commands and dated deployment evidence below remain historical; they are not erased or promoted by this notice. No new host observation was made by this documentation change.
+
 **The current-state entrypoint.** Source, testing, deployment and authority remain separate.
 The [3 October evidence filing](STAGING_OPERATIONS_EVIDENCE_2026-10-03.md) records the underlying
 observations and their limits. This documentation change does not deploy itself or grant execution.

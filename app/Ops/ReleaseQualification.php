@@ -85,6 +85,14 @@ final class ReleaseQualification
         'release-qualification' => ['verify-lanes'],
     ];
 
+    /** Separate code-only procedure. Existing JOBS + legacy v1 receipt stay unchanged. */
+    public const CODE_JOBS = [
+        'foundation' => ['frontend','runtime','lock','php-syntax','foundation-layer','unit-layer'],
+        'mariadb' => ['db-version','migrate','migrate-repeat','migrate-status','probe','evidence','full-suite'],
+        'package-integrity' => ['npm-pin','prepare','verify-prepared','verify-export','rsync-rehearsal'],
+        'code-qualification' => ['verify-lanes'],
+    ];
+
     public const EXECUTION_LOCAL = 'LOCAL';
 
     public const EXECUTION_GITHUB_ACTIONS = 'GITHUB_ACTIONS';

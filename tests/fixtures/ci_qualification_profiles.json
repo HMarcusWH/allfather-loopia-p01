@@ -1,0 +1,51 @@
+{
+  "schema_version": "1",
+  "cases": [
+    {
+      "id": "code-pass-release-blocked",
+      "code": "PASS",
+      "inert": "NOT_READY",
+      "owner_decisions": 4
+    },
+    {
+      "id": "no-mariadb-10.6",
+      "code": "FAIL",
+      "inert": "INDEPENDENT"
+    },
+    {
+      "id": "no-mariadb-10.11",
+      "code": "FAIL",
+      "inert": "INDEPENDENT"
+    },
+    {
+      "id": "skipped-integration",
+      "code": "FAIL",
+      "inert": "INDEPENDENT"
+    },
+    {
+      "id": "corrupt-package-sha",
+      "code": "FAIL",
+      "inert": "INDEPENDENT"
+    },
+    {
+      "id": "wrong-tree",
+      "code": "FAIL",
+      "inert": "INDEPENDENT"
+    },
+    {
+      "id": "code-receipt-claims-ready",
+      "code": "INVALID",
+      "inert": "INDEPENDENT"
+    },
+    {
+      "id": "v1-failed-receipt",
+      "code": "NOT_APPLICABLE",
+      "inert": "NOT_READY"
+    },
+    {
+      "id": "queued-gh-job",
+      "code": "NOT_RUN",
+      "inert": "NOT_ASSESSED"
+    }
+  ]
+}

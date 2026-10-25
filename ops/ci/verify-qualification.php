@@ -41,6 +41,7 @@ require __DIR__ . '/../../app/autoload.php';
 use Allfather\Loopia\Db\Database;
 use Allfather\Loopia\Ops\BetaCli;
 use Allfather\Loopia\Ops\ReleaseQualification as Q;
+use Allfather\Loopia\Ops\CodeQualification as CodeQ;
 use Allfather\Loopia\Support\Env;
 
 $root = dirname(__DIR__, 2);
@@ -116,6 +117,12 @@ $laneReports = static function (string $dir): array {
 $command = $argv[1] ?? '';
 
 switch ($command) {
+    case 'code-job-steps':
+        try { fwrite(STDOUT, implode(' ', CodeQ::steps($argv[2] ?? '')) . PHP_EOL); exit(0); }
+        catch (\InvalidArgumentException) { $fail('unknown code qualification job',1); }
+    case 'code-local-jobs':
+        fwrite(STDOUT, implode(PHP_EOL, CodeQ::jobs(Q::EXECUTION_LOCAL)) . PHP_EOL);
+        exit(0);
     case 'job-steps':
         $job = $argv[2] ?? '';
         if (!isset(Q::JOBS[$job])) {
@@ -208,9 +215,11 @@ switch ($command) {
         }
         $verdict(Q::preflightProblems($report, $required($args, 'sha')), 'PREFLIGHT NOT READY', 'the prepared release is inert and ready for an inert staging copy');
 
+    case 'code-receipt':
     case 'receipt':
+        $codeMode = $command === 'code-receipt';
         $args = $flags([
-            'execution', 'steps', 'lanes-dir', 'preflight', 'commit', 'tree', 'requested-ref', 'dirty',
+            'execution', 'steps', 'lanes-dir', 'preflight', 'package-verdict', 'commit', 'tree', 'requested-ref', 'dirty',
             'started-at', 'finished-at', 'host-os', 'php', 'node', 'npm', 'node-required', 'npm-required',
         ]);
         $execution = match ($required($args, 'execution')) {
@@ -234,6 +243,9 @@ switch ($command) {
                 'repository' => $repository,
                 'run_id' => $runId,
                 'run_attempt' => (string) getenv('GITHUB_RUN_ATTEMPT'),
+                'checkout_sha' => (string) getenv('GITHUB_SHA'),
+                'head_ref' => (string) getenv('GITHUB_HEAD_REF'),
+                'event_name' => (string) getenv('GITHUB_EVENT_NAME'),
                 'url' => "{$server}/{$repository}/actions/runs/{$runId}",
             ];
         }
@@ -265,10 +277,15 @@ switch ($command) {
             $preflight = ['sha256' => hash('sha256', $bytes), 'report' => json_decode($bytes, true)];
         }
 
+        $packageReport=null;
+        if ($codeMode && ($args['package-verdict'] ?? '') !== '' && is_file($args['package-verdict'])) {
+            $bytes=(string)file_get_contents($args['package-verdict']);
+            $packageReport=['sha256'=>hash('sha256',$bytes),'report'=>json_decode($bytes,true)];
+        }
         $optional = static fn (string $name): ?string => ($args[$name] ?? '') !== '' ? $args[$name] : null;
         $digest = static fn (string $path): ?string => is_file($path) ? hash_file('sha256', $path) : null;
 
-        $receipt = Q::buildReceipt([
+        $input = [
             'execution' => $execution,
             'commit' => $required($args, 'commit'),
             'tree' => $required($args, 'tree'),
@@ -299,8 +316,11 @@ switch ($command) {
             'steps' => $steps,
             'lane_reports' => $laneReports($required($args, 'lanes-dir')),
             'preflight' => $preflight,
+            'package' => $packageReport,
             'github' => $github,
-        ]);
+        ];
+        $input['file_sha256']['code_contract'] = $digest($root . '/app/Ops/CodeQualification.php');
+        $receipt = $codeMode ? CodeQ::build($input) : Q::buildReceipt($input);
 
         fwrite(STDOUT, json_encode($receipt, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL);
         fwrite(STDERR, "receipt: {$receipt['result']} ({$execution}, commit {$receipt['source']['commit']})" . PHP_EOL);
@@ -308,6 +328,42 @@ switch ($command) {
             fwrite(STDERR, "  x {$problem}" . PHP_EOL);
         }
         exit($receipt['result'] === Q::STATUS_PASS ? 0 : 1);
+
+    case 'verify-code-receipt':
+        $args=$flags(['receipt','lanes-dir','package-verdict']);
+        $receipt=$readJson($required($args,'receipt'));
+        $problems=CodeQ::verify($receipt);
+        if (!is_array($receipt)||($receipt['kind']??null)!==CodeQ::KIND) {
+            $problems[]='not a v2 code qualification receipt';
+        }
+        if (($args['lanes-dir']??'')!=='') {
+            $onDisk=$laneReports($args['lanes-dir']);
+            $embedded=[];
+            foreach (($receipt['lanes']??[]) as $item) {
+                if (is_array($item)&&is_string($item['report']??null)) $embedded[$item['report']]=$item;
+            }
+            if (array_keys($onDisk)!==array_keys($embedded)) $problems[]='retained lane inventory differs';
+            foreach ($onDisk as $label=>$data) {
+                if (!isset($embedded[$label])||($embedded[$label]['sha256']??null)!==$data['sha256']
+                    ||($embedded[$label]['content']??null)!==$data['report'])
+                    $problems[]="{$label}: retained lane artifact mismatch";
+            }
+        }
+        if (($args['package-verdict']??'')!=='') {
+            $path=$args['package-verdict'];
+            $hash=is_file($path)?hash_file('sha256',$path):null;
+            $decoded=is_file($path)?json_decode((string)file_get_contents($path),true):null;
+            if (($receipt['package']['sha256']??null)!==$hash
+                ||($receipt['package']['content']??null)!==$decoded||$hash===null) {
+                $problems[]='retained prepared-release verdict mismatch';
+            }
+        }
+        if ($problems!==[]||($receipt['result']??null)!=='PASS') {
+            foreach ($problems as $problem) fwrite(STDERR,"code qualification FAIL: {$problem}\n");
+            exit(1);
+        }
+        fwrite(STDOUT,"code qualification PASS, deployment readiness NOT_ASSESSED\n");
+        exit(0);
 
     case 'verify-receipt':
         // CONSISTENCY, NOT INDEPENDENCE. This proves a receipt was not edited into claiming what
@@ -361,5 +417,5 @@ switch ($command) {
         $verdict($problems, 'RECEIPT NOT CONSISTENT', 'the receipt is internally consistent and states PASS — self-reported, not independently verified');
 
     default:
-        $fail('usage: verify-qualification.php <job-steps|local-jobs|db-version|lanes|prepared-release|preflight|receipt|verify-receipt> [--flags]');
+        $fail('usage: verify-qualification.php <code-job-steps|code-local-jobs|code-receipt|verify-code-receipt|job-steps|local-jobs|db-version|lanes|prepared-release|preflight|receipt|verify-receipt> [--flags]');
 }

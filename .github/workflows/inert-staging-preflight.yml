@@ -1,0 +1,76 @@
+name: Inert staging preflight (manual, no deployment)
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: "Exact 40-character lowercase commit SHA for an inert-copy assessment"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  inert-staging-preflight:
+    name: inert staging preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Validate exact commit input
+        env:
+          REQUESTED_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_SHA" =~ ^[a-f0-9]{40}$ ]] || { echo "Exact lowercase Git SHA required" >&2; exit 1; }
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ inputs.commit_sha }}
+          persist-credentials: false
+
+      - name: Verify exact checked-out Git object
+        env:
+          REQUESTED_SHA: ${{ inputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
+
+      - name: Set up exact frontend Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: 'frontend/console/.node-version'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/console/package-lock.json'
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql, curl, openssl, mbstring, json
+          coverage: none
+
+      - name: Verify pinned npm
+        run: bash ops/ci/qualify-release.sh step npm-pin
+      - name: Prepare exact source
+        run: bash ops/ci/qualify-release.sh step prepare
+      - name: Verify package and manifest
+        run: bash ops/ci/qualify-release.sh step verify-prepared
+      - name: Verify Git-object byte equivalence
+        run: bash ops/ci/qualify-release.sh step verify-export
+      - name: Rehearse safe root rsync on disposable target
+        run: bash ops/ci/qualify-release.sh step rsync-rehearsal
+      - name: Check inert copy readiness (owner decisions block)
+        run: bash ops/ci/qualify-release.sh step preflight
+      - name: Require actual READY_FOR_INERT_STAGING_COPY
+        run: bash ops/ci/qualify-release.sh step verify-preflight
+      - name: Preserve actual ready or blocked report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: inert-staging-preflight
+          path: |
+            ${{ runner.temp }}/qualification/preflight.json
+            ${{ runner.temp }}/qualification/prepare-release.verdict.json
+          if-no-files-found: warn
+          retention-days: 30
