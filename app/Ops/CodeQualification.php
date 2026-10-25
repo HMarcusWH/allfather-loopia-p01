@@ -177,6 +177,15 @@ final class CodeQualification
             if (!is_string($l['sha256']??null)||preg_match('/^[a-f0-9]{64}$/D',$l['sha256'])!==1)
                 $bad[]="lane {$label} digest missing";
             if (!is_array($v)) continue;
+            // The strict runner writes both the aggregate flags and the filters that produced it.
+            // Do not accept a forged complete=true with a retained --layer/--filter selector.
+            if (($v['layer_filter']??null)!==null||($v['file_filter']??null)!==null)
+                $bad[]="lane {$label} was filtered";
+            if (($v['skips_are_failures']??null)!==true)
+                $bad[]="lane {$label} did not enforce skips as failures";
+            if (($v['failure_count']??null)!==($v['total']['fail']??null)
+                ||($v['skip_count']??null)!==($v['total']['skip']??null))
+                $bad[]="lane {$label} independent error counters disagree with totals";
             $layers=$v['layers']??null;
             if (!is_array($layers)||array_keys($layers)!==self::LAYERS) {
                 $bad[]="lane {$label} is not seven full ordered layers";continue;

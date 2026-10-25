@@ -132,6 +132,22 @@ $bad=$input();
 $bad['execution']='INVALID';
 Assert::same('FAIL',CQ::build($bad)['result'],'unknown code execution refused');
 
+$bad=$input();
+$bad['lane_reports']['a/qualification-10.6.json']['report']['file_filter']='security';
+Assert::same('FAIL',CQ::build($bad)['result'],'a filtered run cannot forge complete=true');
+$bad=$input();
+$bad['lane_reports']['a/qualification-10.6.json']['report']['layer_filter']='unit';
+Assert::same('FAIL',CQ::build($bad)['result'],'a single-layer run cannot forge complete=true');
+$bad=$input();
+$bad['lane_reports']['a/qualification-10.6.json']['report']['skips_are_failures']=false;
+Assert::same('FAIL',CQ::build($bad)['result'],'a nominal strict run without skip-as-failure semantics is invalid');
+$bad=$input();
+$bad['lane_reports']['a/qualification-10.6.json']['report']['failure_count']=1;
+Assert::same('FAIL',CQ::build($bad)['result'],'failure_count cannot disagree with zero-fail layer totals');
+$bad=$input();
+$bad['lane_reports']['a/qualification-10.6.json']['report']['skip_count']=1;
+Assert::same('FAIL',CQ::build($bad)['result'],'skip_count cannot disagree with zero-skip layer totals');
+
 $modified=$good;$modified['deployment_readiness']='READY_FOR_INERT_STAGING_COPY';
 Assert::true(CQ::verify($modified)!==[],'code receipt tampered to claim inert readiness invalid');
 $modified=$good;$modified['deployment_ready']=true;
