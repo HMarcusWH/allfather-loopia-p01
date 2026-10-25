@@ -1,9 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { transform } from "esbuild";
 import { projectCompetitorHistory } from "../src/data/competitor-history-view-model.js";
 
-const id=(n)=>\`00000000-0000-4000-8000-\${String(n).padStart(12,"0")}\`;
+const id=(n)=>"00000000-0000-4000-8000-"+String(n).padStart(12,"0");
 const capture=(n,state="STRUCTURAL_CHANGE_RECORDED")=>({
   source_snapshot_id:id(n),monitored_source_id:id(10),source_kind:"OFFICIAL_SITE",
   snapshot_sequence:n,captured_at:"2026-10-25 12:00:00",
@@ -100,4 +101,11 @@ test("the inert view has no route, GET side effect, HTML injection, timer or aut
   assert.equal(nav.includes("competitor-history.jsx"),false,"not imported in active navigation");
   assert.match(src,/onNextPage/,"any future pagination must be explicit caller action");
   assert.match(src,/projectCompetitorHistory/);
+});
+
+test("inactive React history module compiles without registering in the live app",async()=>{
+  const src=readFileSync(new URL("../src/views/p01/competitor-history.jsx",import.meta.url),"utf8");
+  const bundle=await transform(src,{loader:"jsx",jsx:"automatic",format:"esm",target:"es2022"});
+  assert.match(bundle.code,/CompetitorHistoryPreview/);
+  assert.equal(bundle.code.includes("dangerouslySetInnerHTML"),false);
 });
