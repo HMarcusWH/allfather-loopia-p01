@@ -42,3 +42,5 @@ capture budget does not admit a recurrence, and a schedule needs its own listed 
 exactly the digests and identities it lists — nothing broader — and it does not replace canonical
 authority: where canonical does not yet cover an operation, the decision belongs upstream first.
 See [`../MONITOR_EXECUTION_AUTHORIZATION.md`](../MONITOR_EXECUTION_AUTHORIZATION.md).
+
+> **CI qualification note, 2026-10-25:** These four source-controlled model-evaluation decisions still participate in exact owner verification. They **do not by themselves start any model call**, but their mere presence intentionally makes `ops/deploy/preflight.php` refuse the `INERT_COPY` release profile. The ordinary **CODE_ONLY** source qualification may pass with them retained and reports `deployment_readiness=NOT_ASSESSED`. Do not remove or rewrite owner decisions to obtain a green CI badge; the manual-pilot authority path is separate.
