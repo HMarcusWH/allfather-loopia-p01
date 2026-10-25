@@ -39,7 +39,11 @@ Previous private-repo billing/zero-run outcomes and the PR #79 aggregate failure
 
 ## Operations and branch settings (CI-FIX-05)
 
-After a confirmed **green** code profile, require the exact `code qualification` job in the GitHub `main` ruleset, deny force-push/delete, and require up-to-date PR checks. Railway staging presently follows `main` with `checkSuites=false`: make source promotion depend on a proven code-qualified SHA or a reviewed manual SHA-pinned deployment *after* testing the gate. This repository-side CI change does not modify GitHub rules or Railway settings automatically.
+**Source-control contract:** [Protected source promotion](PROTECTED_SOURCE_PROMOTION.md) defines the exact required status `code qualification` (GitHub Actions), source tree identity, main-branch rules, Railway Wait for CI, owner readbacks, exceptional recovery and the non-compensatory closure predicate. [Promotion acceptance matrix](PROMOTION_TEST_MATRIX.md) separates source-mutation fixtures from owner-only settings and isolated canary evidence.
+
+**Dated external state (2026-10-25):** GitHub `main` was observed `protected=false` with no rulesets; Railway staging `allfather-php-mvp` followed `main` with `checkSuites=false`. Hosted main run #618 was green, but that success **does not** mean these account settings have been enabled. A source PR cannot enforce them. Require an actual, redacted owner/admin GitHub readback and Railway service source readback before claiming the new promotion gate is in service.
+
+Railway checks *whole workflow conclusions*, not only the required aggregate job. An independently and correctly failing manually dispatched inert preflight on the same SHA can block a WAITING staging deployment; never hide that failure or erase the four owner-decision files. Use isolated canary evidence for negative Railway behavior. No staging/production or runtime authority is created by this documentation.
 
 ## Public-repository privacy (CI-FIX-06)
 
