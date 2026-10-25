@@ -17,12 +17,15 @@ if ($db===null) { Assert::skip(Harness::unavailableReason()); return; }
 $clock=Harness::clock();
 $scope=Seed::tenantWorkspace($db,$clock,'history-a');
 $foreign=Seed::tenantWorkspace($db,$clock,'history-b');
-$ent=new Entitlements($db,$clock);
-$tier=$ent->defineTier('history-qa','History QA',0,['competition_monitoring.read']);
-Assert::true($tier->isOk(),'test-only tier created');
-Assert::true($ent->subscribe($scope['tenant_id'],$tier->value()['subscription_tier_id'])->isOk(),'test tenant subscribed');
+// Tier definitions can only reference permissions already in the M02 vocabulary.
+// The previous QA fixture proved that gate by refusing TIER_PERMISSION_NOT_DEFINED.
 $permissionRole=Seed::role($db,$clock,'HISTORY_TEST_READER',['competition_monitoring.read','evidence.read']);
 Seed::membership($db,$clock,$scope['tenant_id'],$scope['workspace_id'],$scope['operator_id'],$permissionRole['role_id']);
+$ent=new Entitlements($db,$clock);
+$tier=$ent->defineTier('history-qa','History QA',0,['competition_monitoring.read']);
+Assert::true($tier->isOk(),'test-only tier created after M02 vocabulary exists');
+if (!$tier->isOk()) { return; }
+Assert::true($ent->subscribe($scope['tenant_id'],$tier->value()['subscription_tier_id'])->isOk(),'test tenant subscribed');
 $actor=['tenant_id'=>$scope['tenant_id'],'workspace_id'=>$scope['workspace_id'],
     'actor_type'=>'OPERATOR','actor_id'=>$scope['operator_id']];
 $reader=new ObservationHistory($db,$clock,new AccessGuard($db,$clock),$ent);
