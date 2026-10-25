@@ -30,11 +30,29 @@ $clock = Harness::clock();
 $vocab = new M02Seed($db, $clock);
 $seeded = $vocab->ensureVocabulary();
 Assert::true($seeded['permissions'] > 50, 'the permission vocabulary seeds');
-Assert::same(16, $seeded['roles'], 'all 15 v1 roles including scheduler observer plus additive TenantAdmin v2 seed');
+Assert::same(17, $seeded['roles'], 'all 15 v1 roles plus additive read-only Entity Twin Reader and TenantAdmin v2');
 
 // Idempotent: a redeploy must not duplicate the vocabulary.
 $again = $vocab->ensureVocabulary();
 Assert::same(['permissions' => 0, 'roles' => 0], $again, 'seeding twice is a no-op');
+
+// The additive role must remain exactly read-only; expanding an inventory
+// expectation alone must never bless a widened authorization vocabulary.
+$twinReader = $vocab->roleIdFor('ROLE_ENTITY_TWIN_READER');
+Assert::true($twinReader !== null, 'the additive Entity Twin Reader is seeded');
+Assert::same(
+    1,
+    (int) $db->scalar('SELECT role_version FROM roles WHERE role_id = ?', [$twinReader]),
+    'the Entity Twin Reader is v1, never an implicit role upgrade',
+);
+Assert::equalsList(
+    ['entity_twin.read', 'workspace.read'],
+    array_column($db->all(
+        'SELECT permission_key FROM role_permissions WHERE role_id = ? ORDER BY permission_key',
+        [$twinReader],
+    ), 'permission_key'),
+    'the Entity Twin Reader has exactly two read permissions and no write, review or release rights',
+);
 
 $acme = Seed::tenantWorkspace($db, $clock, 'acme');
 $rival = Seed::tenantWorkspace($db, $clock, 'rival');
