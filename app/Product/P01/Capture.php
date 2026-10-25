@@ -318,6 +318,8 @@ final class Capture
                 // without this a redirect could reach a different https service on another PORT of
                 // the same hostname and still pass the host allowlist.
                 EgressGuard::effectiveHttpsOrigin($effectivePolicy['allowed_url_scope']),
+                // #65: origin alone cannot authorize another PATH on the same server.
+                allowedUrlScope: $effectivePolicy['allowed_url_scope'],
             );
             if ($result['outcome'] === 'FETCHED') {
                 $captureProof = ['content_hash' => $result['content_hash'], 'text' => $retainNow

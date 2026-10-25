@@ -318,6 +318,88 @@ Assert::same(
     'the source-card origin scope survives the redirect',
 );
 
+// #65: the source-card's FULL path scope, not just its origin, gates each HTTP hop.
+$pricingScope = 'https://example.com/pricing';
+$pricingOrigin = EgressGuard::effectiveHttpsOrigin($pricingScope);
+foreach ([
+    'relative outside' => ['/outside', 'https://example.com/outside'],
+    'absolute outside' => ['https://example.com/outside', 'https://example.com/outside'],
+    'false prefix' => ['/pricing-admin', 'https://example.com/pricing-admin'],
+    'another false prefix' => ['/pricing2', 'https://example.com/pricing2'],
+    'dot segment' => ['/pricing/../outside', 'https://example.com/pricing/../outside'],
+    'encoded separator' => ['/pricing%2foutside', 'https://example.com/pricing%2foutside'],
+    'encoded dot' => ['/pricing/%2e%2e/outside', 'https://example.com/pricing/%2e%2e/outside'],
+    'double-encoded separator' => ['/pricing/%252foutside', 'https://example.com/pricing/%252foutside'],
+    'backslash' => ['/pricing\outside', 'https://example.com/pricing\outside'],
+    'other port' => ['https://example.com:8443/pricing/offer', 'https://example.com:8443/pricing/offer'],
+    'wrong host' => ['https://evil.test/pricing', 'https://evil.test/pricing'],
+] as $label => [$location, $destination]) {
+    $fixture = new FixtureTransport([
+        $pricingScope => new FetchResponse(302, 'text/html', $location, ''),
+        $destination => new FetchResponse(200, 'text/html', null, 'never authorized'),
+    ]);
+    $result = EgressGuard::guardedFetch(
+        $pricingScope, ['example.com'], $fixture, $resolver,
+        allowedOrigin: $pricingOrigin, allowedUrlScope: $pricingScope,
+    );
+    Assert::same('REFUSED', $result['outcome'], "#65 {$label}: redirect is refused");
+    Assert::same(EgressGuard::REFUSED_REDIRECT_CROSSED_BOUNDARY, $result['reason_code'], "#65 {$label}: crossed-boundary reason");
+    Assert::same([$pricingScope], $fixture->attemptedUrls(), "#65 {$label}: destination was NEVER sent");
+}
+
+$scopedGood = new FixtureTransport([
+    $pricingScope => new FetchResponse(302, 'text/html', '/pricing/subpage?plan=a', ''),
+    'https://example.com/pricing/subpage?plan=a' => new FetchResponse(200, 'text/html', null, 'permitted'),
+]);
+$good = EgressGuard::guardedFetch(
+    $pricingScope, ['example.com'], $scopedGood, $resolver,
+    allowedOrigin: $pricingOrigin, allowedUrlScope: $pricingScope,
+);
+Assert::same('FETCHED', $good['outcome'], '#65 legal scoped subpage is usable');
+Assert::same('https://example.com/pricing/subpage?plan=a', $good['final_url'], '#65 retains legal final URL');
+Assert::same([$pricingScope, 'https://example.com/pricing/subpage?plan=a'], $scopedGood->attemptedUrls(), '#65 exactly two legal sends');
+
+$multi = new FixtureTransport([
+    $pricingScope => new FetchResponse(302, 'text/html', '/pricing/first', ''),
+    'https://example.com/pricing/first' => new FetchResponse(302, 'text/html', '/outside', ''),
+    'https://example.com/outside' => new FetchResponse(200, 'text/html', null, 'not allowed'),
+]);
+$multiResult = EgressGuard::guardedFetch(
+    $pricingScope, ['example.com'], $multi, $resolver,
+    maxRedirects: 3, allowedOrigin: $pricingOrigin, allowedUrlScope: $pricingScope,
+);
+Assert::same('REFUSED', $multiResult['outcome'], '#65 later hop refused');
+Assert::same([$pricingScope, 'https://example.com/pricing/first'], $multi->attemptedUrls(), '#65 multi-hop forbidden third URL never sent');
+
+$explicit443 = new FixtureTransport([
+    'https://example.com:443/pricing' => new FetchResponse(302, null, '/pricing/subpage', ''),
+    'https://example.com:443/pricing/subpage' => new FetchResponse(200, 'text/html', null, 'ok'),
+]);
+$portAllowed = EgressGuard::guardedFetch(
+    'https://example.com:443/pricing', ['example.com'], $explicit443, $resolver,
+    allowedOrigin: EgressGuard::effectiveHttpsOrigin('https://example.com/pricing'),
+    allowedUrlScope: 'https://example.com/pricing',
+);
+Assert::same('FETCHED', $portAllowed['outcome'], '#65 explicit :443 is the authorized HTTPS origin');
+Assert::same(2, count($explicit443->attemptedUrls()), '#65 explicit-port legal subpath dispatched');
+
+foreach (['https://example.com/pricing/%2e%2e', 'https://example.com/pricing/../outside', 'https://example.com/pricing%2fadmin'] as $badInitial) {
+    $neverScope = new FixtureTransport([]);
+    $out = EgressGuard::guardedFetch(
+        $badInitial, ['example.com'], $neverScope, $resolver,
+        allowedOrigin: $pricingOrigin, allowedUrlScope: $pricingScope,
+    );
+    Assert::same('REFUSED', $out['outcome'], '#65 malformed initial path denied');
+    Assert::same([], $neverScope->attemptedUrls(), '#65 malformed initial path never dispatched');
+}
+$invalidCard = new FixtureTransport([]);
+$invalid = EgressGuard::guardedFetch(
+    $pricingScope, ['example.com'], $invalidCard, $resolver,
+    allowedOrigin: $pricingOrigin, allowedUrlScope: 'https://example.com/pricing/%2f',
+);
+Assert::same('REFUSED', $invalid['outcome'], '#65 invalid authority scope denies');
+Assert::same([], $invalidCard->attemptedUrls(), '#65 invalid authority scope sends nothing');
+
 // A redirect that downgrades the scheme is refused.
 $downgrade = new FixtureTransport([
     'https://example.com/a' => new FetchResponse(302, null, 'http://example.com/b', ''),
