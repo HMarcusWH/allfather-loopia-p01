@@ -40,6 +40,7 @@ final class ObservationFeatures
         }
         foreach (['before_body','after_body'] as $key) {
             if (!is_string($input[$key])
+                || $input[$key] === ''
                 || strlen($input[$key]) > self::MAX_BODY_BYTES
                 || preg_match('//u', $input[$key]) !== 1) {
                 return Outcome::refuse('LI04_FEATURE_BYTES_UNAVAILABLE_OR_INVALID');

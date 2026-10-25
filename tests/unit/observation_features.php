@@ -88,7 +88,8 @@ $unknown=$extract($case('Raw page text A','Raw page text B'));
 Assert::same('UNCLASSIFIED_CHANGE',$unknown['status']??null,'unknown change remains unknown, not no-change');
 Assert::same([],$unknown['features']??null,'unknown delta yields no invented semantic feature');
 Assert::same('NOT_CHECKED_BY_PURE_EXTRACTOR',$unknown['source_rights']??null,'parser does not certify historical source-use rights');
-Assert::same(null,$unknown['independent_origin_count']??false,'parser makes no common-origin assertion');
+Assert::true(array_key_exists('independent_origin_count',$unknown),'unknown independent origin is explicitly represented');
+Assert::same(null,$unknown['independent_origin_count'],'parser makes no common-origin assertion');
 Assert::same(false,$unknown['execution_authorized']??null,'parser cannot spend model budget');
 
 $script=$extract($case(
@@ -107,6 +108,8 @@ $bad=$case('A','B');$bad['format']='UNBOUNDED_HTML';
 Assert::same('LI04_FEATURE_FORMAT_UNSUPPORTED',ObservationFeatures::extract($bad)->reasonCode(),'unknown format denied');
 $bad=$case('A','B');$bad['new_authority']='APPROVED';
 Assert::same('LI04_FEATURE_INPUT_CONTRACT_INVALID',ObservationFeatures::extract($bad)->reasonCode(),'caller cannot add authorizing fields');
+$bad=$case('','B');
+Assert::same('LI04_FEATURE_BYTES_UNAVAILABLE_OR_INVALID',ObservationFeatures::extract($bad)->reasonCode(),'missing captured bytes are not interpreted as ordinary change');
 $bad=$case(str_repeat('A',ObservationFeatures::MAX_BODY_BYTES+1),'B');
 Assert::same('LI04_FEATURE_BYTES_UNAVAILABLE_OR_INVALID',ObservationFeatures::extract($bad)->reasonCode(),'oversized retained content refused');
 $bad=$case("\xff",'A');
