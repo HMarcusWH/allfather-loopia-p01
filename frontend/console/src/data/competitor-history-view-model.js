@@ -20,9 +20,12 @@ const SIGNIFICANCE = Object.freeze({
 });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const STATUS = Object.freeze(["ACTIVE","PAUSED"]);
+const SOURCE_KIND = /^[A-Z][A-Z0-9_]{0,63}$/;
+const CAPTURE_TIMESTAMP = /^\d{4}-\d{2}-\d{2}[0-9TtZz:.+\- ]*$/;
 const empty = (state) => ({state,competitor:null,rows:[],nextCursor:null,readOnly:true});
 const safeId = (value) => typeof value === "string" && UUID.test(value);
 const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+const safeTime = (v) => typeof v === "string" && v.length <= 48 && CAPTURE_TIMESTAMP.test(v);
 
 /** @returns an explicitly non-authoritative presentation over already allowed metadata */
 export function projectCompetitorHistory(read) {
@@ -38,7 +41,7 @@ export function projectCompetitorHistory(read) {
       data.projection_version !== "li16.competitor-history-metadata.v1" ||
       !isObject(data.competitor) ||
       !safeId(data.competitor.competitor_id) ||
-      typeof data.competitor.display_name !== "string" ||
+      (typeof data.competitor.display_name !== "string" || data.competitor.display_name.length > 160) ||
       !STATUS.includes(data.competitor.status) ||
       !Array.isArray(data.rows) || data.rows.length > 50 ||
       !Number.isInteger(data.page_size) || data.page_size < 1 || data.page_size > 50 ||
@@ -48,18 +51,18 @@ export function projectCompetitorHistory(read) {
   const rows = [];
   for (const row of data.rows) {
     if (!isObject(row) || !safeId(row.source_snapshot_id) || !safeId(row.monitored_source_id) ||
-        typeof row.source_kind !== "string" ||
-        typeof row.captured_at !== "string" ||
+        typeof row.source_kind !== "string" || !SOURCE_KIND.test(row.source_kind) ||
+        !safeTime(row.captured_at) ||
         !Number.isInteger(row.snapshot_sequence) || row.snapshot_sequence < 1 ||
-        !(row.coverage_state in STATES) ||
+        !Object.hasOwn(STATES,row.coverage_state) ||
         row.business_materiality !== "NOT_ASSESSED" ||
         row.observation_assessment !== "NOT_IMPLEMENTED" ||
         row.release_status !== "NOT_INFERRED" ||
         !Array.isArray(row.comparisons) || row.comparisons.length > 16) return empty("UNAVAILABLE");
     const comparisonLabels = [];
     for (const c of row.comparisons) {
-      if (!isObject(c) || !safeId(c.source_diff_id) || !(c.structural_significance in SIGNIFICANCE)
-          || typeof c.detected_at !== "string") return empty("UNAVAILABLE");
+      if (!isObject(c) || !safeId(c.source_diff_id) || !Object.hasOwn(SIGNIFICANCE,c.structural_significance)
+          || !safeTime(c.detected_at)) return empty("UNAVAILABLE");
       comparisonLabels.push({id:c.source_diff_id,label:SIGNIFICANCE[c.structural_significance],detectedAt:c.detected_at});
     }
     rows.push({
