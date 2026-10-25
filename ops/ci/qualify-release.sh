@@ -517,7 +517,14 @@ cmd_local() {
     bash "$out/source/ops/ci/qualify-release.sh" local-run
 }
 
+cmd_code_local() {
+  # The exporter, dirty-check, exact Git archive and independent job workdirs
+  # remain IDENTICAL to the legacy LOCAL qualification route.
+  QUALIFY_CODE_PROFILE=1 cmd_local "$@"
+}
+
 cmd_local_run() {
+  local code_mode="${QUALIFY_CODE_PROFILE:-0}"
   local out="${QUALIFY_LOCAL_OUT:?}" sha="${QUALIFY_RELEASE_SHA:?}" tree="${QUALIFY_RELEASE_TREE:?}"
   local started finished tsv jobs job base lane lane_var env_file src jobwork steps step failed note status rc t0 t1 log index
   local receipt_status node_required npm_required
@@ -528,7 +535,11 @@ cmd_local_run() {
 
   # Captured before use: a failing command inside `for x in $(...)` would yield an empty list and a
   # run that silently did nothing.
-  jobs="$(php "$verifier" local-jobs)"
+  if [ "$code_mode" = 1 ]; then
+    jobs="$(php "$verifier" code-local-jobs)"
+  else
+    jobs="$(php "$verifier" local-jobs)"
+  fi
   for job in $jobs; do
     base="$job"
     lane=""
@@ -552,7 +563,11 @@ cmd_local_run() {
     echo "=== ${job}"
     failed=0
     index=0
-    steps="$(php "$verifier" job-steps "$base")"
+    if [ "$code_mode" = 1 ]; then
+      steps="$(php "$verifier" code-job-steps "$base")"
+    else
+      steps="$(php "$verifier" job-steps "$base")"
+    fi
     for step in $steps; do
       index=$((index + 1))
       if [ -n "$note" ]; then
@@ -598,11 +613,18 @@ cmd_local_run() {
   npm_required="$(sed -n 's/.*"packageManager": *"npm@\([^"]*\)".*/\1/p' "$root/frontend/console/package.json")"
 
   receipt_status=0
-  php "$verifier" receipt \
+  local receipt_command="receipt" receipt_path="${out}/release-qualification-receipt.json"
+  local report_arg="--preflight=${out}/jobs/release-preparation/work/preflight.json"
+  if [ "$code_mode" = 1 ]; then
+    receipt_command="code-receipt"
+    receipt_path="${out}/code-qualification-receipt.json"
+    report_arg="--package-verdict=${out}/jobs/package-integrity/work/prepare-release.verdict.json"
+  fi
+  php "$verifier" "$receipt_command" \
     --execution=local \
     --steps="$tsv" \
     --lanes-dir="${out}/reports" \
-    --preflight="${out}/jobs/release-preparation/work/preflight.json" \
+    "$report_arg" \
     --commit="$sha" \
     --tree="$tree" \
     --requested-ref="${QUALIFY_REQUESTED_REF:-}" \
@@ -615,9 +637,9 @@ cmd_local_run() {
     --npm="$(npm --version 2>/dev/null || true)" \
     --node-required="$node_required" \
     --npm-required="$npm_required" \
-    > "${out}/release-qualification-receipt.json" || receipt_status=$?
+    > "$receipt_path" || receipt_status=$?
 
-  echo "receipt: ${out}/release-qualification-receipt.json"
+  echo "receipt: $receipt_path"
   echo "logs:    ${out}/logs (private, unsanitized — never file them as evidence)"
   return "$receipt_status"
 }
@@ -625,17 +647,36 @@ cmd_local_run() {
 # ------------------------------------------------------------------------------- hosted receipt
 
 cmd_ci_receipt() {
-  local work tsv pair job result status receipt_status
+  local mode="${1:-release}"
+  local work tsv pair job result status receipt_status receipt_cmd receipt_file report_arg
   [ "${GITHUB_ACTIONS:-}" = "true" ] || die "ci-receipt describes a GitHub Actions run; a local run uses 'local'"
   cd "$root"
   work="$(work_dir)"
   tsv="${work}/jobs.tsv"
   : > "$tsv"
-  for pair in \
-    "foundation=${QUALIFY_NEEDS_FOUNDATION:-}" \
-    "mariadb=${QUALIFY_NEEDS_MARIADB:-}" \
-    "release-preparation=${QUALIFY_NEEDS_RELEASE_PREPARATION:-}" \
-    "release-qualification=${QUALIFY_VERIFY_LANES_OUTCOME:-}"; do
+  local -a pairs=()
+  if [ "$mode" = code ]; then
+    pairs=(
+      "foundation=${QUALIFY_NEEDS_FOUNDATION:-}"
+      "mariadb=${QUALIFY_NEEDS_MARIADB:-}"
+      "package-integrity=${QUALIFY_NEEDS_PACKAGE:-}"
+      "code-qualification=${QUALIFY_VERIFY_LANES_OUTCOME:-}"
+    )
+    receipt_cmd="code-receipt"
+    receipt_file="${work}/code-qualification-receipt.json"
+    report_arg="--package-verdict=${QUALIFY_PACKAGE_REPORT:-}"
+  else
+    pairs=(
+      "foundation=${QUALIFY_NEEDS_FOUNDATION:-}"
+      "mariadb=${QUALIFY_NEEDS_MARIADB:-}"
+      "release-preparation=${QUALIFY_NEEDS_RELEASE_PREPARATION:-}"
+      "release-qualification=${QUALIFY_VERIFY_LANES_OUTCOME:-}"
+    )
+    receipt_cmd="receipt"
+    receipt_file="${work}/release-qualification-receipt.json"
+    report_arg="--preflight=${QUALIFY_PREFLIGHT_REPORT:-}"
+  fi
+  for pair in "${pairs[@]}"; do
     job="${pair%%=*}"
     result="${pair#*=}"
     status=FAIL
@@ -646,17 +687,17 @@ cmd_ci_receipt() {
   done
 
   receipt_status=0
-  php "$verifier" receipt \
+  php "$verifier" "$receipt_cmd" \
     --execution=github-actions \
     --steps="$tsv" \
     --lanes-dir="${QUALIFY_LANE_REPORTS_DIR:-$root/reports}" \
-    --preflight="${QUALIFY_PREFLIGHT_REPORT:-}" \
+    "$report_arg" \
     --commit="$(git rev-parse HEAD)" \
     --tree="$(git rev-parse 'HEAD^{tree}')" \
     --started-at="${QUALIFY_STARTED_AT:-}" \
     --finished-at="$(utc_now)" \
     --host-os="$(uname -srm)" \
-    > "${work}/release-qualification-receipt.json" || receipt_status=$?
+    > "$receipt_file" || receipt_status=$?
   return "$receipt_status"
 }
 
@@ -665,7 +706,9 @@ command="${1:-}"
 case "$command" in
   step) cmd_step "$@" ;;
   local) cmd_local "$@" ;;
+  code-local) cmd_code_local "$@" ;;
   local-run) cmd_local_run ;;
-  ci-receipt) cmd_ci_receipt ;;
-  *) die "usage: $0 step <name> | local --out=<dir> [--ref=<commit>] --env-10.6=<file> --env-10.11=<file> | ci-receipt" ;;
+  ci-receipt) cmd_ci_receipt release ;;
+  code-ci-receipt) cmd_ci_receipt code ;;
+  *) die "usage: $0 step <name> | local|code-local --out=<dir> [--ref=<commit>] --env-10.6=<file> --env-10.11=<file> | ci-receipt|code-ci-receipt" ;;
 esac
