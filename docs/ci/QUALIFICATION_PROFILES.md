@@ -48,3 +48,6 @@ Railway checks *whole workflow conclusions*, not only the required aggregate job
 ## Public-repository privacy (CI-FIX-06)
 
 The four owner decisions are now publicly tracked. Do not paste exact tenant/workspace IDs or internal authorization hashes into CI comments; secrets are not to be printed or staged. Audit source and history privately; any credential found requires owner-authorized revocation/rotation, not merely deleting the current Git blob. Node 20 runner warnings belong to a separate pinned-action compatibility PR and are not the cause of the release-preflight failure.
+
+
+**CI-FIX-06 source exposure guard (2026-10-26):** The mandatory foundation suite now checks the public source export for high-confidence credentials and unauthorized tracked-file paths, and checks the Git index in a normal checkout. Operator-only `ops/security/audit-public-repository.php --scope=history` can inspect reachable local Git-history blobs and must not be relabeled as executed or complete unless actually run on a complete ref inventory. See [public repository exposure audit](../security/PUBLIC_REPOSITORY_EXPOSURE_AUDIT_2026-10-26.md). Four publicly tracked owner decisions remain intentionally unmodified; public owner metadata is a separate human privacy review, and a green token scan is not proof of full privacy clearance.

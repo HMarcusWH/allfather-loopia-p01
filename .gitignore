@@ -17,3 +17,24 @@ Thumbs.db
 
 # Owner approval verification material is enrolled only in a running private container.
 /.private-ops/
+
+# CI-FIX-06: defense-in-depth for future untracked credential material.
+# This does not untrack already committed files or erase history.
+*.pem
+*.p12
+*.pfx
+*.p8
+*.key
+*.kdbx
+*.sqlite
+*.sqlite3
+*.db
+*.bak
+*.dump
+*.sql.gz
+.npmrc
+.netrc
+id_rsa
+id_ed25519
+credentials.json
+service-account.json
