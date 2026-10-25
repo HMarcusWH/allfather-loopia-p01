@@ -1,0 +1,91 @@
+{
+  "schema_version": "0.1",
+  "kind": "U01_OBSERVATION_MATERIALITY_V2_PROPOSAL_VECTORS",
+  "status": "PROPOSED_NOT_IMPLEMENTED",
+  "cases": [
+    {
+      "id": "menu-order",
+      "input": "Menu: Studios, Pricing, Contact -> Pricing, Studios, Contact",
+      "expected": "DESCRIPTIVE_RETAIN_ONLY",
+      "materiality": "NO_MATERIAL_CHANGE",
+      "release": "NONE"
+    },
+    {
+      "id": "price-one-digit",
+      "input": "449 SEK -> 499 SEK",
+      "expected": "EVIDENCE_LINKED_MATERIAL_CANDIDATE_OR_HOLD",
+      "materiality": "ASSESS_NOT_STRUCTURAL_FILTER",
+      "release": "NONE"
+    },
+    {
+      "id": "negation-swapped",
+      "input": "Free trial available -> Free trial not available",
+      "expected": "EVIDENCE_LINKED_MATERIAL_CANDIDATE_OR_HOLD",
+      "materiality": "ASSESS_CONTEXT",
+      "release": "NONE"
+    },
+    {
+      "id": "copyright-change",
+      "input": "Copyright 2025 -> Copyright 2026",
+      "expected": "DESCRIPTIVE_RETAIN_ONLY",
+      "materiality": "NO_MATERIAL_CHANGE",
+      "release": "NONE"
+    },
+    {
+      "id": "unavailable-source",
+      "input": "Missing captured bytes",
+      "expected": "HOLD_OR_MISSING_COVERAGE",
+      "materiality": "UNDETERMINED",
+      "release": "NONE"
+    },
+    {
+      "id": "foreign-citation",
+      "input": "Observation cites foreign tenant's source",
+      "expected": "REFUSE",
+      "materiality": "UNDETERMINED",
+      "release": "NONE"
+    },
+    {
+      "id": "syndicated-copies",
+      "input": "Three articles quoting one press release",
+      "expected": "PRESERVE_ONE_ORIGIN_HYPOTHESIS",
+      "materiality": "UNDETERMINED",
+      "release": "NONE"
+    },
+    {
+      "id": "contradiction",
+      "input": "Two admissible sources give opposing figures",
+      "expected": "PRESERVE_RIVAL_EXPLANATIONS_AND_HOLD",
+      "materiality": "UNDETERMINED",
+      "release": "NONE"
+    },
+    {
+      "id": "historical-injection",
+      "input": "Old source tells analyst to publish automatically",
+      "expected": "HOLD_NO_COMMAND_EXECUTION",
+      "materiality": "UNDETERMINED",
+      "release": "NONE"
+    },
+    {
+      "id": "v1-replay",
+      "input": "Original v1 NO_MATERIAL_CHANGE with observations=[]",
+      "expected": "EXACT_OLD_DIGEST_REPLAY",
+      "materiality": "V1_UNCHANGED",
+      "release": "NONE"
+    },
+    {
+      "id": "v1-v2-mismatch",
+      "input": "v2 descriptive payload claimed to be v1",
+      "expected": "REFUSE_VERSION_MISMATCH",
+      "materiality": "UNDETERMINED",
+      "release": "NONE"
+    },
+    {
+      "id": "review-veto",
+      "input": "Critic blocking findings while author proposes finding",
+      "expected": "HUMAN_REVIEW_BLOCKED_OR_REVISE",
+      "materiality": "NOT_ADMITTED",
+      "release": "NONE"
+    }
+  ]
+}
