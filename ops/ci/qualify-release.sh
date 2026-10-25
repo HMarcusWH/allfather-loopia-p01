@@ -326,6 +326,13 @@ step_rsync_rehearsal() {
   work="$(work_dir)"
   prepared="${work}/prepared-release"
 
+  # Source qualification proves that the manual-only workflow is in the exact Git
+  # object, while the deployment-shaped copy must deliberately exclude it.
+  [ -f "$prepared/.github/workflows/inert-staging-preflight.yml" ] ||
+    die "manual inert-copy workflow missing from prepared Git-object source"
+  grep -q '^  workflow_dispatch:' "$prepared/.github/workflows/inert-staging-preflight.yml" ||
+    die "inert-copy workflow must remain manually dispatched"
+
   target="${work}/rsync-contract-target"
   rm -rf "$target"
   mkdir -p \
@@ -356,6 +363,8 @@ step_rsync_rehearsal() {
 
   cmp "$prepared/.env.example" "$target/.env.example"
   cmp "$prepared/.github/workflows/ci.yml" "$target/.github/workflows/ci.yml"
+  [ ! -e "$target/.github/workflows/inert-staging-preflight.yml" ] ||
+    die "manual-only inert workflow must never enter the staged application copy"
 
   # Adversarial source entries prove the narrow workflow include does not open siblings.
   excluded_source="$(mktemp -d "${work}/rsync-excluded-source.XXXXXX")"

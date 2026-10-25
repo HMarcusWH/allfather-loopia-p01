@@ -194,8 +194,19 @@ Assert::false(in_array('preflight', ReleaseQualification::CODE_JOBS['package-int
     'code package profile never authorizes deployment');
 Assert::equalsList(['preflight','verify-preflight'], array_slice(ReleaseQualification::JOBS['release-preparation'],-2),
     'legacy release profile still requires inert preflight and verification');
-Assert::contains('workflow_dispatch:', (string)file_get_contents($root.'/.github/workflows/inert-staging-preflight.yml'),
-    'optional manual release gate exists');
+// This foundation layer runs both in a repository checkout and after the deliberately
+// narrow deployment-shaped rsync. Only ci.yml is shipped to the runtime, not the
+// manually-dispatched inert-copy workflow. Its SOURCE existence is enforced separately
+// by the package-integrity rehearsal before any staging exclusions are applied.
+$manualWorkflow = $root . '/.github/workflows/inert-staging-preflight.yml';
+if (is_file($manualWorkflow)) {
+    Assert::contains('workflow_dispatch:', (string) file_get_contents($manualWorkflow),
+        'repository source contains the manually dispatched inert-copy gate');
+} else {
+    Assert::contains('/.github/***',
+        (string) file_get_contents($root . '/ops/deploy/staging-rsync-excludes.txt'),
+        'deployment-shaped copy intentionally excludes the manual workflow');
+}
 Assert::false(str_contains($workflow,'step preflight'), 'normal CI must not invoke deployment preflight');
 Assert::contains('[ "${GITHUB_ACTIONS:-}" = "true" ] || die', $runner, 'and the hosted receipt refuses to run anywhere else');
 
