@@ -3,6 +3,16 @@
 Mechanics for the inert Loopia staging qualification. `BETA_RUNBOOK.md` is the authoritative
 sequence; this document explains the deployment operations behind its gates.
 
+> **CI-FIX separation (25 October 2026):** The new `CODE_QUALIFICATION_RECEIPT` v2 verifies
+> source tests and exact prepared package integrity only. It explicitly says
+> `deployment_readiness=NOT_ASSESSED`; it never replaces this runbook's strict
+> deployment preflight. Use the separately requested [inert-staging preflight](../.github/workflows/inert-staging-preflight.yml)
+> for the exact source SHA, or a separately authorized manual-pilot contract.
+> Four historical owner decisions make the inert-copy check **BLOCKED**, while the
+> code itself can still pass. Do not delete those decisions to make a CI badge green.
+> The older `RELEASE_QUALIFICATION_RECEIPT` v1 commands below remain historical,
+> with their original meaning. See [qualification profiles](ci/QUALIFICATION_PROFILES.md).
+
 Nothing here grants production/customer authority. The pinned canonical identity vocabulary still
 contains no CUSTOMER tenant, production workspace, or PRODUCTION environment class for a public
 launch.
