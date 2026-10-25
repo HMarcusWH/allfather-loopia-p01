@@ -17,6 +17,14 @@ Nothing here grants production/customer authority. The pinned canonical identity
 contains no CUSTOMER tenant, production workspace, or PRODUCTION environment class for a public
 launch.
 
+## 0. Governed source promotion to Railway staging (CI-FIX-05)
+
+This source-control PR does **not** change or activate GitHub/Railway settings. Before a new code merge, follow [protected source promotion](ci/PROTECTED_SOURCE_PROMOTION.md): require an active GitHub `main` PR rule with the exact GitHub Actions `code qualification` check, up-to-date merge test, and force-push/delete refusal; separately enable **Wait for CI** for the existing Railway `allfather-staging/staging/allfather-php-mvp` service and verify `source.checkSuites=true` (the audited 2026-10-25 value was `false`).
+
+A source candidate may enter staging only after full GitHub-code qualification (real MariaDB 10.6/10.11 with zero fail/skip, exact prepared package, verified Git tree) and the configured staging source gate are independently observed. Capture a single full SHA throughout protected PR, main push-CI, Railway `WAITING` then `SUCCESS`, and `/healthz`. When any readback is unavailable, mark the gate `UNVERIFIED` instead of inventing enforcement. Railway watches **whole Actions workflow outcomes**; the separately blocked manually dispatched inert-copy preflight may affect an in-progress delivery and must not be weakened.
+
+The historical Loopia release preparation and inert-copy instructions below retain their old meaning. `CODE_QUALIFICATION_RECEIPT` v2 has `deployment_readiness=NOT_ASSESSED` and cannot replace `READY_FOR_INERT_STAGING_COPY`, owner-approved manual-pilot grants, or production GO. Preserve the four reviewed owner decisions. See the [promotion test matrix](ci/PROMOTION_TEST_MATRIX.md) before accepting any future promotion.
+
 ## 1. Host/runtime prerequisites
 
 - PHP 8.2+;
