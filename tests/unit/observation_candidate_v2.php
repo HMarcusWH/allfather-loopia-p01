@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use Allfather\Loopia\PromptOps\CandidateChecks;
+use Allfather\Loopia\PromptOps\CanonicalContracts;
 use Allfather\Loopia\PromptOps\ProductPromptPack;
 use Allfather\Loopia\PromptOps\PromptBundleRegistry;
 use Allfather\Loopia\PromptOps\PromptSelectionResolver;
@@ -26,8 +27,8 @@ Assert::same('PROMPT_BUNDLE_VERSION_NOT_REGISTERED',ProductPromptPack::resolveVe
 Assert::same('PROMPT_BUNDLE_VERSION_NOT_REGISTERED',ProductPromptPack::resolveVersion('P01_SIGNAL_CLASSIFIER','2026-10-25.monitor.observation.v3')->reasonCode(),'unknown v3 refused');
 Assert::same('5310cb3b488db2a56a322b2a131872c934a3b69bd4edbc4a4822ec42c3ca180f',
     ProductPromptPack::resolve('P01_SIGNAL_CLASSIFIER')->value()['prompt_sha256'],'original v1 prompt SHA unchanged');
-Assert::same(ProductPromptPack::resolve('P01_SIGNAL_CLASSIFIER')->value(),
-    ProductPromptPack::resolveVersion('P01_SIGNAL_CLASSIFIER',ProductPromptPack::PACK_VERSION)->value(),'v1 explicit lookup is exact old content');
+Assert::same(CanonicalContracts::stableJson(ProductPromptPack::resolve('P01_SIGNAL_CLASSIFIER')->value()),
+    CanonicalContracts::stableJson(ProductPromptPack::resolveVersion('P01_SIGNAL_CLASSIFIER',ProductPromptPack::PACK_VERSION)->value()),'v1 explicit lookup is exact old content');
 
 $ctx=['envelope'=>[
     'tenant_id'=>'tenant-a','workspace_id'=>'workspace-a','evidence'=>[
