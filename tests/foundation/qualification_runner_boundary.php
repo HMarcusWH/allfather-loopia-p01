@@ -177,7 +177,7 @@ Assert::contains('--report-json="$(report_dir)/qualification-${lane}.json"', $ru
 Assert::contains('qualification-${{ matrix.mariadb }}.json', $workflow, 'and the workflow uploads that name');
 Assert::contains("'/^qualification-\\d+\\.\\d+\\.json$/'", $verifier, 'and the verifier reads exactly lane-report names, never the receipt');
 Assert::contains('dir="${RUNNER_TEMP}/qualification"', $runner, 'a hosted step keeps its files in the runner temp space');
-Assert::contains('${{ runner.temp }}/qualification/release-qualification-receipt.json', $workflow, 'where the workflow collects the hosted receipt');
+Assert::contains('${{ runner.temp }}/qualification/code-qualification-receipt.json', $workflow, 'where the workflow collects the hosted receipt');
 Assert::contains('${{ runner.temp }}/qualification/prepare-release.verdict.json', $workflow, 'and the prepared-package verdict the code receipt binds');
 
 // ---------------------------------------------------------------- the local route runs the commit, not the checkout
