@@ -65,7 +65,7 @@ final class ModelExecutor
                             // and a candidate's references do not depend on which grant permitted the call.
                             $content=$this->prompts->content($p['role']);
                             $candidateCheck=$content->isOk()?CandidateChecks::validate($result['candidate'],$content->value(),$p['context']):$content;
-                            if(!$candidateCheck->isOk())$result=['kind'=>'FAILED','reason_code'=>'MODEL_CANDIDATE_REFERENCE_INVALID','telemetry_outcome'=>'FAILED'];
+                            if(!$candidateCheck->isOk())$result=self::candidateValidationRefusal($candidateCheck,$result);
                         }
                     }
                     // After return, before acceptance: revocation during the call cannot unsend the
@@ -77,10 +77,10 @@ final class ModelExecutor
                         else $candidateArtifact=$persisted->value();
                     }
                 }
-            } catch(\Throwable) { $result=['kind'=>'FAILED','reason_code'=>'MODEL_ADAPTER_EXCEPTION','telemetry_outcome'=>'FAILED']; }
+            } catch(\Throwable) { $result=self::adapterExceptionResult(is_array($result)?$result:null); }
             $callId=Ids::new();
             // Metering only: never raw prompt, body, response, credential or provider error message.
-            $this->db->insert('provider_call_records',['provider_call_id'=>$callId,'schema_version'=>'1','tenant_id'=>$p['tenant_id'],'workspace_id'=>$p['workspace_id'],'provider'=>'OPENAI','model'=>$p['model'],'request_class'=>$p['request_class'],'input_tokens'=>$result['input_tokens']??null,'output_tokens'=>$result['output_tokens']??null,'latency_ms'=>$response?->durationMs??0,'outcome'=>$result['telemetry_outcome'],'failure_code'=>$result['reason_code']??null,'correlation_id'=>$command['correlation_id'],'called_at'=>$this->clock->now()]);
+            $this->db->insert('provider_call_records',['provider_call_id'=>$callId,'schema_version'=>'1','tenant_id'=>$p['tenant_id'],'workspace_id'=>$p['workspace_id'],'provider'=>'OPENAI','model'=>$p['model'],'request_class'=>$p['request_class'],'input_tokens'=>$result['input_tokens']??null,'output_tokens'=>$result['output_tokens']??null,'latency_ms'=>$response?->durationMs??0,'outcome'=>$result['telemetry_outcome'],'failure_code'=>$result['validation_reason_code']??$result['reason_code']??null,'correlation_id'=>$command['correlation_id'],'called_at'=>$this->clock->now()]);
             return $result;
         });
         if(($dispatch['kind']??'')==='IDEMPOTENT_REPLAY')return ['kind'=>'MODEL_REPLAY','request_digest'=>$digest,'dispatch'=>$dispatch];
@@ -191,6 +191,66 @@ final class ModelExecutor
         // JSON object (`{}` vs PHP `[]`), creating a candidate whose own durable bytes cannot verify.
         return ['kind'=>'GENERATED','candidate'=>$value,'result_digest'=>Digest::canonicalDigest($value),'telemetry_outcome'=>'SUCCEEDED','input_tokens'=>$usage($decoded->usage->input_tokens??null),'output_tokens'=>$usage($decoded->usage->output_tokens??null)];
     }
+    /**
+     * Private, fixed-vocabulary diagnosis for post-schema PromptOps refusal.
+     * Model candidate bytes, arbitrary provider text and output bodies never enter telemetry.
+     * The externally visible failure stays MODEL_CANDIDATE_REFERENCE_INVALID.
+     *
+     * Successful response token usage is retained even if the later reference check refuses.
+     * A missing count remains null (UNKNOWN), not fabricated as zero.
+     *
+     * @param array<string,mixed> $generated
+     * @return array<string,mixed>
+     */
+    public static function candidateValidationRefusal(Outcome $validation,array $generated):array
+    {
+        $known=[
+            'PROMPT_CANDIDATE_UNTRUSTED_BINDING',
+            'PROMPT_CANDIDATE_EVIDENCE_MISSING',
+            'PROMPT_CANDIDATE_EVIDENCE_AMBIGUOUS',
+            'PROMPT_CANDIDATE_INJECTION_REQUIRES_HOLD',
+            'PROMPT_CANDIDATE_SHAPE_INVALID',
+            'PROMPT_CANDIDATE_OBSERVATION_CITATION_INVALID',
+            'PROMPT_CANDIDATE_RELEVANCE_CITATION_INVALID',
+            'PROMPT_CANDIDATE_STATUS_INCONSISTENT',
+            'PROMPT_CANDIDATE_ROUTING_TARGET_MISMATCH',
+            'PROMPT_CANDIDATE_CLAIM_CITATION_INVALID',
+            'PROMPT_CANDIDATE_CONTENT_CITATION_INVALID',
+            'PROMPT_CANDIDATE_HUMAN_REVIEW_REQUIRED',
+            'PROMPT_CANDIDATE_REVIEW_CITATION_INVALID',
+            'PROMPT_CANDIDATE_REVIEW_INCONSISTENT',
+        ];
+        $code=$validation->isOk()?null:$validation->reasonCode();
+        $safe=in_array($code,$known,true)?$code:'MODEL_CANDIDATE_REFERENCE_INVALID';
+
+        return [
+            'kind'=>'FAILED',
+            'reason_code'=>'MODEL_CANDIDATE_REFERENCE_INVALID',
+            'validation_reason_code'=>$safe,
+            'telemetry_outcome'=>'FAILED',
+            'input_tokens'=>$generated['input_tokens']??null,
+            'output_tokens'=>$generated['output_tokens']??null,
+        ];
+    }
+
+    /**
+     * Preserve already observed token usage when local processing throws AFTER provider return.
+     * This is metering of consumed attempts, not a candidate or model-quality success claim.
+     *
+     * @param array<string,mixed>|null $prior
+     * @return array<string,mixed>
+     */
+    public static function adapterExceptionResult(?array $prior):array
+    {
+        return [
+            'kind'=>'FAILED',
+            'reason_code'=>'MODEL_ADAPTER_EXCEPTION',
+            'telemetry_outcome'=>'FAILED',
+            'input_tokens'=>$prior['input_tokens']??null,
+            'output_tokens'=>$prior['output_tokens']??null,
+        ];
+    }
+
     private static function safeRequestId(?string $value): ?string
     {
         return $value!==null&&preg_match('/^[A-Za-z0-9_.:-]{1,128}$/D',$value)===1?$value:null;
