@@ -1,0 +1,76 @@
+{
+  "schema_version": "1.0",
+  "as_of_date": "2026-10-25",
+  "record_type": "LONGITUDINAL_MONITOR_CURRENTNESS_LEDGER",
+  "claims": "AS_OF_RECONCILIATION_NOT_EXECUTION_AUTHORITY",
+  "php_repository": "HMarcusWH/allfather-loopia-p01",
+  "php_main": "d4fa09d6de924bb18b99fd229383e5d4992017ab",
+  "canonical_repository": "HMarcusWH/Allfatherbusinessintelligence",
+  "canonical_main_inspected": "1169428f8163ba7ec81e4c739fea855b4b246cba",
+  "global_canonical_adopted_pin": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+  "schema_files": 31,
+  "github_main_ci": {
+    "run_id": 40131656219,
+    "conclusion": "FAILURE",
+    "steps": 0,
+    "qualification": "NOT_EXECUTED"
+  },
+  "railway_staging": {
+    "deployment": "4810dcc3-ec21-452d-b19f-c3b2a17d85ac",
+    "source_sha": "d4fa09d6de924bb18b99fd229383e5d4992017ab",
+    "status": "SUCCESS",
+    "source": "Railway deployment API",
+    "docker_php": "8.5.12",
+    "mariadb": "10.11 image",
+    "cron_configured": false,
+    "full_release_qa": "NOT_ESTABLISHED"
+  },
+  "security_issue65": {
+    "status": "OPEN",
+    "pr": 66,
+    "pr_head": "76739121acbce3b79583f78fb5e6003c0bbc958c",
+    "merge": "DRAFT_UNMERGED",
+    "offline_regression": "203/0/0 local reconstructed",
+    "p01_disposable_db": "SKIPPED",
+    "hosted_ci": {
+      "run_id": 40144285054,
+      "steps": 0
+    }
+  },
+  "diagnostic_candidate64": {
+    "state": "CLOSED_NOT_MERGED",
+    "head": "9a001370c7c3973d4edd6f279c958acafe71df3d",
+    "selective_new_pr": 67
+  },
+  "model_quality": {
+    "dev7": "5/7 development mechanical passes, held-out and independent human quality NOT_ACCEPTED",
+    "old_manifest": "IMMUTABLE"
+  },
+  "actual_execution_grants": "NOT_REVERIFIED_THIS_SESSION",
+  "customer_visible_output": "NOT_AUTHORIZED_BY_THIS_LEDGER",
+  "prod_deployment": "NOT_AUTHORIZED",
+  "authority_contracts": {
+    "U01": "PENDING",
+    "U02": "PENDING",
+    "U03": "PENDING",
+    "U04": "PENDING",
+    "U05": "PENDING",
+    "U06": "PENDING",
+    "U07": "PENDING",
+    "U08": "PENDING",
+    "U09": "PENDING",
+    "U10": "PENDING"
+  },
+  "releases": {
+    "R1": "PROPOSED",
+    "R2": "PROPOSED",
+    "R3": "PROPOSED",
+    "R4": "PROPOSED"
+  },
+  "original_sources_not_in_repo": [
+    "Allfather_PHP_Longitudinal_Intelligence_Plan_2026-10-25.md",
+    "Allfather_PHP_Intelligence_Work_Packages_2026-10-25.json",
+    "Allfather_Monitor_Longitudinal_Engineering_Handover_2026-10-25.md"
+  ],
+  "no_new_authority": true
+}
