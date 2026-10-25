@@ -1,5 +1,7 @@
 # Monitor model evaluation protocol
 
+> **Qualification currentness notice — 2026-10-25:** Historical statements below about the retired `gpt-4.1-nano` policy and its refused evaluation are preserved as historical evidence, not current model approval. The current bounded ModelPolicy names `gpt-5.6-luna` as a **candidate**; DEV7 development mechanical evidence is 5/7, independent held-out/human quality remains unaccepted. The [dated LI-00 ledger](longitudinal/LONGITUDINAL_INTELLIGENCE_STATE.md) separates provider usage/diagnostic repairs from quality acceptance and execution authority.
+
 Completion plan package **P02**. How the Monitor's prompts and model policy are evaluated against
 real model behaviour **before** any product use — without that evaluation acquiring any power to
 fetch a source, touch a mission or release intelligence.

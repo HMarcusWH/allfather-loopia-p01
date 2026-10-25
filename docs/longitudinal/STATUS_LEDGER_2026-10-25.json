@@ -1,0 +1,100 @@
+{
+  "schema_version": "1.0",
+  "record_type": "LI00_SOURCE_HOST_AUTHORITY_RECONCILIATION",
+  "as_of_date": "2026-10-25",
+  "state_kind": "DATED_OBSERVATION_NOT_EXECUTION_AUTHORITY",
+  "php_main": {
+    "sha": "2a1a7eb571a439e1a33bed21f937639c393832db",
+    "qualified_tree": "42d93cc9ad38f95177e04e40cb30f4cca4fb9415",
+    "source_qualified": true,
+    "qualification": "RAILWAY_DISPOSABLE_DB_STRICT_10_6_10_11"
+  },
+  "canonical_main_inspected": "1169428f8163ba7ec81e4c739fea855b4b246cba",
+  "global_adopted_canonical_pin": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+  "railway_staging": {
+    "deployment_id": "2a3e3a2e-35f1-4393-b744-f40627118dd9",
+    "status": "SUCCESS",
+    "branch": "main",
+    "git_sha": "2a1a7eb571a439e1a33bed21f937639c393832db",
+    "php_version": "8.5.12",
+    "healthz": 200,
+    "db_image": "mariadb:10.11",
+    "app_and_db_volumes_preserved": true,
+    "php_cron": false
+  },
+  "recent_qualification": {
+    "qa_head": "95431424f0992f06e700261a55da36a750a22dbe",
+    "php_version": "8.5.12",
+    "mariadb_10_6": {
+      "version": "10.6.28",
+      "pass": 12458,
+      "fail": 0,
+      "skip": 0,
+      "deployment_id": "f95d3346-453a-48b2-995d-d451857a4983"
+    },
+    "mariadb_10_11": {
+      "version": "10.11.19",
+      "pass": 12458,
+      "fail": 0,
+      "skip": 0,
+      "deployment_id": "ebdb2f4d-eae6-4fe9-bed0-0a5f9fab9f76"
+    },
+    "status": "OBSERVED_STRICT_TESTS_NOT_HOSTED_GITHUB_ACTIONS_RECEIPT"
+  },
+  "github_actions": {
+    "status": "UNEXECUTED_CREDITS_LIMIT",
+    "run_id": 40144285054,
+    "steps_recorded": 0
+  },
+  "security_issue_65": {
+    "state": "CLOSED",
+    "pr_66": "MERGED",
+    "pr_71": "MERGED",
+    "pr_72": "MERGED",
+    "same_source_tree_as_tested": true
+  },
+  "archive_candidate_pr64": {
+    "state": "CLOSED_NOT_MERGED",
+    "legacy_notes_status": "HISTORICAL_UNCHANGED"
+  },
+  "diagnostic_repair": {
+    "pr67": "DRAFT_PRE_ISSUE65_REBASE_UNAVAILABLE",
+    "pr73": "DRAFT_CURRENT_MAIN",
+    "full_qualification": "NOT_EXECUTED_AS_OF_CREATION"
+  },
+  "quiet_history": {
+    "pr74": "DRAFT_READ_ONLY",
+    "schema_changes": false,
+    "provider_calls": 0,
+    "customer_routes": 0,
+    "full_r1_status": "NOT_IMPLEMENTED"
+  },
+  "longitudinal_eval": {
+    "pr69": "DRAFT_DEVELOPMENT_ONLY",
+    "development_cases": 15,
+    "heldout_slots": 6,
+    "heldout_payload_status": "NOT_FROZEN"
+  },
+  "quality": {
+    "dev7_mechanical": "5_OF_7_DEVELOPMENT_PASSED",
+    "human_grounding": "NOT_ACCEPTED",
+    "heldout": "NOT_ACCEPTED",
+    "critic_payload_reconstruction": "UNAVAILABLE"
+  },
+  "admitted_execution_grants": "NOT_QUERIED_IN_THIS_AUDIT",
+  "customer_visible_output": "NOT_AUTHORIZED",
+  "production_go": "NOT_AUTHORIZED",
+  "owner_decisions": {
+    "U01": "PENDING_CANONICAL_OWNER_DECISION",
+    "U02": "PENDING_CANONICAL_OWNER_DECISION",
+    "U03": "PENDING_CANONICAL_OWNER_DECISION",
+    "U04": "PENDING_CANONICAL_OWNER_DECISION",
+    "U05": "PENDING_CANONICAL_OWNER_DECISION",
+    "U06": "PENDING_CANONICAL_OWNER_DECISION",
+    "U07": "PENDING_CANONICAL_OWNER_DECISION",
+    "U08": "PENDING_CANONICAL_OWNER_DECISION",
+    "U09": "PENDING_CANONICAL_OWNER_DECISION",
+    "U10": "PENDING_CANONICAL_OWNER_DECISION"
+  },
+  "adopted_new_authority": false
+}
