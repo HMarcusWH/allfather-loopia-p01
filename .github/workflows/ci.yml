@@ -28,7 +28,7 @@ concurrency:
 # here. `bash ops/ci/qualify-release.sh local` executes the SAME steps, in the SAME order, from a
 # `git archive` export of one exact commit — the route used while hosted runners are unavailable.
 # `tests/foundation/qualification_runner_boundary.php` fails the build if this file, the runner and
-# `ReleaseQualification::JOBS` disagree. What stays here is provisioning only: checkout, toolchains,
+# `ReleaseQualification::CODE_JOBS` disagree. What stays here is provisioning only: checkout, toolchains,
 # the database service, its connection file, and moving artifacts between hosted jobs.
 jobs:
   # Cheap, no-database checks. Runs first so an authority-boundary regression fails fast.
@@ -195,13 +195,13 @@ jobs:
   # assert things about the SOURCE TEXT of `prepare-release.sh` and `preflight.php`. That is worth
   # having, and it is not the same as knowing the commands run. So this job executes the one path a
   # deployment actually depends on — export the exact Git object, enforce the toolchain pins, build,
-  # stage, compare bytes, rehearse the root sync, preflight.
+  # stage, compare bytes and rehearse the root sync. Inert readiness is evaluated separately.
   #
-  # IT PREPARES, IT DOES NOT DEPLOY. There is no ssh, no remote host, no Loopia credential and no
+  # THIS CHECKS PACKAGE INTEGRITY, NOT RELEASE AUTHORITY; IT DOES NOT DEPLOY. There is no ssh, no remote host, no Loopia credential and no
   # evidence record here. The rsync rehearsal targets a directory in the runner's temp space and
   # dies with the runner; preflight opens no database connection.
-  release-preparation:
-    name: release preparation
+  package-integrity:
+    name: package integrity
     runs-on: ubuntu-latest
     # Measured ~90s locally for npm ci + tests + build + stage + preflight.
     timeout-minutes: 10
@@ -239,21 +239,14 @@ jobs:
       - name: Root rsync preserves host state and deploys qualification inputs
         run: bash ops/ci/qualify-release.sh step rsync-rehearsal
 
-      - name: Release preflight from the prepared tree
-        run: bash ops/ci/qualify-release.sh step preflight
-
-      - name: Preflight must return the canonical ready verdict
-        run: bash ops/ci/qualify-release.sh step verify-preflight
-
-      # The preflight report carries the prepared source fingerprint; the receipt binds it.
+      # Code/profile qualification stops before deployment-readiness authorization.
+      # A separate manual workflow invokes the unchanged fail-closed inert preflight.
       - name: Upload the prepared-release reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: release-preparation
-          path: |
-            ${{ runner.temp }}/qualification/preflight.json
-            ${{ runner.temp }}/qualification/prepare-release.verdict.json
+          name: package-integrity
+          path: ${{ runner.temp }}/qualification/prepare-release.verdict.json
           if-no-files-found: warn
           retention-days: 30
 
@@ -263,17 +256,17 @@ jobs:
   # and fails explicitly, so a skipped dependency is a red check rather than an absent one.
   #
   # It does not trust the job results alone: it re-reads the uploaded reports and asserts what they
-  # actually say, then writes the same receipt a local run writes — marked GITHUB_ACTIONS, naming
+  # actually say, then writes a distinct CODE_QUALIFICATION_RECEIPT — marked GITHUB_ACTIONS, naming
   # this run, and self-reported like every receipt.
   #
   # IT INTRODUCES NO DEPLOYMENT. There is no Loopia secret in this workflow, nothing is copied
   # anywhere, and passing this check authorizes nothing — see docs/CLAIM_CEILING.md.
-  release-qualification:
-    name: release qualification
+  code-qualification:
+    name: code qualification
     runs-on: ubuntu-latest
     # Measured ~5s before checkout and PHP were added; the budget absorbs both.
     timeout-minutes: 5
-    needs: [foundation, mariadb, release-preparation]
+    needs: [foundation, mariadb, package-integrity]
     if: always()
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -298,7 +291,7 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: release-preparation
+          name: package-integrity
           path: prepared
 
       # EVERY required job, checked the same way, with each result PRINTED. `success` is the only
@@ -306,23 +299,23 @@ jobs:
       # most — it renders as neutral, which some branch protections treat as passing. This is the
       # hosted counterpart of a local run's per-step exit codes, and the one check that can only
       # exist here: it reads GitHub's own job results.
-      - name: Every qualification job must have succeeded
+      - name: Every code qualification job must have succeeded
         run: |
           set -euo pipefail
           foundation='${{ needs.foundation.result }}'
           mariadb='${{ needs.mariadb.result }}'
-          release_preparation='${{ needs.release-preparation.result }}'
+          package_integrity='${{ needs.package-integrity.result }}'
           echo "foundation:          ${foundation}"
           echo "mariadb:             ${mariadb}"
-          echo "release preparation: ${release_preparation}"
+          echo "package integrity: ${package_integrity}"
           blocked=0
-          for result in "$foundation" "$mariadb" "$release_preparation"; do
+          for result in "$foundation" "$mariadb" "$package_integrity"; do
             if [ "$result" != "success" ]; then
               blocked=1
             fi
           done
           if [ "$blocked" -ne 0 ]; then
-            echo "release qualification NOT met: a required job did not succeed" >&2
+            echo "code qualification NOT met: a required job did not succeed" >&2
             exit 1
           fi
 
@@ -333,21 +326,21 @@ jobs:
         id: lanes
         run: bash ops/ci/qualify-release.sh step verify-lanes
 
-      - name: Write the release qualification receipt
+      - name: Write the code qualification receipt
         if: always()
         env:
           QUALIFY_NEEDS_FOUNDATION: ${{ needs.foundation.result }}
           QUALIFY_NEEDS_MARIADB: ${{ needs.mariadb.result }}
-          QUALIFY_NEEDS_RELEASE_PREPARATION: ${{ needs.release-preparation.result }}
+          QUALIFY_NEEDS_PACKAGE: ${{ needs.package-integrity.result }}
           QUALIFY_VERIFY_LANES_OUTCOME: ${{ steps.lanes.outcome }}
-          QUALIFY_PREFLIGHT_REPORT: prepared/preflight.json
-        run: bash ops/ci/qualify-release.sh ci-receipt
+          QUALIFY_PACKAGE_REPORT: prepared/prepare-release.verdict.json
+        run: bash ops/ci/qualify-release.sh code-ci-receipt
 
-      - name: Upload the release qualification receipt
+      - name: Upload the code qualification receipt
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: release-qualification-receipt
-          path: ${{ runner.temp }}/qualification/release-qualification-receipt.json
+          name: code-qualification-receipt
+          path: ${{ runner.temp }}/qualification/code-qualification-receipt.json
           if-no-files-found: warn
           retention-days: 30
