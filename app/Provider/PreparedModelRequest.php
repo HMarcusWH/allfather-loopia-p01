@@ -5,6 +5,7 @@ namespace Allfather\Loopia\Provider;
 use Allfather\Loopia\Core\Digest;
 use Allfather\Loopia\Core\Outcome;
 use Allfather\Loopia\PromptOps\PromptSelectionResolver;
+use Allfather\Loopia\PromptOps\PromptBundleRegistry;
 
 /** Immutable serialized request. Inspection returns fresh values and never includes a credential. */
 final class PreparedModelRequest
@@ -18,6 +19,10 @@ final class PreparedModelRequest
     public static function prepare(array $prompt, array $context, array $options = [], ?PromptSelectionResolver $resolver = null): Outcome
     {
         try {
+            // U01 is unratified. Even caller-crafted proposed v2 cannot form a model request.
+            if (($prompt['pack_version'] ?? null) === PromptBundleRegistry::OBSERVATION_V2_PACK) {
+                return Outcome::refuse('MODEL_PROPOSED_OBSERVATION_V2_INERT');
+            }
             $resolver ??= PromptSelectionResolver::inert();
             if (!$resolver->verify($prompt)) return Outcome::refuse('MODEL_PROMPT_NOT_CURRENT_APPROVED_BUNDLE');
             foreach (['role','prompt_version_id','binding_id','output_schema_id','prompt_sha256','schema_sha256','instructions','activation_status'] as $key) {

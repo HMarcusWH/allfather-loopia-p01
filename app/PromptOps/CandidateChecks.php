@@ -8,6 +8,10 @@ final class CandidateChecks
 {
     public static function validate(array $candidate, array $resolvedPrompt, array $context): Outcome
     {
+        // Exact proposal-specific validator; unchanged v1 checker follows below.
+        if (($resolvedPrompt['pack_version'] ?? null) === PromptBundleRegistry::OBSERVATION_V2_PACK) {
+            return ObservationCandidateChecksV2::validate($candidate, $resolvedPrompt, $context);
+        }
         try {
             $fresh = ProductPromptPack::resolve(is_string($resolvedPrompt['role'] ?? null) ? $resolvedPrompt['role'] : '');
             $trusted = $fresh->isOk()

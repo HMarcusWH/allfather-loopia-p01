@@ -41,7 +41,13 @@ final class PromptSelectionResolver
     /** Immutable content only. Never an execution permission. */
     public function content(string $role): Outcome
     {
-        return ProductPromptPack::resolve($role);
+        return ProductPromptPack::resolve($role); // governed runtime selection stays v1
+    }
+
+    /** Inspection only: select()/verify() cannot promote v2 content. */
+    public function contentVersioned(string $role, string $packVersion): Outcome
+    {
+        return ProductPromptPack::resolveVersion($role, $packVersion);
     }
 
     /**
