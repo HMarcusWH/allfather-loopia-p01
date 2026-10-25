@@ -222,10 +222,22 @@ Assert::true($refusedByStorage(static fn () => $db->run("UPDATE release_artifact
 Assert::case('P12: the deployed front controller has no customer-facing route');
 
 $index = (string) file_get_contents($root . '/public_html/index.php');
+// The one permitted root route redirects into the authenticated operator console.
+// Keep the exact redirect target/shape pinned: simply allowing "/" would mask a
+// future customer-visible root handler.
+$authenticatedRootRedirect = <<<'PHP'
+$kernel->route('GET', '/', static fn (Request $request, ?array $session): Response => Response::redirect('/console/app'));
+PHP;
+Assert::contains($authenticatedRootRedirect, $index, 'root is only an authenticated operator-console redirect');
 preg_match_all("#\\\$kernel->route\\('(?:GET|POST)', '([^']+)'#", $index, $routes);
+Assert::same(
+    1,
+    count(array_filter($routes[1], static fn (string $path): bool => $path === '/')),
+    'exactly one explicit operator root route; no extra customer root handler',
+);
 foreach ($routes[1] as $path) {
     Assert::true(
-        $path === '/login' || $path === '/logout' || $path === '/healthz' || $path === '/support' || str_starts_with($path, '/account') || str_starts_with($path, '/console'),
+        $path === '/' || $path === '/login' || $path === '/logout' || $path === '/healthz' || $path === '/support' || str_starts_with($path, '/account') || str_starts_with($path, '/console'),
         "{$path} is an operator, account or health route — not a customer surface",
     );
 }
