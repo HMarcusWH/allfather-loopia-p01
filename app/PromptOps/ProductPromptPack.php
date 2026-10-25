@@ -10,6 +10,12 @@ final class ProductPromptPack
     public const ROLES = ['P01_SIGNAL_CLASSIFIER', 'BATTLECARD_GENERATOR', 'MONITOR_REVIEW_CRITIC', 'MONITOR_ROUTING_CRITIC'];
     public const PACK_VERSION = '2026-09-27.monitor.v1';
 
+    /** Explicit OFFLINE version lookup. Existing execution still resolves only v1. */
+    public static function resolveVersion(string $role, string $packVersion): Outcome
+    {
+        return PromptBundleRegistry::resolve($role, $packVersion);
+    }
+
     public static function resolve(string $role): Outcome
     {
         if (!in_array($role, self::ROLES, true)) { return Outcome::refuse('PROMPT_ROLE_NOT_IN_PRODUCT_PACK'); }
