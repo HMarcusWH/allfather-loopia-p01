@@ -143,6 +143,20 @@ final class CodeQualification
                 ||($g['checkout_sha']??null)!==($source['commit']??null))
                 $bad[]='hosted run ID/attempt/checkout SHA mismatch';
         }
+        if ($local) {
+            $toolchain=is_array($x['toolchain']??null)?$x['toolchain']:[];
+            $php=$toolchain['php']??null;
+            if (!is_string($php)||!str_starts_with($php,ReleaseQualification::PHP_LINE.'.')) {
+                $bad[]='local toolchain PHP version differs from hosted baseline';
+            }
+            foreach (['node','npm'] as $tool) {
+                $actual=$toolchain[$tool]??null;
+                $required=$toolchain[$tool.'_required']??null;
+                if (!is_string($required)||$required===''||$actual!==$required) {
+                    $bad[]="local toolchain {$tool} does not match repository pin";
+                }
+            }
+        }
         if (($r['deployment_readiness']??null)!=='NOT_ASSESSED'
             ||array_key_exists('deployment_ready',$r)||array_key_exists('deployment_authorized',$r))
             $bad[]='code qualification cannot grant deployment';

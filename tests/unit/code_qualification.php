@@ -78,9 +78,26 @@ Assert::same(true,$good['execution']['hosted_ci'],'hosted result remains explici
 $local=CQ::build($input([
     'execution'=>Q::EXECUTION_LOCAL,'github'=>null,
     'steps'=>$records(Q::EXECUTION_LOCAL),
+    'toolchain'=>['php'=>'8.2.34','node'=>'22.16.0','node_required'=>'22.16.0',
+        'npm'=>'10.9.2','npm_required'=>'10.9.2'],
 ]));
 Assert::same('PASS',$local['result'],'local exact-git-object procedure has same code profile');
 Assert::same(false,$local['execution']['hosted_ci'],'local may never claim hosted CI');
+$localBad=CQ::build($input([
+    'execution'=>Q::EXECUTION_LOCAL,'github'=>null,
+    'steps'=>$records(Q::EXECUTION_LOCAL),
+    'toolchain'=>['php'=>'8.5.12','node'=>'22.16.0','node_required'=>'22.16.0',
+        'npm'=>'10.9.2','npm_required'=>'10.9.2'],
+]));
+Assert::same('FAIL',$localBad['result'],'local PHP 8.5 cannot masquerade as hosted PHP 8.2');
+$localBad=CQ::build($input([
+    'execution'=>Q::EXECUTION_LOCAL,'github'=>null,
+    'steps'=>$records(Q::EXECUTION_LOCAL),
+    'toolchain'=>['php'=>'8.2.34','node'=>'21.0.0','node_required'=>'22.16.0',
+        'npm'=>'10.9.2','npm_required'=>'10.9.2'],
+]));
+Assert::same('FAIL',$localBad['result'],'local incorrect Node version cannot pass parity');
+
 Assert::equalsList([],CQ::verify($local),'local source receipt consistent');
 
 $blocked=CQ::build($input(['steps'=>array_values(array_filter(
