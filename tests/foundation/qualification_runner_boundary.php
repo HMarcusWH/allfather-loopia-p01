@@ -75,7 +75,7 @@ foreach (explode("\n", $workflow) as $line) {
 }
 
 Assert::equalsList(
-    array_keys(ReleaseQualification::JOBS),
+    array_keys(ReleaseQualification::CODE_JOBS),
     array_keys($jobs),
     'the workflow has exactly the declared qualification jobs, in the declared order',
 );
@@ -86,10 +86,10 @@ Assert::equalsList(
 // reading GitHub's own job results. Named exactly, so a new inline check has nowhere to hide.
 $hostedOnly = [
     'mariadb' => ['Write the test environment'],
-    'release-qualification' => ['Every qualification job must have succeeded'],
+    'code-qualification' => ['Every code qualification job must have succeeded'],
 ];
 
-foreach (ReleaseQualification::JOBS as $name => $expectedSteps) {
+foreach (ReleaseQualification::CODE_JOBS as $name => $expectedSteps) {
     $invoked = [];
     $inline = [];
     $receipts = 0;
@@ -102,10 +102,10 @@ foreach (ReleaseQualification::JOBS as $name => $expectedSteps) {
             $invoked[] = $m[1];
             continue;
         }
-        if ($run === 'bash ops/ci/qualify-release.sh ci-receipt') {
+        if ($run === 'bash ops/ci/qualify-release.sh code-ci-receipt') {
             $receipts++;
             Assert::same('always()', $step['if'], 'the hosted receipt is written even when qualification failed');
-            Assert::same(ReleaseQualification::JOBS['release-qualification'], $invoked, 'the hosted receipt is written after the lane reports are judged');
+            Assert::same(ReleaseQualification::CODE_JOBS['code-qualification'], $invoked, 'the hosted receipt is written after the lane reports are judged');
             continue;
         }
         $inline[] = (string) $step['name'];
@@ -128,7 +128,7 @@ foreach (ReleaseQualification::JOBS as $name => $expectedSteps) {
         "the {$name} job carries no inline run beyond its named hosted-only provisioning",
     );
     Assert::same(
-        $name === 'release-qualification' ? 1 : 0,
+        $name === 'code-qualification' ? 1 : 0,
         $receipts,
         "{$name}: the hosted receipt is written once, by the final gate",
     );
@@ -178,7 +178,7 @@ Assert::contains('qualification-${{ matrix.mariadb }}.json', $workflow, 'and the
 Assert::contains("'/^qualification-\\d+\\.\\d+\\.json$/'", $verifier, 'and the verifier reads exactly lane-report names, never the receipt');
 Assert::contains('dir="${RUNNER_TEMP}/qualification"', $runner, 'a hosted step keeps its files in the runner temp space');
 Assert::contains('${{ runner.temp }}/qualification/release-qualification-receipt.json', $workflow, 'where the workflow collects the hosted receipt');
-Assert::contains('${{ runner.temp }}/qualification/preflight.json', $workflow, 'and the prepared-release preflight the receipt binds');
+Assert::contains('${{ runner.temp }}/qualification/prepare-release.verdict.json', $workflow, 'and the prepared-package verdict the code receipt binds');
 
 // ---------------------------------------------------------------- the local route runs the commit, not the checkout
 
@@ -186,6 +186,17 @@ Assert::contains('git -C "$root" archive "$sha" | tar -x -C "$out/source"', $run
 Assert::contains('bash "$out/source/ops/ci/qualify-release.sh" local-run', $runner, 'and hands over to the COMMITTED runner, so a dirty checkout cannot change the commands');
 Assert::contains('git archive "$sha" | tar -x -C "$src"', $runner, 'each local job starts from its own fresh export, as each hosted job starts from a fresh checkout');
 Assert::contains('--execution=local', $runner, 'a local run can only write a LOCAL receipt');
+Assert::contains('code-local) cmd_code_local', $runner, 'separate exact Git-object code-local route exists');
+Assert::contains('code-ci-receipt) cmd_ci_receipt code', $runner, 'hosted code receipts use their own profile');
+Assert::contains('preflight) step_preflight', $runner, 'legacy inert preflight remains callable');
+Assert::contains('verify-preflight) step_verify_preflight', $runner, 'legacy readiness verification remains callable');
+Assert::false(in_array('preflight', ReleaseQualification::CODE_JOBS['package-integrity'], true),
+    'code package profile never authorizes deployment');
+Assert::equalsList(['preflight','verify-preflight'], array_slice(ReleaseQualification::JOBS['release-preparation'],-2),
+    'legacy release profile still requires inert preflight and verification');
+Assert::contains('workflow_dispatch:', (string)file_get_contents($root.'/.github/workflows/inert-staging-preflight.yml'),
+    'optional manual release gate exists');
+Assert::false(str_contains($workflow,'step preflight'), 'normal CI must not invoke deployment preflight');
 Assert::contains('[ "${GITHUB_ACTIONS:-}" = "true" ] || die', $runner, 'and the hosted receipt refuses to run anywhere else');
 
 // ---------------------------------------------------------------- no route writes a governed file
