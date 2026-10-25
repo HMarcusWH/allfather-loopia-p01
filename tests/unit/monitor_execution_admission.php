@@ -60,7 +60,7 @@ foreach ([
 Assert::same('OWNER_DECISION_INVALID', $registry->resolve('docs/decisions/bad.json', $write('bad.json', 'not json'))->reasonCode(), 'non-JSON refused');
 
 Assert::same(64, strlen(ModelPolicy::digest()), 'the model policy has one identity');
-Assert::same('gpt-4.1-nano', ModelPolicy::definition()['model'], 'the bounded adapter still supports one model');
+Assert::same('gpt-5.6-luna', ModelPolicy::definition()['model'], 'the bounded adapter supports only the current reviewed model-policy candidate');
 Assert::same([], ModelPolicy::definition()['tools'], 'no provider tools');
 Assert::same(0, ModelPolicy::definition()['automatic_retries'], 'no automatic retries');
 Assert::same(false, ModelPolicy::definition()['store'], 'store=false is requested (provider retention is reviewed separately)');
