@@ -296,7 +296,8 @@ final class M17Qa
             'PRE_BACKUP_CROSS_TENANT_ISOLATION_FAILED');
         self::requireTrue($store->replayCandidate($scope,$sample)->reasonCode()==='M17_REPLAY_CANDIDATE_NOT_FOUND',
             'PRE_BACKUP_REVERSE_SCOPE_ISOLATION_FAILED');
-        $profile=(string)$db->scalar('SELECT profile_id FROM temporal_compression_profiles LIMIT 1');
+        $profile=(string)$db->scalar('SELECT profile_id FROM temporal_compression_profiles WHERE tenant_id=? AND workspace_id=? LIMIT 1',
+            [$scope['tenant_id'],$scope['workspace_id']]);
         $db->insert('temporal_compression_profile_rules', [
             'profile_rule_id'=>Ids::new(),'profile_id'=>$profile,
             'tenant_id'=>$scope['tenant_id'],'workspace_id'=>$scope['workspace_id'],
