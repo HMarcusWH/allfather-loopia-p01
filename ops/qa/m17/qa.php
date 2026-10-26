@@ -213,19 +213,28 @@ final class M17Qa
 
     public static function installOverlapTrigger(Database $db): void
     {
-        $db->pdo()->exec("CREATE TRIGGER m17_qa_overlap_before_run BEFORE INSERT ON temporal_compression_runs
-            FOR EACH ROW BEGIN
-                IF COALESCE(@m17_qa_overlap,0)=1 THEN
-                    SET @m17_qa_lock_status = GET_LOCK('m17_qa_overlap_lock',5);
-                    DO SLEEP(5);
-                    DO RELEASE_LOCK('m17_qa_overlap_lock');
-                END IF;
-            END");
+        // A missing profile is the first contested write in an identical-run race.
+        // Hold both that INSERT and the run INSERT: either one can be the observed
+        // overlapping transaction, even if InnoDB deadlocks before the run stage.
+        foreach ([
+            'profile'=>'temporal_compression_profiles',
+            'run'=>'temporal_compression_runs',
+        ] as $suffix=>$table) {
+            $db->pdo()->exec("CREATE TRIGGER m17_qa_overlap_{$suffix} BEFORE INSERT ON {$table}
+                FOR EACH ROW BEGIN
+                    IF COALESCE(@m17_qa_overlap,0)=1 THEN
+                        SET @m17_qa_lock_status = GET_LOCK('m17_qa_overlap_lock',5);
+                        DO SLEEP(4);
+                        DO RELEASE_LOCK('m17_qa_overlap_lock');
+                    END IF;
+                END");
+        }
     }
 
     public static function removeOverlapTrigger(Database $db): void
     {
-        $db->pdo()->exec('DROP TRIGGER IF EXISTS m17_qa_overlap_before_run');
+        $db->pdo()->exec('DROP TRIGGER IF EXISTS m17_qa_overlap_profile');
+        $db->pdo()->exec('DROP TRIGGER IF EXISTS m17_qa_overlap_run');
     }
 
     public static function manifest(Database $db): array
@@ -399,5 +408,8 @@ try {
     }
 } catch (\Throwable $e) {
     // Never include native exception messages (SQL text and credentials may be embedded).
-    M17Qa::fail('EXCEPTION_'.preg_replace('/[^A-Z0-9_]/','_',strtoupper((new \ReflectionClass($e))->getShortName())));
+    $category = (new \ReflectionClass($e))->getShortName();
+    $driver = $e instanceof \PDOException ? '_SQLSTATE_'.preg_replace('/[^A-Z0-9]/','_',strtoupper((string)$e->getCode()))
+        .'_CODE_'.(int)($e->errorInfo[1]??0) : '';
+    M17Qa::fail('EXCEPTION_'.strtoupper($category).$driver);
 }
