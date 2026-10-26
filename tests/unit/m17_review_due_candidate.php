@@ -36,7 +36,7 @@ Assert::same('DUE_CANDIDATE_HUMAN_REVIEW_ONLY',$first['status'],'changed basis +
 foreach (['model_call_authorized','new_source_fetch_authorized','notification_authorized',
           'U03_historical_reuse_admitted','U05_policy_adopted','scheduler_action_authorized',
           'customer_output_authorized','M10_release_authorized'] as $key) {
-    Assert::same(false,$first[$key],'review-due proposal never grants '+$key);
+    Assert::same(false,$first[$key],'review-due proposal never grants '.$key);
 }
 Assert::same($first['candidate_digest'],$get($input)['candidate_digest'],'same inputs produce same due digest');
 $alter=$input;
