@@ -61,7 +61,7 @@ try {
         $bridge=HistoryM17CandidateBridge::compose($basis->value(),'SOURCE_DIFF','MONTH');
         Assert::true($bridge->isOk(),'pure bounded M17 bridge composes metadata without rights');
         $memory=$memoryStore->persistCandidate($bridge->value()['frozen_m17_inputs'],$parent);
-        Assert::true($memory->isOk(),'unadopted G21 graph stores complete offline rollup');
+        Assert::true($memory->isOk(),'unadopted G21 graph stores complete offline rollup'.($memory->isOk()?'':': '.$memory->reasonCode().' SQLCODE='.(string)($memory->detail['driver_code']??'')));
         if(!$memory->isOk()) throw new RuntimeException('synthetic M17 fixture rejected');
         return ['basis'=>$basis->value(),'basisStore'=>$stored->value(),
             'bridge'=>$bridge->value(),'memory'=>$memory->value()];
