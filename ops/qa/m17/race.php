@@ -115,18 +115,20 @@ try {
         $witness=['scenario'=>$scenario,'lock_seen'=>$sawLock,'max_live_sessions'=>$processCountMax,
             'processlist_commands'=>array_keys($commandsSeen),
             'worker_outcomes'=>array_map(static fn($r)=>['ok'=>$r['is_ok'],'reason'=>$r['reason'],
-                'action'=>$r['action']],$done)];
+                'action'=>$r['action'],'driver_code'=>$r['driver_code'],'sqlstate'=>$r['sqlstate']],$done)];
         echo 'M17_QA_OBSERVATION '.json_encode($witness,JSON_THROW_ON_ERROR)."\n";
         M17Qa::requireTrue($observed, 'NO_OBSERVED_OVERLAPPING_M17_TRANSACTIONS');
         foreach ($done as $d) {
             M17Qa::requireTrue(in_array((int)$d['connection_id'],$readyIds,true),'WRONG_RACE_CONNECTION_ID');
-            M17Qa::requireTrue($d['is_ok']
-                || in_array($d['reason'],['M17_IDENTITY_RACE_REFUSED','DATABASE_ERROR'],true),
-                'UNEXPECTED_RACE_FAILURE');
+            $transient=$d['reason']==='DATABASE_ERROR'
+                && in_array((int)$d['driver_code'],[1205,1213],true);
+            M17Qa::requireTrue($d['is_ok'] || $d['reason']==='M17_IDENTITY_RACE_REFUSED'
+                || $transient, 'UNEXPECTED_RACE_FAILURE');
         }
         $result=['scenario'=>$scenario,'status'=>'PASS','overlapping_db_queries_observed'=>true,
             'connections_independent'=>true,'workers'=>array_map(static fn($v)=>[
-                'is_ok'=>$v['is_ok'],'action'=>$v['action'],'reason'=>$v['reason']],$done)];
+                'is_ok'=>$v['is_ok'],'action'=>$v['action'],'reason'=>$v['reason'],
+                'sqlstate'=>$v['sqlstate'],'driver_code'=>$v['driver_code']],$done)];
         $receipt['cases'][]=$result;
         M17Qa::file($out,$receipt);
         return $done;
@@ -136,16 +138,18 @@ try {
     // remain legitimate distinct identities. Record that original failure; only a
     // separately labelled, deterministic *manual test continuation* may try again.
     // This is NOT a runtime automatic retry, idempotency claim or budget refund.
-    $manualContinuation=static function (string $scenario, array $outcomes, array $inputsByWriter)
+    $manualContinuation=static function (string $scenario, array $outcomes, array $inputsByWriter, ?string $priorMemoryId = null)
         use ($db,&$receipt,$out): array {
         $needed=0;
         M17Qa::requireTrue($outcomes[0]['is_ok'] || $outcomes[1]['is_ok'],
             'RACE_NO_COMMITTED_WINNER');
         foreach ($outcomes as $i=>$result) {
             if ($result['is_ok']) continue;
-            M17Qa::requireTrue(in_array($result['reason'],['DATABASE_ERROR','M17_IDENTITY_RACE_REFUSED'],true),
+            $transient=$result['reason']==='DATABASE_ERROR'
+                && in_array((int)($result['driver_code']??0),[1205,1213],true);
+            M17Qa::requireTrue($result['reason']==='M17_IDENTITY_RACE_REFUSED' || $transient,
                 'RACE_UNEXPECTED_REFUSAL');
-            $next=M17Qa::memory($db)->persistCandidate($inputsByWriter[$i]);
+            $next=M17Qa::memory($db)->persistCandidate($inputsByWriter[$i],$priorMemoryId);
             M17Qa::requireTrue($next->isOk() && in_array($next->value()['action'],
                 ['DISPOSABLE_CANDIDATE_RECORDED','EXACT_REPLAY_NO_WRITE'],true),
                 'EXPLICIT_MANUAL_TEST_CONTINUATION_REFUSED');
@@ -185,10 +189,13 @@ try {
     $scope=M17Qa::scope($db,'race-fork');
     $baseInputs=M17Qa::inputs($scope);
     $base=M17Qa::storeRow($db,$baseInputs);
-    $children=$runPair('competing-successors',M17Qa::inputs($scope,'b'),$base,
-        M17Qa::inputs($scope,'c'),$base);
+    $forkInputs=[M17Qa::inputs($scope,'b'),M17Qa::inputs($scope,'c')];
+    $children=$runPair('competing-successors',$forkInputs[0],$base,$forkInputs[1],$base);
+    // A failed concurrent fork remains failed in the original race evidence.
+    // Explicitly continue only after the overlap and with the same predecessor.
+    $children=$manualContinuation('competing-successors',$children,$forkInputs,$base);
     M17Qa::requireTrue($children[0]['is_ok'] && $children[1]['is_ok'],
-        'CONCURRENT_FORK_DID_NOT_PRESERVE_BOTH_CHILDREN');
+        'FORK_MANUAL_CONTINUATION_FAILED');
     M17Qa::requireTrue($children[0]['memory_id']!==$children[1]['memory_id'],'CHILDREN_NOT_DISTINCT');
     M17Qa::requireTrue((int)$db->scalar('SELECT COUNT(*) FROM temporal_memories WHERE supersedes_memory_id=?',[$base])===2,
         'CONCURRENT_FORK_CARDINALITY');
