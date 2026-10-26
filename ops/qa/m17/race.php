@@ -1,0 +1,194 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * PR #87: isolated, real process/connection races against the unadopted M17 fixture.
+ * All inputs are synthetic. No staging DB, model call, fetch, authorization or migration.
+ */
+require_once __DIR__.'/qa.php';
+
+try {
+    $db = M17Qa::db();
+    if (!function_exists('proc_open') || !function_exists('proc_terminate')) M17Qa::fail('PHP_PROCESS_CONTROL_UNAVAILABLE');
+    $out = $argv[1] ?? '';
+    M17Qa::requireTrue($out !== '' && !file_exists($out), 'RACE_RECEIPT_PATH_REQUIRED');
+    $work = sys_get_temp_dir().'/m17-qa-race-'.bin2hex(random_bytes(8));
+    M17Qa::requireTrue(mkdir($work, 0700), 'PRIVATE_RACE_DIRECTORY_FAILED');
+    $receipt = ['status'=>'NOT_RUN','source'=>'M17_CANDIDATE_ONLY','db_version'=>M17Qa::version($db),
+        'runner'=>getenv('GITHUB_ACTIONS')==='true'?'GITHUB_ACTIONS':'LOCAL_DOCKER',
+        'cases'=>[],'U04'=>'NOT_RATIFIED','U03'=>'NOT_ADOPTED','Railway'=>'NOT_TESTED'];
+    M17Qa::file($out, $receipt);
+    $cleanup = static function () use ($work): void {
+        foreach (glob($work.'/*') ?: [] as $item) if (is_file($item)) unlink($item);
+        rmdir($work);
+    };
+
+    M17Qa::installOverlapTrigger($db);
+
+    $runPair = static function (string $scenario, array $inputs, ?string $prior, array $secondInputs, ?string $secondPrior)
+        use ($db,$work,&$receipt,$out): array {
+        $name = $scenario.'-'.bin2hex(random_bytes(4));
+        $cases = [
+            ['inputs'=>$inputs,'prior'=>$prior],
+            ['inputs'=>$secondInputs,'prior'=>$secondPrior],
+        ];
+        $processes = [];
+        $files = [];
+        for ($i=0;$i<2;$i++) {
+            $prefix = $work.'/'.$name.'-'.$i;
+            $caseFile=$prefix.'.case';
+            $ready=$prefix.'.ready'; $done=$prefix.'.done';
+            M17Qa::file($caseFile, $cases[$i]);
+            $cmd=[PHP_BINARY,__DIR__.'/qa.php','race-worker',$caseFile,$ready,$work.'/'.$name.'.go',$done];
+            $spec=[0=>['pipe','r'],1=>['file',$prefix.'.stdout','w'],2=>['file',$prefix.'.stderr','w']];
+            $p=proc_open($cmd,$spec,$pipes, dirname(__DIR__,3));
+            M17Qa::requireTrue(is_resource($p),'RACE_CHILD_NOT_STARTED');
+            fclose($pipes[0]);
+            $processes[]=$p;
+            $files[]=['ready'=>$ready,'done'=>$done,'prefix'=>$prefix];
+        }
+        $readyIds=[];
+        $end=microtime(true)+15;
+        while (microtime(true)<$end) {
+            $all=true;
+            foreach ($files as $file) $all=$all && is_file($file['ready']);
+            if ($all) break;
+            foreach ($processes as $p) {
+                $s=proc_get_status($p);
+                M17Qa::requireTrue($s['running'], 'RACE_WORKER_EXITED_BEFORE_BARRIER');
+            }
+            usleep(30000);
+        }
+        foreach ($files as $file) {
+            M17Qa::requireTrue(is_file($file['ready']), 'RACE_BARRIER_NEVER_FILLED');
+            $readyIds[]=(int)M17Qa::json($file['ready'])['connection_id'];
+        }
+        M17Qa::requireTrue(count(array_unique($readyIds))===2, 'RACE_CONNECTIONS_NOT_INDEPENDENT');
+        M17Qa::file($work.'/'.$name.'.go',['go'=>true]);
+
+        // QA-only AFTER INSERT trigger holds a real M17 run INSERT inside its transaction.
+        // Require another worker's connection to be simultaneously executing SQL, instead of
+        // inferring overlap merely from nearly simultaneous process start timestamps.
+        $observed=false;
+        $watchEnd=microtime(true)+11;
+        while (microtime(true)<$watchEnd) {
+            $holder=(int)($db->scalar("SELECT IS_USED_LOCK('m17_qa_overlap_lock')") ?? 0);
+            if (in_array($holder,$readyIds,true)) {
+                $other=$readyIds[0]===$holder?$readyIds[1]:$readyIds[0];
+                $sessions=$db->all('SELECT ID,COMMAND FROM information_schema.PROCESSLIST WHERE ID IN (?,?)',[$holder,$other]);
+                $observed=count($sessions)===2;
+                foreach ($sessions as $row) {
+                    if ((int)$row['ID']===$other && $row['COMMAND']!=='Query') $observed=false;
+                }
+                if ($observed) break;
+            }
+            usleep(30000);
+        }
+        $done=[];
+        $deadline=microtime(true)+32;
+        while (microtime(true)<$deadline) {
+            if (is_file($files[0]['done']) && is_file($files[1]['done'])) break;
+            usleep(35000);
+        }
+        foreach ($processes as $p) {
+            $status=proc_get_status($p);
+            if ($status['running']) proc_terminate($p,9);
+            proc_close($p);
+        }
+        foreach ($files as $file) {
+            M17Qa::requireTrue(is_file($file['done']), 'RACE_WORKER_NO_RESULT');
+            $done[]=M17Qa::json($file['done']);
+        }
+        M17Qa::requireTrue($observed, 'NO_OBSERVED_OVERLAPPING_M17_TRANSACTIONS');
+        foreach ($done as $d) {
+            M17Qa::requireTrue(in_array((int)$d['connection_id'],$readyIds,true),'WRONG_RACE_CONNECTION_ID');
+            M17Qa::requireTrue($d['is_ok']
+                || in_array($d['reason'],['M17_IDENTITY_RACE_REFUSED','DATABASE_ERROR'],true),
+                'UNEXPECTED_RACE_FAILURE');
+        }
+        $result=['scenario'=>$scenario,'status'=>'PASS','overlapping_db_queries_observed'=>true,
+            'connections_independent'=>true,'workers'=>array_map(static fn($v)=>[
+                'is_ok'=>$v['is_ok'],'action'=>$v['action'],'reason'=>$v['reason']],$done)];
+        $receipt['cases'][]=$result;
+        M17Qa::file($out,$receipt);
+        return $done;
+    };
+
+    // (1) Identical derivation: one run, rollup, memory, status and complete lineage.
+    $scope=M17Qa::scope($db,'race-identical');
+    $inputs=M17Qa::inputs($scope);
+    $results=$runPair('identical-run',$inputs,null,$inputs,null);
+    $derivation=MemoryStore::preview($inputs)->value()['derivation_identity_digest'];
+    $rows=$db->all('SELECT compression_run_id FROM temporal_compression_runs WHERE derivation_identity_digest=?',[$derivation]);
+    M17Qa::requireTrue(count($rows)===1,'DUPLICATE_DERIVATION_PERSISTED');
+    $run=(string)$rows[0]['compression_run_id'];
+    foreach (['temporal_rollups','temporal_memories'] as $table) {
+        M17Qa::requireTrue((int)$db->scalar('SELECT COUNT(*) FROM '.Database::identifier($table).' WHERE compression_run_id=?',[$run])===1,
+            'PARTIAL_OR_DUPLICATE_RUN_GRAPH');
+    }
+    $memory=(string)$db->scalar('SELECT temporal_memory_id FROM temporal_memories WHERE compression_run_id=?',[$run]);
+    M17Qa::requireTrue((int)$db->scalar('SELECT COUNT(*) FROM temporal_memory_status_transitions WHERE temporal_memory_id=?',[$memory])===1,
+        'DUPLICATE_TRANSITION');
+    M17Qa::requireTrue((int)$db->scalar('SELECT COUNT(*) FROM compression_lineage_links WHERE temporal_memory_id=?',[$memory])===3,
+        'INCOMPLETE_LINEAGE');
+    $replay=M17Qa::memory($db)->persistCandidate($inputs);
+    M17Qa::requireTrue($replay->isOk() && $replay->value()['action']==='EXACT_REPLAY_NO_WRITE',
+        'POST_RACE_IDENTICAL_REPLAY_NOT_IDEMPOTENT');
+
+    // (2) Two actual concurrent successors of the same immutable original.
+    $scope=M17Qa::scope($db,'race-fork');
+    $baseInputs=M17Qa::inputs($scope);
+    $base=M17Qa::storeRow($db,$baseInputs);
+    $children=$runPair('competing-successors',M17Qa::inputs($scope,'b'),$base,
+        M17Qa::inputs($scope,'c'),$base);
+    M17Qa::requireTrue($children[0]['is_ok'] && $children[1]['is_ok'],
+        'CONCURRENT_FORK_DID_NOT_PRESERVE_BOTH_CHILDREN');
+    M17Qa::requireTrue($children[0]['memory_id']!==$children[1]['memory_id'],'CHILDREN_NOT_DISTINCT');
+    M17Qa::requireTrue((int)$db->scalar('SELECT COUNT(*) FROM temporal_memories WHERE supersedes_memory_id=?',[$base])===2,
+        'CONCURRENT_FORK_CARDINALITY');
+    $head=M17Qa::memory($db)->headCandidates(
+        $scope,$baseInputs['input_set']['data_class'],$baseInputs['window']['kind'],
+        $baseInputs['window']['start_inclusive_utc'],$baseInputs['window']['end_exclusive_utc']
+    );
+    M17Qa::requireTrue($head->isOk() && $head->value()['status']==='AMBIGUOUS_HEAD_HOLD'
+        && count($head->value()['candidates'])===2,'CONCURRENT_FORK_DID_NOT_HOLD');
+
+    // (3) Same competitor, different question: no accidental logical identity union.
+    $scope=M17Qa::scope($db,'race-question');
+    $another=$scope;$another['question_id']=Ids::new();
+    $question=$runPair('separate-questions',M17Qa::inputs($scope),null,M17Qa::inputs($another),null);
+    M17Qa::requireTrue($question[0]['is_ok'] && $question[1]['is_ok'],'QUESTION_RACE_REFUSED');
+    M17Qa::requireTrue(M17Qa::memory($db)->replayCandidate($scope,$question[1]['memory_id'])
+        ->reasonCode()==='M17_REPLAY_CANDIDATE_NOT_FOUND','QUESTION_SCOPE_READ_LEAK');
+
+    // (4) Different tenants/workspaces: no foreign lineage or cross-scope discovery.
+    $a=M17Qa::scope($db,'race-tenant-a');
+    $b=M17Qa::scope($db,'race-tenant-b');
+    $tenant=$runPair('separate-tenants',M17Qa::inputs($a),null,M17Qa::inputs($b),null);
+    M17Qa::requireTrue($tenant[0]['is_ok'] && $tenant[1]['is_ok'],'TENANT_RACE_REFUSED');
+    M17Qa::requireTrue(M17Qa::memory($db)->replayCandidate($a,$tenant[1]['memory_id'])
+        ->reasonCode()==='M17_REPLAY_CANDIDATE_NOT_FOUND','TENANT_RACE_ISOLATION_FAILED');
+
+    M17Qa::removeOverlapTrigger($db);
+    M17Qa::requireTrue(M17Qa::triggerCount($db)===14,'RACE_LEFT_UNAPPROVED_EXTRA_TRIGGER');
+    M17Qa::requireTrue(
+        (int)$db->scalar("SELECT COUNT(*) FROM schema_migrations WHERE migration_id LIKE '280_m17_%'")===0,
+        'RACE_INSTALLED_UNADOPTED_PRODUCTION_MIGRATION'
+    );
+    $receipt['status']='PASS';
+    $receipt['scenarios']=count($receipt['cases']);
+    $receipt['worker_connections_unique_each_scenario']=true;
+    $receipt['final_g21_families']=M17Qa::familyCount($db);
+    $receipt['final_append_only_triggers']=M17Qa::triggerCount($db);
+    M17Qa::file($out,$receipt);
+    $cleanup();
+    echo json_encode(['status'=>'PASS','scenarios'=>count($receipt['cases']),'overlapping_db_transactions'=>true])."\n";
+} catch (\Throwable $e) {
+    if (isset($receipt,$out) && $out!=='') {
+        $receipt['status']='FAIL';
+        $receipt['failure_class']=(new ReflectionClass($e))->getShortName();
+        M17Qa::file($out,$receipt);
+    }
+    M17Qa::fail('RACE_EXCEPTION_'.preg_replace('/[^A-Z0-9_]/','_',strtoupper((new ReflectionClass($e))->getShortName())));
+}
