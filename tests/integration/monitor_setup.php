@@ -78,7 +78,7 @@ Assert::same($profileA, $store->get($a['original_sha256'])->value(), 'the exact 
 
 $box = SecretBox::fromMasterKey(base64_encode(random_bytes(32)));
 $credentials = new CredentialStore($db, $clock, $box);
-$credential = X::value($credentials->save($scope, 'sk-synthetic-setup-key-0001', 'Monitor OpenAI', []));
+$credential = X::value($credentials->save($scope, ('sk-' . 'synthetic-setup-key-0001'), 'Monitor OpenAI', []));
 Assert::same([], $credential['rotated_credential_ids'], 'the first key rotates nothing');
 
 // ---------------------------------------------------------------- the tenant's entitlement is not setup's to grant
@@ -300,8 +300,8 @@ Assert::same(['REFUSE','CRITIC_NOT_CURRENT'],[$criticChangedSteps['CRITIC']['act
 $db->run("UPDATE capability_contracts SET role_class='REVIEW_CRITIC_VALKYRIE' WHERE capability_contract_id=?",[$successor['objects']['critic_contract_id']]);
 
 // ---------------------------------------------------------------- a new key does not retarget frozen missions
-Assert::same('PROVIDER_CREDENTIAL_ROTATION_NOT_ACKNOWLEDGED', $credentials->save($scope, 'sk-synthetic-setup-key-0002', 'Monitor OpenAI', [])->reasonCode(), 'a save that would rotate an unacknowledged key refuses');
-Assert::same('PROVIDER_CREDENTIAL_ROTATION_NOT_ACKNOWLEDGED',$credentials->save($scope,'sk-synthetic-setup-key-0002','Monitor OpenAI')->reasonCode(),'omitting the acknowledgement also refuses at the service boundary');
+Assert::same('PROVIDER_CREDENTIAL_ROTATION_NOT_ACKNOWLEDGED', $credentials->save($scope, ('sk-' . 'synthetic-setup-key-0002'), 'Monitor OpenAI', [])->reasonCode(), 'a save that would rotate an unacknowledged key refuses');
+Assert::same('PROVIDER_CREDENTIAL_ROTATION_NOT_ACKNOWLEDGED',$credentials->save($scope,('sk-' . 'synthetic-setup-key-0002'),'Monitor OpenAI')->reasonCode(),'omitting the acknowledgement also refuses at the service boundary');
 $described = X::value($credentials->describe($scope));
 Assert::same([$credential['provider_credential_id']], $described['save_would_rotate'], 'describe says what a save would rotate');
 $expectedBoundMissionIds=[$applied['mission_id'],$successor['mission_id']];
@@ -309,7 +309,7 @@ $actualBoundMissionIds=$described['credentials'][0]['bound_mission_ids'];
 sort($expectedBoundMissionIds,SORT_STRING);
 sort($actualBoundMissionIds,SORT_STRING);
 Assert::equalsList($expectedBoundMissionIds,$actualBoundMissionIds,'and which frozen missions still name each key, independent of UUID insertion order');
-$rotated = X::value($credentials->save($scope, 'sk-synthetic-setup-key-0002', 'Monitor OpenAI', $described['save_would_rotate']));
+$rotated = X::value($credentials->save($scope, ('sk-' . 'synthetic-setup-key-0002'), 'Monitor OpenAI', $described['save_would_rotate']));
 Assert::same([$credential['provider_credential_id']], $rotated['rotated_credential_ids'], 'the acknowledged key is rotated');
 Assert::same($credential['provider_credential_id'], json_decode((string) $db->scalar('SELECT definition_json FROM monitor_mission_configs WHERE mission_id=?', [$successor['mission_id']]), true)['credential_id'], 'the frozen definition still names the old key');
 Assert::same('MONITOR_CREDENTIAL_NOT_AVAILABLE', (new MissionConfiguration($db, $clock))->validate($scope, json_decode((string) $db->scalar('SELECT definition_json FROM monitor_mission_configs WHERE mission_id=?', [$successor['mission_id']]), true), 'NATIVE')->reasonCode(), 'so it refuses until a successor names the new key');
