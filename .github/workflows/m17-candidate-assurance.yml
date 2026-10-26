@@ -25,7 +25,6 @@ jobs:
         mariadb: ['10.6', '10.11']
     env:
       M17_QA_RUN_ID: m17-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.mariadb }}
-      TEST_ENV_FILE: ${{ runner.temp }}/m17-candidate-test.env
     services:
       mariadb:
         image: mariadb:${{ matrix.mariadb }}
@@ -56,6 +55,8 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
+          TEST_ENV_FILE="$RUNNER_TEMP/m17-candidate-test.env"
+          printf 'TEST_ENV_FILE=%s\n' "$TEST_ENV_FILE" >> "$GITHUB_ENV"
           printf '%s\n' \
             APP_ENV=testing DB_HOST=127.0.0.1 DB_PORT=3306 \
             DB_NAME=m17_candidate_qa DB_USER=m17_qa \
