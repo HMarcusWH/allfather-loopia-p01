@@ -1,0 +1,94 @@
+{
+  "schema_version": "li07a.synthetic-fixture.v1",
+  "scope": {
+    "tenant_id": "tenant_li07_fixture",
+    "workspace_id": "workspace_li07_fixture",
+    "competitor_id": "competitor_li07_fixture",
+    "question_id": "question_li07_fixture"
+  },
+  "class": "SOURCE_DIFF",
+  "observation_at_utc": "2026-03-29T10:00:00Z",
+  "evaluation_time_utc": "2026-04-02T00:00:00Z",
+  "calendar": "Europe/Stockholm",
+  "refs": [
+    {
+      "ref_id": "ref_a",
+      "ref_type": "SOURCE_DIFF",
+      "source_ref_id": "source_a",
+      "observed_at_utc": "2026-03-29T10:00:00Z",
+      "payload_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "magnitude_milli": 300,
+      "polarity": "SUPPORT",
+      "conflict_flag": false,
+      "diagnostic_flag": false
+    },
+    {
+      "ref_id": "ref_b",
+      "ref_type": "SOURCE_DIFF",
+      "source_ref_id": "source_b",
+      "observed_at_utc": "2026-03-29T10:10:00Z",
+      "payload_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "magnitude_milli": 600,
+      "polarity": "CONTRARY",
+      "conflict_flag": false,
+      "diagnostic_flag": true
+    },
+    {
+      "ref_id": "ref_c",
+      "ref_type": "SOURCE_DIFF",
+      "source_ref_id": "source_c",
+      "observed_at_utc": "2026-03-29T10:20:00Z",
+      "payload_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "magnitude_milli": null,
+      "polarity": "UNKNOWN",
+      "conflict_flag": true,
+      "diagnostic_flag": false
+    },
+    {
+      "ref_id": "ref_outside",
+      "ref_type": "SOURCE_DIFF",
+      "source_ref_id": "source_outside",
+      "observed_at_utc": "2026-04-02T00:00:00Z",
+      "payload_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "magnitude_milli": 800,
+      "polarity": "SUPPORT",
+      "conflict_flag": false,
+      "diagnostic_flag": false
+    }
+  ],
+  "late_ref": {
+    "ref_id": "ref_late",
+    "ref_type": "SOURCE_DIFF",
+    "source_ref_id": "source_late",
+    "observed_at_utc": "2026-03-29T10:22:00Z",
+    "payload_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "magnitude_milli": null,
+    "polarity": "CONTRARY",
+    "conflict_flag": true,
+    "diagnostic_flag": true
+  },
+  "expected": {
+    "selected_ref_ids": [
+      "ref_a",
+      "ref_b",
+      "ref_c"
+    ],
+    "outside_ref_ids": [
+      "ref_outside"
+    ],
+    "contradictory_ref_ids": [
+      "ref_b",
+      "ref_c"
+    ],
+    "diagnostic_ref_ids": [
+      "ref_b"
+    ],
+    "distinct_payload_hashes": 2,
+    "selected_count": 3,
+    "known_magnitude_count": 2,
+    "magnitude_sum_milli": 900,
+    "unknown_magnitude_count": 1,
+    "spring_day_duration_seconds": 82800
+  },
+  "disclosure": "Synthetic opaque refs and hashes only; no source bytes or tenant data."
+}

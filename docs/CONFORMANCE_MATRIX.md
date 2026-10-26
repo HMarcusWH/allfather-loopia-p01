@@ -331,3 +331,21 @@ implementing canonical exactly, and `governed_vocabulary.php` asserts their equa
 | Hosted qualification | Require existing strict foundation/Node/complete MariaDB 10.6+10.11 and exact prepared-package rsync gate; green source code does not approve U04, M17 memory or a customer output |
 
 Current source vectors: `tests/fixtures/temporal_contract_vectors.json`, `tests/unit/temporal_windows.php`, `tests/unit/temporal_profiles.php`, `tests/conformance/temporal_vectors.php`, `tests/foundation/m17_offline_boundary.php`. **Time-rule limitation:** a PHP system tzdb reported as `0.system` does not uniquely fingerprint the underlying OS zoneinfo; the source explicitly records interval endpoints/offsets and reports that cross-host TZDB equivalence is unverified. Full U04 adoption, governed persisted replay, migration qualification and runtime/host behavior are **NOT_ASSESSED** here. See [M17 Projection Contract](M17_PROJECTION_CONTRACT.md).
+
+---
+
+## 2026-10-26 LI-07A offline derived-memory candidate checks (not canonical M17 parity)
+
+Canonical M17 remains **ARCHITECTURE_SPEC_ONLY**, so this is a narrow PHP candidate/negative-test matrix rather than a claimed conformance result against a running canonical M17 module.
+
+| Contract | Verified via source + synthetic tests |
+| --- | --- |
+| Referential rollup | Exact frozen LI-06A input/window/profile/measure digest checks; strictly closed metadata-only shapes, signed? **NO — hash-bound only**; no evidence bytes, model text or database |
+| Isolation and authority | Tenant/workspace/P01 scope and class match; `NOT_ADMITTED`, `NOT_ASSESSED`, customer/release ineligible; even rehashed fake-authority fields refused |
+| Conflict preservation | Every in-window contrary/conflict and diagnostic ref present in full lineage, caveats and deterministic measures; outside-window refs explicitly retained; byte repeats not falsely independent |
+| Window/time and unknowns | Half-open UTC with declared Stockholm DST; null business importance/unknown magnitude/coverage preserved; zero selected input means `INSUFFICIENT_INPUT`, not `NO_CHANGE` |
+| Immutable successor *proposal* | Same scope/class/period/profile, unchanged old selected refs and retained outside-window identities, strict addition of new selected ref; otherwise explicit refusal |
+| Metadata replay | Derived with current pure functions from frozen metadata only; exact re-derivation `MATCH_METADATA_ONLY`, changed input `DIVERGED`, reported missing/redacted input `NOT_REPLAYABLE`; no source fetch or M11 write |
+| Static inertness | Foundation asserts no M17 persistent Store, proposed migration 280, CLI run/replay, owner adapter, network/SQL/model/effect route; four owner decision JSONs remain untouched |
+
+**Merge acceptance:** exact hosted CI on synthetic PR merge tree; strict full MariaDB 10.6 and 10.11 zero fail/skip, foundation, package/rsync, and aggregate receipt. Staging uses Railway Wait for CI, but code qualification does **not** grant U04/U03/U06 decisions or production. Source vectors: `tests/fixtures/li07a_rollup_cases.json`, unit/temporal_rollup_*, conformance/temporal_rollup_vectors.php, security/temporal_rollup_no_authority.php, foundation/m17_li07a_offline_boundary.php. Contract and refusal semantics: [LI07A Offline Rollup, Lineage and Replay](LI07A_OFFLINE_ROLLUP_LINEAGE_REPLAY.md).
