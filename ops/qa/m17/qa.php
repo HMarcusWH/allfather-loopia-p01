@@ -326,6 +326,9 @@ final class M17Qa
     }
 }
 
+// Importable by independent QA scripts without executing the CLI dispatch.
+if (realpath((string)($_SERVER['SCRIPT_FILENAME'] ?? '')) !== __FILE__) return;
+
 try {
     $cmd = $argv[1] ?? '';
     if ($cmd === 'guard') {
