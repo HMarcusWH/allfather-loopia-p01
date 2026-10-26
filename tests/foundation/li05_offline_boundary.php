@@ -30,7 +30,16 @@ foreach ($files as $file) {
 }
 Assert::false(is_file($root . '/database/migrations/270_history_review_bases.sql'), 'R2 persistence migration remains unapproved');
 Assert::false(is_file($root . '/ops/history/preview.php'), 'no operator historical model preview action');
-Assert::false(is_file($root . '/app/Workflow/HistoryReviewContext.php'), 'no new dispatch-time model context');
+// LI-05C's new context is inert: its dispatch/routing gates always refuse.
+Assert::true(is_file($root . '/app/Workflow/HistoryReviewContext.php'),
+    'history context exists as a non-dispatchable preview');
+$inertHistoryContext=new \Allfather\Loopia\Workflow\HistoryReviewContext();
+Assert::same('LI05C_U03_U06_HISTORICAL_MODEL_PURPOSE_NOT_ADOPTED',
+    $inertHistoryContext->revalidate([])->reasonCode(),
+    'history context cannot admit dispatch-time model use');
+Assert::same('LI05C_HISTORICAL_ROUTING_NOT_ADOPTED',
+    $inertHistoryContext->validateRoutingPackage([],[],[])->reasonCode(),
+    'history context cannot admit routing or output');
 $doc = (string) file_get_contents($root . '/docs/LI05_OFFLINE_HISTORY_BASIS_CONTRACT.md');
 Assert::contains('U03', $doc, 'owner gate U03 kept explicit');
 Assert::contains('U06', $doc, 'owner gate U06 kept explicit');
