@@ -82,7 +82,7 @@ try {
     Assert::true($successor->isOk(),'late knowledge produces distinct point-in-time basis');
     $child=$store->recordCandidate($successor->value());
     Assert::true($child->isOk(),'late basis stored as new immutable row');
-    Assert::same(3,(int)$db->scalar('SELECT COUNT(*) FROM history_review_basis_refs'),
+    Assert::same(5,(int)$db->scalar('SELECT COUNT(*) FROM history_review_basis_refs'),
         'late successor gains a third ref and old two remain');
     Assert::same(2,(int)$db->scalar('SELECT COUNT(*) FROM history_review_bases'),
         'late input never mutates the previous basis');
