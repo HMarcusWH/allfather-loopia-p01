@@ -75,15 +75,23 @@ try {
         // Require another worker's connection to be simultaneously executing SQL, instead of
         // inferring overlap merely from nearly simultaneous process start timestamps.
         $observed=false;
+        $sawLock=false;
+        $processCountMax=0;
+        $commandsSeen=[];
         $watchEnd=microtime(true)+11;
         while (microtime(true)<$watchEnd) {
             $holder=(int)($db->scalar("SELECT IS_USED_LOCK('m17_qa_overlap_lock')") ?? 0);
             if (in_array($holder,$readyIds,true)) {
+                $sawLock=true;
                 $other=$readyIds[0]===$holder?$readyIds[1]:$readyIds[0];
                 $sessions=$db->all('SELECT ID,COMMAND FROM information_schema.PROCESSLIST WHERE ID IN (?,?)',[$holder,$other]);
+                $processCountMax=max($processCountMax,count($sessions));
                 $observed=count($sessions)===2;
                 foreach ($sessions as $row) {
-                    if ((int)$row['ID']===$other && $row['COMMAND']!=='Query') $observed=false;
+                    $command=(string)$row['COMMAND'];
+                    $commandsSeen[$command]=true;
+                    if ((int)$row['ID']===$other
+                        && !in_array($command,['Query','Execute','Prepare'],true)) $observed=false;
                 }
                 if ($observed) break;
             }
@@ -104,6 +112,11 @@ try {
             M17Qa::requireTrue(is_file($file['done']), 'RACE_WORKER_NO_RESULT');
             $done[]=M17Qa::json($file['done']);
         }
+        $witness=['scenario'=>$scenario,'lock_seen'=>$sawLock,'max_live_sessions'=>$processCountMax,
+            'processlist_commands'=>array_keys($commandsSeen),
+            'worker_outcomes'=>array_map(static fn($r)=>['ok'=>$r['is_ok'],'reason'=>$r['reason'],
+                'action'=>$r['action']],$done)];
+        echo 'M17_QA_OBSERVATION '.json_encode($witness,JSON_THROW_ON_ERROR)."\n";
         M17Qa::requireTrue($observed, 'NO_OBSERVED_OVERLAPPING_M17_TRANSACTIONS');
         foreach ($done as $d) {
             M17Qa::requireTrue(in_array((int)$d['connection_id'],$readyIds,true),'WRONG_RACE_CONNECTION_ID');
