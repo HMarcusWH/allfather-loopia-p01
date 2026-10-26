@@ -8,6 +8,10 @@ declare(strict_types=1);
  */
 require_once __DIR__.'/qa.php';
 
+use Allfather\Loopia\Core\Ids;
+use Allfather\Loopia\Db\Database;
+use Allfather\Loopia\Substrate\M17\MemoryStore;
+
 try {
     $db = M17Qa::db();
     if (!function_exists('proc_open') || !function_exists('proc_terminate')) M17Qa::fail('PHP_PROCESS_CONTROL_UNAVAILABLE');
