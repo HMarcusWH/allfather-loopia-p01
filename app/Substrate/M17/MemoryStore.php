@@ -210,8 +210,11 @@ final class MemoryStore
             });
         } catch (\PDOException $e) {
             return Database::classify($e,'M17_IDENTITY_RACE_REFUSED');
-        } catch (\Throwable) {
-            return Outcome::failure('M17_DISPOSABLE_PERSISTENCE_FAILED');
+        } catch (\Throwable $error) {
+            // An exception TYPE is safe diagnostic evidence; never log SQL, parameters or bytes.
+            return Outcome::failure('M17_DISPOSABLE_PERSISTENCE_FAILED', [
+                'exception_type' => get_debug_type($error),
+            ]);
         }
     }
 

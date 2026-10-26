@@ -44,7 +44,12 @@ try {
     Assert::true($factory->isOk(),'only explicit disposable test bootstrap creates persistence harness');
     $store=$factory->value();
     $first=$store->persistCandidate($inputs);
-    Assert::true($first->isOk(),'candidate writes to seven-family fixture schema');
+    $reason=$first->isOk() ? 'OK' : $first->reasonCode();
+    $sqlState=$first->isOk() ? '' : (string)($first->detail['sqlstate'] ?? '');
+    $driverCode=$first->isOk() ? '' : (string)($first->detail['driver_code'] ?? '');
+    $exceptionType=$first->isOk() ? '' : (string)($first->detail['exception_type'] ?? '');
+    Assert::true($first->isOk(),'candidate writes to seven-family fixture schema'
+        .' [result='.$reason.',sqlstate='.$sqlState.',dbcode='.$driverCode.',exception='.$exceptionType.']');
     if (!$first->isOk()) return;
     $v=$first->value();
     Assert::same('DISPOSABLE_CANDIDATE_RECORDED',$v['action'],'first input creates only a non-admitted candidate');
