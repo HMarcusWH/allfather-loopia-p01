@@ -15,8 +15,8 @@ done
 [[ "$VERSION" == '10.6' || "$VERSION" == '10.11' ]] || usage
 [[ -n "$RECEIPT" && ! -e "$RECEIPT" ]] || usage
 [[ "$M17_QA_RUN_ID" =~ ^[a-zA-Z0-9_.-]{8,100}$ ]] || { echo 'M17_QA_RUN_ID_REQUIRED' >&2; exit 3; }
-[[ "$GITHUB_ACTIONS" == 'true' && "$RUNNER_ENVIRONMENT" == 'github-hosted' ]] \
-  || [[ "$M17_QA_LOCAL_DOCKER" == 'EXPLICIT_DISPOSABLE_DOCKER_ONLY' ]] \
+[[ "${GITHUB_ACTIONS:-}" == 'true' && "${RUNNER_ENVIRONMENT:-}" == 'github-hosted' ]] \
+  || [[ "${M17_QA_LOCAL_DOCKER:-}" == 'EXPLICIT_DISPOSABLE_DOCKER_ONLY' ]] \
   || { echo 'TRUSTED_EPHEMERAL_DOCKER_REQUIRED' >&2; exit 3; }
 for tool in docker php tar sha256sum age age-keygen awk cut; do
   command -v "$tool" >/dev/null || { echo "M17_QA_TOOL_MISSING: $tool" >&2; exit 3; }
