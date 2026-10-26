@@ -401,6 +401,8 @@ try {
         M17Qa::file($out,[
             'connection_id'=>$connection,'pid'=>getmypid(),
             'is_ok'=>$result->isOk(),'reason'=>$result->isOk()?'OK':$result->reasonCode(),
+            'sqlstate'=>$result->isOk()?'':(string)($result->detail['sqlstate']??''),
+            'driver_code'=>$result->isOk()?0:(int)($result->detail['driver_code']??0),
             'action'=>$result->isOk()?($result->value()['action']??'UNKNOWN'):'NONE',
             'memory_id'=>$result->isOk()?($result->value()['memory_id']??null):null,
         ]);
