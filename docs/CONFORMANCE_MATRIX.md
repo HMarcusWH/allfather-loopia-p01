@@ -313,3 +313,21 @@ which is not the same claim as conformant: the ceiling states what the SOURCES p
 was answering that question differently from canonical in order to encode a deployment decision the
 activation pin already encodes. There was no host necessity. Both compile paths now call one fold
 implementing canonical exactly, and `governed_vocabulary.php` asserts their equality.
+
+---
+
+## 2026-10-26 — LI-06A M17 offline reference-contract verification
+
+**Status: SOURCE-ONLY CONFORMANCE CANDIDATE, not canonical M17 runtime parity.** The canonical M17 architecture and typed contracts remain specification-only at `HMarcusWH/Allfatherbusinessintelligence@1169428f...` (blobs `271e3226dbb359f4fbfb8fe2c6179cec91d02c28` and `9e57eaef5a88c90451f13cf4ba7fe6afe5a922f5`). Thus PHP regression vectors cannot establish cross-language runtime parity with non-existent M17 implementation; they test the bounded subset `li06a.offline.*.v1` under an unadopted U04 proposal.
+
+| Test plane | Source check / required disposition |
+| --- | --- |
+| UTC/calendar | Strict normalized UTC timestamps; half-open DAY/WEEK/MONTH; ISO week rollover; Stockholm spring/fall 23h/25h; unknown/fiscal/campaign/event kinds refuse, unknown tzdb version refuses |
+| Default ladders | SOURCE_DIFF 14/90 versus COMPANY_SIGNAL 30/180 day transitions; HIGH or UNKNOWN volatility holds finer DAY; no run/schedule created |
+| Profile semantics | Field-wise narrowing, same-level narrowest-wins, recorded rejected widening, floor candidates applied last, no customer/release visibility, U04/M13 source unverified |
+| Integer candidate measures | Density uses actual bucket seconds, significance separate from business materiality, exact rational mean/variance, absent importance UNKNOWN, contradiction/diagnostic refs preserved, no independent event inferred from repeated SHA |
+| Identity and isolation | Closed tenant/workspace/P01 competitor/question refs; canonical input digest independent of order; duplicate and cross-class refused; no body, URL, grants or provider text |
+| Foundation static | No M17 database/service/provider/effect calls, no M17 schema migration, no schedule, no M05/ContextEnvelope integration; owner decisions unchanged |
+| Hosted qualification | Require existing strict foundation/Node/complete MariaDB 10.6+10.11 and exact prepared-package rsync gate; green source code does not approve U04, M17 memory or a customer output |
+
+Current source vectors: `tests/fixtures/temporal_contract_vectors.json`, `tests/unit/temporal_windows.php`, `tests/unit/temporal_profiles.php`, `tests/conformance/temporal_vectors.php`, `tests/foundation/m17_offline_boundary.php`. **Time-rule limitation:** a PHP system tzdb reported as `0.system` does not uniquely fingerprint the underlying OS zoneinfo; the source explicitly records interval endpoints/offsets and reports that cross-host TZDB equivalence is unverified. Full U04 adoption, governed persisted replay, migration qualification and runtime/host behavior are **NOT_ASSESSED** here. See [M17 Projection Contract](M17_PROJECTION_CONTRACT.md).

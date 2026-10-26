@@ -1,0 +1,194 @@
+{
+  "schema_version": "li06a.synthetic-contract-vectors.v1",
+  "origin": "All rows and IDs synthetic. M17 architecture source documents are spec-only. No real owner grants.",
+  "source_sha": {
+    "architecture": "271e3226dbb359f4fbfb8fe2c6179cec91d02c28",
+    "interfaces": "9e57eaef5a88c90451f13cf4ba7fe6afe5a922f5"
+  },
+  "scope": {
+    "tenant_id": "tenant_m17_synthetic",
+    "workspace_id": "workspace_m17_synthetic",
+    "competitor_id": "competitor_m17_synthetic",
+    "question_id": "question_m17_synthetic"
+  },
+  "windows": [
+    {
+      "case": "UTC_day",
+      "kind": "DAY",
+      "observation_at_utc": "2026-03-29T14:30:00Z",
+      "timezone": null,
+      "start_inclusive_utc": "2026-03-29T00:00:00Z",
+      "end_exclusive_utc": "2026-03-30T00:00:00Z",
+      "duration_seconds": 86400
+    },
+    {
+      "case": "Stockholm_spring_forward",
+      "kind": "DAY",
+      "observation_at_utc": "2026-03-29T10:00:00Z",
+      "timezone": "Europe/Stockholm",
+      "start_inclusive_utc": "2026-03-28T23:00:00Z",
+      "end_exclusive_utc": "2026-03-29T22:00:00Z",
+      "duration_seconds": 82800
+    },
+    {
+      "case": "Stockholm_fall_back",
+      "kind": "DAY",
+      "observation_at_utc": "2026-10-25T10:00:00Z",
+      "timezone": "Europe/Stockholm",
+      "start_inclusive_utc": "2026-10-24T22:00:00Z",
+      "end_exclusive_utc": "2026-10-25T23:00:00Z",
+      "duration_seconds": 90000
+    },
+    {
+      "case": "ISO_week_year_boundary",
+      "kind": "WEEK",
+      "observation_at_utc": "2027-01-01T12:00:00Z",
+      "timezone": "UTC",
+      "start_inclusive_utc": "2026-12-28T00:00:00Z",
+      "end_exclusive_utc": "2027-01-04T00:00:00Z",
+      "duration_seconds": 604800
+    },
+    {
+      "case": "Stockholm_month_spring",
+      "kind": "MONTH",
+      "observation_at_utc": "2026-03-31T22:30:00Z",
+      "timezone": "Europe/Stockholm",
+      "start_inclusive_utc": "2026-03-31T22:00:00Z",
+      "end_exclusive_utc": "2026-04-30T22:00:00Z",
+      "duration_seconds": 2592000
+    },
+    {
+      "case": "UTC_leap_february",
+      "kind": "MONTH",
+      "observation_at_utc": "2024-02-29T21:00:00Z",
+      "timezone": "UTC",
+      "start_inclusive_utc": "2024-02-01T00:00:00Z",
+      "end_exclusive_utc": "2024-03-01T00:00:00Z",
+      "duration_seconds": 2505600
+    }
+  ],
+  "source_diff_profile_defaults": {
+    "day_until_age_days": 14,
+    "week_until_age_days": 90,
+    "retention_expectation_days": 365,
+    "minimum_lineage": "EVERY_INPUT_REF",
+    "aggressiveness": "HIGH"
+  },
+  "company_signal_profile_defaults": {
+    "day_until_age_days": 30,
+    "week_until_age_days": 180,
+    "retention_expectation_days": 730,
+    "minimum_lineage": "EVERY_INPUT_REF",
+    "aggressiveness": "MEDIUM"
+  },
+  "input_set": {
+    "scope": {
+      "tenant_id": "tenant_m17_synthetic",
+      "workspace_id": "workspace_m17_synthetic",
+      "competitor_id": "competitor_m17_synthetic",
+      "question_id": "question_m17_synthetic"
+    },
+    "data_class": "SOURCE_DIFF",
+    "refs": [
+      {
+        "ref_id": "ref_one",
+        "ref_type": "SOURCE_DIFF",
+        "source_ref_id": "source_one",
+        "observed_at_utc": "2026-03-29T00:15:00Z",
+        "payload_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "magnitude_milli": 100,
+        "polarity": "SUPPORT",
+        "conflict_flag": false,
+        "diagnostic_flag": false
+      },
+      {
+        "ref_id": "ref_two",
+        "ref_type": "SOURCE_DIFF",
+        "source_ref_id": "source_two",
+        "observed_at_utc": "2026-03-29T10:00:00Z",
+        "payload_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "magnitude_milli": 300,
+        "polarity": "CONTRARY",
+        "conflict_flag": true,
+        "diagnostic_flag": true
+      },
+      {
+        "ref_id": "ref_three",
+        "ref_type": "SOURCE_DIFF",
+        "source_ref_id": "source_three",
+        "observed_at_utc": "2026-03-29T21:00:00Z",
+        "payload_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "magnitude_milli": null,
+        "polarity": "UNKNOWN",
+        "conflict_flag": false,
+        "diagnostic_flag": true
+      },
+      {
+        "ref_id": "ref_four",
+        "ref_type": "SOURCE_DIFF",
+        "source_ref_id": "source_four",
+        "observed_at_utc": "2026-03-30T00:00:00Z",
+        "payload_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "magnitude_milli": 900,
+        "polarity": "SUPPORT",
+        "conflict_flag": false,
+        "diagnostic_flag": false
+      }
+    ]
+  },
+  "expected_spring_day_measures": {
+    "reference_count": 3,
+    "contrary_or_conflict_refs": [
+      "ref_two"
+    ],
+    "high_diagnosticity_refs": [
+      "ref_two",
+      "ref_three"
+    ],
+    "distinct_payload_hashes": 2,
+    "independent_event_count": null,
+    "magnitude_sum_milli": 400,
+    "unknown_magnitude_count": 1,
+    "known_magnitude_count": 2,
+    "population_variance_numerator": 40000,
+    "population_variance_denominator": 4,
+    "business_importance_basis_points": null
+  },
+  "age_edges": [
+    {
+      "data_class": "SOURCE_DIFF",
+      "days": 13,
+      "kind": "DAY"
+    },
+    {
+      "data_class": "SOURCE_DIFF",
+      "days": 14,
+      "kind": "WEEK"
+    },
+    {
+      "data_class": "SOURCE_DIFF",
+      "days": 89,
+      "kind": "WEEK"
+    },
+    {
+      "data_class": "SOURCE_DIFF",
+      "days": 90,
+      "kind": "MONTH"
+    },
+    {
+      "data_class": "COMPANY_SIGNAL",
+      "days": 14,
+      "kind": "DAY"
+    },
+    {
+      "data_class": "COMPANY_SIGNAL",
+      "days": 30,
+      "kind": "WEEK"
+    },
+    {
+      "data_class": "COMPANY_SIGNAL",
+      "days": 180,
+      "kind": "MONTH"
+    }
+  ]
+}
