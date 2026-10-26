@@ -87,7 +87,7 @@ final class MemoryStore
             return Outcome::refuse('M17_PREDECESSOR_ID_INVALID');
         }
         try {
-            return $this->db->transaction(function (Database $tx) use ($v, $id, $priorMemoryId): Outcome {
+            return $this->db->transaction(function (Database $tx) use ($v, $id, $priorMemoryId, $frozenInputs): Outcome {
                 $existing = $tx->one(
                     'SELECT m.temporal_memory_id,m.supersedes_memory_id,r.rollup_digest
                      FROM temporal_compression_runs cr
