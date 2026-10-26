@@ -42,3 +42,14 @@ The original JSON names the old PHP source and describes PR64 as OPEN at the tim
 No new migration is approved by this ledger: the 31 existing migrations include historical 900 and must not be edited. Future additive migrations require fresh/upgrade/no-op/restore tests against disposable MariaDB 10.6/10.11. No customer-facing route, provider spend, source fetch, new role, scheduled inference, notification, or production GO is authorized by these plans.
 
 Machine-readable dated facts: [STATUS_LEDGER_2026-10-25.json](STATUS_LEDGER_2026-10-25.json).
+
+
+---
+
+## Additive status overlay — 2026-10-26 LI-05A source candidate
+
+**Source base:** PHP `main@b809d971a70a0f74dd6707f7df88b26a0d58d058` after PR #82. Historical rows and original source handover above remain dated facts and are **not** overwritten. PR #82 source was GitHub code-qualified in [CI #623](https://github.com/HMarcusWH/allfather-loopia-p01/actions/runs/40247770792), then merged. Post-merge [CI #624](https://github.com/HMarcusWH/allfather-loopia-p01/actions/runs/40323597662) ran all five jobs successfully, and Railway staging deployment `a3262ed8-352d-43bf-a03c-fd3b249dbb23` reported SUCCESS on its exact merge SHA with Wait for CI enabled. These are **source and staging observations only**, not a new rights or runtime activation query.
+
+**R2 LI-05A candidate (PR #83):** Proposed version-locked pure PHP contracts for UTC point-in-time membership, first-known cutoff, deterministic reference ordering, bounded selection, explicit contrary omission, repeat-versus-corroboration distinction, and digest-bound non-admitted manifest. All inputs are caller-supplied metadata; there is no new historical-use source admission, P01/P02 mapping, M17 persistence, model dispatch, live source fetch, operator/browser route, provider budget, customer output or production release. Pending owner decisions **U03/U06** remain **NOT_ADOPTED / NOT_ADMITTED**. The offline basis does not rewrite old M05 captures, P01 observations, legacy receipts, the four reviewed model-evaluation decision files or existing migrations.
+
+**Next gate:** LI-05B can add current-rights/byte revalidation, governed historical context and proposed additive persistence only after canonical U03 and U06 ratification, selective adoption and strict migration/recovery QA. Upstream PRs [U01 #379](https://github.com/HMarcusWH/Allfatherbusinessintelligence/pull/379) and [U04 #378](https://github.com/HMarcusWH/Allfatherbusinessintelligence/pull/378) were still open at the planning read and confer no permission. The full public Git-history/personal-information audit remains **UNVERIFIED**; CI-FIX-06 source scanning does not close it. See [LI05 contract](../LI05_OFFLINE_HISTORY_BASIS_CONTRACT.md).
