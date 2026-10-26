@@ -213,7 +213,7 @@ final class M17Qa
 
     public static function installOverlapTrigger(Database $db): void
     {
-        $db->pdo()->exec("CREATE TRIGGER m17_qa_overlap_after_run AFTER INSERT ON temporal_compression_runs
+        $db->pdo()->exec("CREATE TRIGGER m17_qa_overlap_before_run BEFORE INSERT ON temporal_compression_runs
             FOR EACH ROW BEGIN
                 IF COALESCE(@m17_qa_overlap,0)=1 THEN
                     SET @m17_qa_lock_status = GET_LOCK('m17_qa_overlap_lock',5);
@@ -225,7 +225,7 @@ final class M17Qa
 
     public static function removeOverlapTrigger(Database $db): void
     {
-        $db->pdo()->exec('DROP TRIGGER IF EXISTS m17_qa_overlap_after_run');
+        $db->pdo()->exec('DROP TRIGGER IF EXISTS m17_qa_overlap_before_run');
     }
 
     public static function manifest(Database $db): array
