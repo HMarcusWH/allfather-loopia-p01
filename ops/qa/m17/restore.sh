@@ -79,6 +79,20 @@ wait_db() {
   echo 'M17_QA_CONTAINER_DATABASE_NOT_READY' >&2
   return 1
 }
+wait_tcp() {
+  local port end
+  port="$(docker port "$1" 3306/tcp | awk -F: 'NR==1 {print $NF}')"
+  [[ "$port" =~ ^[0-9]+$ ]] || return 1
+  end=$((SECONDS+30))
+  while [ "$SECONDS" -lt "$end" ]; do
+    if php -r '$s=@fsockopen("127.0.0.1",(int)$argv[1],$e,$m,1); if(!$s) exit(1); fclose($s);' "$port"; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo 'M17_QA_DOCKER_TCP_NOT_READY' >&2
+  return 1
+}
 write_env() {
   local port
   port="$(docker port "$1" 3306/tcp | awk -F: 'NR==1 {print $NF}')"
@@ -99,14 +113,18 @@ STAGE='PRIMARY_START'
 launch_db "$PRIMARY" "$VOLUME_A"
 PRIMARY_CREATED=true
 wait_db "$PRIMARY"
+wait_tcp "$PRIMARY"
 write_env "$PRIMARY" "$WORK/primary.env"
 cp "$WORK/primary.env" "$WORK/current.env"
 chmod 0600 "$WORK/current.env"
 STAGE='PARTIAL_DDL_AND_SYNTHETIC_SEED'
 run_qa guard >/dev/null
 run_qa init > "$WORK/init.json"
+echo 'M17_QA_CHECKPOINT: partial-ddl-and-active-migrations-done'
 run_qa seed "$WORK/seed.json" >/dev/null
+echo 'M17_QA_CHECKPOINT: synthetic-population-done'
 run_qa verify "$WORK/seed.json" > "$WORK/pre-backup-verify.json"
+echo 'M17_QA_CHECKPOINT: initial-semantics-verified'
 run_qa manifest "$WORK/original-manifest.json" >/dev/null
 mkdir -p "$WORK/prepared/artifacts"
 printf 'M17 SYNTHETIC DATA ONLY\nNo licensed sources, customer records or production evidence.\n' \
@@ -149,7 +167,9 @@ wait "$holder_pid" >/dev/null 2>&1 || true
 STAGE='SAME_VOLUME_RECOVERY'
 docker start "$PRIMARY" >/dev/null
 wait_db "$PRIMARY"
+wait_tcp "$PRIMARY"
 run_qa compare "$WORK/original-manifest.json" > "$WORK/crash-verify.json"
+echo 'M17_QA_CHECKPOINT: crash-consistency-verified'
 test "$(docker exec -e MYSQL_PWD=m17_ephemeral_user "$PRIMARY" \
     mariadb -u m17_qa -D m17_candidate_qa --batch --skip-column-names \
     -e 'SELECT value_text FROM m17_qa_crash_probe WHERE id=1')" = 'COMMITTED_BEFORE_CRASH'
@@ -158,6 +178,7 @@ STAGE='INDEPENDENT_VOLUME_RESTORE'
 launch_db "$SECONDARY" "$VOLUME_B"
 SECONDARY_CREATED=true
 wait_db "$SECONDARY"
+wait_tcp "$SECONDARY"
 write_env "$SECONDARY" "$WORK/restore.env"
 cp "$WORK/restore.env" "$WORK/current.env"
 chmod 0600 "$WORK/current.env"
