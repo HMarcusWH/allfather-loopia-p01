@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS history_review_bases (
   CHECK (JSON_VALID(manifest_json)),
   CHECK (selected_count BETWEEN 0 AND 32),
   CHECK (period_start_utc < period_end_utc),
-  CHECK (period_end_utc <= knowledge_cutoff_utc),
+  CHECK (period_start_utc <= knowledge_cutoff_utc),
   CHECK (selection_integrity IN ('COMPLETE_WITHIN_INPUT','INSUFFICIENT_BASIS')),
   CHECK (candidate_state='TEST_ONLY_NOT_ADMITTED')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
