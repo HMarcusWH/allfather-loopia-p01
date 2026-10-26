@@ -50,6 +50,7 @@ jobs:
           set -euo pipefail
           php -l ops/qa/m17/qa.php
           php -l ops/qa/m17/race.php
+          php -l ops/qa/m17/interrupt.php
           php -m | grep -qi pdo_mysql
       - name: Create isolated test-only client config
         run: |
@@ -68,12 +69,15 @@ jobs:
           php ops/qa/m17/qa.php guard
           php ops/qa/m17/qa.php init
           php ops/qa/m17/race.php "$RUNNER_TEMP/m17-race-receipt.json"
+          php ops/qa/m17/interrupt.php test "$RUNNER_TEMP/m17-interrupt-receipt.json"
       - name: Retain candidate-only race receipt even after failure
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: m17-candidate-race-${{ matrix.mariadb }}
-          path: ${{ runner.temp }}/m17-race-receipt.json
+          path: |
+            ${{ runner.temp }}/m17-race-receipt.json
+            ${{ runner.temp }}/m17-interrupt-receipt.json
           if-no-files-found: warn
           retention-days: 14
 
