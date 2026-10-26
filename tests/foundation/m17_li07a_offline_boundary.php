@@ -24,9 +24,9 @@ foreach (['RollupEngine.php','Lineage.php','Replay.php'] as $name) {
         Assert::false(str_contains($active,$forbidden),$name.' has no DB, provider, side effect or owner access: '.$forbidden);
     }
 }
+// LI07A pure functions remain unchanged; LI07B's standalone schema/store candidates may
+// exist in a draft without granting any runtime authority or production migration.
 foreach (['database/migrations/280_m17_temporal_memory.sql',
-          'app/Substrate/M17/MemoryStore.php',
-          'app/Substrate/M17/P01HistoryAdapter.php',
           'ops/temporal/run.php', 'ops/temporal/replay.php'] as $forbidden) {
     Assert::false(is_file($root.'/'.$forbidden),'LI07B runtime/persistence remains absent: '.$forbidden);
 }

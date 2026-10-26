@@ -349,3 +349,22 @@ Canonical M17 remains **ARCHITECTURE_SPEC_ONLY**, so this is a narrow PHP candid
 | Static inertness | Foundation asserts no M17 persistent Store, proposed migration 280, CLI run/replay, owner adapter, network/SQL/model/effect route; four owner decision JSONs remain untouched |
 
 **Merge acceptance:** exact hosted CI on synthetic PR merge tree; strict full MariaDB 10.6 and 10.11 zero fail/skip, foundation, package/rsync, and aggregate receipt. Staging uses Railway Wait for CI, but code qualification does **not** grant U04/U03/U06 decisions or production. Source vectors: `tests/fixtures/li07a_rollup_cases.json`, unit/temporal_rollup_*, conformance/temporal_rollup_vectors.php, security/temporal_rollup_no_authority.php, foundation/m17_li07a_offline_boundary.php. Contract and refusal semantics: [LI07A Offline Rollup, Lineage and Replay](LI07A_OFFLINE_ROLLUP_LINEAGE_REPLAY.md).
+
+---
+
+## 2026-10-26 LI-07B G21 persistence CANDIDATE / disposable SQL matrix
+
+**Claim ceiling: SOURCE + DISPOSABLE-DB VERIFICATION ONLY, no adopted M17 parity.** Full canonical U04 identity & implementation gate still OPEN/DRAFT. The candidate is not installed in production migrations; no customer/runtime path constructs its writer.
+
+| Requirement | Proposed test evidence |
+| --- | --- |
+| Seven G21 families | Explicit candidate SQL parsed by `Migrator::splitStatements`; disposable MariaDB 10.6/10.11 creates all seven, not schema_migrations ledger; fixture cleans up |
+| Immutable records | Database UPDATE/DELETE triggers on 7 tables; scoped relational FKs; exact per-run derivation and per-output unique law; no source body copy |
+| Repeatability | Exact same input/profile/engine/period -> identical run -> no extra memory or audit writes |
+| Late input | New in-window ref -> new run/output/lineage, old content remains immutable; explicit `supersedes_memory_id` |
+| Competing forks | Two valid children of same parent retained, `AMBIGUOUS_HEAD_HOLD`; never `MAX(created_at)` |
+| Scope and disclosure | Tenant/workspace/competitor/question scoped candidate read, no foreign selectors; input history adapter delegates to existing P01 owner and cannot invent SHA or U03 rights |
+| Frozen replay | Recalculation from stored LI-06A/07A typed metadata only, no M05/provider call, `MATCH_METADATA_ONLY` is not authentic historical evidence |
+| Authority | `MemoryStore::forDisposableTest` factory requires explicit test harness marker; no normal code path/route/SQL production migration; U03/U04/U06 remain NOT_ADOPTED |
+
+**Merge gate:** This PR must remain draft and unmerged until U04 and necessary U03 selective adoption, source-rights review, native foreign-key provenance, versioned migrations and fresh/upgrade/no-op/populated-restore evidence. Passing hosted CI qualifies only the *review candidate*, not the right to install or run a persistent M17 service.

@@ -31,7 +31,12 @@ foreach (['Vocabulary','WindowEngine','ProfileResolver','DynamicMeasures','Input
 Assert::false(is_file($root.'/database/migrations/280_m17_temporal_compression.sql'),
     'LI06A does not implement M17 G21 tables');
 Assert::false(is_file($root.'/ops/m17/run.php'),'LI06A cannot initiate compression jobs');
-Assert::false(is_file($root.'/app/Substrate/M17/MemoryStore.php'),'LI07 persistence not implemented');
+Assert::true(is_file($root.'/app/Substrate/M17/MemoryStore.php'),
+    'LI07B review candidate exists but is not wired or installed');
+Assert::false(is_file($root.'/database/migrations/280_m17_temporal_memory.sql'),
+    'unratified U04 cannot install G21 as a runtime migration');
+Assert::false(is_file($root.'/ops/temporal/run.php'),
+    'review candidate does not introduce an executable scheduled memory command');
 $doc=(string)file_get_contents($root.'/docs/M17_PROJECTION_CONTRACT.md');
 Assert::contains('U04',$doc,'canonical U04 remains pending');
 Assert::contains('NOT_ADMITTED',$doc,'code docs explicitly deny execution and source-use authority');
