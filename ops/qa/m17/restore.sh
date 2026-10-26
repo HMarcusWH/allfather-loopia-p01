@@ -168,6 +168,9 @@ STAGE='SAME_VOLUME_RECOVERY'
 docker start "$PRIMARY" >/dev/null
 wait_db "$PRIMARY"
 wait_tcp "$PRIMARY"
+# Docker may reallocate an automatically assigned loopback port on restart.
+# Resolve the NEW container mapping before asking PHP to re-open its connection.
+write_env "$PRIMARY" "$WORK/current.env"
 run_qa compare "$WORK/original-manifest.json" > "$WORK/crash-verify.json"
 echo 'M17_QA_CHECKPOINT: crash-consistency-verified'
 test "$(docker exec -e MYSQL_PWD=m17_ephemeral_user "$PRIMARY" \
