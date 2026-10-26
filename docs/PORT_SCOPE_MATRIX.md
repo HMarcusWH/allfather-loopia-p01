@@ -513,3 +513,14 @@ The focused [PromptOps import note](PROMPTOPS_PORT.md) identifies APIs, exact co
 offline cases and what remains untested. Native model evaluation/activation, real-source execution,
 customer-output promotion and production remain separate evidence/owner transitions. No new code,
 test, request inspection or fixture result changes the false claim-boundary flags in §2.
+
+
+---
+
+## 2026-10-26 LI-05A bounded source-projection overlay (PR #83 candidate)
+
+**LI-05A = INCLUDE AS PURE OFFLINE CODE ONLY; NOT_ADMITTED / NOT_PERSISTED.** Three new detached PHP classes (`HistoryReviewBasis`, `HistoricalEvidenceSelector`, `HistoricalEvidenceEligibility`) can digest and deterministically time-select only **caller-supplied, already-authorized-or-synthetic metadata**. They cannot read any M05 EvidenceStore bytes, perform SQL/source capture, invent P01↔P02 mappings, implement `ModelContextAuthority`, dispatch models, approve outputs or start a schedule.
+
+**No new canonical or product authority is adopted.** U03 historical reuse/clocks and U06 manual historical-analysis purpose remain owner-pending. Proposed upstream U01 (#379) and U04 (#378) are not merged or projected as live authority at this filing. The `270_history_review_bases.sql` slot and `HistoryReviewContext` are **NOT_IMPLEMENTED**; the existing 31 migrations, current `ContextEnvelope`, M02/P01/M05 owners, four `docs/decisions/*.json` and deployment-gating contracts remain unchanged.
+
+The manifest's only qualifying status is `OFFLINE_NOT_ADMITTED` or `INSUFFICIENT_BASIS`; `selection_integrity=COMPLETE_WITHIN_INPUT` explicitly means metadata completeness *within supplied rows*, never rights assessment, completeness of the real evidence store, corroboration, historical synthesis or production permission. Source and tests: [LI05 offline contract](LI05_OFFLINE_HISTORY_BASIS_CONTRACT.md). This dated additive overlay does not edit the historical per-module port decisions above.
