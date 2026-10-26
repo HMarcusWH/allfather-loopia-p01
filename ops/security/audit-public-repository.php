@@ -65,6 +65,17 @@ $inspect = static function (string $path, ?string $bytes)
     }
 };
 
+// A shallow clone can successfully enumerate all the objects it has while omitting
+// publicly reachable older commits. Refuse to report a complete local history scan
+// unless Git confirms a non-shallow repository. Remote-ref completeness remains
+// independently UNVERIFIED even then.
+if ($scope === 'history') {
+    $shallow = $git(['rev-parse', '--is-shallow-repository']);
+    if (!$shallow['ok'] || !Guard::nonShallowHistoryStatus(trim($shallow['data']))) {
+        $fail('HISTORY_INCOMPLETE', '(shallow or unknown Git history)');
+    }
+}
+
 if ($scope === 'tree') {
     $result = Guard::auditTree($root);
     $total = $result['files'];
@@ -140,7 +151,15 @@ $report = [
     'schema_version' => Guard::VERSION,
     'scope' => $scope,
     'status' => $complete && $issues === [] ? 'PASS' : 'FAIL',
+    // "complete" is scoped to the files/refs locally inspected, never a claim
+    // that every ref ever made public on GitHub is present in this clone.
     'complete' => $complete,
+    'completeness_scope' => match ($scope) {
+        'history' => 'LOCAL_REACHABLE_GIT_REFS_ONLY',
+        'index' => 'LOCAL_GIT_INDEX',
+        default => 'LOCAL_SOURCE_TREE',
+    },
+    'remote_ref_coverage' => $scope === 'history' ? 'UNVERIFIED' : 'NOT_ASSESSED',
     'files_inspected' => $total,
     'known_owner_decisions_public' => $scope === 'history' ? 'HISTORICAL_BLOBS' : $publicDecisions,
     'finding_count' => count($issues),

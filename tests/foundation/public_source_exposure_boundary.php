@@ -10,6 +10,21 @@ use Allfather\Loopia\Ops\PublicExposureAudit as Exposure;
 use Allfather\Loopia\Tests\Assert;
 
 $root = dirname(__DIR__, 2);
+// A shallow clone is never a complete historical exposure assessment, even
+// when Git successfully enumerates all locally available objects.
+Assert::same(true, Exposure::nonShallowHistoryStatus('false'),
+    'explicit non-shallow Git status is the only locally complete history posture');
+Assert::same(false, Exposure::nonShallowHistoryStatus('true'),
+    'shallow Git history must not claim complete coverage');
+Assert::same(false, Exposure::nonShallowHistoryStatus(''),
+    'missing or unknown Git history status must fail closed');
+Assert::same(false, Exposure::nonShallowHistoryStatus(null),
+    'absent Git status is not a verified complete history');
+$historyCli = (string) file_get_contents($root . '/ops/security/audit-public-repository.php');
+Assert::contains("['rev-parse', '--is-shallow-repository']", $historyCli,
+    'the actual operator history path checks Git history depth');
+Assert::contains("'remote_ref_coverage' =>", $historyCli,
+    'historical report declares remote ref coverage separately from local traversal');
 $report = Exposure::auditTree($root);
 Assert::true($report['files'] > 100, 'exposure gate must inspect more than an empty skeleton');
 Assert::same(4, $report['decisions'], 'all four reviewed owner decisions remain in the export');

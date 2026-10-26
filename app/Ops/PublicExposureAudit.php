@@ -20,6 +20,16 @@ final class PublicExposureAudit
         'docs/decisions/plus46_model_evaluation_prompts_2026_10_24.json',
     ];
 
+    /**
+     * A local Git history run can claim its own traversal is complete only when Git
+     * explicitly confirms the checkout is not shallow. This still does NOT establish
+     * that every public remote ref has been fetched.
+     */
+    public static function nonShallowHistoryStatus(mixed $gitValue): bool
+    {
+        return $gitValue === 'false';
+    }
+
     /** @return list<array{code:string,path:string,line:int}> */
     public static function inspect(string $path, string $bytes): array
     {
