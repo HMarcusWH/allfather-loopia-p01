@@ -48,8 +48,10 @@ try {
     $sqlState=$first->isOk() ? '' : (string)($first->detail['sqlstate'] ?? '');
     $driverCode=$first->isOk() ? '' : (string)($first->detail['driver_code'] ?? '');
     $exceptionType=$first->isOk() ? '' : (string)($first->detail['exception_type'] ?? '');
+    $exceptionFile=$first->isOk() ? '' : (string)($first->detail['exception_file'] ?? '');
+    $exceptionLine=$first->isOk() ? '' : (string)($first->detail['exception_line'] ?? '');
     Assert::true($first->isOk(),'candidate writes to seven-family fixture schema'
-        .' [result='.$reason.',sqlstate='.$sqlState.',dbcode='.$driverCode.',exception='.$exceptionType.']');
+        .' [result='.$reason.',sqlstate='.$sqlState.',dbcode='.$driverCode.',exception='.$exceptionType.',file='.$exceptionFile.',line='.$exceptionLine.']');
     if (!$first->isOk()) return;
     $v=$first->value();
     Assert::same('DISPOSABLE_CANDIDATE_RECORDED',$v['action'],'first input creates only a non-admitted candidate');

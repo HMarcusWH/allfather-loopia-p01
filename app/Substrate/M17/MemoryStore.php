@@ -214,6 +214,8 @@ final class MemoryStore
             // An exception TYPE is safe diagnostic evidence; never log SQL, parameters or bytes.
             return Outcome::failure('M17_DISPOSABLE_PERSISTENCE_FAILED', [
                 'exception_type' => get_debug_type($error),
+                'exception_file' => basename($error->getFile()),
+                'exception_line' => $error->getLine(),
             ]);
         }
     }
