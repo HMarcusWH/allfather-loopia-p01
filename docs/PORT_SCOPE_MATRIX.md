@@ -524,3 +524,14 @@ test, request inspection or fixture result changes the false claim-boundary flag
 **No new canonical or product authority is adopted.** U03 historical reuse/clocks and U06 manual historical-analysis purpose remain owner-pending. Proposed upstream U01 (#379) and U04 (#378) are not merged or projected as live authority at this filing. The `270_history_review_bases.sql` slot and `HistoryReviewContext` are **NOT_IMPLEMENTED**; the existing 31 migrations, current `ContextEnvelope`, M02/P01/M05 owners, four `docs/decisions/*.json` and deployment-gating contracts remain unchanged.
 
 The manifest's only qualifying status is `OFFLINE_NOT_ADMITTED` or `INSUFFICIENT_BASIS`; `selection_integrity=COMPLETE_WITHIN_INPUT` explicitly means metadata completeness *within supplied rows*, never rights assessment, completeness of the real evidence store, corroboration, historical synthesis or production permission. Source and tests: [LI05 offline contract](LI05_OFFLINE_HISTORY_BASIS_CONTRACT.md). This dated additive overlay does not edit the historical per-module port decisions above.
+
+---
+
+## 2026-10-26 — LI-06A inert M17 temporal candidate projection
+
+**Port classification: INCLUDE OFFLINE/PURE CODE ONLY; NOT_ADMITTED / NOT_PERSISTED.**
+New detached `app/Substrate/M17/{Vocabulary,InputSet,WindowEngine,ProfileResolver,DynamicMeasures}.php` classes accept closed, synthetic or independently permitted metadata and calculate deterministic reference digests, proposed DAY/WEEK/MONTH window bounds, conservative narrow-only profile folds and integer/rational candidate measures.
+
+The source-projection implementation **does not constitute adoption of canonical U04**, which is still proposed in [upstream M17 PR #378](https://github.com/HMarcusWH/Allfatherbusinessintelligence/pull/378). Canonical M17 is architecture-only; M17 G21 schema, seven table families, source owners, M13 calendars/modality, P02 entity mappings, M04 scheduling, M05 evidence status, M16 output and history release remain unchanged. No M17 registry, model dispatch, file/capture reader, SQL migration, HTTP route, provider call, deletion, tenant adaptation or customer delivery is wired.
+
+Only `SOURCE_DIFF` (14/90-day ladder) and `COMPANY_SIGNAL` (30/180-day ladder) are supported as **offline metadata classes**; all other canonical data classes and the non-DAY/WEEK/MONTH windows remain inert. U03/U06 historical rights and model-purpose decisions also remain pending. An exact digest, time bucket, inferred volatility or conservative profile cannot grant authority to reuse old evidence. Current pinned canonical identity, all four owner decisions, legacy observations and receipts remain intact. See [M17 Projection Contract](M17_PROJECTION_CONTRACT.md) for the explicit clock, DST, timezone-rules caveat, numeric candidate units, conflict and claim-ceiling law.
