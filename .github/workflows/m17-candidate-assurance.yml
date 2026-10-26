@@ -1,0 +1,116 @@
+name: M17 candidate concurrent-writer and disaster-recovery qualification
+
+# Candidate-only. No pull_request_target, deployments, Railway secrets or production migrations.
+on:
+  pull_request:
+    branches:
+      - feat/li07b-g21-gated-persistence-candidate-20261026
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m17-qa-${{ github.event.pull_request.number || github.run_id }}-${{ github.run_attempt }}
+  cancel-in-progress: false
+
+jobs:
+  race:
+    name: candidate writer race / MariaDB ${{ matrix.mariadb }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    strategy:
+      fail-fast: false
+      matrix:
+        mariadb: ['10.6', '10.11']
+    env:
+      M17_QA_RUN_ID: m17-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.mariadb }}
+      TEST_ENV_FILE: ${{ runner.temp }}/m17-candidate-test.env
+    services:
+      mariadb:
+        image: mariadb:${{ matrix.mariadb }}
+        env:
+          MARIADB_ROOT_PASSWORD: m17_ephemeral_root
+          MARIADB_DATABASE: m17_candidate_qa
+          MARIADB_USER: m17_qa
+          MARIADB_PASSWORD: m17_ephemeral_user
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql, curl, openssl, mbstring, json
+          coverage: none
+      - name: PHP syntax and mandatory extensions
+        run: |
+          set -euo pipefail
+          php -l ops/qa/m17/qa.php
+          php -l ops/qa/m17/race.php
+          php -m | grep -qi pdo_mysql
+      - name: Create isolated test-only client config
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s\n' \
+            APP_ENV=testing DB_HOST=127.0.0.1 DB_PORT=3306 \
+            DB_NAME=m17_candidate_qa DB_USER=m17_qa \
+            DB_PASSWORD=m17_ephemeral_user > "$TEST_ENV_FILE"
+          chmod 0600 "$TEST_ENV_FILE"
+      - name: Candidate DDL, real process races, and strict invariants
+        run: |
+          set -euo pipefail
+          php ops/qa/m17/qa.php guard
+          php ops/qa/m17/qa.php init
+          php ops/qa/m17/race.php "$RUNNER_TEMP/m17-race-receipt.json"
+      - name: Retain candidate-only race receipt even after failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: m17-candidate-race-${{ matrix.mariadb }}
+          path: ${{ runner.temp }}/m17-race-receipt.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  recovery:
+    name: synthetic encrypted backup, crash and restore / MariaDB ${{ matrix.mariadb }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        mariadb: ['10.6', '10.11']
+    env:
+      M17_QA_RUN_ID: m17-${{ github.run_id }}-${{ github.run_attempt }}-restore-${{ matrix.mariadb }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql, curl, openssl, mbstring, json
+          coverage: none
+      - name: Install offline archive encryption tool
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends age
+          command -v age && command -v docker
+      - name: PHP syntax, shell syntax and strict disposable Docker rehearsal
+        run: |
+          set -euo pipefail
+          php -l ops/qa/m17/qa.php
+          bash -n ops/qa/m17/restore.sh
+          bash ops/qa/m17/restore.sh --mariadb=${{ matrix.mariadb }} \
+            --receipt="$RUNNER_TEMP/m17-restore-receipt.json"
+      - name: Retain candidate-only recovery receipt even after failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: m17-candidate-recovery-${{ matrix.mariadb }}
+          path: ${{ runner.temp }}/m17-restore-receipt.json
+          if-no-files-found: warn
+          retention-days: 14
