@@ -18,6 +18,8 @@ The repo ships `ops/qa/railway/r5_readonly_inventory.py`, a Python 3.10+ operato
 
 **Private-output boundary:** Paths are checked against the checkout root derived from the collector's own file location, **not** the caller's current working directory. Any output path physically inside the repository, including symlink aliases or calls from nested directories, is rejected before creation; new private files use mode `0600`. A copied script without its verified repository layout also refuses execution.
 
+**R06 write-safety extension:** Before any Railway query, the collector now checks BOTH output destinations independently and requires each parent directory to be owner-only (no group/other permission bits). Destinations must be new and outside the repository even through symlink or relative aliases. The collector refuses collisions and removes a newly created private provider file if the matching sanitized summary could not be created. Its fixture suite includes 17 positive/negative cases. This prevents treating a partial private write as completed inventory; it does NOT prove that the nested project-to-volume-instance GraphQL query is supported on the operator's actual Railway account. Live schema discovery and provider backup-list readback remain separate R5-0 operations.
+
 Its outputs distinguish:
 
 - **Private provider metadata** — exact backup IDs and schedules, preserved as a new `0600` file **outside the Git repository** for the Ops reviewer; never publish it.
