@@ -8,7 +8,7 @@ The dedicated R5 collector fixture workflow now pins both actions to exact GitHu
 - actions/checkout v4.4.0: 11d5960a326750d5838078e36cf38b85af677262
 - actions/setup-python v5.6.0: a26af69be951a213d495a4c3e4e4022e16d87065
 
-The displayed test step now says thirteen tests rather than eight. No change to the collector's effective GraphQL queries, backed-up volume data, provider credentials, workflow permissions, or operations. The test job remains pull_request path-scoped, contents: read and network-free except standard GitHub Actions setup.
+The displayed test step now runs the discovered fixture suite without claiming a fixed test count; follow-up R06 adds additional cases. No change to the collector's effective GraphQL queries, backed-up volume data, provider credentials, workflow permissions, or operations. The test job remains pull_request path-scoped, contents: read and network-free except standard GitHub Actions setup.
 
 These pins were checked using the corresponding GitHub tag reference endpoints. Future upgrades require independent digest verification and a new review.
 
