@@ -28,9 +28,12 @@ final class HistoryReviewReadAdapter
     public function list(?array $session,string $competitorId,string $questionId,int $limit=20):array
     {
         if ($session===null
-            || !Ids::isValid($session['tenant_id']??null)
-            || !Ids::isValid($session['active_workspace_id']??null)
-            || !Ids::isValid($session['operator_id']??null)) {
+            || !is_string($session['tenant_id']??null)
+            || !is_string($session['active_workspace_id']??null)
+            || !is_string($session['operator_id']??null)
+            || !Ids::isValid($session['tenant_id'])
+            || !Ids::isValid($session['active_workspace_id'])
+            || !Ids::isValid($session['operator_id'])) {
             return ['decision'=>'NO_ACTIVE_WORKSPACE','reason_codes'=>['NO_ACTIVE_WORKSPACE']];
         }
         if (!Ids::isValid($competitorId)||!Ids::isValid($questionId)
