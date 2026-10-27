@@ -97,6 +97,48 @@ Assert::same(0, $legacyBlanks['exit'], 'legacy mode tolerates absent/blank versi
 Assert::false(str_contains($legacyBlanks['contents'], 'APP_MASTER_KEY_VERSIONS='),
     'blank placeholders are not serialized as partial P11 mode');
 
+// A CLI operator must not be able to place a secret render target in an HTTP
+// document root or in a group-readable directory, even with a valid key.
+$runUnsafeTarget = static function (string $directory) use ($root, $renderer, $base, $v1): array {
+    $target = $directory . '/.env.prepare';
+    $proc = proc_open([PHP_BINARY, $renderer, $target], [
+        0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w'],
+    ], $pipes, $root, array_replace($base, ['APP_MASTER_KEY' => $v1]));
+    if (!is_resource($proc)) {
+        throw new RuntimeException('unsafe target fixture subprocess unavailable');
+    }
+    fclose($pipes[0]);
+    $out = stream_get_contents($pipes[1]) ?: '';
+    $err = stream_get_contents($pipes[2]) ?: '';
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    return [proc_close($proc), $out, $err, is_file($target)];
+};
+$unsafeBase = sys_get_temp_dir() . '/allfather-r03-target-' . bin2hex(random_bytes(8));
+mkdir($unsafeBase, 0700);
+try {
+    mkdir($unsafeBase . '/public_html', 0700);
+    $served = $runUnsafeTarget($unsafeBase . '/public_html');
+    Assert::same(1, $served[0], 'renderer refuses any public_html config target');
+    Assert::same(false, $served[3], 'served directory never contains private credentials');
+    Assert::same('', $served[1], 'served-target refusal prints no secrets');
+    rmdir($unsafeBase . '/public_html');
+    mkdir($unsafeBase . '/shared', 0755);
+    chmod($unsafeBase . '/shared', 0755);
+    $shared = $runUnsafeTarget($unsafeBase . '/shared');
+    Assert::same(1, $shared[0], 'renderer refuses group-readable private directory');
+    Assert::same(false, $shared[3], 'shared directory never receives credential file');
+    rmdir($unsafeBase . '/shared');
+} finally {
+    if (is_dir($unsafeBase . '/public_html')) {
+        rmdir($unsafeBase . '/public_html');
+    }
+    if (is_dir($unsafeBase . '/shared')) {
+        rmdir($unsafeBase . '/shared');
+    }
+    rmdir($unsafeBase);
+}
+
 $refusals = [
     'no master key' => [],
     'mixed legacy/versioned' => $versioned + ['APP_MASTER_KEY' => $v1],
