@@ -1,0 +1,27 @@
+name: R5 inventory collector fixture qualification
+
+on:
+  pull_request:
+    paths:
+      - "ops/qa/railway/r5_readonly_inventory.py"
+      - "ops/qa/railway/test_r5_readonly_inventory.py"
+      - "docs/LI07G_R5_RAILWAY_BACKUP_QUERY_OPERATOR.md"
+      - ".github/workflows/r5-readonly-inventory-fixtures.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  offline-r5-inventory:
+    name: Offline read-only collector tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Syntax / no Railway invocation
+        run: python3 -m py_compile ops/qa/railway/r5_readonly_inventory.py ops/qa/railway/test_r5_readonly_inventory.py
+      - name: Run eight negative and positive tests (mocked only)
+        run: python3 -m unittest discover -s ops/qa/railway -p 'test_r5_readonly_inventory.py' -v
