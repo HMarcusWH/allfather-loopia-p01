@@ -249,9 +249,15 @@ foreach ($pages as $path => $response) {
             in_array($target, ['/logout', '/console/workspace'], true),
             "{$path}: every form targets a governed console route, not an action — found '{$target}'",
         );
+        // The CSRF hidden input is a random opaque value, not a user-facing
+        // form control. A random token can contain "crm", "sms", etc., and
+        // previously caused the same six false failures across every page.
+        // Mask only the exact server-issued token, then inspect all remaining
+        // form markup (action, input names, buttons and visible labels).
+        $inspectableForm = str_replace($session['csrf'], '[CSRF_TOKEN]', $form);
         foreach ($forbiddenControls as $verb) {
             Assert::false(
-                stripos($form, $verb) !== false,
+                stripos($inspectableForm, $verb) !== false,
                 "{$path}: no form offers a '{$verb}' control",
             );
         }
