@@ -2,6 +2,7 @@
 """R5-0 test fixtures: no credentials, network, snapshots or provider mutations."""
 from datetime import datetime, timedelta, timezone
 import importlib.util
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -104,6 +105,63 @@ class R5ReadOnlyTests(unittest.TestCase):
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
             with self.assertRaisesRegex(module.Hold, "PRIVATE_OUTPUT_CREATE_REFUSED"):
                 module.write_private(str(path), {"faked_pass": True})
+
+    def test_repo_path_refused_from_nested_working_directory(self):
+        output = module.REPOSITORY_ROOT / "r5-must-not-write.json"
+        self.assertFalse(output.exists())
+        old_cwd = Path.cwd()
+        try:
+            os.chdir(module.REPOSITORY_ROOT / "ops" / "qa")
+            with self.assertRaisesRegex(module.Hold, "OUTPUT_MUST_BE_OUTSIDE_REPOSITORY"):
+                module.write_private(str(output), {"backup_id": "private"})
+        finally:
+            os.chdir(old_cwd)
+        self.assertFalse(output.exists())
+
+    def test_repo_path_refused_from_external_working_directory(self):
+        output = module.REPOSITORY_ROOT / "ops" / "r5-must-not-write.json"
+        self.assertFalse(output.exists())
+        old_cwd = Path.cwd()
+        try:
+            with tempfile.TemporaryDirectory() as external:
+                os.chdir(external)
+                with self.assertRaisesRegex(module.Hold, "OUTPUT_MUST_BE_OUTSIDE_REPOSITORY"):
+                    module.write_private(str(output), {"backup_id": "private"})
+        finally:
+            os.chdir(old_cwd)
+        self.assertFalse(output.exists())
+
+    def test_symlink_alias_into_repository_refused(self):
+        output = module.REPOSITORY_ROOT / "r5-must-not-write.json"
+        self.assertFalse(output.exists())
+        with tempfile.TemporaryDirectory() as external:
+            alias = Path(external) / "private-looking"
+            alias.symlink_to(module.REPOSITORY_ROOT, target_is_directory=True)
+            with self.assertRaisesRegex(module.Hold, "OUTPUT_MUST_BE_OUTSIDE_REPOSITORY"):
+                module.write_private(str(alias / output.name), {"backup_id": "private"})
+        self.assertFalse(output.exists())
+
+    def test_copied_script_without_checkout_identity_refused(self):
+        actual_root = module.REPOSITORY_ROOT
+        try:
+            with tempfile.TemporaryDirectory() as external:
+                module.REPOSITORY_ROOT = Path(external)
+                with self.assertRaisesRegex(module.Hold, "REPOSITORY_ROOT_UNVERIFIED"):
+                    module.write_private(str(Path(external) / "could-write.json"), {"backup_id": "private"})
+        finally:
+            module.REPOSITORY_ROOT = actual_root
+
+    def test_legitimate_private_output_works_from_repo_subdir(self):
+        old_cwd = Path.cwd()
+        try:
+            with tempfile.TemporaryDirectory() as external:
+                os.chdir(module.REPOSITORY_ROOT / "ops")
+                output = Path(external) / "private.json"
+                module.write_private(str(output), {"backup_id": "private"})
+                self.assertEqual(output.stat().st_mode & 0o777, 0o600)
+                self.assertIn("private", output.read_text())
+        finally:
+            os.chdir(old_cwd)
 
     def test_all_provider_operations_are_read_only_queries(self):
         for query in (module.PROJECT_QUERY, module.INSTANCE_QUERY, module.BACKUP_QUERY):
