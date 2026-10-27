@@ -63,6 +63,8 @@ $counts=static function(array $basis):array{
 };
 
 // The plan is admitted, but no slot yet: no invented completeness.
+// At exactly the admission event's millisecond it is not *previously* known.
+$clock->advanceMs(1000);
 $zero=$ledger->inspect($actor,$competitor,$period,$cut(),$scheduleVersion);
 Assert::true($zero->isOk(),'admitted schedule can be read before first occurrence');
 Assert::same(['HOLD_GAPPED_OR_INCOMPLETE',0],
