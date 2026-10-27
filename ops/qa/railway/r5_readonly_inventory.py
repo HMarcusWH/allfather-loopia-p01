@@ -182,10 +182,23 @@ def collect(
     return receipt, private
 
 
+# Stable independently of process cwd: r5_readonly_inventory.py lives at
+# <checkout>/ops/qa/railway/r5_readonly_inventory.py.
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+
+
 def write_private(path: str, payload: dict[str, Any]) -> None:
+    # Refuse to run from an extracted/copied script with an unknown checkout
+    # boundary; an arbitrary cwd is not proof of the repository root.
+    checked(
+        (REPOSITORY_ROOT / "PROJECT_BOUNDARY.md").is_file()
+        and (REPOSITORY_ROOT / ".github").is_dir(),
+        "REPOSITORY_ROOT_UNVERIFIED",
+    )
     p = Path(path).expanduser().resolve(strict=False)
-    cwd = Path.cwd().resolve()
-    checked(p != cwd and cwd not in p.parents, "OUTPUT_MUST_BE_OUTSIDE_WORKING_REPOSITORY")
+    # resolve() also follows symlinked parent directories: a seemingly private
+    # output that aliases the checkout must still fail before file creation.
+    checked(p != REPOSITORY_ROOT and REPOSITORY_ROOT not in p.parents, "OUTPUT_MUST_BE_OUTSIDE_REPOSITORY")
     checked("public_html" not in p.parts and ".git" not in p.parts, "OUTPUT_PATH_NOT_PRIVATE")
     checked(p.parent.is_dir(), "PRIVATE_PARENT_MISSING")
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
