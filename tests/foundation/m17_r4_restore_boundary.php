@@ -10,16 +10,21 @@ $old=$root.'/ops/qa/m17/restore.sh';
 $workflow=$root.'/.github/workflows/m17-r4-candidate-restore.yml';
 Assert::true(is_file($r4)&&is_file($old),
     'R4 qualification must include the helper and original gated harness');
-// The *deployment package* intentionally excludes .github. Validate the
-// hosted workflow only in the real Git checkout, which has a .git directory.
-// A prepared release may retain other .github files but not this QA workflow.
-$checkWorkflow=is_dir($root.'/.git');
+// Validate workflow source only in the exact GitHub Actions checkout.
+// The rsync rehearsal intentionally copies .git and some .github metadata,
+// but excludes the R4 workflow from its deployable root. The presence of
+// .git alone therefore does NOT prove this is the checkout.
+// GITHUB_WORKSPACE is the host-provided checkout path, never caller scope.
+$ghRoot=getenv('GITHUB_WORKSPACE');
+$checkWorkflow=is_string($ghRoot)&&$ghRoot!==''
+    && realpath($ghRoot)===realpath($root);
 if($checkWorkflow) {
     Assert::true(is_file($workflow),'source checkout must retain R4 QA workflow');
 }
 $code=(string)file_get_contents($r4);
 $restore=(string)file_get_contents($old);
-$ci=(string)file_get_contents($workflow);
+$ci=$checkWorkflow && is_file($workflow)
+    ? (string)file_get_contents($workflow) : '';
 foreach([
     'M17Qa::db()','M17Qa::manifest',
     'HistoryReviewBasis::freeze',
