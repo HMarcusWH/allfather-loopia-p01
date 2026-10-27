@@ -46,6 +46,10 @@ Assert::same(3,$second->value()['lineage_count'],'late-known contrary input reta
 Assert::notSame($joined->value()['m17_derivation_identity_digest'],
     $second->value()['m17_derivation_identity_digest'],
     'new period input produces new immutable derivation identity');
+Assert::same(
+    $joined->value()['frozen_m17_inputs']['profile_candidate']['resolution_digest'],
+    $second->value()['frozen_m17_inputs']['profile_candidate']['resolution_digest'],
+    'a same-period late input retains the identical frozen profile snapshot');
 $untrusted=$basis->value();
 $untrusted['historical_reuse_admitted']=true;
 Assert::same('LI07C_BASIS_NOT_ADMISSIBLE_FOR_CANDIDATE',
