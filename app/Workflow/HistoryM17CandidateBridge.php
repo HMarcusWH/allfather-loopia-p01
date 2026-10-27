@@ -71,7 +71,11 @@ final class HistoryM17CandidateBridge
         }
         $profile=ProfileResolver::resolve([
             'scope'=>$scope,'data_class'=>$dataClass,
-            'evaluation_time_utc'=>$basis['knowledge_cutoff_utc'],
+            // The profile is frozen at the selected period's beginning, not
+            // recomputed whenever late evidence moves the knowledge cutoff.
+            // Otherwise a legitimate same-period input successor has a new
+            // profile digest and violates the existing LI-07A successor law.
+            'evaluation_time_utc'=>$basis['period']['start_inclusive_utc'],
             'candidates'=>[],'floors'=>[],
         ]);
         if (!$profile->isOk())return Outcome::refuse('LI07C_PROFILE_UNAVAILABLE');
