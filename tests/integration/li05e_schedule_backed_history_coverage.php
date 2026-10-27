@@ -35,6 +35,10 @@ $actor=[
     'actor_type'=>'OPERATOR','actor_id'=>$scope['operator_id'],
 ];
 $definition=S::input($sx,$clock);
+// LI05A v1 can only serialize whole-second period boundaries. A schedule
+// beginning at e.g. ...00.083Z cannot prove coverage of the preceding 83ms.
+// Owner-admit an exact whole-second slot anchor for this positive test.
+$definition['valid_from']=substr($definition['valid_from'],0,19).'.000Z';
 $admitted=S::admitted($sx,$definition);
 $scheduleVersion=$admitted['monitor_schedule_version_id'];
 $competitor=$sx['competitor_id'];
