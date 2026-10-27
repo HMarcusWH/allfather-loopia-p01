@@ -66,7 +66,14 @@ $counts=static function(array $basis):array{
 // At exactly the admission event's millisecond it is not *previously* known.
 $clock->advanceMs(1000);
 $zero=$ledger->inspect($actor,$competitor,$period,$cut(),$scheduleVersion);
-Assert::true($zero->isOk(),'admitted schedule can be read before first occurrence');
+$scheduleRead=S::value($sx['schedules']->current($scheduleVersion));
+Assert::true($zero->isOk(),'admitted schedule can be read before first occurrence: '.
+    ($zero->isOk()?'OK':$zero->reasonCode()).' bounds='.json_encode([
+        'valid_from'=>$scheduleRead['valid_from'],
+        'valid_until'=>$scheduleRead['valid_until'],
+        'period'=>$period,
+        'knowledge_cutoff'=>$cut(),
+    ],JSON_THROW_ON_ERROR));
 Assert::same(['HOLD_GAPPED_OR_INCOMPLETE',1],
     [$zero->value()['status'],$zero->value()['planned_slots']],
     'an overdue first slot without its capture remains incomplete');
