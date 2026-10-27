@@ -11,8 +11,9 @@ use Allfather\Loopia\Db\{Database,Migrator};
 use Allfather\Loopia\Tests\{Assert,Harness,Seed};
 use Allfather\Loopia\Workflow\{
     HistoryReviewBasis,HistoryReviewBasisStore,
-    HistoryM17CandidateBridge,HistoryReviewDueStore
+    HistoryM17CandidateBridge,HistoryReviewDueStore,HistoryReviewCandidateReadModel
 };
+use Allfather\Loopia\Http\ReadAdapters\HistoryReviewReadAdapter;
 use Allfather\Loopia\Substrate\M17\{ReviewDue,MemoryStore};
 
 $db=Harness::freshDb();
@@ -128,6 +129,40 @@ try {
     Assert::same('LI08C_POLICY_OR_BASIS_NOT_FOUND',$dueStore->recordDueCandidate(
         $foreign,$policyId,$newStored['history_review_basis_id'],$state,'2026-10-26T18:00:03Z'
     )->reasonCode(),'foreign tenant cannot spend a different tenant policy');
+    // Full private readback: owner-enforced M02 permissions followed by the
+    // exact presentation whitelist. No HTTP route or source bytes are involved.
+    $role=Seed::role($db,$clock,'r2-history-evidence-read',[
+        'competition_monitoring.read','evidence.read',
+    ]);
+    Seed::membership($db,$clock,$a['tenant_id'],$a['workspace_id'],
+        $a['operator_id'],$role['role_id']);
+    $owner=HistoryReviewCandidateReadModel::forDisposableTest($db,$clock);
+    Assert::true($owner->isOk(),'test-only M02-scoped history reader constructed');
+    $operatorRead=$owner->value();
+    $presentation=new HistoryReviewReadAdapter(
+        static fn(array $readScope,int $limit):array=>$operatorRead->read($readScope,$limit)
+    );
+    $session=['tenant_id'=>$a['tenant_id'],'active_workspace_id'=>$a['workspace_id'],
+        'operator_id'=>$a['operator_id']];
+    $screen=$presentation->list($session,$competitor,$scope['question_id'],20);
+    Assert::same('VISIBLE',$screen['decision'],
+        'authorized operator receives only scoped synthetic candidate metadata');
+    Assert::same(2,count($screen['data']['rows']),
+        'private readback includes both immutable point-in-time basis versions');
+    Assert::same(false,$screen['data']['runtime_actions_available'],
+        'readback does not turn due decisions into a job');
+    $display=json_encode($screen,JSON_THROW_ON_ERROR);
+    foreach(['source_url','raw_source_text','payload_sha256','provider_token'] as $private){
+        Assert::false(str_contains($display,$private),
+            'private operator presentation cannot leak raw owner content: '.$private);
+    }
+    $unassigned=$session;$unassigned['operator_id']=Ids::new();
+    Assert::same('DENIED',$presentation->list(
+        $unassigned,$competitor,$scope['question_id'],20)['decision'],
+        'M02 rejects unassigned principals before any historical read');
+    Assert::same('NOT_FOUND',$presentation->list(
+        $session,'bogus-competitor-id',$scope['question_id'],20)['decision'],
+        'invalid cross-scope selector never queries the owner reader');
     foreach(['history_review_due_checks','history_review_policies'] as $table){
         try{$db->run('DELETE FROM '.Database::identifier($table));Assert::fail('DELETE accepted');}
         catch(\PDOException){Assert::pass();}
