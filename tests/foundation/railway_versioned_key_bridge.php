@@ -16,6 +16,15 @@ Assert::false(str_contains($entrypoint, 'APP_MASTER_KEY:?'),
     'legacy key is no longer mandatory in versioned mode');
 Assert::contains('unset SCHEDULER_TOKEN SCHEDULER_TOKEN_HASH', $entrypoint,
     'inert scheduler secrets do not reach the Apache process environment');
+Assert::contains('trap \'rm -f -- "$config_tmp"\' EXIT', $entrypoint,
+    'a failed renderer/chown/chmod/mv cleans the prepared private config');
+Assert::contains('trap - EXIT', $entrypoint,
+    'the cleanup trap is cleared only after atomic publication');
+$rendererSource = (string) file_get_contents($renderer);
+Assert::contains('$createdPrivateFile = true;', $rendererSource,
+    'the renderer tracks ownership of a newly opened private temp file');
+Assert::contains('@unlink($privateTarget);', $rendererSource,
+    'failed partial writes remove only the file created by this invocation');
 
 $v1 = base64_encode(str_repeat('A', 32));
 $v2 = base64_encode(str_repeat('B', 32));
