@@ -92,9 +92,9 @@ Assert::same([1,1,0,0],
     ],'slot accounting has one baseline and no gaps');
 Assert::same(false,$first['U03_historical_use_admitted'],
     'proven capture cadence grants no historical reuse or model authority');
-Assert::same('LI07C_BASIS_NOT_ADMISSIBLE_FOR_CANDIDATE',
+Assert::same('LI07C_PERIOD_WINDOW_MISMATCH',
     HistoryM17CandidateBridge::compose($first['history_basis'],'SOURCE_DIFF','DAY')->reasonCode(),
-    'fixture schedule period mismatch cannot be silently compressed to a day');
+    'a complete schedule period cannot be silently narrowed to a day for M17');
 
 // Day 2: a real changed capture is queued for a human, NOT analyzed.
 $clock->advanceMs(86_400_000);
