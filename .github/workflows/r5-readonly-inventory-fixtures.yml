@@ -23,5 +23,5 @@ jobs:
           python-version: "3.11"
       - name: Syntax / no Railway invocation
         run: python3 -m py_compile ops/qa/railway/r5_readonly_inventory.py ops/qa/railway/test_r5_readonly_inventory.py
-      - name: Run thirteen positive and negative tests (mocked only)
+      - name: Run read-only backup collector fixture tests (mocked only)
         run: python3 -m unittest discover -s ops/qa/railway -p 'test_r5_readonly_inventory.py' -v
