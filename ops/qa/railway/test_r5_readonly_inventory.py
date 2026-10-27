@@ -103,7 +103,7 @@ class R5ReadOnlyTests(unittest.TestCase):
             path = Path(root) / "receipt.json"
             module.write_private(str(path), {"hold": True})
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
-            with self.assertRaisesRegex(module.Hold, "PRIVATE_OUTPUT_CREATE_REFUSED"):
+            with self.assertRaisesRegex(module.Hold, "PRIVATE_OUTPUT_MUST_BE_NEW"):
                 module.write_private(str(path), {"faked_pass": True})
 
     def test_repo_path_refused_from_nested_working_directory(self):
@@ -162,6 +162,44 @@ class R5ReadOnlyTests(unittest.TestCase):
                 self.assertIn("private", output.read_text())
         finally:
             os.chdir(old_cwd)
+
+    def test_private_parent_must_be_owner_only(self):
+        with tempfile.TemporaryDirectory() as root:
+            parent = Path(root)
+            parent.chmod(0o755)
+            with self.assertRaisesRegex(module.Hold, "PRIVATE_PARENT_PERMISSIONS"):
+                module.write_private(str(parent / "private.json"), {"backup": "synthetic"})
+            self.assertFalse((parent / "private.json").exists())
+
+    def test_pair_refuses_existing_summary_without_creating_private(self):
+        with tempfile.TemporaryDirectory() as root:
+            private = Path(root) / "private.json"
+            summary = Path(root) / "summary.json"
+            summary.write_text("already there")
+            with self.assertRaisesRegex(module.Hold, "PRIVATE_OUTPUT_MUST_BE_NEW"):
+                module.write_pair(str(private), {"secret": "fixture"},
+                                  str(summary), {"status": "not_restore"})
+            self.assertFalse(private.exists())
+            self.assertEqual(summary.read_text(), "already there")
+
+    def test_pair_refuses_alias_paths(self):
+        with tempfile.TemporaryDirectory() as root:
+            target = Path(root) / "same.json"
+            with self.assertRaisesRegex(module.Hold, "OUTPUT_PATH_COLLISION"):
+                module.write_pair(str(target), {"private": True},
+                                  str(Path(root) / "." / target.name), {"summary": True})
+            self.assertFalse(target.exists())
+
+    def test_pair_writes_only_private_new_files(self):
+        with tempfile.TemporaryDirectory() as root:
+            private = Path(root) / "private.json"
+            summary = Path(root) / "summary.json"
+            module.write_pair(str(private), {"id": "synthetic"},
+                              str(summary), {"status": "NOT_RESTORED"})
+            self.assertEqual(private.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(summary.stat().st_mode & 0o777, 0o600)
+            self.assertIn("synthetic", private.read_text())
+            self.assertNotIn("synthetic", summary.read_text())
 
     def test_all_provider_operations_are_read_only_queries(self):
         for query in (module.PROJECT_QUERY, module.INSTANCE_QUERY, module.BACKUP_QUERY):
