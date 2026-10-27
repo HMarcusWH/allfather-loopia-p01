@@ -30,6 +30,7 @@ if($db===null){Assert::skip(Harness::unavailableReason());return;}
 $clock=Harness::clock('2026-10-26T18:00:00.000Z');
 $f=MonitorModelFixture::create($db,$clock,true);
 $scope=$f['scope'];
+$actor=['tenant_id'=>$scope['tenant_id'],'workspace_id'=>$scope['workspace_id'],'actor_type'=>'OPERATOR','actor_id'=>$scope['operator_id']];
 $value=static function(Outcome $out,string $reason):mixed {
     Assert::true($out->isOk(),$reason.($out->isOk()?'':': '.$out->reasonCode()));
     if(!$out->isOk())throw new RuntimeException($reason.': '.$out->reasonCode());
@@ -126,7 +127,7 @@ $period=[
 ];
 $question=Ids::new();
 $cutoff=substr($clock->now(),0,19).'Z';
-$preview=$value($reader->preview($scope,$f['competitor_id'],$question,
+$preview=$value($reader->preview($actor,$f['competitor_id'],$question,
     $period,$cutoff),'owner-backed snapshot proof and history selector');
 Assert::same('OWNER_NATIVE_CAPTURE_METADATA_VERIFIED_U03_HOLD',
     $preview['status'],'actual M05 proof never becomes a use grant');
@@ -166,7 +167,7 @@ foreach([$f['before_body'],$f['after_body'],$f['capture_url'],
     Assert::false(str_contains($display,$secret),
         'source body, URL and provider details remain private: '.$secret);
 }
-$repeated=$value($reader->preview($scope,$f['competitor_id'],$question,
+$repeated=$value($reader->preview($actor,$f['competitor_id'],$question,
     $period,$cutoff),'same candidate preflight replay');
 Assert::same($basis['manifest_digest'],$repeated['history_basis']['manifest_digest'],
     'unchanged owner evidence/cutoff yields identical frozen metadata digest');
@@ -174,7 +175,7 @@ Assert::same($preview['proof_manifest_digest'],$repeated['proof_manifest_digest'
     'original policy, byte and known-at proof identities are reproducible');
 
 $earlier=gmdate('Y-m-d\TH:i:s\Z',strtotime($clock->now())-3600);
-$before=$value($reader->preview($scope,$f['competitor_id'],$question,
+$before=$value($reader->preview($actor,$f['competitor_id'],$question,
     $period,$earlier),'earlier as-of knowledge cutoff');
 Assert::same(1,$before['history_basis']['selected_count'],
     'later native capture excluded from previous as-of basis');
@@ -229,7 +230,7 @@ try {
 // Revalidates current rights each time, rather than trusting historical capture.
 $db->run('UPDATE source_license_cards SET review_status=? WHERE source_license_card_id=?',
     ['blocked',$f['card']['source_license_card_id']]);
-$revoked=$reader->preview($scope,$f['competitor_id'],$question,$period,$cutoff);
+$revoked=$reader->preview($actor,$f['competitor_id'],$question,$period,$cutoff);
 Assert::same('LI05D_NATIVE_CAPTURE_HOLD',$revoked->reasonCode(),
     'current revoked/blocked source prevents historical re-use');
 Assert::same('M17_HISTORICAL_CURRENT_RIGHTS_BLOCKED',
@@ -240,7 +241,7 @@ $db->run('UPDATE source_license_cards SET review_status=? WHERE source_license_c
 
 $db->run('UPDATE evidence_objects SET evidence_status=? WHERE evidence_id=?',
     ['QUARANTINED',$snapshots[0]['evidence_id']]);
-$quarantine=$reader->preview($scope,$f['competitor_id'],$question,$period,$cutoff);
+$quarantine=$reader->preview($actor,$f['competitor_id'],$question,$period,$cutoff);
 Assert::same('LI05D_NATIVE_CAPTURE_HOLD',$quarantine->reasonCode(),
     'quarantined primary M05 evidence refuses entire source-backed basis');
 Assert::same('M17_HISTORICAL_REVOKED_OR_QUARANTINED',
@@ -251,14 +252,14 @@ $db->run('UPDATE evidence_objects SET evidence_status=? WHERE evidence_id=?',
 
 $emptyPrivateStore=new EvidenceStore(sys_get_temp_dir().'/li05d-empty-'.Ids::new());
 $missing=(new NativeCaptureHistoryCandidate($db,$clock,$emptyPrivateStore))
-    ->preview($scope,$f['competitor_id'],$question,$period,$cutoff);
+    ->preview($actor,$f['competitor_id'],$question,$period,$cutoff);
 Assert::same('LI05D_NATIVE_CAPTURE_HOLD',$missing->reasonCode(),
     'metadata without original private bytes never becomes historical evidence');
 Assert::same('M17_HISTORICAL_BYTES_NOT_AVAILABLE',
     $missing->detail['reason_code']??null,
     'missing retained bytes is distinguished from revoked source rights');
 
-$bad=$scope;$bad['actor_id']=Ids::new();
+$bad=$actor;$bad['actor_id']=Ids::new();
 Assert::same('LI05D_NATIVE_BASIS_NOT_AUTHORIZED',
     $reader->preview($bad,$f['competitor_id'],$question,$period,$cutoff)->reasonCode(),
     'unassigned principal cannot enumerate historical source identities');
