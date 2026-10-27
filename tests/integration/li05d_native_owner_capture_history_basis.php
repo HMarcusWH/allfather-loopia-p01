@@ -126,9 +126,18 @@ $period=[
     'end_exclusive_utc'=>'2026-11-01T00:00:00Z',
 ];
 $question=Ids::new();
+$captureSecondCutoff=substr($clock->now(),0,19).'Z';
+$captureSecond=$value($reader->preview($actor,$f['competitor_id'],$question,
+    $period,$captureSecondCutoff),'as-of cutoff before fractional binding completed');
+Assert::same(1,$captureSecond['history_basis']['selected_count'],
+    'source recorded at a fractional millisecond must not be backdated');
+Assert::same(1,
+    $captureSecond['history_basis']['excluded_counts_by_reason']['NOT_YET_KNOWN'],
+    'subsecond source binding is explicitly excluded at the earlier whole-second cutoff');
+$clock->advanceMs(1000);
 $cutoff=substr($clock->now(),0,19).'Z';
 $preview=$value($reader->preview($actor,$f['competitor_id'],$question,
-    $period,$cutoff),'owner-backed snapshot proof and history selector');
+    $period,$cutoff),'owner-backed snapshot proof after the binding time');
 Assert::same('OWNER_NATIVE_CAPTURE_METADATA_VERIFIED_U03_HOLD',
     $preview['status'],'actual M05 proof never becomes a use grant');
 Assert::same(2,$preview['verified_capture_count'],
