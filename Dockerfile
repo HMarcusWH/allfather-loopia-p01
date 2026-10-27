@@ -27,7 +27,10 @@ WORKDIR /srv/allfather
 COPY . /srv/allfather
 # This repository has no hosted CI minutes: qualify the session-security patch on the actual PHP 8.5 runtime.
 # The DB-backed end-to-end test remains a separate disposable MariaDB gate.
-RUN php -l app/Auth/Authenticator.php \
+RUN php -l ops/railway/render-private-env.php \
+    && php -l tests/foundation/railway_versioned_key_bridge.php \
+    && php tests/run.php --layer=foundation --filter=railway_versioned_key_bridge --strict \
+    && php -l app/Auth/Authenticator.php \
     && php -l app/Http/Kernel.php \
     && php -l tests/security/session_csrf_recovery.php \
     && php -l tests/foundation/session_csrf_recovery_boundary.php \
