@@ -1,0 +1,140 @@
+{
+  "schema_version": "li07f.r5.railway-host-recovery-readiness.v1",
+  "prepared_date": "2026-10-27",
+  "status": "R5_NOT_RUN",
+  "source_repository": "HMarcusWH/allfather-loopia-p01",
+  "qualified_php_main": "de7330d8d617bfbd9d27c04fc5f62c22f3e19382",
+  "observed_railway_deployed_commit": "de7330d8d617bfbd9d27c04fc5f62c22f3e19382",
+  "observed_railway_app_deployment_status": "SUCCESS",
+  "operator_note": "Read-only inventory; no backup/snapshot objects or restore outcome are verified. Never use this source-controlled JSON as an approval or operational receipt.",
+  "observed_host": {
+    "project": "allfather-staging",
+    "environment": "staging",
+    "php_service": "allfather-php-mvp",
+    "database_service": "allfather-mariadb",
+    "database_image": "mariadb:10.11",
+    "database_volume": {
+      "name": "allfather-staging-mariadb-data",
+      "mount": "/var/lib/mysql",
+      "provisioned_mb": 480,
+      "used_bytes": null,
+      "snapshot_verified": false,
+      "physical_restore_verified": false
+    },
+    "artifact_volume": {
+      "name": "allfather-staging-app-storage",
+      "mount": "/srv/allfather/storage",
+      "provisioned_mb": 256,
+      "used_bytes": null,
+      "snapshot_verified": false,
+      "physical_restore_verified": false
+    },
+    "backup_bucket": {
+      "name": "allfather-staging-encrypted-backups",
+      "exists": true,
+      "objects_verified": false,
+      "complete_backup_verified": false
+    },
+    "staged_infrastructure_changes": 0,
+    "snapshot_ids": "PRIVATE_NOT_COLLECTED",
+    "note": "Provider deployment snapshot IDs do not establish volume backups. Railway Backups UI or independently authenticated provider evidence required."
+  },
+  "constraints": {
+    "backup_restore_scope": "SAME_PROJECT_AND_ENVIRONMENT",
+    "normal_restore_effect": "STAGE_REPLACEMENT_VOLUME_AND_REDEPLOY_ORIGINAL_SERVICE_ON_DEPLOY",
+    "isolated_restore_target_supported": "UNVERIFIED",
+    "paired_snapshot_cross_volume_consistency": "UNVERIFIED",
+    "manual_snapshot_capacity_eligibility": "UNVERIFIED",
+    "current_staging_270_280_290_installed": false,
+    "full_12_candidate_families_24_triggers": "R4_DOCKER_SYNTHETIC_ONLY",
+    "repo_docs_are_never_authority": true
+  },
+  "phase_evidence": [
+    {
+      "id": "R5-0",
+      "name": "Current backups and restore eligibility inventory",
+      "state": "NOT_RUN",
+      "evidence_ref": null
+    },
+    {
+      "id": "R5-1",
+      "name": "Approved non-disruptive isolated restore or owner-approved maintenance window",
+      "state": "NOT_APPROVED",
+      "evidence_ref": null
+    },
+    {
+      "id": "R5-2",
+      "name": "Coherent Railway-managed paired snapshot with write barrier",
+      "state": "NOT_RUN",
+      "evidence_ref": null
+    },
+    {
+      "id": "R5-3A",
+      "name": "Restore Railway-managed MariaDB physical snapshot",
+      "state": "NOT_RUN",
+      "evidence_ref": null
+    },
+    {
+      "id": "R5-3B",
+      "name": "Restore Railway-managed app-private byte snapshot",
+      "state": "NOT_RUN",
+      "evidence_ref": null
+    },
+    {
+      "id": "R5-3C",
+      "name": "Independent schema, exact original M05 bytes, M10/Monitor replay and immutable triggers",
+      "state": "NOT_RUN",
+      "evidence_ref": null
+    },
+    {
+      "id": "R5-4",
+      "name": "Independent owner acceptance, scope and no-authority-expansion disposition",
+      "state": "PENDING",
+      "evidence_ref": null
+    }
+  ],
+  "acceptance": {
+    "host_native_pair_restore_qualified": false,
+    "railway_backup_objects_verified": false,
+    "independent_target_supported": false,
+    "explicit_ops_change_approval": false,
+    "source_quiescence_verified": false,
+    "paired_consistent_backup_verified": false,
+    "database_and_private_bytes_restored": false,
+    "source_target_separation_verified": false,
+    "schema_and_migration_digests_match": false,
+    "original_m05_private_bytes_match": false,
+    "m10_reliance_and_monitor_replay_match": false,
+    "restored_execution_inert_verified": false,
+    "independent_signed_ops_disposition": false
+  },
+  "authority": {
+    "U03_source_reuse_admitted": false,
+    "U03_provider_disclosure_admitted": false,
+    "U05_review_schedule_authorized": false,
+    "U06_historical_model_authorized": false,
+    "migrations_270_280_290_authorized": false,
+    "migrations_270_280_290_active": false,
+    "staging_migration_go": false,
+    "customer_visibility_authorized": false,
+    "production_go": false
+  },
+  "possible_dispositions": [
+    "R5_NOT_RUN",
+    "R5_BACKUP_INVENTORY_ONLY",
+    "R5A_PROVIDER_MECHANICS_ONLY",
+    "R5_PARTIAL_DB_ONLY",
+    "R5_PARTIAL_APP_ONLY",
+    "R5_RAILWAY_PAIRED_HOST_RESTORE_VERIFIED",
+    "R5_HOLD",
+    "R5_FAIL"
+  ],
+  "next_action": "In the Railway Backups UI inspect both volume snapshots, dates, used capacity and source/restore constraints. Do not click Restore or deploy a staged replacement on the running service without an independent Ops authorization and rollback plan.",
+  "sources": {
+    "railway_backup_docs": "https://docs.railway.com/volumes/backups",
+    "repository_recovery_runbook": "docs/BACKUP_RESTORE_RUNBOOK.md",
+    "r4_doc": "docs/LI07E_R4_INDEPENDENT_VOLUME_RECOVERY.md",
+    "r5_runbook": "docs/LI07F_R5_RAILWAY_HOST_NATIVE_RECOVERY_GATE.md",
+    "canonical_u03_draft": "https://github.com/HMarcusWH/Allfatherbusinessintelligence/pull/382"
+  }
+}
