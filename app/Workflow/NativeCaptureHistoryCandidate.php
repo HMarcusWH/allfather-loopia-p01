@@ -30,6 +30,7 @@ final class NativeCaptureHistoryCandidate
         private readonly Database $db,
         private readonly Clock $clock,
         EvidenceStore $privateStorage,
+        private readonly ?ScheduleHistoryCoverage $ownerCoverage = null,
     ) {
         $this->probe = new HistoricalCaptureProbe($db, $clock, $privateStorage);
     }
@@ -45,6 +46,7 @@ final class NativeCaptureHistoryCandidate
         array $period,
         string $knowledgeCutoffUtc,
         int $maxReferences = HistoricalEvidenceSelector::MAX_REFERENCES,
+        ?string $scheduleVersionId = null,
     ): Outcome {
         if (!Vocabulary::exactKeys($actor, ['tenant_id','workspace_id','actor_type','actor_id'])
             || !in_array($actor['actor_type'] ?? null, ['OPERATOR','SERVICE'], true)
@@ -58,6 +60,7 @@ final class NativeCaptureHistoryCandidate
             || !HistoricalEvidenceSelector::utc($period['end_exclusive_utc'] ?? null)
             || $period['start_inclusive_utc'] >= $period['end_exclusive_utc']
             || !HistoricalEvidenceSelector::utc($knowledgeCutoffUtc)
+            || ($scheduleVersionId !== null && !Vocabulary::id($scheduleVersionId))
             || $maxReferences < 1
             || $maxReferences > HistoricalEvidenceSelector::MAX_REFERENCES) {
             return Outcome::refuse('LI05D_NATIVE_BASIS_SELECTOR_INVALID');
@@ -185,6 +188,60 @@ final class NativeCaptureHistoryCandidate
                 ];
             }
 
+            // Default behaviour retains LI-05D's UNKNOWN coverage. An optional
+            // LI-05E composition can upgrade *slot accounting only* when the
+            // current owner-admitted schedule, immutable ledger and exact
+            // M05/P01 capture identities all agree for this knowledge cutoff.
+            $basisCoverage=['state'=>'UNKNOWN'];
+            $scheduleReport=null;
+            $complete=false;
+            if($scheduleVersionId!==null){
+                if($this->ownerCoverage===null){
+                    return Outcome::refuse('LI05E_SCHEDULE_OWNER_READER_REQUIRED');
+                }
+                $check=$this->ownerCoverage->inspect(
+                    $actor,$competitorId,$period,$knowledgeCutoffUtc,$scheduleVersionId,
+                );
+                if(!$check->isOk())return $check;
+                $receipt=$check->value();
+                if(($receipt['U03_historical_use_admitted']??null)!==false
+                    || ($receipt['model_call_authorized']??null)!==false
+                    || ($receipt['scheduler_action_authorized']??null)!==false){
+                    return Outcome::refuse('LI05E_COVERAGE_RECEIPT_AUTHORITY_INVALID');
+                }
+                // Keep the owner's full gap counts available without placing
+                // its internal per-capture identities into a UI response.
+                $scheduleReport=[
+                    'version'=>$receipt['version'],
+                    'schedule_version_id'=>$receipt['schedule_version_id'],
+                    'schedule_digest'=>$receipt['schedule_digest'],
+                    'planned_slots'=>$receipt['planned_slots'],
+                    'status'=>$receipt['status'],
+                    'summary'=>$receipt['summary'],
+                    'receipt_digest'=>$receipt['receipt_digest'],
+                    'source_coverage_complete'=>false,
+                ];
+                if($receipt['status']==='COMPLETE_OWNER_SLOT_COVERAGE'){
+                    $scheduled=$receipt['captured_snapshot_ids'];
+                    $historicallyKnown=[];
+                    foreach($rows as $row){
+                        if($row['observed_at']>=$period['start_inclusive_utc']
+                            && $row['observed_at']<$period['end_exclusive_utc']
+                            && $row['known_at']<=$knowledgeCutoffUtc){
+                            $historicallyKnown[]=$row['snapshot_id'];
+                        }
+                    }
+                    sort($historicallyKnown,SORT_STRING);
+                    sort($scheduled,SORT_STRING);
+                    if($historicallyKnown!==$scheduled
+                        || count($historicallyKnown)>$maxReferences){
+                        return Outcome::refuse('LI05E_CAPTURE_SET_DOES_NOT_MATCH_OWNER_SLOTS');
+                    }
+                    $basisCoverage=$receipt['basis_coverage'];
+                    $complete=true;
+                    $scheduleReport['source_coverage_complete']=true;
+                }
+            }
             $frozen = HistoryReviewBasis::freeze([
                 'scope'=>$scope,
                 'period'=>$period,
@@ -193,16 +250,15 @@ final class NativeCaptureHistoryCandidate
                 'knowledge_cutoff_utc'=>$knowledgeCutoffUtc,
                 'rows'=>$rows,
                 'max_references'=>$maxReferences,
-                // P01 source captures cannot establish planned-slot completeness,
-                // so source-backed bytes do not magically become full coverage.
-                'coverage'=>['state'=>'UNKNOWN'],
+                'coverage'=>$basisCoverage,
             ]);
             if (!$frozen->isOk()) return $frozen;
             $manifest = $frozen->value();
-            if ($manifest['selection_integrity'] !== 'INSUFFICIENT_BASIS'
-                || ($manifest['historical_reuse_admitted'] ?? null) !== false
-                || ($manifest['rights_disposition'] ?? null) !== 'NOT_ASSESSED') {
-                return Outcome::refuse('LI05D_BASIS_CANNOT_ASSUME_COMPLETE_OR_ADMITTED');
+            if (($manifest['historical_reuse_admitted'] ?? null) !== false
+                || ($manifest['rights_disposition'] ?? null) !== 'NOT_ASSESSED'
+                || ($complete && $manifest['selection_integrity']!=='COMPLETE_WITHIN_INPUT')
+                || (!$complete && $manifest['selection_integrity']!=='INSUFFICIENT_BASIS')){
+                return Outcome::refuse('LI05E_BASIS_INTEGRITY_OR_AUTHORITY_INVALID');
             }
             return Outcome::ok([
                 'version'=>self::VERSION,
@@ -211,7 +267,8 @@ final class NativeCaptureHistoryCandidate
                 'proof_manifest_digest'=>Digest::canonicalDigest($proofs),
                 'verified_capture_count'=>count($proofs),
                 'owner_provenance_verified'=>true,
-                'source_coverage_proven'=>false,
+                'source_coverage_proven'=>$complete,
+                'schedule_coverage_report'=>$scheduleReport,
                 'source_bytes_returned'=>false,
                 'U03_historical_use_admitted'=>false,
                 'U06_model_context_authorized'=>false,
