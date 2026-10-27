@@ -20,6 +20,11 @@ require dirname(__DIR__, 2) . '/app/autoload.php';
 use Allfather\Loopia\Provider\KeyRing;
 use Allfather\Loopia\Support\Env;
 
+// A failed partial write must not strand private key bytes on disk. Only a
+// temp file created by THIS invocation may be removed on failure; a preexisting
+// operator file is never ours to delete.
+$createdPrivateFile = false;
+$privateTarget = null;
 try {
     if ($argc !== 2 || basename((string) $argv[1]) !== '.env.prepare') {
         throw new RuntimeException('CLI staging target required');
@@ -37,6 +42,7 @@ try {
         throw new RuntimeException('private configuration target must be protected');
     }
     $target = $parent . '/.env.prepare';
+    $privateTarget = $target;
     if (is_link($requested) || file_exists($requested) || is_link($target) || file_exists($target)) {
         throw new RuntimeException('unsafe private configuration target');
     }
@@ -145,6 +151,7 @@ try {
     if (!is_resource($file)) {
         throw new RuntimeException('cannot exclusively create private configuration');
     }
+    $createdPrivateFile = true;
     try {
         if (fwrite($file, $rendered) !== strlen($rendered) || !fflush($file)) {
             throw new RuntimeException('incomplete private configuration write');
@@ -155,7 +162,13 @@ try {
     if (!chmod($target, 0600)) {
         throw new RuntimeException('private configuration permissions failed');
     }
+    // The caller now owns an intact prepared config; the caller must publish
+    // it atomically or remove it if chown/chmod/mv fails.
+    $createdPrivateFile = false;
 } catch (Throwable) {
+    if ($createdPrivateFile && is_string($privateTarget)) {
+        @unlink($privateTarget);
+    }
     // Deliberately generic: no user input, provider key or DB password leaks.
     fwrite(STDERR, "allfather-railway: PRIVATE_CONFIG_REFUSED\n");
     exit(1);
