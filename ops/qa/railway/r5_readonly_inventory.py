@@ -187,31 +187,60 @@ def collect(
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 
 
-def write_private(path: str, payload: dict[str, Any]) -> None:
-    # Refuse to run from an extracted/copied script with an unknown checkout
-    # boundary; an arbitrary cwd is not proof of the repository root.
+def validate_private_path(path: str) -> Path:
+    """Resolve checkout/symlink paths before querying Railway or creating files."""
     checked(
         (REPOSITORY_ROOT / "PROJECT_BOUNDARY.md").is_file()
         and (REPOSITORY_ROOT / ".github").is_dir(),
         "REPOSITORY_ROOT_UNVERIFIED",
     )
     p = Path(path).expanduser().resolve(strict=False)
-    # resolve() also follows symlinked parent directories: a seemingly private
-    # output that aliases the checkout must still fail before file creation.
     checked(p != REPOSITORY_ROOT and REPOSITORY_ROOT not in p.parents, "OUTPUT_MUST_BE_OUTSIDE_REPOSITORY")
     checked("public_html" not in p.parts and ".git" not in p.parts, "OUTPUT_PATH_NOT_PRIVATE")
     checked(p.parent.is_dir(), "PRIVATE_PARENT_MISSING")
+    # A world/group-accessible parent can leak a 0600 file name and ease
+    # replacing paths while an operator is producing private backup metadata.
+    checked(p.parent.stat().st_mode & 0o077 == 0, "PRIVATE_PARENT_PERMISSIONS")
+    checked(not p.exists() and not p.is_symlink(), "PRIVATE_OUTPUT_MUST_BE_NEW")
+    return p
+
+
+def write_private(path: str, payload: dict[str, Any]) -> None:
+    p = validate_private_path(path)
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
+    created = False
     try:
         fd = os.open(p, flags, 0o600)
+        created = True
         with os.fdopen(fd, "w", encoding="utf-8") as out:
             json.dump(payload, out, indent=2, sort_keys=True)
             out.write("\n")
-    except OSError as exc:
+    except (OSError, TypeError, ValueError) as exc:
+        if created:
+            p.unlink(missing_ok=True)
         raise Hold("PRIVATE_OUTPUT_CREATE_REFUSED") from exc
 
+
+def write_pair(private_path: str, private: dict[str, Any],
+               summary_path: str, summary: dict[str, Any]) -> None:
+    # BOTH destinations must be admissible *before* the first write. The two
+    # resolved targets may not alias one another by symlink or relative path.
+    private_target = validate_private_path(private_path)
+    summary_target = validate_private_path(summary_path)
+    checked(private_target != summary_target, "OUTPUT_PATH_COLLISION")
+    private_created = False
+    try:
+        write_private(str(private_target), private)
+        private_created = True
+        write_private(str(summary_target), summary)
+    except Hold:
+        # Never leave behind an apparently complete private inventory if the
+        # sanitized companion could not be filed. Existing files are untouched.
+        if private_created:
+            private_target.unlink(missing_ok=True)
+        raise
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -227,11 +256,13 @@ def main() -> int:
         "private_artifacts": ("allfather-staging-app-storage", args.app_service_id, "/srv/allfather/storage"),
     }
     try:
-        checked(args.private_out != args.summary_out, "OUTPUT_PATH_COLLISION")
+        # Fail closed before contacting the provider when either destination is
+        # unprotected, invalid, pre-existing or aliases another destination.
+        private_target = validate_private_path(args.private_out)
+        summary_target = validate_private_path(args.summary_out)
+        checked(private_target != summary_target, "OUTPUT_PATH_COLLISION")
         summary, private = collect(railway_query, args.project_id, args.environment_id, roles)
-        # First save the complete private response for independent verification; do not emit IDs to stdout.
-        write_private(args.private_out, private)
-        write_private(args.summary_out, summary)
+        write_pair(str(private_target), private, str(summary_target), summary)
     except Hold as exc:
         print(f"R5-0 HOLD: {exc}", file=sys.stderr)
         return 2
