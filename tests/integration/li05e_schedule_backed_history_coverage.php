@@ -67,9 +67,11 @@ $counts=static function(array $basis):array{
 $clock->advanceMs(1000);
 $zero=$ledger->inspect($actor,$competitor,$period,$cut(),$scheduleVersion);
 Assert::true($zero->isOk(),'admitted schedule can be read before first occurrence');
-Assert::same(['HOLD_GAPPED_OR_INCOMPLETE',0],
+Assert::same(['HOLD_GAPPED_OR_INCOMPLETE',1],
     [$zero->value()['status'],$zero->value()['planned_slots']],
-    'zero due slots never mean a complete historical period');
+    'an overdue first slot without its capture remains incomplete');
+Assert::same(1,$zero->value()['summary']['unreported_slots'],
+    'an admitted but unexecuted slot is not silently recorded as NO_CHANGE');
 
 // Baseline: one actual SOURCE_CAPTURED event + P01 snapshot + original M05 bytes.
 $tick=$sx['runner']->tick(5,20000,300);
