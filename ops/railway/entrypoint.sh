@@ -22,39 +22,17 @@ if [ "${APP_ENV:-}" != "staging" ]; then
     exit 1
 fi
 
-: "${DB_HOST:?missing DB_HOST}"
-: "${DB_PORT:?missing DB_PORT}"
-: "${DB_NAME:?missing DB_NAME}"
-: "${DB_USER:?missing DB_USER}"
-: "${DB_PASSWORD:?missing DB_PASSWORD}"
-: "${APP_MASTER_KEY:?missing APP_MASTER_KEY}"
-
-# Reject CR and LF injection into the application's line-oriented .env format.
-cr=$(printf '\r')
-lf='
-'
-for item in "$DB_HOST" "$DB_PORT" "$DB_NAME" "$DB_USER" "$DB_PASSWORD" "$APP_MASTER_KEY" "${APP_BASE_URL:-}" "${RAILWAY_GIT_COMMIT_SHA:-}"; do
-    case "$item" in
-        *"$cr"*|*"$lf"*) echo 'allfather-railway: multiline configuration refused' >&2; exit 1 ;;
-    esac
-done
-
+# P11 key ownership is in app/Provider/KeyRing.php. The renderer uses that
+# validator (legacy OR versioned, never both), avoids value logging, and
+# confirms bytes round-trip through the application's private Env parser.
 config=/srv/allfather/.env
 config_tmp=/srv/allfather/.env.prepare
 [ ! -L "$config" ] || { echo 'allfather-railway: symlink configuration refused' >&2; exit 1; }
-[ ! -L "$config_tmp" ] || { echo 'allfather-railway: symlink temp configuration refused' >&2; exit 1; }
-{
-    printf 'APP_ENV=staging\n'
-    printf 'APP_BASE_URL=%s\n' "${APP_BASE_URL:-https://railway-staging.invalid}"
-    printf 'DB_HOST=%s\n' "$DB_HOST"
-    printf 'DB_PORT=%s\n' "$DB_PORT"
-    printf 'DB_NAME=%s\n' "$DB_NAME"
-    printf 'DB_USER=%s\n' "$DB_USER"
-    printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
-    printf 'APP_MASTER_KEY=%s\n' "$APP_MASTER_KEY"
-    printf 'APP_RELEASE_REF=%s\n' "${RAILWAY_GIT_COMMIT_SHA:-UNQUALIFIED_RAILWAY_STAGING}"
-    # Scheduler token deliberately omitted: scheduler is unreachable.
-} > "$config_tmp"
+[ ! -e "$config_tmp" ] && [ ! -L "$config_tmp" ] || {
+    echo 'allfather-railway: private temp configuration already exists' >&2
+    exit 1
+}
+php /srv/allfather/ops/railway/render-private-env.php "$config_tmp" || exit 1
 chown root:www-data "$config_tmp"
 chmod 0640 "$config_tmp"
 mv -f "$config_tmp" "$config"
@@ -64,6 +42,12 @@ mkdir -p /srv/allfather/storage
 chown www-data:www-data /srv/allfather/storage
 chmod 0700 /srv/allfather/storage
 
-# Do not pass DB/key credentials to Apache's child process environment.
+# Do not pass DB/master-key/scheduler credentials to Apache's child process
+# environment. Only master-key VARIABLE NAMES are enumerated; no values are
+# echoed and there is no eval. Preserve ordinary non-secret Railway variables.
+for name in $(env | sed -n 's/^\(APP_MASTER_KEY_[A-Za-z0-9_]*\)=.*/\1/p'); do
+    unset "$name"
+done
 unset DB_PASSWORD APP_MASTER_KEY DB_HOST DB_PORT DB_NAME DB_USER
+unset SCHEDULER_TOKEN SCHEDULER_TOKEN_HASH
 exec "$@"
