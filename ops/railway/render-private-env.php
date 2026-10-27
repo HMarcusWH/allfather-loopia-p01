@@ -8,13 +8,20 @@ declare(strict_types=1);
  * The renderer creates ONLY an exclusive .env.prepare file; entrypoint.sh
  * validates ownership/permissions then atomically publishes it as .env.
  */
+
+// Refuse a web SAPI BEFORE autoloading any application code. This file lives
+// outside public_html; the SAPI gate provides the independent second boundary.
+if (PHP_SAPI !== 'cli') {
+    fwrite(STDERR, "allfather-railway: PRIVATE_CONFIG_REFUSED\n");
+    exit(1);
+}
 require dirname(__DIR__, 2) . '/app/autoload.php';
 
 use Allfather\Loopia\Provider\KeyRing;
 use Allfather\Loopia\Support\Env;
 
 try {
-    if (PHP_SAPI !== 'cli' || $argc !== 2 || basename((string) $argv[1]) !== '.env.prepare') {
+    if ($argc !== 2 || basename((string) $argv[1]) !== '.env.prepare') {
         throw new RuntimeException('CLI staging target required');
     }
 
