@@ -25,8 +25,19 @@ try {
         throw new RuntimeException('CLI staging target required');
     }
 
-    $target = (string) $argv[1];
-    if (!is_dir(dirname($target)) || is_link($target) || file_exists($target)) {
+    $requested = (string) $argv[1];
+    $parent = realpath(dirname($requested));
+    $appRoot = realpath(dirname(__DIR__, 2));
+    if ($parent === false || $appRoot === false
+        || str_contains('/' . trim(dirname($requested), '/') . '/', '/public_html/')
+        || str_contains('/' . trim($parent, '/') . '/', '/public_html/')
+        || ($parent !== $appRoot && (((int) fileperms($parent)) & 0077) !== 0)) {
+        // Fixture subprocesses may use their own mode-0700 private directory;
+        // a served or group-accessible directory may NEVER hold the secret.
+        throw new RuntimeException('private configuration target must be protected');
+    }
+    $target = $parent . '/.env.prepare';
+    if (is_link($requested) || file_exists($requested) || is_link($target) || file_exists($target)) {
         throw new RuntimeException('unsafe private configuration target');
     }
 
