@@ -11,9 +11,9 @@ $workflow=$root.'/.github/workflows/m17-r4-candidate-restore.yml';
 Assert::true(is_file($r4)&&is_file($old),
     'R4 qualification must include the helper and original gated harness');
 // The *deployment package* intentionally excludes .github. Validate the
-// hosted workflow when present in the full source checkout, but never require
-// CI internals to be copied into the served or staged release tree.
-$checkWorkflow=is_dir($root.'/.github');
+// hosted workflow only in the real Git checkout, which has a .git directory.
+// A prepared release may retain other .github files but not this QA workflow.
+$checkWorkflow=is_dir($root.'/.git');
 if($checkWorkflow) {
     Assert::true(is_file($workflow),'source checkout must retain R4 QA workflow');
 }
