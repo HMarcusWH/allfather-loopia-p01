@@ -75,7 +75,7 @@ final class HistoryReviewReadAdapter
                     ],true)
                     || !in_array($row['due_status']??null,[
                         'DUE_CANDIDATE_HUMAN_REVIEW_ONLY','NO_NEW_BASIS_CANDIDATE',
-                        'NOT_DUE_CANDIDATE','DEFERRED_COOLDOWN',
+                        'NOT_EVALUATED','NOT_DUE_CANDIDATE','DEFERRED_COOLDOWN',
                         'DEFERRED_BACKPRESSURE','DEFERRED_COALESCE_REVIEW',
                         'HOLD_CURRENT_RIGHTS',
                     ],true)
