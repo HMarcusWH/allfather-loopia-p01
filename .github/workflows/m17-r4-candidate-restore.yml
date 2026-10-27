@@ -1,0 +1,79 @@
+name: R4 270-280-290 independent-volume candidate recovery
+
+# Assurance only. NEVER Railway, production volumes, real private source
+# archives, historical-use admissions, model calls or schema activation.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/m17-r4-candidate-restore.yml
+      - ops/qa/m17/r4.php
+      - ops/qa/m17/restore.sh
+      - tests/foundation/m17_r4_restore_boundary.php
+      - docs/LI07E_R4_INDEPENDENT_VOLUME_RECOVERY.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m17-r4-qa-${{ github.event.pull_request.number || github.run_id }}-${{ github.run_attempt }}
+  cancel-in-progress: false
+
+jobs:
+  independent-restore:
+    name: R4 disposable independent volume / MariaDB ${{ matrix.mariadb }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        mariadb: ['10.6', '10.11']
+    env:
+      M17_QA_RUN_ID: r4-m17-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.mariadb }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2.37.2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql, curl, openssl, mbstring, json
+          coverage: none
+      - name: Install ephemeral archive encryption tooling
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends age
+          command -v age
+          command -v docker
+      - name: PHP lint and shell contract
+        run: |
+          set -euo pipefail
+          php -l ops/qa/m17/qa.php
+          php -l ops/qa/m17/r4.php
+          bash -n ops/qa/m17/restore.sh
+          php -m | grep -qi pdo_mysql
+      - name: Run real crash + encrypted independent-volume R4 rehearsal
+        run: |
+          set -euo pipefail
+          bash ops/qa/m17/restore.sh \
+            --mariadb=${{ matrix.mariadb }} \
+            --r4-candidate \
+            --receipt="$RUNNER_TEMP/r4-recovery-receipt.json"
+          php -r '
+            $r=json_decode(file_get_contents($argv[1]),true,32,JSON_THROW_ON_ERROR);
+            if (($r["status"]??null)!=="PASS"
+                || ($r["r4_candidate_table_families"]??null)!==12
+                || ($r["r4_append_only_triggers"]??null)!==24
+                || ($r["r4_owner_native_synthetic_M05_private_bytes_restored"]??null)!==true
+                || ($r["r4_U03_historical_use_granted"]??null)!==false
+                || ($r["r4_U05_policy_adopted"]??null)!==false) exit(1);
+            echo "R4_DISPOSABLE_VOLUME_RESTORE_QUALIFIED_WITH_NO_AUTHORITY";
+          ' "$RUNNER_TEMP/r4-recovery-receipt.json"
+      - name: Retain sanitized R4 receipt, never decrypted evidence or key
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r4-candidate-volume-recovery-${{ matrix.mariadb }}
+          path: ${{ runner.temp }}/r4-recovery-receipt.json
+          if-no-files-found: warn
+          retention-days: 14

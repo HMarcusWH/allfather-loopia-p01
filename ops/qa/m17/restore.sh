@@ -3,12 +3,13 @@
 # NEVER run against Railway, a named customer DB, or an existing user volume.
 set -euo pipefail
 umask 077
-usage() { echo 'usage: restore.sh --mariadb=10.6|10.11 --receipt=PATH' >&2; exit 2; }
-VERSION='' RECEIPT=''
+usage() { echo 'usage: restore.sh --mariadb=10.6|10.11 --receipt=PATH [--r4-candidate]' >&2; exit 2; }
+VERSION='' RECEIPT='' R4=false
 for arg in "$@"; do
   case "$arg" in
     --mariadb=*) VERSION="$(printf '%s' "$arg" | cut -d= -f2-)" ;;
     --receipt=*) RECEIPT="$(printf '%s' "$arg" | cut -d= -f2-)" ;;
+    --r4-candidate) R4=true ;;
     *) usage ;;
   esac
 done
@@ -108,6 +109,7 @@ EOF
   chmod 0600 "$2"
 }
 run_qa() { TEST_ENV_FILE="$WORK/current.env" php "$HERE/qa.php" "$@"; }
+run_r4() { TEST_ENV_FILE="$WORK/current.env" php "$HERE/r4.php" "$@"; }
 
 STAGE='PRIMARY_START'
 launch_db "$PRIMARY" "$VOLUME_A"
@@ -123,6 +125,15 @@ run_qa init > "$WORK/init.json"
 echo 'M17_QA_CHECKPOINT: partial-ddl-and-active-migrations-done'
 run_qa seed "$WORK/seed.json" >/dev/null
 echo 'M17_QA_CHECKPOINT: synthetic-population-done'
+if [ "$R4" = true ]; then
+  STAGE='R4_270_290_M05_SYNTHETIC_POPULATION'
+  mkdir -p "$WORK/evidence-live"
+  run_r4 extend "$WORK/seed.json" "$WORK/r4-state.json" "$WORK/evidence-live" \
+    > "$WORK/r4-extend.json"
+  run_r4 verify "$WORK/seed.json" "$WORK/r4-state.json" "$WORK/evidence-live" \
+    > "$WORK/r4-original-verify.json"
+  echo 'M17_R4_CHECKPOINT: 12-families-24-triggers-and-private-M05-bytes-verified'
+fi
 run_qa verify "$WORK/seed.json" > "$WORK/pre-backup-verify.json"
 echo 'M17_QA_CHECKPOINT: initial-semantics-verified'
 run_qa manifest "$WORK/original-manifest.json" >/dev/null
@@ -130,6 +141,10 @@ mkdir -p "$WORK/prepared/artifacts"
 printf 'M17 SYNTHETIC DATA ONLY\nNo licensed sources, customer records or production evidence.\n' \
   > "$WORK/prepared/artifacts/source-fixture.txt"
 cp "$WORK/seed.json" "$WORK/prepared/seed.json"
+if [ "$R4" = true ]; then
+  cp "$WORK/r4-state.json" "$WORK/prepared/r4-state.json"
+  cp -a "$WORK/evidence-live" "$WORK/prepared/storage-evidence"
+fi
 sha256sum "$WORK/prepared/artifacts/source-fixture.txt" | awk '{print $1}' > "$WORK/prepared/source-fixture.sha256"
 
 STAGE='REAL_DATABASE_DUMP'
@@ -172,6 +187,11 @@ wait_tcp "$PRIMARY"
 # Resolve the NEW container mapping before asking PHP to re-open its connection.
 write_env "$PRIMARY" "$WORK/current.env"
 run_qa compare "$WORK/original-manifest.json" > "$WORK/crash-verify.json"
+if [ "$R4" = true ]; then
+  run_r4 verify "$WORK/seed.json" "$WORK/r4-state.json" "$WORK/evidence-live" \
+    > "$WORK/r4-crash-verify.json"
+  echo 'M17_R4_CHECKPOINT: crash-recovery-preserved-12-families-and-M05-bytes'
+fi
 echo 'M17_QA_CHECKPOINT: crash-consistency-verified'
 test "$(docker exec -e MYSQL_PWD=m17_ephemeral_user "$PRIMARY" \
     mariadb -u m17_qa -D m17_candidate_qa --batch --skip-column-names \
@@ -197,6 +217,11 @@ test "$(sha256sum "$WORK/decrypted/artifacts/source-fixture.txt" | awk '{print $
 docker exec -i -e MYSQL_PWD=m17_ephemeral_user "$SECONDARY" \
   mariadb --user=m17_qa m17_candidate_qa < "$WORK/decrypted/database.sql"
 run_qa verify "$WORK/decrypted/seed.json" > "$WORK/restore-verify.json"
+if [ "$R4" = true ]; then
+  run_r4 verify "$WORK/decrypted/seed.json" "$WORK/decrypted/r4-state.json" \
+    "$WORK/decrypted/storage-evidence" > "$WORK/r4-independent-restore-verify.json"
+  echo 'M17_R4_CHECKPOINT: independent-volume-12-families-and-M05-private-bytes-verified'
+fi
 
 STAGE='FINAL_RECEIPT'
 php -r '
@@ -214,6 +239,15 @@ php -r '
       "NO_RAILWAY_TEST","NO_REAL_M05_AUTHENTICITY","NO_SERVICE_ACTIVATION"
     ]
   ];
+  if(($argv[4]??"false")==="true") {
+    $r["r4_candidate_table_families"]=12;
+    $r["r4_append_only_triggers"]=24;
+    $r["r4_270_280_290_interrupted_ddl_and_independent_restore"]=true;
+    $r["r4_owner_native_synthetic_M05_private_bytes_restored"]=true;
+    $r["r4_U03_historical_use_granted"]=false;
+    $r["r4_U05_policy_adopted"]=false;
+    $r["claim_ceiling"][]="NO_ACTIVE_270_280_290_MIGRATIONS";
+  }
   file_put_contents($argv[3],json_encode($r,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)."\n");
-' "$VERSION" "$archive_sha" "$RECEIPT"
+' "$VERSION" "$archive_sha" "$RECEIPT" "$R4"
 echo "M17_QA_RESTORE_PASS engine=$VERSION"
