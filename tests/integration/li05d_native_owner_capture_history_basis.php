@@ -146,7 +146,15 @@ Assert::same('UNKNOWN',$basis['coverage']['state'],
     'a couple snapshots cannot prove full capture cadence coverage');
 Assert::same('CALLER_SUPPLIED_UNVERIFIED',$basis['coverage']['basis'],
     'unknown coverage does not claim adopted source plan');
-Assert::same(2,$basis['selected_count'],'both independently captured identities retained');
+Assert::same(2,$basis['selected_count'],
+    'both independently captured identities retained; '.json_encode([
+        'input_count'=>$basis['input_count'],
+        'cutoff'=>$cutoff,
+        'excluded'=>$basis['excluded_counts_by_reason'],
+        'selected_clocks'=>array_map(static fn(array $ref):array =>
+            [$ref['observed_at'],$ref['known_at']],$basis['references']),
+        'snapshot_clocks'=>array_column($snapshots,'captured_at'),
+    ],JSON_THROW_ON_ERROR));
 foreach($basis['references'] as $i=>$ref){
     Assert::same($snapshots[$i]['source_snapshot_id'],$ref['snapshot_id'],
         'reference points to actual P01 owner snapshot');
