@@ -32,10 +32,15 @@ config_tmp=/srv/allfather/.env.prepare
     echo 'allfather-railway: private temp configuration already exists' >&2
     exit 1
 }
+# A failed renderer, chown or chmod must not strand new key bytes in the
+# prepared file. On success mv removes the old path before we clear the trap.
+# The preexisting-file guard above makes it safe to own this cleanup.
+trap 'rm -f -- "$config_tmp"' EXIT
 php /srv/allfather/ops/railway/render-private-env.php "$config_tmp" || exit 1
 chown root:www-data "$config_tmp"
 chmod 0640 "$config_tmp"
 mv -f "$config_tmp" "$config"
+trap - EXIT
 
 # This path must be backed by an isolated Railway staging volume.
 mkdir -p /srv/allfather/storage
