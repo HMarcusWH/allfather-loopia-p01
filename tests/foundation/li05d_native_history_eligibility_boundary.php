@@ -14,7 +14,7 @@ $source=(string)file_get_contents(
     $root.'/app/Workflow/NativeCaptureHistoryCandidate.php');
 foreach([
     'AccessGuard','HistoricalCaptureProbe','HistoryReviewBasis::freeze',
-    "'coverage'=>['state'=>'UNKNOWN']",
+    "'LI05E_SCHEDULE_OWNER_READER_REQUIRED'",
     "'U03_historical_use_admitted'=>false",
     "'U06_model_context_authorized'=>false",
     "'M17_input_set_authorized'=>false",
