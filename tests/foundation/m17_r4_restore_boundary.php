@@ -31,7 +31,7 @@ foreach([
 }
 foreach([
     '--r4-candidate','R4_270_290_M05_SYNTHETIC_POPULATION',
-    'R4_EVIDENCE','r4-independent-restore-verify.json',
+    'evidence-live','r4-independent-restore-verify.json',
     'docker kill --signal=KILL',
     'VOLUME_A=','VOLUME_B=',
     'mariadb-dump','--single-transaction',
