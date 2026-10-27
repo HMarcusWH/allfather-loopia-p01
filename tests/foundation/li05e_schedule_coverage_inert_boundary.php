@@ -53,7 +53,7 @@ Assert::contains('ScheduleHistoryCoverage $ownerCoverage',$native,
     'native basis accepts only an explicit typed schedule coverage authority');
 Assert::contains("'LI05E_CAPTURE_SET_DOES_NOT_MATCH_OWNER_SLOTS'",$native,
     'completed owner slots must equal the native privately verified captures');
-Assert::contains("'coverage'=>$basisCoverage",$native,
+Assert::contains("'coverage'=>".'$basisCoverage',$native,
     'only owner-native schedule evidence changes the LI05A input coverage');
 Assert::contains("'U03_historical_use_admitted'=>false",$native,
     'even complete schedule metadata cannot authorize historical use');
