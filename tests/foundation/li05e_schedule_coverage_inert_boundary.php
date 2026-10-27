@@ -35,7 +35,7 @@ foreach([
     'monitor_capture_payloads',
     'monitor_schedule_occurrences',
     'monitor_schedule_occurrence_outcomes',
-    'Owner',
+    'ScheduleService::digest',
     "'U03_historical_use_admitted'=>false",
     "'model_call_authorized'=>false",
     "'scheduler_action_authorized'=>false",
