@@ -140,8 +140,8 @@
         "U06"
       ],
       "semantic_owner": "P01/PromptOps",
-      "build_status": "NOT_STARTED",
-      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "build_status": "BUILT_INERT",
+      "source_basis": "DETERMINISTIC_SYNTHETIC_V2_COMPOSITION_EXACT_PROMPT_SCHEMA_VALIDATOR_U01_U06_REFUSAL",
       "candidate_factory_binding": "NOT_REGISTERED",
       "native_permission": false,
       "customer_visibility": false,
