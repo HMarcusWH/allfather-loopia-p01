@@ -35,6 +35,10 @@ $bad=$native;$bad['evidence_source_ref_id']=Ob02Fixture::uuid(55);
 Assert::same('OB02_M05_EVIDENCE_NOT_CURRENT',
     CompetitorScope::bind($actor,Ob02Fixture::uuid(3),$bad,$history)->reasonCode(),
     'source snapshot evidence must bind the same M05 source reference');
+$bad=$native;$bad['evidence_content_hash']=str_repeat('b',64);
+Assert::same('OB02_M05_SNAPSHOT_EVIDENCE_HASH_MISMATCH',
+    CompetitorScope::bind($actor,Ob02Fixture::uuid(3),$bad,$history)->reasonCode(),
+    'M05 evidence hash must match the cited P01 snapshot canonical content hash');
 $bad=$native;$bad['evidence_status']='REVOKED_FOR_USE';
 Assert::same('OB02_M05_EVIDENCE_NOT_CURRENT',
     CompetitorScope::bind($actor,Ob02Fixture::uuid(3),$bad,$history)->reasonCode(),

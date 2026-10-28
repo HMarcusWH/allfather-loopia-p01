@@ -52,8 +52,16 @@ final class CompetitorScope
             return Outcome::refuse('OB02_NATIVE_LINEAGE_SCOPE_MISMATCH', [], 'SCOPE', 'S4');
         }
         if ($nativeRow['evidence_source_ref_id'] !== $nativeRow['source_ref_id']
-            || !in_array($nativeRow['evidence_status'], ['CAPTURED','ASSESSED'], true)) {
+            || !in_array($nativeRow['evidence_status'], ['CAPTURED','ASSESSED'], true)
+            || !in_array($nativeRow['evidence_type'] ?? null,
+                ['SOURCE_CAPTURE','HOST_RETRIEVAL_CAPTURE','UPLOADED_SOURCE_CAPTURE','TEST_FIXTURE_EVIDENCE'], true)) {
             return Outcome::refuse('OB02_M05_EVIDENCE_NOT_CURRENT');
+        }
+        if (!is_string($nativeRow['content_hash'] ?? null)
+            || !is_string($nativeRow['evidence_content_hash'] ?? null)
+            || preg_match(self::HEX, $nativeRow['evidence_content_hash']) !== 1
+            || !hash_equals($nativeRow['content_hash'], $nativeRow['evidence_content_hash'])) {
+            return Outcome::refuse('OB02_M05_SNAPSHOT_EVIDENCE_HASH_MISMATCH');
         }
         if (!is_int($nativeRow['snapshot_sequence']) && !ctype_digit((string) $nativeRow['snapshot_sequence'])) {
             return Outcome::refuse('OB02_SNAPSHOT_SEQUENCE_INVALID');

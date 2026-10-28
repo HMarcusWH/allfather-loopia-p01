@@ -63,7 +63,8 @@ final class ObservationBackfill
                 "SELECT s.source_snapshot_id,s.tenant_id,s.workspace_id,s.monitored_source_id,
                         s.evidence_id,s.snapshot_sequence,s.content_hash,s.captured_at,
                         m.competitor_id,m.source_ref_id,m.source_license_card_id,
-                        ev.source_ref_id AS evidence_source_ref_id,ev.evidence_status
+                        ev.source_ref_id AS evidence_source_ref_id,ev.evidence_status,
+                        ev.content_hash AS evidence_content_hash,ev.evidence_type
                  FROM source_snapshots s
                  JOIN monitored_sources m ON m.monitored_source_id=s.monitored_source_id
                     AND m.tenant_id=s.tenant_id AND m.workspace_id=s.workspace_id

@@ -40,7 +40,9 @@ final class Ob02Fixture
             'source_snapshot_id'=>self::uuid(7),'evidence_id'=>self::uuid(8),
             'evidence_source_ref_id'=>self::uuid(5),'evidence_status'=>'CAPTURED',
             'snapshot_sequence'=>$sequence,
-            'content_hash'=>str_repeat('a',64),'captured_at'=>self::AT,
+            'content_hash'=>str_repeat('a',64),
+            'evidence_content_hash'=>str_repeat('a',64),
+            'evidence_type'=>'SOURCE_CAPTURE','captured_at'=>self::AT,
         ];
     }
 
