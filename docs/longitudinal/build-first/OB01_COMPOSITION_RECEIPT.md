@@ -8,4 +8,4 @@ Recorded 2026-10-28. Source package implemented for the isolated build-first int
 
 **Prior evidence:** original v1 bundle and the full 18-case Monitor evaluation manifest remain byte-identical; DEV7 and independent hold-out/human-quality state remain unchanged. **Build status: BUILT_INERT.** No prompt approval, provider calls, new migrations or live source authorization.
 
-**Later gates:** OB-02 durable owner-gated persistence, U01/U06 owner adoption, VA-01/VA-02/V05 independent quality, RT-02 and V01–V11 operational acceptance. Exact-head GitHub CI proof must be added to PR #110/master issue #105 *after* all checks actually pass; this receipt does not invent their result.
+**Later gates:** OB-02 durable owner-gated persistence, U01/U06 owner adoption, VA-01/VA-02/V05 independent quality, RT-02 and V01–V11 operational acceptance. Exact-head GitHub CI proof must be added to the OB-01 PR and master issue #105 *after* all checks actually pass; this receipt does not invent their result.
