@@ -293,12 +293,33 @@ Assert::true(
 // Every PHP entry point OUTSIDE the served tree refuses a web SAPI before it loads anything. The
 // directory being private is the primary boundary and is asserted above; this is the second layer,
 // for the day a deployment mistake exposes it.
+// A deny-only operator command is strictly safer if it NEVER loads an app
+// file. The previous strpos(..., 'require') returned false for such scripts,
+// incorrectly failing the boundary check. Test actual PHP load tokens, not
+// incidental comment/array text or the presence of a required import.
+$cliGuardPrecedesLoads = static function (string $source): bool {
+    $guard = strpos($source, "PHP_SAPI !== 'cli'");
+    if ($guard === false) {
+        return false;
+    }
+    $offset = 0;
+    foreach (token_get_all($source) as $token) {
+        $body = is_array($token) ? $token[1] : $token;
+        if (is_array($token)
+            && in_array($token[0], [T_REQUIRE, T_REQUIRE_ONCE, T_INCLUDE, T_INCLUDE_ONCE], true)
+            && $offset < $guard) {
+            return false;
+        }
+        $offset += strlen($body);
+    }
+    return true;
+};
 foreach (glob(dirname(__DIR__, 2) . '/ops/*.php') ?: [] as $opsEntry) {
     $source = (string) file_get_contents($opsEntry);
     $name = basename($opsEntry);
     Assert::contains("PHP_SAPI !== 'cli'", $source, "ops/{$name} refuses any web SAPI");
     Assert::true(
-        strpos($source, "PHP_SAPI !== 'cli'") < strpos($source, 'require'),
+        $cliGuardPrecedesLoads($source),
         "ops/{$name} refuses BEFORE it loads anything",
     );
 }
@@ -307,7 +328,7 @@ foreach (glob(dirname(__DIR__, 2) . '/ops/*/*.php') ?: [] as $opsEntry) {
     $name = basename(dirname($opsEntry)) . '/' . basename($opsEntry);
     Assert::contains("PHP_SAPI !== 'cli'", $source, "ops/{$name} refuses any web SAPI");
     Assert::true(
-        strpos($source, "PHP_SAPI !== 'cli'") < strpos($source, 'require'),
+        $cliGuardPrecedesLoads($source),
         "ops/{$name} refuses BEFORE it loads anything",
     );
 }

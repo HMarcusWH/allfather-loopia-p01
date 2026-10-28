@@ -1,0 +1,50 @@
+{
+  "schema_version": "ob02.legacy-coverage-development.v1",
+  "case_count": 5,
+  "classification": "SYNTHETIC_ONLY_NO_HISTORICAL_ASSESSMENT",
+  "as_of_date": "2026-10-28",
+  "cases": [
+    {
+      "id": "baseline",
+      "sequence": 1,
+      "coverage": "BASELINE",
+      "significance": [],
+      "expected": "BASELINE_NO_COMPARISON"
+    },
+    {
+      "id": "unchanged",
+      "sequence": 2,
+      "coverage": "STRUCTURALLY_UNCHANGED",
+      "significance": [
+        "NONE"
+      ],
+      "expected": "UNCHANGED_STRUCTURE_NOT_MATERIALITY"
+    },
+    {
+      "id": "structural",
+      "sequence": 2,
+      "coverage": "STRUCTURAL_CHANGE_RECORDED",
+      "significance": [
+        "MATERIAL"
+      ],
+      "expected": "CHANGED_STRUCTURE_NOT_MATERIALITY"
+    },
+    {
+      "id": "multiple",
+      "sequence": 3,
+      "coverage": "MULTIPLE_COMPARISONS",
+      "significance": [
+        "MINOR",
+        "UNKNOWN"
+      ],
+      "expected": "HELD_CONTRARY_OR_MULTIPLE_DIFF_REFERENCES"
+    },
+    {
+      "id": "insufficient",
+      "sequence": 2,
+      "coverage": "COMPARISON_UNAVAILABLE",
+      "significance": [],
+      "expected": "INSUFFICIENT_COMPARISON_EVIDENCE"
+    }
+  ]
+}

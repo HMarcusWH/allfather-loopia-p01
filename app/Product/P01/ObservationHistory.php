@@ -193,6 +193,26 @@ SQL;
         ];
     }
 
+    /**
+     * OB-02 preview-only history projection, deliberately routed through this
+     * existing owner reader's CURRENT M02/M05/card eligibility checks.
+     *
+     * No new runtime schema or source-use grant. This cannot apply a backfill,
+     * read raw bodies, create v2 findings, or release anything to customers.
+     *
+     * @param array<string,mixed> $actor
+     * @return \Allfather\Loopia\Core\Outcome
+     */
+    public function previewAssessmentBackfill(
+        array $actor,
+        string $competitorId,
+        int $limit = 10,
+        ?string $beforeSnapshotId = null,
+    ): \Allfather\Loopia\Core\Outcome {
+        return (new ObservationBackfill($this->db, $this->clock, $this))
+            ->preview($actor, $competitorId, $limit, $beforeSnapshotId);
+    }
+
     /** @return array<string,mixed> */
     private function denied(string $reason, ?string $permission = null): array
     {
