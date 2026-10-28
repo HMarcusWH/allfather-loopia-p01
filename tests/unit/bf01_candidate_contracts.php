@@ -35,7 +35,7 @@ $bad['payload']['authorization_proven'] = true;
 Assert::same('BF01_FIELD_TYPE_INVALID', BuildFirstContracts::checkCandidate($contracts, 'CurrentUseDecision', $bad)['reason_code'], 'caller cannot assert owner-approved source use');
 $bad = $cases['InternalAttention']['positive'];
 $bad['payload']['recipient_role'] = "SALES\nBcc: attacker@example.com";
-Assert::same('VALID_CANDIDATE', BuildFirstContracts::checkCandidate($contracts, 'InternalAttention', $bad)['outcome'], 'text remains inert metadata not SMTP'); // content is never a notification
+Assert::same('BF01_FIELD_TYPE_INVALID', BuildFirstContracts::checkCandidate($contracts, 'InternalAttention', $bad)['reason_code'], 'recipient role cannot contain CRLF/header-like values');
 $bad['payload']['send_email'] = true;
 Assert::same('BF01_PAYLOAD_EXTRA_FIELD', BuildFirstContracts::checkCandidate($contracts, 'InternalAttention', $bad)['reason_code'], 'no optional send capability');
 $bad = $cases['DocumentProjection']['positive'];

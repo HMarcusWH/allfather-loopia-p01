@@ -184,14 +184,14 @@ final class BuildFirstContracts
             'clock' => is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/D', $value) === 1
                 && \Allfather\Loopia\Core\Clock::parse($value) !== null,
             'text' => is_string($value) && strlen($value) > 0 && strlen($value) <= 1024
-                && !str_contains($value, "\0"),
+                && !str_contains($value, "\0") && preg_match('/[\r\n]/', $value) !== 1,
             'uint' => is_int($value) && $value >= 0 && $value <= 1000000,
             'bool' => is_bool($value),
             'false' => $value === false,
             'ref' => self::validRef($value),
             'refs' => is_array($value) && array_is_list($value) && count($value) <= 64
-                && count(array_unique($value)) === count($value)
-                && array_reduce($value, static fn (bool $ok, mixed $v): bool => $ok && self::validRef($v), true),
+                && array_reduce($value, static fn (bool $ok, mixed $v): bool => $ok && self::validRef($v), true)
+                && count(array_unique($value)) === count($value),
             'state' => is_string($value) && in_array($value, self::STATES, true),
             'sections' => self::validSections($value),
             default => false,
