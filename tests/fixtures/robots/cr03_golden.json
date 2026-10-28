@@ -1,0 +1,189 @@
+{
+  "schema_version": "cr03.robots-golden.v1",
+  "status": "SYNTHETIC_OFFLINE_ONLY",
+  "source_origin": "https://example.org",
+  "selection": "case-insensitive user agent, merged exact agent groups, wildcard fallback, longest-octet match, tie allow",
+  "authority_ceiling": "RFC_INTERPRETATION_NOT_OWNER_PERMISSION",
+  "cases": [
+    {
+      "id": "longest_allow",
+      "robots": "User-agent: LoopiaAllfather\nDisallow: /pricing/\nAllow: /pricing/public/\n",
+      "target_path": "/pricing/public/sale",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "ALLOW",
+      "expected_reason": "ROBOTS_ALLOW_MOST_SPECIFIC",
+      "expected_rule": "ALLOW"
+    },
+    {
+      "id": "longest_disallow",
+      "robots": "User-agent: LoopiaAllfather\nAllow: /pricing/\nDisallow: /pricing/private/\n",
+      "target_path": "/pricing/private/tier",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "DISALLOW",
+      "expected_reason": "ROBOTS_DISALLOW_MOST_SPECIFIC",
+      "expected_rule": "DISALLOW"
+    },
+    {
+      "id": "allow_tie",
+      "robots": "User-agent: LoopiaAllfather\nDisallow: /pricing/exact\nAllow: /pricing/exact\n",
+      "target_path": "/pricing/exact",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "ALLOW",
+      "expected_reason": "ROBOTS_ALLOW_MOST_SPECIFIC",
+      "expected_rule": "ALLOW"
+    },
+    {
+      "id": "multi_group_merge",
+      "robots": "User-agent: LoopiaAllfather\nDisallow: /pricing/a\nUser-agent: OtherBot\nAllow: /\nUser-agent: LoopiaAllfather\nDisallow: /pricing/b\n",
+      "target_path": "/pricing/b",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "DISALLOW",
+      "expected_reason": "ROBOTS_DISALLOW_MOST_SPECIFIC",
+      "expected_rule": "DISALLOW"
+    },
+    {
+      "id": "multi_agent_group",
+      "robots": "User-agent: OtherBot\nUser-agent: LoopiaAllfather\nDisallow: /pricing/private\n",
+      "target_path": "/pricing/private",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "DISALLOW",
+      "expected_reason": "ROBOTS_DISALLOW_MOST_SPECIFIC",
+      "expected_rule": "DISALLOW"
+    },
+    {
+      "id": "star_fallback",
+      "robots": "User-agent: OtherBot\nAllow: /\nUser-agent: *\nDisallow: /pricing/hidden\n",
+      "target_path": "/pricing/hidden",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "DISALLOW",
+      "expected_reason": "ROBOTS_DISALLOW_MOST_SPECIFIC",
+      "expected_rule": "DISALLOW"
+    },
+    {
+      "id": "explicit_beats_star",
+      "robots": "User-agent: *\nDisallow: /pricing/\nUser-agent: LoopiaAllfather\nAllow: /pricing/\n",
+      "target_path": "/pricing/another",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "ALLOW",
+      "expected_reason": "ROBOTS_ALLOW_MOST_SPECIFIC",
+      "expected_rule": "ALLOW"
+    },
+    {
+      "id": "wildcard_anchored_deny",
+      "robots": "User-agent: LoopiaAllfather\nDisallow: /pricing/*.pdf$\n",
+      "target_path": "/pricing/catalog.pdf",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "DISALLOW",
+      "expected_reason": "ROBOTS_DISALLOW_MOST_SPECIFIC",
+      "expected_rule": "DISALLOW"
+    },
+    {
+      "id": "wildcard_anchored_query_not_match",
+      "robots": "User-agent: LoopiaAllfather\nDisallow: /pricing/*.pdf$\n",
+      "target_path": "/pricing/catalog.pdf?download=1",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "ALLOW",
+      "expected_reason": "ROBOTS_NO_MATCH_DEFAULT_ALLOW",
+      "expected_rule": null
+    },
+    {
+      "id": "trailing_wildcard_anchor",
+      "robots": "User-agent: LoopiaAllfather\nDisallow: /pricing*$\n",
+      "target_path": "/pricing/future/thing",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "DISALLOW",
+      "expected_reason": "ROBOTS_DISALLOW_MOST_SPECIFIC",
+      "expected_rule": "DISALLOW"
+    },
+    {
+      "id": "orphan_rule_skipped",
+      "robots": "Disallow: /pricing/\nUser-agent: LoopiaAllfather\nAllow: /pricing/\n",
+      "target_path": "/pricing/test",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "ALLOW",
+      "expected_reason": "ROBOTS_ALLOW_MOST_SPECIFIC",
+      "expected_rule": "ALLOW"
+    },
+    {
+      "id": "unknown_does_not_terminate",
+      "robots": "User-agent: LoopiaAllfather\nDisallow: /pricing/private\nSitemap: https://example.org/sitemap.xml\nAllow: /pricing/private/ok\n",
+      "target_path": "/pricing/private/ok",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "ALLOW",
+      "expected_reason": "ROBOTS_ALLOW_MOST_SPECIFIC",
+      "expected_rule": "ALLOW"
+    },
+    {
+      "id": "empty_disallow_allows",
+      "robots": "User-agent: LoopiaAllfather\nDisallow:\n",
+      "target_path": "/pricing/private",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "ALLOW",
+      "expected_reason": "ROBOTS_NO_MATCH_DEFAULT_ALLOW",
+      "expected_rule": null
+    },
+    {
+      "id": "utf8_percent",
+      "robots": "User-agent: LoopiaAllfather\nDisallow: /pricing/caf%C3%A9\n",
+      "target_path": "/pricing/café",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "DISALLOW",
+      "expected_reason": "ROBOTS_DISALLOW_MOST_SPECIFIC",
+      "expected_rule": "DISALLOW"
+    },
+    {
+      "id": "percent_unreserved",
+      "robots": "User-agent: LoopiaAllfather\nDisallow: /pricing/baz\n",
+      "target_path": "/pricing/%62az",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "DISALLOW",
+      "expected_reason": "ROBOTS_DISALLOW_MOST_SPECIFIC",
+      "expected_rule": "DISALLOW"
+    },
+    {
+      "id": "percent_reserved",
+      "robots": "User-agent: LoopiaAllfather\nDisallow: /pricing/a%3Ab\n",
+      "target_path": "/pricing/a:b",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "DISALLOW",
+      "expected_reason": "ROBOTS_DISALLOW_MOST_SPECIFIC",
+      "expected_rule": "DISALLOW"
+    },
+    {
+      "id": "literal_star_percent",
+      "robots": "User-agent: LoopiaAllfather\nDisallow: /pricing/x%2Ay\n",
+      "target_path": "/pricing/x*y",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "DISALLOW",
+      "expected_reason": "ROBOTS_DISALLOW_MOST_SPECIFIC",
+      "expected_rule": "DISALLOW"
+    },
+    {
+      "id": "path_case_sensitive",
+      "robots": "User-agent: LoopiaAllfather\nDisallow: /pricing/Secret\n",
+      "target_path": "/pricing/secret",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "ALLOW",
+      "expected_reason": "ROBOTS_NO_MATCH_DEFAULT_ALLOW",
+      "expected_rule": null
+    },
+    {
+      "id": "no_applicable_group",
+      "robots": "User-agent: OtherBot\nDisallow: /pricing/\n",
+      "target_path": "/pricing/test",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "ALLOW",
+      "expected_reason": "ROBOTS_NO_MATCH_DEFAULT_ALLOW",
+      "expected_rule": null
+    },
+    {
+      "id": "invalid_line_ignored",
+      "robots": "Invalid unparseable text\nUser-agent: LoopiaAllfather\nDisallow: /pricing/private\n",
+      "target_path": "/pricing/private",
+      "product_token": "LoopiaAllfather",
+      "expected_rfc": "DISALLOW",
+      "expected_reason": "ROBOTS_DISALLOW_MOST_SPECIFIC",
+      "expected_rule": "DISALLOW"
+    }
+  ]
+}
