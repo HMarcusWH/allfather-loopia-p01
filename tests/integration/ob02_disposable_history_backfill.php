@@ -83,7 +83,8 @@ try{
     if(!$first->isOk())return;
     Assert::same('DISPOSABLE_METADATA_LINKS_RECORDED',$first->value()['action'],'page-one positive insert');
     Assert::same(1,$first->value()['new_assessments'],'one legacy metadata link, not one historical finding');
-    Assert::same(2,$first->value()['new_refs'],'after snapshot has exact M05 evidence plus original structural diff');
+    Assert::same($page['records'][0]['reference_count'],$first->value()['new_refs'],
+        'first cursor page records precisely its original M05/P01 refs, independent of capture UUID tie order');
     Assert::same(false,$first->value()['historical_assessments_created'],
         'append is metadata only, no model candidate reconstructed');
     $again=$store->applyFixturePage($actor,$competitorId,1);
@@ -96,7 +97,8 @@ try{
     Assert::true($second->isOk(),'second page admits previous baseline metadata link');
     if(!$second->isOk())return;
     Assert::same(1,$second->value()['new_assessments'],'second capture exactly once');
-    Assert::same(1,$second->value()['new_refs'],'baseline has M05 evidence ref but no structural diff');
+    Assert::same(3-$page['records'][0]['reference_count'],$second->value()['new_refs'],
+        'second cursor page retains remaining references regardless of equal captured-at UUID ordering');
     Assert::same(null,$second->value()['next_cursor'],'cursor terminates correctly');
 
     Assert::same(2,(int)$db->scalar('SELECT COUNT(*) FROM p01_observation_assessments'),
