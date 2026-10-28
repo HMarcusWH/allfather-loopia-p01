@@ -69,11 +69,18 @@ final class HistoricalSequenceEvaluationRunner
             if (!is_array($fixture)) {
                 return Outcome::refuse('VA01_RESPONSE_FIXTURE_UNREADABLE');
             }
-            $r = self::evaluate($freeze, $fixture);
+            $port = new HistoricalSequenceFixtureTransport($fixture);
+            $provided = $port->read();
+            if (!$provided->isOk()) {
+                return $provided;
+            }
+            $r = self::evaluate($freeze, $provided->value());
             if (!$r->isOk()) {
                 return $r;
             }
             $payload = $r->value();
+            $payload['fixture_readbacks'] = $port->readbacks;
+            $payload['fixture_transport_network_attempts'] = $port->networkAttempts;
             $payload['fixture_bytes_sha256'] = hash('sha256', $bytes);
             $payload['fixture_path'] = self::FIXTURE_PATH;
             $payload['fixture_origin'] = 'LOCAL_SOURCE_ONLY_NOT_PROVIDER';

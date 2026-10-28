@@ -51,8 +51,9 @@ foreach (HistoricalSequenceEvaluationRunner::BASELINES as $name) {
     Assert::same(1, $baseline[$name]['refusals'], $name . ' preserves denied source-use case');
     Assert::same(1, $baseline[$name]['abstentions'], $name . ' keeps one unassessed case');
     Assert::same(0, $baseline[$name]['missing_responses'], $name . ' all fixture responses explicitly supplied');
-    Assert::same(15, array_sum(array_column($r['cases'], 'baseline_id') === [] ? [] : [15]),
-        'sanity: two 15-case groups, no hidden third baseline');
+    Assert::same(15, count(array_filter($r['cases'],
+        static fn (array $rec): bool => $rec['baseline_id'] === $name)),
+        'exactly 15 case records per frozen baseline, no hidden third policy');
     foreach ($groups[$name] as $family=>$g) {
         Assert::true($g['all_cases'] >= 1, $name . ' family ' . $family . ' populated');
         Assert::same($g['all_cases'], count($g['case_ids']), 'family denominator equals rows');

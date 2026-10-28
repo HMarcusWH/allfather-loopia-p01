@@ -29,7 +29,7 @@ Assert::same('VA01_UNKNOWN_OR_HELDOUT_CASE_REFUSED',
     })->reasonCode(), 'unknown external case refused');
 Assert::same('VA01_DUPLICATE_CASE_BASELINE_RESPONSE',
     $mutate(static function (&$v) {
-        $v['responses'][] = $v['responses'][0];
+        $v['responses'][count($v['responses']) - 1] = $v['responses'][0];
     })->reasonCode(), 'duplicate fixture baseline+case cannot inflate denominator');
 Assert::same('VA01_FIXTURE_CONTRACT_NOT_ADMITTED',
     $mutate(static function (&$v) {
@@ -83,5 +83,5 @@ foreach ([
     Assert::same(0, $policy->providerCalls, 'model adapter never calls provider');
     Assert::same(0, $policy->networkCalls, 'no model network side effect');
 }
-Assert::same('RESERVED_NOT_FROZEN_NOT_RUN', $fixture['source_provenance'] === 'INVALID' ? '' :
-    $freeze['heldout']['status'], 'heldout registry unchanged by dev fixture');
+Assert::same('RESERVED_NOT_FROZEN_NOT_RUN', $freeze['heldout']['status'],
+    'heldout registry unchanged by dev fixture');
