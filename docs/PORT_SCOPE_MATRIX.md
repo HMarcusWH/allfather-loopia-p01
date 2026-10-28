@@ -555,3 +555,10 @@ The candidate hash is reproducibility, not authenticity or promotion. `Lineage::
 U04 upstream PR #378 is **OPEN/DRAFT/NOT_ADOPTED**: immutable output identity, fork/current-head rules, typed P01 scope and time/numeric serialization require owner ratification. The draft candidate uses `UNIQUE(compression_run_id,memory_class,output_ordinal)` and an input/profile/engine-bound derivation digest, preserving incomparable heads with an explicit `AMBIGUOUS_HEAD_HOLD`. This is *proposed* technical evidence, not independent authorization. U03 historical source rights and U06 model-analysis admission remain open. Memory source references are caller-supplied metadata, **not** owner-native M05 foreign keys or approved historical reuse. No runtime service, scheduler, provider, source fetch, model inference, customer read route, production GO, P02 truth mutation or deletion is installed. Owner decision files and the existing 222-table production schema inventory are unchanged.
 
 Details: [LI-07B candidate persistence contract](LI07B_M17_PERSISTENCE_CANDIDATE.md). The additive source-only staging layer from PR #85 remains the last adopted deployment baseline. The October 25 JSON remains a historical proposal, not a ratification.
+
+
+---
+
+## 2026-10-28 BF-00 candidate crosswalk (not a scope expansion)
+
+[Build-first source checkpoint](longitudinal/BUILD_FIRST_STATE_2026_10_27.md), [capability matrix](longitudinal/build-first/CAPABILITY_MATRIX.json) and [schema families](longitudinal/build-first/SCHEMA_FAMILY_REGISTRY.json) classify the new build-only longitudinal work separately from the adopted P01–P05/P07-A product scope and historical P00–P12 engineering milestones. No M17 runtime promotion, historical source-use permission, external effects, live migration or customer release is granted here.

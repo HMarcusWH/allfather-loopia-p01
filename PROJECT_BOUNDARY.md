@@ -346,3 +346,10 @@ Real model evaluation and separately evidenced activation are later steps. The e
 staging qualification applies to PR16, not automatically to this changed tree. Any later staging
 deployment requires exact-release checks and preserves the recorded E.1 failure/E.3 unverified
 shared-host deviation; production does not inherit that exception.
+
+
+---
+
+## 2026-10-28 BF-00 build-first registry (additive; no new rights)
+
+[Build-first source checkpoint](docs/longitudinal/BUILD_FIRST_STATE_2026_10_27.md) assigns the **29 engineering build packages**, U01–U10 canonical decision requests, and 12 **candidate-only** schema families without expanding the bounded SME product projection. P00–P12 in earlier completion material denote **engineering work packages**, not product modules. The original product gates, no-external-action ceiling, source rights, M10/M16 release boundaries and frozen global canonical pin above remain controlling.

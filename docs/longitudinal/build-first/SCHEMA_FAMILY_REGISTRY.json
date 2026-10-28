@@ -1,0 +1,1463 @@
+{
+  "schema_version": "allfather.build_first.schema_registry.v1",
+  "record_type": "CANDIDATE_DDL_ALLOCATIONS_NOT_SQL_OR_PERMISSION",
+  "as_of_date": "2026-10-28",
+  "execution_manifest_sha256": "e7c2f7d2366e81a2ab623fa998314ee264d9ef8818c843cb1171da70750d17b2",
+  "source_snapshot": {
+    "php_repo": "HMarcusWH/allfather-loopia-p01",
+    "base_sha": "f0a622f5ae12d52438a654ef82eed34f84c47e77",
+    "base_tree": "bfed569a5611e29902809f6554f8fbdc0a0e4da3",
+    "canonical_repo": "HMarcusWH/Allfatherbusinessintelligence",
+    "canonical_inspected_sha": "78d5a06929a760f432d56bd63adafbdd40035ec4",
+    "canonical_inspected_tree": "56228b3f2039848a58d0f0b85352621863ad56dd",
+    "adopted_upstream_pin": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+    "github_ci_run": 40574362613,
+    "railway_staging_deployment_id": "9460b6d5-99ae-4c5d-a4a9-69f1f35c779e",
+    "railway_deployed_sha": "f0a622f5ae12d52438a654ef82eed34f84c47e77",
+    "record_type": "DATED_SOURCE_OBSERVATION_NOT_CURRENT_HOST_ATTESTATION"
+  },
+  "exact_proposed_physical_table_names": true,
+  "foreign_key_columns_final": false,
+  "index_columns_final": false,
+  "ddl_generated": false,
+  "any_live_migrations_applied": false,
+  "legacy_migration_900": {
+    "path": "database/migrations/900_deferred_foreign_keys.sql",
+    "source_git_blob_sha1": "ecf263c2a6b24af4b7bcf8f149a375ec40e0d511",
+    "preserve_original_bytes": true,
+    "never_replay_for_new_families": true
+  },
+  "families": [
+    {
+      "label": "260",
+      "owner": "OB-02",
+      "source_requirement": "LI-03",
+      "owner_gates": [
+        "U01",
+        "U02"
+      ],
+      "status": "CANDIDATE_NOT_INSTALLED",
+      "physical_order": "DEFERRED_UNTIL_RT_01_TOPOLOGICAL_FK_AUDIT",
+      "recovery": {
+        "owner": "VA-03",
+        "evidence_bytes_owner": "M05",
+        "restore_required": true,
+        "host_restored": false
+      },
+      "tables": [
+        {
+          "name": "p01_observation_assessments",
+          "owner": "OB-02",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "IMMUTABLE_VERSIONED_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "competitors",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "source_diffs",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_260_1_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "p01_observation_assessment_refs",
+          "owner": "OB-02",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "p01_observation_assessments",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "evidence_objects",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_260_2_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        }
+      ]
+    },
+    {
+      "label": "265",
+      "owner": "OB-03",
+      "source_requirement": "LI-04",
+      "owner_gates": [
+        "U02",
+        "U03"
+      ],
+      "status": "CANDIDATE_NOT_INSTALLED",
+      "physical_order": "DEFERRED_UNTIL_RT_01_TOPOLOGICAL_FK_AUDIT",
+      "recovery": {
+        "owner": "VA-03",
+        "evidence_bytes_owner": "M05",
+        "restore_required": true,
+        "host_restored": false
+      },
+      "tables": [
+        {
+          "name": "p01_observation_features",
+          "owner": "OB-03",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "p01_observation_assessments",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_265_1_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "p01_source_origin_assertions",
+          "owner": "OB-03",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "source_references",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_265_2_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        }
+      ]
+    },
+    {
+      "label": "270",
+      "owner": "HS-01",
+      "source_requirement": "LI-05",
+      "owner_gates": [
+        "U03"
+      ],
+      "status": "CANDIDATE_NOT_INSTALLED",
+      "physical_order": "DEFERRED_UNTIL_RT_01_TOPOLOGICAL_FK_AUDIT",
+      "recovery": {
+        "owner": "VA-03",
+        "evidence_bytes_owner": "M05",
+        "restore_required": true,
+        "host_restored": false
+      },
+      "tables": [
+        {
+          "name": "history_review_bases",
+          "owner": "HS-01",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "IMMUTABLE_VERSIONED_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "competitors",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_270_1_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "history_review_basis_refs",
+          "owner": "HS-01",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "history_review_bases",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "evidence_objects",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_270_2_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        }
+      ]
+    },
+    {
+      "label": "280",
+      "owner": "TM-02",
+      "source_requirement": "LI-07",
+      "owner_gates": [
+        "U03",
+        "U04"
+      ],
+      "status": "CANDIDATE_NOT_INSTALLED",
+      "physical_order": "DEFERRED_UNTIL_RT_01_TOPOLOGICAL_FK_AUDIT",
+      "recovery": {
+        "owner": "VA-03",
+        "evidence_bytes_owner": "M05",
+        "restore_required": true,
+        "host_restored": false
+      },
+      "tables": [
+        {
+          "name": "temporal_compression_profiles",
+          "owner": "TM-02",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "IMMUTABLE_VERSIONED_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_280_1_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "temporal_compression_profile_rules",
+          "owner": "TM-02",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "IMMUTABLE_VERSIONED_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "temporal_compression_profiles",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_280_2_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "temporal_compression_runs",
+          "owner": "TM-02",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "temporal_compression_profiles",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "history_review_bases",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_280_3_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "temporal_rollups",
+          "owner": "TM-02",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "temporal_compression_runs",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_280_4_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "temporal_memories",
+          "owner": "TM-02",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "temporal_compression_runs",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_280_5_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "temporal_memory_status_transitions",
+          "owner": "TM-02",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "temporal_memories",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_280_6_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "compression_lineage_links",
+          "owner": "TM-02",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "temporal_memories",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_280_7_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        }
+      ]
+    },
+    {
+      "label": "290",
+      "owner": "DU-01",
+      "source_requirement": "LI-08",
+      "owner_gates": [
+        "U05"
+      ],
+      "status": "CANDIDATE_NOT_INSTALLED",
+      "physical_order": "DEFERRED_UNTIL_RT_01_TOPOLOGICAL_FK_AUDIT",
+      "recovery": {
+        "owner": "VA-03",
+        "evidence_bytes_owner": "M05",
+        "restore_required": true,
+        "host_restored": false
+      },
+      "tables": [
+        {
+          "name": "history_review_policies",
+          "owner": "DU-01",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "IMMUTABLE_VERSIONED_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "competitors",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_290_1_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "history_review_policy_events",
+          "owner": "DU-01",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "history_review_policies",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_290_2_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "history_review_due_checks",
+          "owner": "DU-01",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "history_review_policies",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_290_3_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        }
+      ]
+    },
+    {
+      "label": "300",
+      "owner": "AQ-01",
+      "source_requirement": "LI-09",
+      "owner_gates": [
+        "U05",
+        "U08"
+      ],
+      "status": "CANDIDATE_NOT_INSTALLED",
+      "physical_order": "DEFERRED_UNTIL_RT_01_TOPOLOGICAL_FK_AUDIT",
+      "recovery": {
+        "owner": "VA-03",
+        "evidence_bytes_owner": "M05",
+        "restore_required": true,
+        "host_restored": false
+      },
+      "tables": [
+        {
+          "name": "history_review_work_items",
+          "owner": "AQ-01",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "IMMUTABLE_VERSIONED_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "history_review_policies",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "history_review_bases",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_300_1_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "history_review_work_memberships",
+          "owner": "AQ-01",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "history_review_work_items",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_300_2_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "history_review_work_events",
+          "owner": "AQ-01",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "history_review_work_items",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_300_3_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        }
+      ]
+    },
+    {
+      "label": "310",
+      "owner": "AN-01",
+      "source_requirement": "LI-10",
+      "owner_gates": [
+        "U03",
+        "U06",
+        "U08"
+      ],
+      "status": "CANDIDATE_NOT_INSTALLED",
+      "physical_order": "DEFERRED_UNTIL_RT_01_TOPOLOGICAL_FK_AUDIT",
+      "recovery": {
+        "owner": "VA-03",
+        "evidence_bytes_owner": "M05",
+        "restore_required": true,
+        "host_restored": false
+      },
+      "tables": [
+        {
+          "name": "history_review_attempt_bindings",
+          "owner": "AN-01",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "monitor_execution_grants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_310_1_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        }
+      ]
+    },
+    {
+      "label": "320",
+      "owner": "AN-02",
+      "source_requirement": "LI-11",
+      "owner_gates": [
+        "U03",
+        "U06"
+      ],
+      "status": "CANDIDATE_NOT_INSTALLED",
+      "physical_order": "DEFERRED_UNTIL_RT_01_TOPOLOGICAL_FK_AUDIT",
+      "recovery": {
+        "owner": "VA-03",
+        "evidence_bytes_owner": "M05",
+        "restore_required": true,
+        "host_restored": false
+      },
+      "tables": [
+        {
+          "name": "history_review_runs",
+          "owner": "AN-02",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "history_review_bases",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_320_1_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "history_review_events",
+          "owner": "AN-02",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "history_review_runs",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_320_2_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "history_review_artifact_refs",
+          "owner": "AN-02",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "history_review_runs",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_320_3_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        }
+      ]
+    },
+    {
+      "label": "330",
+      "owner": "AN-03",
+      "source_requirement": "LI-12",
+      "owner_gates": [
+        "U03",
+        "U07"
+      ],
+      "status": "CANDIDATE_NOT_INSTALLED",
+      "physical_order": "DEFERRED_UNTIL_RT_01_TOPOLOGICAL_FK_AUDIT",
+      "recovery": {
+        "owner": "VA-03",
+        "evidence_bytes_owner": "M05",
+        "restore_required": true,
+        "host_restored": false
+      },
+      "tables": [
+        {
+          "name": "historical_finding_basis_bindings",
+          "owner": "AN-03",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "history_review_bases",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "decision_records",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_330_1_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        }
+      ]
+    },
+    {
+      "label": "340",
+      "owner": "AQ-02",
+      "source_requirement": "LI-13",
+      "owner_gates": [
+        "U07",
+        "U09"
+      ],
+      "status": "CANDIDATE_NOT_INSTALLED",
+      "physical_order": "DEFERRED_UNTIL_RT_01_TOPOLOGICAL_FK_AUDIT",
+      "recovery": {
+        "owner": "VA-03",
+        "evidence_bytes_owner": "M05",
+        "restore_required": true,
+        "host_restored": false
+      },
+      "tables": [
+        {
+          "name": "internal_attention_policies",
+          "owner": "AQ-02",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "IMMUTABLE_VERSIONED_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_340_1_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "internal_attention_events",
+          "owner": "AQ-02",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "internal_attention_policies",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "decision_records",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_340_2_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "internal_digest_memberships",
+          "owner": "AQ-02",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "internal_attention_events",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_340_3_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        }
+      ]
+    },
+    {
+      "label": "345",
+      "owner": "AN-04",
+      "source_requirement": "LI-14",
+      "owner_gates": [
+        "U03",
+        "U07",
+        "U10"
+      ],
+      "status": "CANDIDATE_NOT_INSTALLED",
+      "physical_order": "DEFERRED_UNTIL_RT_01_TOPOLOGICAL_FK_AUDIT",
+      "recovery": {
+        "owner": "VA-03",
+        "evidence_bytes_owner": "M05",
+        "restore_required": true,
+        "host_restored": false
+      },
+      "tables": [
+        {
+          "name": "history_review_outcome_annotations",
+          "owner": "AN-04",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "history_review_runs",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_345_1_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "history_review_followup_conditions",
+          "owner": "AN-04",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "IMMUTABLE_VERSIONED_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "history_review_runs",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_345_2_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        }
+      ]
+    },
+    {
+      "label": "350",
+      "owner": "IV-01",
+      "source_requirement": "LI-15",
+      "owner_gates": [
+        "U03",
+        "U10"
+      ],
+      "status": "CANDIDATE_NOT_INSTALLED",
+      "physical_order": "DEFERRED_UNTIL_RT_01_TOPOLOGICAL_FK_AUDIT",
+      "recovery": {
+        "owner": "VA-03",
+        "evidence_bytes_owner": "M05",
+        "restore_required": true,
+        "host_restored": false
+      },
+      "tables": [
+        {
+          "name": "history_dependency_links",
+          "owner": "IV-01",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "evidence_objects",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_350_1_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        },
+        {
+          "name": "history_invalidation_events",
+          "owner": "IV-01",
+          "table_state": "CANDIDATE_ONLY",
+          "mutability": "APPEND_ONLY_DESIGN",
+          "primary_identity": "CANDIDATE_REVIEW_REQUIRED",
+          "foreign_key_intents": [
+            {
+              "target": "tenants",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "workspaces",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            },
+            {
+              "target": "history_dependency_links",
+              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "indexes": [
+            {
+              "name": "ix_bf_350_2_scope",
+              "candidate_columns": [
+                "tenant_id",
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED"
+            }
+          ],
+          "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
+          "new_raw_source_bytes": false,
+          "retention": "EXISTING_M05_RIGHTS_POLICY",
+          "recovery_required": true
+        }
+      ]
+    }
+  ]
+}
