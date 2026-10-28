@@ -1,0 +1,2261 @@
+{
+  "schema_version": "allfather.build_first.examples.v1",
+  "as_of_date": "2026-10-28",
+  "classification": "SYNTHETIC_ONLY_NO_EXECUTION_GRANT",
+  "cases": {
+    "AcquisitionScope": {
+      "positive": {
+        "contract": "AcquisitionScope",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "AcquisitionScope",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "AnalystCandidate": {
+      "positive": {
+        "contract": "AnalystCandidate",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "AnalystCandidate",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "AssessmentHistory": {
+      "positive": {
+        "contract": "AssessmentHistory",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "AssessmentHistory",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "AssessmentSuccessor": {
+      "positive": {
+        "contract": "AssessmentSuccessor",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "AssessmentSuccessor",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "AssuranceReport": {
+      "positive": {
+        "contract": "AssuranceReport",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "AssuranceReport",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "AttemptReservation": {
+      "positive": {
+        "contract": "AttemptReservation",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN",
+          "basis_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "request_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "grant_ref": "fixture:ref:1",
+          "attempt_disposition": "UNKNOWN",
+          "usage_known": false
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "AttemptReservation",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN",
+            "basis_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "request_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "grant_ref": "fixture:ref:1",
+            "attempt_disposition": "UNKNOWN",
+            "usage_known": false
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "BuildFreezeManifest": {
+      "positive": {
+        "contract": "BuildFreezeManifest",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "BuildFreezeManifest",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "CandidateMigrationManifest": {
+      "positive": {
+        "contract": "CandidateMigrationManifest",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "CandidateMigrationManifest",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "CapabilityRegister": {
+      "positive": {
+        "contract": "CapabilityRegister",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "CapabilityRegister",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "CapturedSourceEnvelope": {
+      "positive": {
+        "contract": "CapturedSourceEnvelope",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN",
+          "source_ref_id": "00000000-0000-4000-8000-000000000003",
+          "source_card_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "capture_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "observed_at": "2026-10-28T00:00:00.000Z",
+          "known_at": "2026-10-28T00:00:00.000Z",
+          "content_type": "synthetic candidate, no rights granted",
+          "byte_count": 1,
+          "retained_bytes_private": false
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "CapturedSourceEnvelope",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN",
+            "source_ref_id": "00000000-0000-4000-8000-000000000003",
+            "source_card_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "capture_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "observed_at": "2026-10-28T00:00:00.000Z",
+            "known_at": "2026-10-28T00:00:00.000Z",
+            "content_type": "synthetic candidate, no rights granted",
+            "byte_count": 1,
+            "retained_bytes_private": false
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "ComposedRuntime": {
+      "positive": {
+        "contract": "ComposedRuntime",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "ComposedRuntime",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "CoverageReceipt": {
+      "positive": {
+        "contract": "CoverageReceipt",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "CoverageReceipt",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "CriticAssessment": {
+      "positive": {
+        "contract": "CriticAssessment",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "CriticAssessment",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "CurrentOwnerState": {
+      "positive": {
+        "contract": "CurrentOwnerState",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "CurrentOwnerState",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "CurrentUseDecision": {
+      "positive": {
+        "contract": "CurrentUseDecision",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN",
+          "owner_decision_ref": "fixture:ref:1",
+          "source_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "purpose": "synthetic candidate, no rights granted",
+          "decision": "UNKNOWN",
+          "authorization_proven": false
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "CurrentUseDecision",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN",
+            "owner_decision_ref": "fixture:ref:1",
+            "source_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "purpose": "synthetic candidate, no rights granted",
+            "decision": "UNKNOWN",
+            "authorization_proven": false
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "DependencyIndex": {
+      "positive": {
+        "contract": "DependencyIndex",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN",
+          "source_ref": "fixture:ref:1",
+          "dependent_ref": "fixture:ref:1",
+          "dependency_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "invalidated": false,
+          "propagation_state": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "DependencyIndex",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN",
+            "source_ref": "fixture:ref:1",
+            "dependent_ref": "fixture:ref:1",
+            "dependency_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "invalidated": false,
+            "propagation_state": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "DeterministicRollup": {
+      "positive": {
+        "contract": "DeterministicRollup",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "DeterministicRollup",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "DocumentProjection": {
+      "positive": {
+        "contract": "DocumentProjection",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN",
+          "capture_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "parser_version": "synthetic candidate, no rights granted",
+          "sections": [
+            {
+              "kind": "NAVIGATION",
+              "text_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "locator_kind": "DERIVED",
+              "locator_ref": "fixture:section:1",
+              "status": "UNKNOWN"
+            }
+          ],
+          "ambiguity": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "DocumentProjection",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN",
+            "capture_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "parser_version": "synthetic candidate, no rights granted",
+            "sections": [
+              {
+                "kind": "NAVIGATION",
+                "text_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "locator_kind": "DERIVED",
+                "locator_ref": "fixture:section:1",
+                "status": "UNKNOWN"
+              }
+            ],
+            "ambiguity": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "EvaluationContract": {
+      "positive": {
+        "contract": "EvaluationContract",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "EvaluationContract",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "EvaluationReport": {
+      "positive": {
+        "contract": "EvaluationReport",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "EvaluationReport",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "FixtureComposition": {
+      "positive": {
+        "contract": "FixtureComposition",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "FixtureComposition",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "FollowUpEvidence": {
+      "positive": {
+        "contract": "FollowUpEvidence",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "FollowUpEvidence",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "FrozenManifest": {
+      "positive": {
+        "contract": "FrozenManifest",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "FrozenManifest",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "FrozenTemporalInput": {
+      "positive": {
+        "contract": "FrozenTemporalInput",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "FrozenTemporalInput",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "HistoricalBasis": {
+      "positive": {
+        "contract": "HistoricalBasis",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN",
+          "competitor_id": "00000000-0000-4000-8000-000000000003",
+          "period_start": "2026-10-01T00:00:00.000Z",
+          "period_end": "2026-10-28T00:00:00.000Z",
+          "known_cutoff": "2026-10-28T00:00:00.000Z",
+          "basis_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "primary_refs": [
+            "fixture:ref:1"
+          ],
+          "contrary_refs": [
+            "fixture:ref:1"
+          ],
+          "excluded_refs": [
+            "fixture:ref:1"
+          ]
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "HistoricalBasis",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN",
+            "competitor_id": "00000000-0000-4000-8000-000000000003",
+            "period_start": "2026-10-28T00:00:00.000Z",
+            "period_end": "2026-10-28T00:00:00.000Z",
+            "known_cutoff": "2026-10-28T00:00:00.000Z",
+            "basis_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "primary_refs": [
+              "fixture:ref:1"
+            ],
+            "contrary_refs": [
+              "fixture:ref:1"
+            ],
+            "excluded_refs": [
+              "fixture:ref:1"
+            ]
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "HistoricalContext": {
+      "positive": {
+        "contract": "HistoricalContext",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "HistoricalContext",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "HistoricalFindingCandidate": {
+      "positive": {
+        "contract": "HistoricalFindingCandidate",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN",
+          "basis_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "support_refs": [
+            "fixture:ref:1"
+          ],
+          "contrary_refs": [
+            "fixture:ref:1"
+          ],
+          "claim_kind": "UNKNOWN",
+          "human_review": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "HistoricalFindingCandidate",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN",
+            "basis_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "support_refs": [
+              "fixture:ref:1"
+            ],
+            "contrary_refs": [
+              "fixture:ref:1"
+            ],
+            "claim_kind": "UNKNOWN",
+            "human_review": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "HumanDecision": {
+      "positive": {
+        "contract": "HumanDecision",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "HumanDecision",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "InspectedRequest": {
+      "positive": {
+        "contract": "InspectedRequest",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "InspectedRequest",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "IntegrityVerdict": {
+      "positive": {
+        "contract": "IntegrityVerdict",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "IntegrityVerdict",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "InternalAttention": {
+      "positive": {
+        "contract": "InternalAttention",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN",
+          "release_ref": "fixture:ref:1",
+          "policy_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "recipient_role": "synthetic candidate, no rights granted",
+          "attention_state": "UNKNOWN",
+          "suppressed": false
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "InternalAttention",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN",
+            "release_ref": "fixture:ref:1",
+            "policy_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "recipient_role": "synthetic candidate, no rights granted",
+            "attention_state": "UNKNOWN",
+            "suppressed": false
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "InternalDigest": {
+      "positive": {
+        "contract": "InternalDigest",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "InternalDigest",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "InvalidationCause": {
+      "positive": {
+        "contract": "InvalidationCause",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "InvalidationCause",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "InvalidationDisposition": {
+      "positive": {
+        "contract": "InvalidationDisposition",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "InvalidationDisposition",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "KnowledgeCut": {
+      "positive": {
+        "contract": "KnowledgeCut",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "KnowledgeCut",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "MemoryCandidate": {
+      "positive": {
+        "contract": "MemoryCandidate",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN",
+          "basis_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "profile_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "engine_version": "synthetic candidate, no rights granted",
+          "ordinal": 1,
+          "predecessor_refs": [
+            "fixture:ref:1"
+          ],
+          "head_disposition": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "MemoryCandidate",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN",
+            "basis_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "profile_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "engine_version": "synthetic candidate, no rights granted",
+            "ordinal": 1,
+            "predecessor_refs": [
+              "fixture:ref:1"
+            ],
+            "head_disposition": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "NativeReleaseProposal": {
+      "positive": {
+        "contract": "NativeReleaseProposal",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "NativeReleaseProposal",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "ObservationAssessmentCandidate": {
+      "positive": {
+        "contract": "ObservationAssessmentCandidate",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN",
+          "assessment_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "primary_refs": [
+            "fixture:ref:1"
+          ],
+          "interpretation": "UNKNOWN",
+          "business_materiality": "UNKNOWN",
+          "uncertainty_note": "synthetic candidate, no rights granted"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "ObservationAssessmentCandidate",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN",
+            "assessment_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "primary_refs": [
+              "fixture:ref:1"
+            ],
+            "interpretation": "UNKNOWN",
+            "business_materiality": "UNKNOWN",
+            "uncertainty_note": "synthetic candidate, no rights granted"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "ObservationContext": {
+      "positive": {
+        "contract": "ObservationContext",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "ObservationContext",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "ObservationFeatureSet": {
+      "positive": {
+        "contract": "ObservationFeatureSet",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "ObservationFeatureSet",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "OutcomeAnnotation": {
+      "positive": {
+        "contract": "OutcomeAnnotation",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "OutcomeAnnotation",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "OwnerDecisionRecord": {
+      "positive": {
+        "contract": "OwnerDecisionRecord",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "OwnerDecisionRecord",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "PackageBuildReceipt": {
+      "positive": {
+        "contract": "PackageBuildReceipt",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "PackageBuildReceipt",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "PrivateArtifactManifest": {
+      "positive": {
+        "contract": "PrivateArtifactManifest",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "PrivateArtifactManifest",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "ProductReadJourney": {
+      "positive": {
+        "contract": "ProductReadJourney",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "ProductReadJourney",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "Purpose": {
+      "positive": {
+        "contract": "Purpose",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "Purpose",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "QueueWatermarks": {
+      "positive": {
+        "contract": "QueueWatermarks",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "QueueWatermarks",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "ReconciliationVerdict": {
+      "positive": {
+        "contract": "ReconciliationVerdict",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "ReconciliationVerdict",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "RecoveryManifest": {
+      "positive": {
+        "contract": "RecoveryManifest",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN",
+          "source_commit_sha": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "schema_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "private_artifact_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "recovery_state": "UNKNOWN",
+          "key_dependency": "synthetic candidate, no rights granted"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "RecoveryManifest",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN",
+            "source_commit_sha": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "schema_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "private_artifact_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "recovery_state": "UNKNOWN",
+            "key_dependency": "synthetic candidate, no rights granted"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "ReplayVerdict": {
+      "positive": {
+        "contract": "ReplayVerdict",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "ReplayVerdict",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "ReviewDueDecision": {
+      "positive": {
+        "contract": "ReviewDueDecision",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN",
+          "policy_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "basis_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "decision": "UNKNOWN",
+          "reason_refs": [
+            "fixture:ref:1"
+          ],
+          "reviewed_watermark": "2026-10-28T00:00:00.000Z"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "ReviewDueDecision",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN",
+            "policy_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "basis_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "decision": "UNKNOWN",
+            "reason_refs": [
+              "fixture:ref:1"
+            ],
+            "reviewed_watermark": "2026-10-28T00:00:00.000Z"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "ReviewRun": {
+      "positive": {
+        "contract": "ReviewRun",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN",
+          "run_ref": "fixture:ref:1",
+          "basis_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "review_state": "UNKNOWN",
+          "candidate_refs": [
+            "fixture:ref:1"
+          ]
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "ReviewRun",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN",
+            "run_ref": "fixture:ref:1",
+            "basis_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "review_state": "UNKNOWN",
+            "candidate_refs": [
+              "fixture:ref:1"
+            ]
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "ReviewWorkItem": {
+      "positive": {
+        "contract": "ReviewWorkItem",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "ReviewWorkItem",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "ReviewedCommand": {
+      "positive": {
+        "contract": "ReviewedCommand",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "ReviewedCommand",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "RobotsDecision": {
+      "positive": {
+        "contract": "RobotsDecision",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "RobotsDecision",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "RobotsPolicyBytes": {
+      "positive": {
+        "contract": "RobotsPolicyBytes",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "RobotsPolicyBytes",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "SchemaFamilyRegistry": {
+      "positive": {
+        "contract": "SchemaFamilyRegistry",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "SchemaFamilyRegistry",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "ScopedCaptureReference": {
+      "positive": {
+        "contract": "ScopedCaptureReference",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "ScopedCaptureReference",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "ScopedDependency": {
+      "positive": {
+        "contract": "ScopedDependency",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "ScopedDependency",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "ScopedReadView": {
+      "positive": {
+        "contract": "ScopedReadView",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "ScopedReadView",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "SemanticDelta": {
+      "positive": {
+        "contract": "SemanticDelta",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN",
+          "before_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "after_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "change_types": [
+            "fixture:ref:1"
+          ],
+          "compare_scope_id": "00000000-0000-4000-8000-000000000003",
+          "commercial_materiality": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "SemanticDelta",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN",
+            "before_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "after_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "change_types": [
+              "fixture:ref:1"
+            ],
+            "compare_scope_id": "00000000-0000-4000-8000-000000000003",
+            "commercial_materiality": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "SourceOriginAssertion": {
+      "positive": {
+        "contract": "SourceOriginAssertion",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "SourceOriginAssertion",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "SourceSnapshot": {
+      "positive": {
+        "contract": "SourceSnapshot",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "SourceSnapshot",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    },
+    "WindowProfile": {
+      "positive": {
+        "contract": "WindowProfile",
+        "version": "1.0.0-candidate",
+        "candidate_only": true,
+        "payload": {
+          "scope_tenant_id": "00000000-0000-4000-8000-000000000001",
+          "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+          "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "references": [
+            "fixture:ref:1"
+          ],
+          "uncertainty": "UNKNOWN"
+        }
+      },
+      "refusal": {
+        "candidate": {
+          "contract": "WindowProfile",
+          "version": "1.0.0-candidate",
+          "candidate_only": true,
+          "payload": {
+            "scope_workspace_id": "00000000-0000-4000-8000-000000000002",
+            "input_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "references": [
+              "fixture:ref:1"
+            ],
+            "uncertainty": "UNKNOWN"
+          }
+        },
+        "reason_code": "BF01_REQUIRED_FIELD_MISSING"
+      }
+    }
+  }
+}

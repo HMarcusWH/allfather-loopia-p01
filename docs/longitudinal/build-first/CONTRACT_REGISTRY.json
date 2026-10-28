@@ -1,0 +1,1184 @@
+{
+  "schema_version": "allfather.build_first.contract_registry.v1",
+  "register_status": "SYNTHETIC_CANDIDATE_ONLY_NOT_RUNTIME_CONTRACT_ADOPTION",
+  "as_of_date": "2026-10-28",
+  "source_plan": "Execution_Manifest_v2.json",
+  "source_plan_sha256": "e7c2f7d2366e81a2ab623fa998314ee264d9ef8818c843cb1171da70750d17b2",
+  "source_integration_base": "6719f769035198dd9dd6b492a727d5e06d788328",
+  "can_grant_execution": false,
+  "can_bind_native_factories": false,
+  "can_disclose_source_bytes": false,
+  "can_install_sql": false,
+  "default_fixture_env": "CLI_ONLY",
+  "common_candidate_schema": {
+    "fields": {
+      "scope_tenant_id": "uuid",
+      "scope_workspace_id": "uuid",
+      "input_digest": "sha256",
+      "references": "refs",
+      "uncertainty": "state"
+    },
+    "unknown_representation": "UNKNOWN",
+    "max_refs": 64,
+    "max_text_bytes": 1024,
+    "additional_properties": false
+  },
+  "primary_contracts": [
+    {
+      "name": "CapturedSourceEnvelope",
+      "version": "1.0.0-candidate",
+      "fields": {
+        "scope_tenant_id": "uuid",
+        "scope_workspace_id": "uuid",
+        "input_digest": "sha256",
+        "references": "refs",
+        "uncertainty": "state",
+        "source_ref_id": "uuid",
+        "source_card_digest": "sha256",
+        "capture_digest": "sha256",
+        "observed_at": "clock",
+        "known_at": "clock",
+        "content_type": "text",
+        "byte_count": "uint",
+        "retained_bytes_private": "bool"
+      },
+      "candidate_only": true,
+      "owner_import_required": true,
+      "producer_status": "UNWIRED_UNLESS_EXISTING_NATIVE_OWNER_PROVES_IT",
+      "positive_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#CapturedSourceEnvelope.positive",
+      "refusal_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#CapturedSourceEnvelope.refusal"
+    },
+    {
+      "name": "DocumentProjection",
+      "version": "1.0.0-candidate",
+      "fields": {
+        "scope_tenant_id": "uuid",
+        "scope_workspace_id": "uuid",
+        "input_digest": "sha256",
+        "references": "refs",
+        "uncertainty": "state",
+        "capture_digest": "sha256",
+        "parser_version": "text",
+        "sections": "sections",
+        "ambiguity": "state"
+      },
+      "candidate_only": true,
+      "owner_import_required": true,
+      "producer_status": "UNWIRED_UNLESS_EXISTING_NATIVE_OWNER_PROVES_IT",
+      "positive_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#DocumentProjection.positive",
+      "refusal_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#DocumentProjection.refusal"
+    },
+    {
+      "name": "SemanticDelta",
+      "version": "1.0.0-candidate",
+      "fields": {
+        "scope_tenant_id": "uuid",
+        "scope_workspace_id": "uuid",
+        "input_digest": "sha256",
+        "references": "refs",
+        "uncertainty": "state",
+        "before_digest": "sha256",
+        "after_digest": "sha256",
+        "change_types": "refs",
+        "compare_scope_id": "uuid",
+        "commercial_materiality": "state"
+      },
+      "candidate_only": true,
+      "owner_import_required": true,
+      "producer_status": "UNWIRED_UNLESS_EXISTING_NATIVE_OWNER_PROVES_IT",
+      "positive_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#SemanticDelta.positive",
+      "refusal_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#SemanticDelta.refusal"
+    },
+    {
+      "name": "ObservationAssessmentCandidate",
+      "version": "1.0.0-candidate",
+      "fields": {
+        "scope_tenant_id": "uuid",
+        "scope_workspace_id": "uuid",
+        "input_digest": "sha256",
+        "references": "refs",
+        "uncertainty": "state",
+        "assessment_digest": "sha256",
+        "primary_refs": "refs",
+        "interpretation": "state",
+        "business_materiality": "state",
+        "uncertainty_note": "text"
+      },
+      "candidate_only": true,
+      "owner_import_required": true,
+      "producer_status": "UNWIRED_UNLESS_EXISTING_NATIVE_OWNER_PROVES_IT",
+      "positive_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#ObservationAssessmentCandidate.positive",
+      "refusal_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#ObservationAssessmentCandidate.refusal"
+    },
+    {
+      "name": "HistoricalBasis",
+      "version": "1.0.0-candidate",
+      "fields": {
+        "scope_tenant_id": "uuid",
+        "scope_workspace_id": "uuid",
+        "input_digest": "sha256",
+        "references": "refs",
+        "uncertainty": "state",
+        "competitor_id": "uuid",
+        "period_start": "clock",
+        "period_end": "clock",
+        "known_cutoff": "clock",
+        "basis_digest": "sha256",
+        "primary_refs": "refs",
+        "contrary_refs": "refs",
+        "excluded_refs": "refs"
+      },
+      "candidate_only": true,
+      "owner_import_required": true,
+      "producer_status": "UNWIRED_UNLESS_EXISTING_NATIVE_OWNER_PROVES_IT",
+      "positive_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#HistoricalBasis.positive",
+      "refusal_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#HistoricalBasis.refusal"
+    },
+    {
+      "name": "CurrentUseDecision",
+      "version": "1.0.0-candidate",
+      "fields": {
+        "scope_tenant_id": "uuid",
+        "scope_workspace_id": "uuid",
+        "input_digest": "sha256",
+        "references": "refs",
+        "uncertainty": "state",
+        "owner_decision_ref": "ref",
+        "source_digest": "sha256",
+        "purpose": "text",
+        "decision": "state",
+        "authorization_proven": "false"
+      },
+      "candidate_only": true,
+      "owner_import_required": true,
+      "producer_status": "UNWIRED_UNLESS_EXISTING_NATIVE_OWNER_PROVES_IT",
+      "positive_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#CurrentUseDecision.positive",
+      "refusal_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#CurrentUseDecision.refusal"
+    },
+    {
+      "name": "MemoryCandidate",
+      "version": "1.0.0-candidate",
+      "fields": {
+        "scope_tenant_id": "uuid",
+        "scope_workspace_id": "uuid",
+        "input_digest": "sha256",
+        "references": "refs",
+        "uncertainty": "state",
+        "basis_digest": "sha256",
+        "profile_digest": "sha256",
+        "engine_version": "text",
+        "ordinal": "uint",
+        "predecessor_refs": "refs",
+        "head_disposition": "state"
+      },
+      "candidate_only": true,
+      "owner_import_required": true,
+      "producer_status": "UNWIRED_UNLESS_EXISTING_NATIVE_OWNER_PROVES_IT",
+      "positive_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#MemoryCandidate.positive",
+      "refusal_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#MemoryCandidate.refusal"
+    },
+    {
+      "name": "DependencyIndex",
+      "version": "1.0.0-candidate",
+      "fields": {
+        "scope_tenant_id": "uuid",
+        "scope_workspace_id": "uuid",
+        "input_digest": "sha256",
+        "references": "refs",
+        "uncertainty": "state",
+        "source_ref": "ref",
+        "dependent_ref": "ref",
+        "dependency_digest": "sha256",
+        "invalidated": "false",
+        "propagation_state": "state"
+      },
+      "candidate_only": true,
+      "owner_import_required": true,
+      "producer_status": "UNWIRED_UNLESS_EXISTING_NATIVE_OWNER_PROVES_IT",
+      "positive_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#DependencyIndex.positive",
+      "refusal_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#DependencyIndex.refusal"
+    },
+    {
+      "name": "ReviewDueDecision",
+      "version": "1.0.0-candidate",
+      "fields": {
+        "scope_tenant_id": "uuid",
+        "scope_workspace_id": "uuid",
+        "input_digest": "sha256",
+        "references": "refs",
+        "uncertainty": "state",
+        "policy_digest": "sha256",
+        "basis_digest": "sha256",
+        "decision": "state",
+        "reason_refs": "refs",
+        "reviewed_watermark": "clock"
+      },
+      "candidate_only": true,
+      "owner_import_required": true,
+      "producer_status": "UNWIRED_UNLESS_EXISTING_NATIVE_OWNER_PROVES_IT",
+      "positive_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#ReviewDueDecision.positive",
+      "refusal_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#ReviewDueDecision.refusal"
+    },
+    {
+      "name": "AttemptReservation",
+      "version": "1.0.0-candidate",
+      "fields": {
+        "scope_tenant_id": "uuid",
+        "scope_workspace_id": "uuid",
+        "input_digest": "sha256",
+        "references": "refs",
+        "uncertainty": "state",
+        "basis_digest": "sha256",
+        "request_digest": "sha256",
+        "grant_ref": "ref",
+        "attempt_disposition": "state",
+        "usage_known": "false"
+      },
+      "candidate_only": true,
+      "owner_import_required": true,
+      "producer_status": "UNWIRED_UNLESS_EXISTING_NATIVE_OWNER_PROVES_IT",
+      "positive_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#AttemptReservation.positive",
+      "refusal_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#AttemptReservation.refusal"
+    },
+    {
+      "name": "ReviewRun",
+      "version": "1.0.0-candidate",
+      "fields": {
+        "scope_tenant_id": "uuid",
+        "scope_workspace_id": "uuid",
+        "input_digest": "sha256",
+        "references": "refs",
+        "uncertainty": "state",
+        "run_ref": "ref",
+        "basis_digest": "sha256",
+        "review_state": "state",
+        "candidate_refs": "refs"
+      },
+      "candidate_only": true,
+      "owner_import_required": true,
+      "producer_status": "UNWIRED_UNLESS_EXISTING_NATIVE_OWNER_PROVES_IT",
+      "positive_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#ReviewRun.positive",
+      "refusal_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#ReviewRun.refusal"
+    },
+    {
+      "name": "HistoricalFindingCandidate",
+      "version": "1.0.0-candidate",
+      "fields": {
+        "scope_tenant_id": "uuid",
+        "scope_workspace_id": "uuid",
+        "input_digest": "sha256",
+        "references": "refs",
+        "uncertainty": "state",
+        "basis_digest": "sha256",
+        "support_refs": "refs",
+        "contrary_refs": "refs",
+        "claim_kind": "state",
+        "human_review": "state"
+      },
+      "candidate_only": true,
+      "owner_import_required": true,
+      "producer_status": "UNWIRED_UNLESS_EXISTING_NATIVE_OWNER_PROVES_IT",
+      "positive_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#HistoricalFindingCandidate.positive",
+      "refusal_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#HistoricalFindingCandidate.refusal"
+    },
+    {
+      "name": "InternalAttention",
+      "version": "1.0.0-candidate",
+      "fields": {
+        "scope_tenant_id": "uuid",
+        "scope_workspace_id": "uuid",
+        "input_digest": "sha256",
+        "references": "refs",
+        "uncertainty": "state",
+        "release_ref": "ref",
+        "policy_digest": "sha256",
+        "recipient_role": "text",
+        "attention_state": "state",
+        "suppressed": "bool"
+      },
+      "candidate_only": true,
+      "owner_import_required": true,
+      "producer_status": "UNWIRED_UNLESS_EXISTING_NATIVE_OWNER_PROVES_IT",
+      "positive_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#InternalAttention.positive",
+      "refusal_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#InternalAttention.refusal"
+    },
+    {
+      "name": "RecoveryManifest",
+      "version": "1.0.0-candidate",
+      "fields": {
+        "scope_tenant_id": "uuid",
+        "scope_workspace_id": "uuid",
+        "input_digest": "sha256",
+        "references": "refs",
+        "uncertainty": "state",
+        "source_commit_sha": "sha1",
+        "schema_digest": "sha256",
+        "private_artifact_digest": "sha256",
+        "recovery_state": "state",
+        "key_dependency": "text"
+      },
+      "candidate_only": true,
+      "owner_import_required": true,
+      "producer_status": "UNWIRED_UNLESS_EXISTING_NATIVE_OWNER_PROVES_IT",
+      "positive_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#RecoveryManifest.positive",
+      "refusal_fixture": "tests/fixtures/longitudinal/contracts/candidate_examples.v1.json#RecoveryManifest.refusal"
+    }
+  ],
+  "index": [
+    {
+      "name": "AcquisitionScope",
+      "version": "1.0.0-candidate",
+      "producers": [],
+      "consumers": [
+        "CR-03"
+      ],
+      "external_owner_input": true,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "AnalystCandidate",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "AN-02"
+      ],
+      "consumers": [],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "AssessmentHistory",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "OB-02"
+      ],
+      "consumers": [
+        "OB-03",
+        "HS-01",
+        "UI-01"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "AssessmentSuccessor",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "AN-04"
+      ],
+      "consumers": [],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "AssuranceReport",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "VA-02"
+      ],
+      "consumers": [],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "AttemptReservation",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "AN-01"
+      ],
+      "consumers": [
+        "AN-02"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "BuildFreezeManifest",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "RT-02"
+      ],
+      "consumers": [],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "CandidateMigrationManifest",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "RT-01"
+      ],
+      "consumers": [],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "CapabilityRegister",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "BF-00"
+      ],
+      "consumers": [
+        "BF-01"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "CapturedSourceEnvelope",
+      "version": "1.0.0-candidate",
+      "producers": [],
+      "consumers": [
+        "CR-01",
+        "CR-04"
+      ],
+      "external_owner_input": true,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "ComposedRuntime",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "RT-01"
+      ],
+      "consumers": [
+        "RT-02"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "CoverageReceipt",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "OB-03"
+      ],
+      "consumers": [
+        "HS-01",
+        "DU-01"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "CriticAssessment",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "AN-02"
+      ],
+      "consumers": [],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "CurrentOwnerState",
+      "version": "1.0.0-candidate",
+      "producers": [],
+      "consumers": [
+        "HS-02",
+        "AN-01"
+      ],
+      "external_owner_input": true,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "CurrentUseDecision",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "HS-02"
+      ],
+      "consumers": [
+        "DU-01",
+        "IV-01",
+        "CR-04",
+        "TM-02",
+        "UI-01",
+        "AN-03"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "DependencyIndex",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "IV-01"
+      ],
+      "consumers": [
+        "TM-02",
+        "AQ-01",
+        "VA-02",
+        "VA-03"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "DeterministicRollup",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "TM-01"
+      ],
+      "consumers": [],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "DocumentProjection",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "CR-01"
+      ],
+      "consumers": [
+        "CR-02"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "EvaluationContract",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "VA-00"
+      ],
+      "consumers": [
+        "OB-01",
+        "VA-01"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "EvaluationReport",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "VA-01"
+      ],
+      "consumers": [],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "FixtureComposition",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "BF-01"
+      ],
+      "consumers": [
+        "RT-01"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "FollowUpEvidence",
+      "version": "1.0.0-candidate",
+      "producers": [],
+      "consumers": [
+        "AN-04"
+      ],
+      "external_owner_input": true,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "FrozenManifest",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "VA-00"
+      ],
+      "consumers": [
+        "VA-01"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "FrozenTemporalInput",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "TM-01"
+      ],
+      "consumers": [
+        "TM-02"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "HistoricalBasis",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "HS-01"
+      ],
+      "consumers": [
+        "HS-02",
+        "TM-01",
+        "DU-01"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "HistoricalContext",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "HS-02"
+      ],
+      "consumers": [
+        "AN-01",
+        "AN-02"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "HistoricalFindingCandidate",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "AN-03"
+      ],
+      "consumers": [
+        "AN-04"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "HumanDecision",
+      "version": "1.0.0-candidate",
+      "producers": [],
+      "consumers": [
+        "AN-03",
+        "UI-02"
+      ],
+      "external_owner_input": true,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "InspectedRequest",
+      "version": "1.0.0-candidate",
+      "producers": [],
+      "consumers": [
+        "AN-01"
+      ],
+      "external_owner_input": true,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "IntegrityVerdict",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "VA-03"
+      ],
+      "consumers": [],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "InternalAttention",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "AQ-02"
+      ],
+      "consumers": [
+        "VA-02"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "InternalDigest",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "AQ-02"
+      ],
+      "consumers": [
+        "UI-02"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "InvalidationCause",
+      "version": "1.0.0-candidate",
+      "producers": [],
+      "consumers": [
+        "IV-01"
+      ],
+      "external_owner_input": true,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "InvalidationDisposition",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "IV-01"
+      ],
+      "consumers": [],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "KnowledgeCut",
+      "version": "1.0.0-candidate",
+      "producers": [],
+      "consumers": [
+        "HS-01"
+      ],
+      "external_owner_input": true,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "MemoryCandidate",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "TM-02"
+      ],
+      "consumers": [
+        "AN-02",
+        "UI-01"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "NativeReleaseProposal",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "AN-03"
+      ],
+      "consumers": [
+        "AQ-02"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "ObservationAssessmentCandidate",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "OB-01"
+      ],
+      "consumers": [
+        "OB-02"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "ObservationContext",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "CR-04"
+      ],
+      "consumers": [
+        "OB-01"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "ObservationFeatureSet",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "OB-03"
+      ],
+      "consumers": [],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "OutcomeAnnotation",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "AN-04"
+      ],
+      "consumers": [
+        "AQ-02"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "OwnerDecisionRecord",
+      "version": "1.0.0-candidate",
+      "producers": [],
+      "consumers": [
+        "BF-00"
+      ],
+      "external_owner_input": true,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "PackageBuildReceipt",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "BF-01"
+      ],
+      "consumers": [
+        "RT-02"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "PrivateArtifactManifest",
+      "version": "1.0.0-candidate",
+      "producers": [],
+      "consumers": [
+        "VA-03"
+      ],
+      "external_owner_input": true,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "ProductReadJourney",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "UI-02"
+      ],
+      "consumers": [],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "Purpose",
+      "version": "1.0.0-candidate",
+      "producers": [],
+      "consumers": [
+        "HS-02"
+      ],
+      "external_owner_input": true,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "QueueWatermarks",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "AQ-01"
+      ],
+      "consumers": [
+        "AQ-02"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "ReconciliationVerdict",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "AN-01"
+      ],
+      "consumers": [],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "RecoveryManifest",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "VA-03"
+      ],
+      "consumers": [
+        "RT-01"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "ReplayVerdict",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "TM-02"
+      ],
+      "consumers": [],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "ReviewDueDecision",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "DU-01"
+      ],
+      "consumers": [
+        "AQ-01",
+        "UI-01"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "ReviewRun",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "AN-02"
+      ],
+      "consumers": [
+        "AN-03",
+        "UI-02",
+        "VA-02"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "ReviewWorkItem",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "AQ-01"
+      ],
+      "consumers": [],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "ReviewedCommand",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "UI-02"
+      ],
+      "consumers": [],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "RobotsDecision",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "CR-03"
+      ],
+      "consumers": [],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "RobotsPolicyBytes",
+      "version": "1.0.0-candidate",
+      "producers": [],
+      "consumers": [
+        "CR-03"
+      ],
+      "external_owner_input": true,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "SchemaFamilyRegistry",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "BF-00"
+      ],
+      "consumers": [
+        "BF-01",
+        "VA-03",
+        "RT-01"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "ScopedCaptureReference",
+      "version": "1.0.0-candidate",
+      "producers": [],
+      "consumers": [
+        "OB-02"
+      ],
+      "external_owner_input": true,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "ScopedDependency",
+      "version": "1.0.0-candidate",
+      "producers": [],
+      "consumers": [
+        "IV-01"
+      ],
+      "external_owner_input": true,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "ScopedReadView",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "UI-01"
+      ],
+      "consumers": [
+        "UI-02"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "SemanticDelta",
+      "version": "1.0.0-candidate",
+      "producers": [
+        "CR-02"
+      ],
+      "consumers": [
+        "OB-03",
+        "CR-04"
+      ],
+      "external_owner_input": false,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "SourceOriginAssertion",
+      "version": "1.0.0-candidate",
+      "producers": [],
+      "consumers": [
+        "OB-03"
+      ],
+      "external_owner_input": true,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "SourceSnapshot",
+      "version": "1.0.0-candidate",
+      "producers": [],
+      "consumers": [
+        "BF-00",
+        "VA-00"
+      ],
+      "external_owner_input": true,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    },
+    {
+      "name": "WindowProfile",
+      "version": "1.0.0-candidate",
+      "producers": [],
+      "consumers": [
+        "TM-01",
+        "DU-01"
+      ],
+      "external_owner_input": true,
+      "carrier": "BF01_CANDIDATE_ENVELOPE_V1",
+      "production_adoption": "NOT_GRANTED",
+      "producer_wiring": "UNVERIFIED_UNTIL_REAL_CONSUMER_IN_RT02"
+    }
+  ]
+}
