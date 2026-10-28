@@ -455,7 +455,14 @@ final class RobotsPolicyReader
             }
             $cursor = $pos + strlen($literal);
         }
-        // A trailing '*' can always consume the remainder, even when a '
+        // A trailing wildcard can consume the remainder, including with an end anchor.
+        if ($anchored && count($tokens) > 1 && $tokens[count($tokens) - 1] === '') {
+            return true;
+        }
+        return !$anchored || $cursor === strlen($target);
+    }
+
+    /** RFC 3986 path normalization; no dynamic regex or network access. */
     private static function normalizePath(string $path, bool $pattern): ?string
     {
         $out = '';
