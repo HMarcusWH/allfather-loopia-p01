@@ -147,6 +147,8 @@ final class BuildFirstRegistry
         self::require(($s['legacy_migration_900']['path'] ?? null) === 'database/migrations/900_deferred_foreign_keys.sql', '900_PATH');
         $families = [];
         $tables = [];
+        $foreignKeyNames = [];
+        $indexNames = [];
         foreach ($s['families'] ?? [] as $family) {
             self::require(is_array($family), 'FAMILY_RECORD');
             $label = $family['label'] ?? null;
@@ -176,6 +178,9 @@ final class BuildFirstRegistry
                 }
                 foreach ($t['foreign_key_intents'] as $fk) {
                     self::require(($fk['state'] ?? null) === 'NOT_APPLIED', 'FK_IMPLICITLY_LIVE');
+                    $fkName = $fk['constraint_name'] ?? null;
+                    self::require(is_string($fkName) && preg_match('/^[a-z][a-z0-9_]{1,63}$/D', $fkName) === 1 && !isset($foreignKeyNames[$fkName]), 'FK_CONSTRAINT_NAME_COLLISION');
+                    $foreignKeyNames[$fkName] = true;
                     self::require(is_array($fk['columns'] ?? null) && count($fk['columns']) > 0, 'FK_COLUMNS_UNDESIGNED');
                     self::require(($fk['columns'] ?? null) === ($fk['target_columns'] ?? null), 'FK_COLUMN_TARGET_IDENTITY');
                     foreach ($fk['columns'] as $column) {
@@ -184,6 +189,9 @@ final class BuildFirstRegistry
                 }
                 foreach ($t['indexes'] as $index) {
                     self::require(($index['state'] ?? null) === 'NOT_APPLIED', 'INDEX_IMPLICITLY_LIVE');
+                    $indexName = $index['name'] ?? null;
+                    self::require(is_string($indexName) && preg_match('/^[a-z][a-z0-9_]{1,63}$/D', $indexName) === 1 && !isset($indexNames[$indexName]), 'INDEX_NAME_COLLISION');
+                    $indexNames[$indexName] = true;
                     foreach ($index['candidate_columns'] ?? [] as $column) {
                         self::require(is_string($column) && isset($proposedColumns[$column]), 'INDEX_COLUMN_NOT_PROPOSED');
                     }

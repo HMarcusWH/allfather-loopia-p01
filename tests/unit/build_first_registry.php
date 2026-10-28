@@ -37,6 +37,11 @@ Assert::throws(static function () use ($d, $c, $s, $lock): void {
     BuildFirstRegistry::validate($d, $c, $bad, $lock);
 }, \DomainException::class, 'duplicate table name across schema families refused');
 Assert::throws(static function () use ($d, $c, $s, $lock): void {
+    $bad = $s;
+    $bad['families'][0]['tables'][1]['foreign_key_intents'][0]['constraint_name'] = $bad['families'][0]['tables'][0]['foreign_key_intents'][0]['constraint_name'];
+    BuildFirstRegistry::validate($d, $c, $bad, $lock);
+}, \DomainException::class, 'reused FK constraint name cannot be promoted into migration design');
+Assert::throws(static function () use ($d, $c, $s, $lock): void {
     $bad = $s; $bad['families'][0]['tables'][0]['foreign_key_intents'][0]['columns'] = [];
     BuildFirstRegistry::validate($d, $c, $bad, $lock);
 }, \DomainException::class, 'missing proposed FK column blocks schema registry');
