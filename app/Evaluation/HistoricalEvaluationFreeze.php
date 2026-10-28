@@ -97,15 +97,15 @@ final class HistoricalEvaluationFreeze
             self::require(is_array($new) && ($new['case_id'] ?? null) === ($original['case_id'] ?? null), 'HELDOUT_CASE_ID');
             self::require(($new['category'] ?? null) === self::HELDOUT_CATEGORIES[$i], 'HELDOUT_CATEGORY');
             self::require(($new['payload'] ?? null) === 'NOT_SUPPLIED' && ($new['oracle'] ?? null) === 'NOT_SUPPLIED'
-                && ($new['sha256_commitment'] ?? 'MISSING') === null && ($new['oracle_sha256_commitment'] ?? 'MISSING') === null, 'HELDOUT_ORACLE_EXPOSED');
+                && array_key_exists('sha256_commitment', $new) && $new['sha256_commitment'] === null && array_key_exists('oracle_sha256_commitment', $new) && $new['oracle_sha256_commitment'] === null, 'HELDOUT_ORACLE_EXPOSED');
             self::require(($new['case_status'] ?? null) === 'NOT_FROZEN'
                 && ($new['execution_status'] ?? null) === 'NOT_RUN'
                 && ($new['human_assessment'] ?? null) === 'NOT_ASSESSED', 'HELDOUT_FALSE_RESULT');
         }
         $custody = $long['custody'] ?? [];
-        self::require(($custody['custodian_identity'] ?? 'MISSING') === null && ($custody['custodian_status'] ?? null) === 'UNASSIGNED', 'FABRICATED_CUSTODIAN');
-        self::require(($custody['private_payload_location'] ?? 'MISSING') === null
-            && ($custody['private_oracle_location'] ?? 'MISSING') === null
+        self::require(array_key_exists('custodian_identity', $custody) && $custody['custodian_identity'] === null && ($custody['custodian_status'] ?? null) === 'UNASSIGNED', 'FABRICATED_CUSTODIAN');
+        self::require(array_key_exists('private_payload_location', $custody) && $custody['private_payload_location'] === null
+            && array_key_exists('private_oracle_location', $custody) && $custody['private_oracle_location'] === null
             && ($custody['payload_commitments'] ?? null) === []
             && ($custody['oracle_commitments'] ?? null) === []
             && ($custody['blindness_verified'] ?? null) === false, 'FABRICATED_HOLDOUT_CUSTODY');
@@ -131,9 +131,9 @@ final class HistoricalEvaluationFreeze
             && ($long['baselines'][1]['status'] ?? null) === 'CANDIDATE_SPEC_ONLY_NOT_CANONICAL_POLICY', 'CALENDAR_TUNED');
         self::require(count($long['denominator_rules'] ?? []) === 7, 'DENOMINATORS');
         foreach ($long['denominator_rules'] as $metric) {
-            self::require(($metric['observed_numerator'] ?? 'MISSING') === null
-                && ($metric['observed_denominator'] ?? 'MISSING') === null
-                && ($metric['rate'] ?? 'MISSING') === null, 'INVENTED_METRIC');
+            self::require(array_key_exists('observed_numerator', $metric) && $metric['observed_numerator'] === null
+                && array_key_exists('observed_denominator', $metric) && $metric['observed_denominator'] === null
+                && array_key_exists('rate', $metric) && $metric['rate'] === null, 'INVENTED_METRIC');
         }
         self::require(count($long['critical_failure_codes'] ?? []) === 7
             && count(array_unique($long['critical_failure_codes'])) === 7, 'CRITICAL_TAXONOMY');
@@ -141,7 +141,7 @@ final class HistoricalEvaluationFreeze
             && ($long['human_score_contract']['name'] ?? null) === 'HumanScorecard.v1', 'INTERFACE_NAMES');
         self::require(($long['human_score_contract']['assessment_receipts_present'] ?? null) === false, 'HUMAN_RECEIPT_FALSE_CLAIM');
         self::require(($m['historical_monitors']['DEV7']['independent_human_quality_status'] ?? null) === 'NOT_ACCEPTED'
-            && ($m['historical_monitors']['DEV7']['private_artifact_sha256'] ?? 'MISSING') === null, 'DEV7_REWRITTEN');
+            && array_key_exists('private_artifact_sha256', $m['historical_monitors']['DEV7']) && $m['historical_monitors']['DEV7']['private_artifact_sha256'] === null, 'DEV7_REWRITTEN');
     }
 
     /** @return array{outcome:string,reason_code:string} */

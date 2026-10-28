@@ -16,11 +16,11 @@
       "expectation_basis": "EXISTING_DEVELOPMENT_CASE"
     },
     {
-      "case_id": "correlated-copies",
+      "case_id": "one-event-many-copies",
       "split": "DEVELOPMENT",
       "category": "CORRELATED_COPIES",
-      "knowledge_cut": null,
-      "source_fixture_ref": "tests/fixtures/historical_review_development_cases.json#correlated-copies",
+      "knowledge_cut": "2026-10-10T12:00:00Z",
+      "source_fixture_ref": "tests/fixtures/historical_review_development_cases.json#one-event-many-copies",
       "source_fixture_sha256": "52bc6093d70dcbcd7dd8f37115609d361d6564dd46d9e969ec2d9113ca1a550b",
       "comparison_baseline": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
       "scope": "SYNTHETIC_ONLY",
