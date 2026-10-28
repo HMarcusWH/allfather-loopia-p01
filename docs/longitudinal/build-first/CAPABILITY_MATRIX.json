@@ -51,7 +51,7 @@
       "depends_on": [],
       "owner_gates": [],
       "semantic_owner": "Integration+canonical",
-      "build_status": "NOT_STARTED",
+      "build_status": "IN_PROGRESS",
       "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
       "candidate_factory_binding": "NOT_REGISTERED",
       "native_permission": false,

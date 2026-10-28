@@ -54,23 +54,55 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_260_p01_observatio_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_260_p01_observatio_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "competitors",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "competitor_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "competitor_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_260_p01_observatio_competitor_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "source_diffs",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "source_diff_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "source_diff_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_260_p01_observatio_source_diff_i",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -78,15 +110,40 @@
               "name": "ix_bf_260_1_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "assessed_at",
+                "p01_observation_assessment_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "p01_observation_assessment_id",
+          "column_proposals": {
+            "p01_observation_assessment_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "assessed_at": "CHAR(24) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "competitor_id": "CHAR(36) NULL",
+            "source_diff_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "p01_observation_assessment_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "p01_observation_assessment_refs",
@@ -97,23 +154,55 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_260_p01_observatio_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_260_p01_observatio_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "p01_observation_assessments",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "p01_observation_assessment_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "p01_observation_assessment_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_260_p01_observatio_p01_observati",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "evidence_objects",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "evidence_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "evidence_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_260_p01_observatio_evidence_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -121,15 +210,40 @@
               "name": "ix_bf_260_2_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "assessed_at",
+                "p01_observation_assessment_ref_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "p01_observation_assessment_ref_id",
+          "column_proposals": {
+            "p01_observation_assessment_ref_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "assessed_at": "CHAR(24) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "p01_observation_assessment_id": "CHAR(36) NULL",
+            "evidence_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "p01_observation_assessment_ref_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         }
       ]
     },
@@ -159,18 +273,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_265_p01_observatio_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_265_p01_observatio_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "p01_observation_assessments",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "p01_observation_assessment_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "p01_observation_assessment_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_265_p01_observatio_p01_observati",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -178,15 +316,38 @@
               "name": "ix_bf_265_1_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "p01_observation_feature_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "p01_observation_feature_id",
+          "column_proposals": {
+            "p01_observation_feature_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "p01_observation_assessment_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "p01_observation_feature_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "p01_source_origin_assertions",
@@ -197,18 +358,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_265_p01_source_ori_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_265_p01_source_ori_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "source_references",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "source_ref_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "source_ref_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_265_p01_source_ori_source_ref_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -216,15 +401,38 @@
               "name": "ix_bf_265_2_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "p01_source_origin_assertion_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "p01_source_origin_assertion_id",
+          "column_proposals": {
+            "p01_source_origin_assertion_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "source_ref_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "p01_source_origin_assertion_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         }
       ]
     },
@@ -253,18 +461,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_270_history_review_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_270_history_review_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "competitors",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "competitor_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "competitor_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_270_history_review_competitor_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -272,15 +504,38 @@
               "name": "ix_bf_270_1_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "history_review_base_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "history_review_base_id",
+          "column_proposals": {
+            "history_review_base_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "competitor_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "history_review_base_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "history_review_basis_refs",
@@ -291,23 +546,55 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_270_history_review_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_270_history_review_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "history_review_bases",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "history_review_base_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "history_review_base_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_270_history_review_history_revie",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "evidence_objects",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "evidence_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "evidence_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_270_history_review_evidence_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -315,15 +602,39 @@
               "name": "ix_bf_270_2_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "history_review_basis_ref_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "history_review_basis_ref_id",
+          "column_proposals": {
+            "history_review_basis_ref_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "history_review_base_id": "CHAR(36) NULL",
+            "evidence_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "history_review_basis_ref_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         }
       ]
     },
@@ -353,13 +664,29 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_compr_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_compr_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -367,15 +694,37 @@
               "name": "ix_bf_280_1_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "temporal_compression_profile_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "temporal_compression_profile_id",
+          "column_proposals": {
+            "temporal_compression_profile_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "temporal_compression_profile_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "temporal_compression_profile_rules",
@@ -386,18 +735,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_compr_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_compr_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "temporal_compression_profiles",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "temporal_compression_profile_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "temporal_compression_profile_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_compr_temporal_comp",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -405,15 +778,38 @@
               "name": "ix_bf_280_2_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "temporal_compression_profile_rule_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "temporal_compression_profile_rule_id",
+          "column_proposals": {
+            "temporal_compression_profile_rule_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "temporal_compression_profile_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "temporal_compression_profile_rule_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "temporal_compression_runs",
@@ -424,23 +820,55 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_compr_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_compr_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "temporal_compression_profiles",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "temporal_compression_profile_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "temporal_compression_profile_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_compr_temporal_comp",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "history_review_bases",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "history_review_base_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "history_review_base_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_compr_history_revie",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -448,15 +876,39 @@
               "name": "ix_bf_280_3_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "temporal_compression_run_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "temporal_compression_run_id",
+          "column_proposals": {
+            "temporal_compression_run_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "temporal_compression_profile_id": "CHAR(36) NULL",
+            "history_review_base_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "temporal_compression_run_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "temporal_rollups",
@@ -467,18 +919,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_rollu_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_rollu_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "temporal_compression_runs",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "temporal_compression_run_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "temporal_compression_run_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_rollu_temporal_comp",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -486,15 +962,38 @@
               "name": "ix_bf_280_4_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "temporal_rollup_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "temporal_rollup_id",
+          "column_proposals": {
+            "temporal_rollup_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "temporal_compression_run_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "temporal_rollup_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "temporal_memories",
@@ -505,18 +1004,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_memor_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_memor_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "temporal_compression_runs",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "temporal_compression_run_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "temporal_compression_run_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_memor_temporal_comp",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -524,15 +1047,38 @@
               "name": "ix_bf_280_5_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "temporal_memory_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "temporal_memory_id",
+          "column_proposals": {
+            "temporal_memory_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "temporal_compression_run_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "temporal_memory_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "temporal_memory_status_transitions",
@@ -543,18 +1089,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_memor_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_memor_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "temporal_memories",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "temporal_memory_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "temporal_memory_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_temporal_memor_temporal_memo",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -562,15 +1132,38 @@
               "name": "ix_bf_280_6_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "temporal_memory_status_transition_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "temporal_memory_status_transition_id",
+          "column_proposals": {
+            "temporal_memory_status_transition_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "temporal_memory_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "temporal_memory_status_transition_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "compression_lineage_links",
@@ -581,18 +1174,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_compression_li_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_compression_li_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "temporal_memories",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "temporal_memory_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "temporal_memory_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_280_compression_li_temporal_memo",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -600,15 +1217,38 @@
               "name": "ix_bf_280_7_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "compression_lineage_link_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "compression_lineage_link_id",
+          "column_proposals": {
+            "compression_lineage_link_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "temporal_memory_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "compression_lineage_link_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         }
       ]
     },
@@ -637,18 +1277,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_290_history_review_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_290_history_review_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "competitors",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "competitor_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "competitor_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_290_history_review_competitor_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -656,15 +1320,38 @@
               "name": "ix_bf_290_1_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "history_review_policy_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "history_review_policy_id",
+          "column_proposals": {
+            "history_review_policy_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "competitor_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "history_review_policy_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "history_review_policy_events",
@@ -675,18 +1362,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_290_history_review_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_290_history_review_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "history_review_policies",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "history_review_policy_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "history_review_policy_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_290_history_review_history_revie",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -694,15 +1405,38 @@
               "name": "ix_bf_290_2_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "history_review_policy_event_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "history_review_policy_event_id",
+          "column_proposals": {
+            "history_review_policy_event_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "history_review_policy_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "history_review_policy_event_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "history_review_due_checks",
@@ -713,18 +1447,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_290_history_review_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_290_history_review_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "history_review_policies",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "history_review_policy_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "history_review_policy_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_290_history_review_history_revie",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -732,15 +1490,39 @@
               "name": "ix_bf_290_3_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "checked_at",
+                "history_review_due_check_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "history_review_due_check_id",
+          "column_proposals": {
+            "history_review_due_check_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "checked_at": "CHAR(24) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "history_review_policy_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "history_review_due_check_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         }
       ]
     },
@@ -770,23 +1552,55 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_300_history_review_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_300_history_review_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "history_review_policies",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "history_review_policy_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "history_review_policy_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_300_history_review_history_revie",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "history_review_bases",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "history_review_base_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "history_review_base_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_300_history_review_history_revie",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -794,15 +1608,39 @@
               "name": "ix_bf_300_1_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "history_review_work_item_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "history_review_work_item_id",
+          "column_proposals": {
+            "history_review_work_item_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "history_review_policy_id": "CHAR(36) NULL",
+            "history_review_base_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "history_review_work_item_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "history_review_work_memberships",
@@ -813,18 +1651,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_300_history_review_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_300_history_review_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "history_review_work_items",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "history_review_work_item_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "history_review_work_item_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_300_history_review_history_revie",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -832,15 +1694,38 @@
               "name": "ix_bf_300_2_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "history_review_work_membership_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "history_review_work_membership_id",
+          "column_proposals": {
+            "history_review_work_membership_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "history_review_work_item_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "history_review_work_membership_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "history_review_work_events",
@@ -851,18 +1736,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_300_history_review_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_300_history_review_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "history_review_work_items",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "history_review_work_item_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "history_review_work_item_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_300_history_review_history_revie",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -870,15 +1779,38 @@
               "name": "ix_bf_300_3_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "history_review_work_event_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "history_review_work_event_id",
+          "column_proposals": {
+            "history_review_work_event_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "history_review_work_item_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "history_review_work_event_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         }
       ]
     },
@@ -909,18 +1841,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_310_history_review_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_310_history_review_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "monitor_execution_grants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "execution_grant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "execution_grant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_310_history_review_execution_gra",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -928,15 +1884,38 @@
               "name": "ix_bf_310_1_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "history_review_attempt_binding_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "history_review_attempt_binding_id",
+          "column_proposals": {
+            "history_review_attempt_binding_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "execution_grant_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "history_review_attempt_binding_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         }
       ]
     },
@@ -966,18 +1945,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_320_history_review_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_320_history_review_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "history_review_bases",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "history_review_base_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "history_review_base_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_320_history_review_history_revie",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -985,15 +1988,38 @@
               "name": "ix_bf_320_1_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "history_review_run_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "history_review_run_id",
+          "column_proposals": {
+            "history_review_run_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "history_review_base_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "history_review_run_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "history_review_events",
@@ -1004,18 +2030,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_320_history_review_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_320_history_review_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "history_review_runs",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "history_review_run_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "history_review_run_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_320_history_review_history_revie",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -1023,15 +2073,38 @@
               "name": "ix_bf_320_2_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "history_review_event_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "history_review_event_id",
+          "column_proposals": {
+            "history_review_event_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "history_review_run_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "history_review_event_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "history_review_artifact_refs",
@@ -1042,18 +2115,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_320_history_review_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_320_history_review_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "history_review_runs",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "history_review_run_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "history_review_run_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_320_history_review_history_revie",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -1061,15 +2158,38 @@
               "name": "ix_bf_320_3_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "history_review_artifact_ref_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "history_review_artifact_ref_id",
+          "column_proposals": {
+            "history_review_artifact_ref_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "history_review_run_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "history_review_artifact_ref_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         }
       ]
     },
@@ -1099,23 +2219,55 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_330_historical_fin_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_330_historical_fin_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "history_review_bases",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "history_review_base_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "history_review_base_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_330_historical_fin_history_revie",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "decision_records",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "decision_record_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "decision_record_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_330_historical_fin_decision_reco",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -1123,15 +2275,39 @@
               "name": "ix_bf_330_1_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "historical_finding_basis_binding_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "historical_finding_basis_binding_id",
+          "column_proposals": {
+            "historical_finding_basis_binding_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "history_review_base_id": "CHAR(36) NULL",
+            "decision_record_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "historical_finding_basis_binding_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         }
       ]
     },
@@ -1161,13 +2337,29 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_340_internal_atten_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_340_internal_atten_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -1175,15 +2367,37 @@
               "name": "ix_bf_340_1_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "internal_attention_policy_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "internal_attention_policy_id",
+          "column_proposals": {
+            "internal_attention_policy_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "internal_attention_policy_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "internal_attention_events",
@@ -1194,23 +2408,55 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_340_internal_atten_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_340_internal_atten_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "internal_attention_policies",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "internal_attention_policy_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "internal_attention_policy_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_340_internal_atten_internal_atte",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "decision_records",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "decision_record_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "decision_record_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_340_internal_atten_decision_reco",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -1218,15 +2464,39 @@
               "name": "ix_bf_340_2_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "internal_attention_event_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "internal_attention_event_id",
+          "column_proposals": {
+            "internal_attention_event_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "internal_attention_policy_id": "CHAR(36) NULL",
+            "decision_record_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "internal_attention_event_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "internal_digest_memberships",
@@ -1237,18 +2507,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_340_internal_diges_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_340_internal_diges_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "internal_attention_events",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "internal_attention_event_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "internal_attention_event_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_340_internal_diges_internal_atte",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -1256,15 +2550,38 @@
               "name": "ix_bf_340_3_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "internal_digest_membership_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "internal_digest_membership_id",
+          "column_proposals": {
+            "internal_digest_membership_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "internal_attention_event_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "internal_digest_membership_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         }
       ]
     },
@@ -1295,18 +2612,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_345_history_review_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_345_history_review_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "history_review_runs",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "history_review_run_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "history_review_run_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_345_history_review_history_revie",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -1314,15 +2655,38 @@
               "name": "ix_bf_345_1_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "history_review_outcome_annotation_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "history_review_outcome_annotation_id",
+          "column_proposals": {
+            "history_review_outcome_annotation_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "history_review_run_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "history_review_outcome_annotation_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "history_review_followup_conditions",
@@ -1333,18 +2697,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_345_history_review_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_345_history_review_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "history_review_runs",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "history_review_run_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "history_review_run_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_345_history_review_history_revie",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -1352,15 +2740,38 @@
               "name": "ix_bf_345_2_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "history_review_followup_condition_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "history_review_followup_condition_id",
+          "column_proposals": {
+            "history_review_followup_condition_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "history_review_run_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "history_review_followup_condition_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         }
       ]
     },
@@ -1390,18 +2801,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_350_history_depend_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_350_history_depend_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "evidence_objects",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "evidence_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "evidence_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_350_history_depend_evidence_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -1409,15 +2844,38 @@
               "name": "ix_bf_350_1_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "created_at",
+                "history_dependency_link_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "history_dependency_link_id",
+          "column_proposals": {
+            "history_dependency_link_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "evidence_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "history_dependency_link_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         },
         {
           "name": "history_invalidation_events",
@@ -1428,18 +2886,42 @@
           "foreign_key_intents": [
             {
               "target": "tenants",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "tenant_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "tenant_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_350_history_invali_tenant_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "workspaces",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "workspace_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "workspace_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_350_history_invali_workspace_id",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             },
             {
               "target": "history_dependency_links",
-              "columns": "OWNER_SPECIFY_BEFORE_RT_01",
-              "state": "NOT_APPLIED"
+              "columns": [
+                "history_dependency_link_id"
+              ],
+              "state": "NOT_APPLIED",
+              "target_columns": [
+                "history_dependency_link_id"
+              ],
+              "on_delete": "RESTRICT",
+              "constraint_name": "fk_bf_350_history_invali_history_depen",
+              "design_status": "CANDIDATE_ONLY; validate real parent PK and FK cycle at RT-01"
             }
           ],
           "indexes": [
@@ -1447,17 +2929,43 @@
               "name": "ix_bf_350_2_scope",
               "candidate_columns": [
                 "tenant_id",
-                "workspace_id"
+                "workspace_id",
+                "invalidated_at",
+                "history_invalidation_event_id"
               ],
-              "state": "NOT_APPLIED"
+              "state": "NOT_APPLIED",
+              "design_status": "CANDIDATE_ONLY; finalize cardinality/query plan before SQL"
             }
           ],
           "lineage": "REFERENCE_EXISTING_M05_PRIMARY_EVIDENCE_AND_OWNER_OBJECTS",
           "new_raw_source_bytes": false,
           "retention": "EXISTING_M05_RIGHTS_POLICY",
-          "recovery_required": true
+          "recovery_required": true,
+          "design_status": "COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED",
+          "proposed_identity_column": "history_invalidation_event_id",
+          "column_proposals": {
+            "history_invalidation_event_id": "CHAR(36) NOT NULL PRIMARY KEY",
+            "tenant_id": "CHAR(36) NOT NULL",
+            "workspace_id": "CHAR(36) NOT NULL",
+            "schema_version": "VARCHAR(32) NOT NULL",
+            "created_at": "CHAR(24) NOT NULL",
+            "lineage_digest": "CHAR(64) NOT NULL",
+            "invalidated_at": "CHAR(24) NOT NULL",
+            "known_at": "CHAR(24) NULL",
+            "input_digest": "CHAR(64) NULL",
+            "history_dependency_link_id": "CHAR(36) NULL"
+          },
+          "unique_intent": {
+            "columns": [
+              "history_invalidation_event_id"
+            ],
+            "status": "CANDIDATE_ONLY"
+          },
+          "dependency_policy": "RESTRICT or explicit typed successor; never ON DELETE CASCADE primary evidence"
         }
       ]
     }
-  ]
+  ],
+  "column_level_design_provided": true,
+  "provisional_ddl_guarantees": "NONE; owners may revise candidate names/columns before RT-01; all new SQL must have separate code, fresh/upgrade/no-op and restore proof"
 }

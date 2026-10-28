@@ -37,6 +37,14 @@ Assert::throws(static function () use ($d, $c, $s, $lock): void {
     BuildFirstRegistry::validate($d, $c, $bad, $lock);
 }, \DomainException::class, 'duplicate table name across schema families refused');
 Assert::throws(static function () use ($d, $c, $s, $lock): void {
+    $bad = $s; $bad['families'][0]['tables'][0]['foreign_key_intents'][0]['columns'] = [];
+    BuildFirstRegistry::validate($d, $c, $bad, $lock);
+}, \DomainException::class, 'missing proposed FK column blocks schema registry');
+Assert::throws(static function () use ($d, $c, $s, $lock): void {
+    $bad = $s; $bad['families'][0]['tables'][0]['indexes'][0]['candidate_columns'] = ['invented_column'];
+    BuildFirstRegistry::validate($d, $c, $bad, $lock);
+}, \DomainException::class, 'index must reference a declared candidate column');
+Assert::throws(static function () use ($d, $c, $s, $lock): void {
     $bad = $s; $bad['families'][0]['tables'][0]['new_raw_source_bytes'] = true;
     BuildFirstRegistry::validate($d, $c, $bad, $lock);
 }, \DomainException::class, 'raw source bytes cannot migrate into second evidence store');

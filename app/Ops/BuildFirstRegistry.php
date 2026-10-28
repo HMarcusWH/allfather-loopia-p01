@@ -168,11 +168,25 @@ final class BuildFirstRegistry
                 self::require(($t['new_raw_source_bytes'] ?? null) === false, 'DUPLICATED_M05_BYTES');
                 self::require(is_array($t['foreign_key_intents'] ?? null) && count($t['foreign_key_intents']) >= 2, 'MISSING_FK_INTENT');
                 self::require(is_array($t['indexes'] ?? null) && count($t['indexes']) > 0, 'MISSING_INDEX_INTENT');
+                self::require(($t['design_status'] ?? null) === 'COLUMN_LEVEL_CANDIDATE_UNRATIFIED_AND_NOT_APPLIED', 'PREMATURE_COLUMN_FINALITY');
+                $proposedColumns = $t['column_proposals'] ?? null;
+                self::require(is_array($proposedColumns) && isset($proposedColumns[$t['proposed_identity_column'] ?? '']), 'MISSING_PHYSICAL_COLUMN_DESIGN');
+                foreach (['tenant_id','workspace_id','known_at','lineage_digest'] as $requiredColumn) {
+                    self::require(isset($proposedColumns[$requiredColumn]), 'MISSING_SCOPE_LINEAGE_COLUMN');
+                }
                 foreach ($t['foreign_key_intents'] as $fk) {
                     self::require(($fk['state'] ?? null) === 'NOT_APPLIED', 'FK_IMPLICITLY_LIVE');
+                    self::require(is_array($fk['columns'] ?? null) && count($fk['columns']) > 0, 'FK_COLUMNS_UNDESIGNED');
+                    self::require(($fk['columns'] ?? null) === ($fk['target_columns'] ?? null), 'FK_COLUMN_TARGET_IDENTITY');
+                    foreach ($fk['columns'] as $column) {
+                        self::require(is_string($column) && isset($proposedColumns[$column]), 'FK_COLUMN_NOT_PROPOSED');
+                    }
                 }
                 foreach ($t['indexes'] as $index) {
                     self::require(($index['state'] ?? null) === 'NOT_APPLIED', 'INDEX_IMPLICITLY_LIVE');
+                    foreach ($index['candidate_columns'] ?? [] as $column) {
+                        self::require(is_string($column) && isset($proposedColumns[$column]), 'INDEX_COLUMN_NOT_PROPOSED');
+                    }
                 }
             }
         }
