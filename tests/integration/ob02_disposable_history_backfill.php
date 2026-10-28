@@ -70,8 +70,8 @@ try{
         'old price signal does not become fabricated v2 business assessment');
     Assert::same('NOT_RECORDED_IN_LEGACY_P01',$page['question_identity'],
         'missing historical question is not synthesized');
-    Assert::same('CURRENT_OWNER_FILTERED_READ_ONLY',$page['records'][0]['source_use_readback']??'CURRENT_OWNER_FILTERED_READ_ONLY',
-        'provenance follows current source history read');
+    Assert::same('CURRENT_FILTERED_READ_ONLY',$page['records'][0]['source_use_readback'],
+        'provenance follows current source history read without minting new model rights');
 
     $writer=ObservationAssessmentStore::forDisposableTest($db,$clock,$reader);
     Assert::true($writer->isOk(),'disposable-only candidate schema explicitly selected for QA');
