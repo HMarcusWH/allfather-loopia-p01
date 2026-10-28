@@ -1,0 +1,57 @@
+name: CR01 Native HTML5 Parser
+
+on:
+  pull_request:
+    branches:
+      - build/allfather-php-feature-complete-v2
+    paths:
+      - app/Ingestion/HtmlDocumentProjection.php
+      - app/Product/P01/HtmlSectionExtractor.php
+      - app/Product/P01/DocumentProjectionContract.php
+      - tests/fixtures/semantic_html/**
+      - tests/unit/cr01_html5_projection.php
+      - tests/security/cr01_html5_security.php
+      - tests/foundation/cr01_html5_boundary.php
+      - Dockerfile
+      - .github/workflows/cr01-html5-native.yml
+
+permissions:
+  contents: read
+
+jobs:
+  native-html5-php85:
+    name: native HTML5 PHP 8.5
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2 2.37.2
+        with:
+          php-version: '8.5'
+          extensions: dom, mbstring, libxml, json
+          coverage: none
+
+      - name: Record real PHP and fail without native parser
+        run: |
+          php -v
+          php -r 'if (PHP_VERSION_ID < 80400 || !extension_loaded("dom") || !class_exists("Dom\\HTMLDocument") || !extension_loaded("mbstring")) { fwrite(STDERR, "CR01_HTML5_PARSER_CAPABILITY_UNSUPPORTED\n"); exit(1); }'
+          php -r '$d = Dom\HTMLDocument::createFromString("<!doctype html><html><body><nav>real HTML5 native</nav></body></html>", 0, "UTF-8"); if (!$d instanceof Dom\HTMLDocument) exit(1);'
+
+      - name: Lint exact CR01 source and tests
+        run: |
+          php -l app/Ingestion/HtmlDocumentProjection.php
+          php -l app/Product/P01/HtmlSectionExtractor.php
+          php -l app/Product/P01/DocumentProjectionContract.php
+          php -l tests/unit/cr01_html5_projection.php
+          php -l tests/security/cr01_html5_security.php
+          php -l tests/foundation/cr01_html5_boundary.php
+
+      - name: Positive native HTML5 golden fixtures
+        run: php tests/run.php --layer=unit --filter=cr01_html5_projection --strict
+
+      - name: Negative native HTML5 boundaries
+        run: php tests/run.php --layer=security --filter=cr01_html5_security --strict
+
+      - name: No-egress and capability invariants
+        run: php tests/run.php --layer=foundation --filter=cr01_html5_boundary --strict
