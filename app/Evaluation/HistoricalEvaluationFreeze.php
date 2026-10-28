@@ -117,10 +117,13 @@ final class HistoricalEvaluationFreeze
 
         $thresholds = $long['thresholds'] ?? [];
         $old = $legacy['scorecard'] ?? [];
-        self::require(($thresholds['critical_failures_allowed'] ?? -1) === ($old['critical_failures_allowed'] ?? null)
-            && ($thresholds['heldout_mechanical_pass_rate_min'] ?? -1) === ($old['min_held_out_mechanical_pass_rate'] ?? null)
-            && ($thresholds['human_grounding_pass_rate_min'] ?? -1) === ($old['min_grounding_pass_rate'] ?? null)
-            && ($thresholds['human_usefulness_pass_rate_min'] ?? -1) === ($old['min_usefulness_pass_rate'] ?? null), 'THRESHOLD_DRIFT');
+        $numericEqual = static fn (mixed $left, mixed $right): bool
+            => (is_int($left) || is_float($left)) && (is_int($right) || is_float($right))
+                && (float) $left === (float) $right;
+        self::require($numericEqual($thresholds['critical_failures_allowed'] ?? null, $old['critical_failures_allowed'] ?? null)
+            && $numericEqual($thresholds['heldout_mechanical_pass_rate_min'] ?? null, $old['min_held_out_mechanical_pass_rate'] ?? null)
+            && $numericEqual($thresholds['human_grounding_pass_rate_min'] ?? null, $old['min_grounding_pass_rate'] ?? null)
+            && $numericEqual($thresholds['human_usefulness_pass_rate_min'] ?? null, $old['min_usefulness_pass_rate'] ?? null), 'THRESHOLD_DRIFT');
         self::require(($thresholds['heldout_cases_required'] ?? null) === 6
             && ($thresholds['all_heldout_must_be_independently_assessed'] ?? null) === true
             && ($thresholds['owner_review_status'] ?? null) === 'PENDING', 'UNADOPTED_SCORECARD');
