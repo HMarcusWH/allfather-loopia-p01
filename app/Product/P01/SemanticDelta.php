@@ -83,7 +83,15 @@ final class SemanticDelta
             $rightUsed[$j] = true;
         }
         // Weak fallback: same type + exact normalized body hash, unique on
-        // both unmatched sides. A duplicate match is AMBIGUOUS, not first-win.
+        // both unmatched sides. Precompute left counts in linear time so the
+        // only quadratic loop below is the explicitly counted 64x64 scan.
+        $unmatchedLeftCounts = [];
+        foreach ($leftSections as $i => $s) {
+            if (!isset($leftUsed[$i])) {
+                $key = $s['type'] . "\0" . $s['body_fingerprint'];
+                $unmatchedLeftCounts[$key] = ($unmatchedLeftCounts[$key] ?? 0) + 1;
+            }
+        }
         foreach ($leftSections as $i => $s) {
             if (isset($leftUsed[$i])) {
                 continue;
@@ -103,14 +111,8 @@ final class SemanticDelta
                 continue;
             }
             $j = $candidates[0];
-            $countSame = 0;
-            foreach ($leftSections as $k => $p) {
-                if (!isset($leftUsed[$k]) && $p['type'] === $s['type']
-                    && $p['body_fingerprint'] === $s['body_fingerprint']) {
-                    $countSame++;
-                }
-            }
-            if ($countSame !== 1) {
+            $leftKey = $s['type'] . "\0" . $s['body_fingerprint'];
+            if (($unmatchedLeftCounts[$leftKey] ?? 0) !== 1) {
                 continue;
             }
             $pairs[] = [$i, $j, 'WEAK_UNIQUE_TYPE_AND_BODY'];
