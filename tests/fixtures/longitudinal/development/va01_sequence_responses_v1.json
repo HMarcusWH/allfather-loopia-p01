@@ -1,0 +1,599 @@
+{
+  "schema_version": "va01.development-responses.v1",
+  "classification": "PUBLIC_SYNTHETIC_FIXTURE_RESPONSES_NOT_MODEL_OR_HUMAN_SCORES",
+  "source_development_fixture_sha256": "52bc6093d70dcbcd7dd8f37115609d361d6564dd46d9e969ec2d9113ca1a550b",
+  "baseline_ids": [
+    "EXISTING_PER_DIFF_V1",
+    "FIXED_WEEKLY_UTC_CANDIDATE_V1"
+  ],
+  "case_count": 15,
+  "response_count": 30,
+  "source_provenance": "FIXTURE_CONSTRUCTED_FROM_PUBLIC_DEVELOPMENT_EXPECTATIONS_DOES_NOT_EXECUTE_THE_REAL_BASELINES",
+  "scoring_authority": "MECHANICAL_DIAGNOSTIC_ONLY_NO_MODEL_PERFORMANCE_CLAIM",
+  "responses": [
+    {
+      "case_id": "menu-reorder-quiet",
+      "baseline_id": "EXISTING_PER_DIFF_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "m1"
+      ],
+      "reported_distinct_event_ids": [
+        "menu-v1"
+      ],
+      "reported_origin_group_ids": [
+        "site-a"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "single-price-character",
+      "baseline_id": "EXISTING_PER_DIFF_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "p0",
+        "p1"
+      ],
+      "reported_distinct_event_ids": [
+        "price-449-to-499"
+      ],
+      "reported_origin_group_ids": [
+        "site-a"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "one-event-many-copies",
+      "baseline_id": "EXISTING_PER_DIFF_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "s1",
+        "s2",
+        "s3"
+      ],
+      "reported_distinct_event_ids": [
+        "launch-1",
+        "launch-1",
+        "launch-1"
+      ],
+      "reported_origin_group_ids": [
+        "presswire-origin"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "delayed-evidence-cut",
+      "baseline_id": "EXISTING_PER_DIFF_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "l1",
+        "l2"
+      ],
+      "reported_distinct_event_ids": [
+        "supplier-rumor"
+      ],
+      "reported_origin_group_ids": [
+        "industry-journal"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "rights-withdrawn-before-read",
+      "baseline_id": "EXISTING_PER_DIFF_V1",
+      "disposition": "REFUSED",
+      "refusal_code": "SOURCE_RIGHTS_NOT_ADMITTED",
+      "reported_eligible_observation_ids": [],
+      "reported_distinct_event_ids": [],
+      "reported_origin_group_ids": [],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "coverage-outage",
+      "baseline_id": "EXISTING_PER_DIFF_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "c1",
+        "c2"
+      ],
+      "reported_distinct_event_ids": [],
+      "reported_origin_group_ids": [],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "contrary-evidence",
+      "baseline_id": "EXISTING_PER_DIFF_V1",
+      "disposition": "ABSTAINED",
+      "refusal_code": "UNASSESSABLE_IN_FIXTURE",
+      "reported_eligible_observation_ids": [],
+      "reported_distinct_event_ids": [],
+      "reported_origin_group_ids": [],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "old-source-injection",
+      "baseline_id": "EXISTING_PER_DIFF_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "i1"
+      ],
+      "reported_distinct_event_ids": [
+        "promotional-change"
+      ],
+      "reported_origin_group_ids": [
+        "site-i"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "slow-drift",
+      "baseline_id": "EXISTING_PER_DIFF_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "d1",
+        "d2",
+        "d3"
+      ],
+      "reported_distinct_event_ids": [
+        "price-step-1",
+        "price-step-2",
+        "price-step-3"
+      ],
+      "reported_origin_group_ids": [
+        "site-d"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "bounded-queue-backpressure",
+      "baseline_id": "EXISTING_PER_DIFF_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "q1",
+        "q2",
+        "q3",
+        "q4"
+      ],
+      "reported_distinct_event_ids": [
+        "event-1",
+        "event-2",
+        "event-3",
+        "event-4"
+      ],
+      "reported_origin_group_ids": [
+        "site-q"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "repeated-alert-no-duplicate",
+      "baseline_id": "EXISTING_PER_DIFF_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "a1",
+        "a2",
+        "a3"
+      ],
+      "reported_distinct_event_ids": [
+        "competitor-rebrand"
+      ],
+      "reported_origin_group_ids": [
+        "site-a"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "rare-consequence",
+      "baseline_id": "EXISTING_PER_DIFF_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "h1"
+      ],
+      "reported_distinct_event_ids": [
+        "major-regulatory-notice"
+      ],
+      "reported_origin_group_ids": [
+        "regulator"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "unknown-event-date",
+      "baseline_id": "EXISTING_PER_DIFF_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "u1"
+      ],
+      "reported_distinct_event_ids": [
+        "unknown-date-activity"
+      ],
+      "reported_origin_group_ids": [
+        "press-origin"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "late-after-rights-revocation",
+      "baseline_id": "EXISTING_PER_DIFF_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "rr2"
+      ],
+      "reported_distinct_event_ids": [
+        "registry-claim"
+      ],
+      "reported_origin_group_ids": [
+        "registry"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "multi-origin-not-equal-independent",
+      "baseline_id": "EXISTING_PER_DIFF_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "o1",
+        "o2",
+        "o3"
+      ],
+      "reported_distinct_event_ids": [
+        "announcement",
+        "independent-response"
+      ],
+      "reported_origin_group_ids": [
+        "common-syndicator",
+        "independent-filing"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "menu-reorder-quiet",
+      "baseline_id": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "m1"
+      ],
+      "reported_distinct_event_ids": [
+        "menu-v1"
+      ],
+      "reported_origin_group_ids": [
+        "site-a"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "single-price-character",
+      "baseline_id": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "p0",
+        "p1"
+      ],
+      "reported_distinct_event_ids": [
+        "price-449-to-499"
+      ],
+      "reported_origin_group_ids": [
+        "site-a"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "one-event-many-copies",
+      "baseline_id": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "s1",
+        "s2",
+        "s3"
+      ],
+      "reported_distinct_event_ids": [
+        "launch-1"
+      ],
+      "reported_origin_group_ids": [
+        "presswire-origin"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "delayed-evidence-cut",
+      "baseline_id": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "l1"
+      ],
+      "reported_distinct_event_ids": [
+        "supplier-rumor"
+      ],
+      "reported_origin_group_ids": [
+        "industry-journal"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "rights-withdrawn-before-read",
+      "baseline_id": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
+      "disposition": "REFUSED",
+      "refusal_code": "SOURCE_RIGHTS_NOT_ADMITTED",
+      "reported_eligible_observation_ids": [],
+      "reported_distinct_event_ids": [],
+      "reported_origin_group_ids": [],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "coverage-outage",
+      "baseline_id": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "c1",
+        "c2"
+      ],
+      "reported_distinct_event_ids": [],
+      "reported_origin_group_ids": [],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "contrary-evidence",
+      "baseline_id": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "x1",
+        "x2"
+      ],
+      "reported_distinct_event_ids": [
+        "alleged-market-entry",
+        "denial-with-record"
+      ],
+      "reported_origin_group_ids": [
+        "publication-1",
+        "filing-2"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "old-source-injection",
+      "baseline_id": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
+      "disposition": "ABSTAINED",
+      "refusal_code": "UNASSESSABLE_IN_FIXTURE",
+      "reported_eligible_observation_ids": [],
+      "reported_distinct_event_ids": [],
+      "reported_origin_group_ids": [],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "slow-drift",
+      "baseline_id": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "d1",
+        "d2",
+        "d3"
+      ],
+      "reported_distinct_event_ids": [
+        "price-step-1",
+        "price-step-2",
+        "price-step-3"
+      ],
+      "reported_origin_group_ids": [
+        "site-d"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "bounded-queue-backpressure",
+      "baseline_id": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "q1",
+        "q2",
+        "q3",
+        "q4"
+      ],
+      "reported_distinct_event_ids": [
+        "event-1",
+        "event-2",
+        "event-3",
+        "event-4"
+      ],
+      "reported_origin_group_ids": [
+        "site-q"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "repeated-alert-no-duplicate",
+      "baseline_id": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "a1",
+        "a2",
+        "a3"
+      ],
+      "reported_distinct_event_ids": [
+        "competitor-rebrand"
+      ],
+      "reported_origin_group_ids": [
+        "site-a"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "rare-consequence",
+      "baseline_id": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "h1"
+      ],
+      "reported_distinct_event_ids": [
+        "major-regulatory-notice"
+      ],
+      "reported_origin_group_ids": [
+        "regulator"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "unknown-event-date",
+      "baseline_id": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "u1"
+      ],
+      "reported_distinct_event_ids": [
+        "unknown-date-activity"
+      ],
+      "reported_origin_group_ids": [
+        "press-origin"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "late-after-rights-revocation",
+      "baseline_id": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "rr2"
+      ],
+      "reported_distinct_event_ids": [
+        "registry-claim"
+      ],
+      "reported_origin_group_ids": [
+        "registry"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    },
+    {
+      "case_id": "multi-origin-not-equal-independent",
+      "baseline_id": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
+      "disposition": "SUBMITTED",
+      "refusal_code": null,
+      "reported_eligible_observation_ids": [
+        "o1",
+        "o2",
+        "o3"
+      ],
+      "reported_distinct_event_ids": [
+        "announcement",
+        "independent-response"
+      ],
+      "reported_origin_group_ids": [
+        "common-syndicator",
+        "independent-filing"
+      ],
+      "claimed_business_materiality": "NOT_ASSESSED",
+      "claimed_attention_authority": "NONE",
+      "source_data_kind": "SYNTHETIC_DEVELOPMENT_ORACLE_ECHO",
+      "provenance_type": "FIXTURE_NOT_PROVIDER_OR_NATIVE_BASELINE"
+    }
+  ]
+}
