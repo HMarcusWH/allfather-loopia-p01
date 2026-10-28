@@ -217,7 +217,9 @@ final class ObservationAssessmentStore
         if (!Ids::isValid($assessmentId) || !Ids::isValid($competitorId)) {
             return Outcome::refuse('OB02_ASSESSMENT_SELECTOR_INVALID');
         }
-        $visible = $this->history->listSnapshots($actor, $competitorId, 1);
+        $visible = $this->history->listSnapshots(
+            $actor, $competitorId, ObservationHistory::MAX_PAGE_SIZE
+        );
         if (($visible['decision'] ?? null) !== 'VISIBLE') {
             return Outcome::refuse('OB02_HISTORY_NOT_AVAILABLE', [], 'SCOPE', 'S4');
         }
@@ -235,6 +237,14 @@ final class ObservationAssessmentStore
             $record = json_decode($row['record_json'], true, 64, JSON_THROW_ON_ERROR);
         } catch (\Throwable) {
             return Outcome::refuse('OB02_STORED_METADATA_INVALID');
+        }
+        // A previous owner grant cannot outlive CURRENT card/M05 eligibility.
+        // This fixture readback is deliberately limited to the first 50
+        // currently permitted snapshots; older records require a separately
+        // scoped current-rights lookup and are held, not leaked.
+        $visibleIds = array_column($visible['data']['rows'] ?? [], 'source_snapshot_id');
+        if (!is_array($record) || !in_array($record['source_snapshot_id'] ?? null, $visibleIds, true)) {
+            return Outcome::refuse('OB02_CURRENT_SOURCE_RIGHTS_NOT_PROVEN', [], 'SCOPE', 'S4');
         }
         if (!is_array($record)
             || !ObservationAssessment::verify($record)->isOk()
