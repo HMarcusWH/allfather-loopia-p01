@@ -62,3 +62,10 @@ Where upstream still uses a product-specific released-reference or read model ra
 through M16, the projection ports **that** behavior. Canonical semantics are not "improved" by
 re-routing them through a different spine; any such divergence must be recorded as a Loopia
 implementation-equivalent and separately proven behaviorally.
+
+
+---
+
+## 2026-10-28 build-first decision register (descriptive only)
+
+The [U01–U10 owner decision matrix](docs/longitudinal/BUILD_FIRST_DECISION_MATRIX.json) records proposed semantic options and remaining ratifications. In particular U04's owner-selected successor design is not blanket cross-owner adoption or runtime authorization. The [capability matrix](docs/longitudinal/build-first/CAPABILITY_MATRIX.json) cannot mint a grant; only the exact canonical owner and existing runtime admission mechanisms do so. `upstream.lock.json` is unchanged.

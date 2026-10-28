@@ -1,0 +1,674 @@
+{
+  "schema_version": "allfather.build_first.capabilities.v1",
+  "record_type": "INERT_BUILD_MILESTONES_NOT_RUNTIME_GRANTS",
+  "as_of_date": "2026-10-28",
+  "execution_manifest_sha256": "e7c2f7d2366e81a2ab623fa998314ee264d9ef8818c843cb1171da70750d17b2",
+  "source_snapshot": {
+    "php_repo": "HMarcusWH/allfather-loopia-p01",
+    "base_sha": "f0a622f5ae12d52438a654ef82eed34f84c47e77",
+    "base_tree": "bfed569a5611e29902809f6554f8fbdc0a0e4da3",
+    "canonical_repo": "HMarcusWH/Allfatherbusinessintelligence",
+    "canonical_inspected_sha": "78d5a06929a760f432d56bd63adafbdd40035ec4",
+    "canonical_inspected_tree": "56228b3f2039848a58d0f0b85352621863ad56dd",
+    "adopted_upstream_pin": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d",
+    "github_ci_run": 40574362613,
+    "railway_staging_deployment_id": "9460b6d5-99ae-4c5d-a4a9-69f1f35c779e",
+    "railway_deployed_sha": "f0a622f5ae12d52438a654ef82eed34f84c47e77",
+    "record_type": "DATED_SOURCE_OBSERVATION_NOT_CURRENT_HOST_ATTESTATION"
+  },
+  "build_status_vocabulary": [
+    "NOT_STARTED",
+    "IN_PROGRESS",
+    "IMPLEMENTATION_INCOMPLETE",
+    "CONTRACT_BLOCKED",
+    "BUILT_INERT",
+    "BUILD_HYGIENE_PASS",
+    "FROZEN",
+    "VERIFIED_IN_SCOPE",
+    "OWNER_ADMITTED",
+    "RELEASED_IN_SCOPE"
+  ],
+  "existing_runtime_ceiling": [
+    "A",
+    "B",
+    "C"
+  ],
+  "excluded_effects": [
+    "P07-B",
+    "outbound_sms",
+    "outbound_email",
+    "crm_write",
+    "charge",
+    "customer_publish"
+  ],
+  "new_factory_default": "NOT_REGISTERED",
+  "live_factory_bindings": [],
+  "runtime_grant_state": "NOT_QUERIED",
+  "build_packages": [
+    {
+      "id": "BF-00",
+      "wave": 0,
+      "depends_on": [],
+      "owner_gates": [],
+      "semantic_owner": "Integration+canonical",
+      "build_status": "IN_PROGRESS",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "BF-01",
+      "wave": 1,
+      "depends_on": [
+        "BF-00"
+      ],
+      "owner_gates": [],
+      "semantic_owner": "M02/M06/M01",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "VA-00",
+      "wave": 1,
+      "depends_on": [
+        "BF-00"
+      ],
+      "owner_gates": [],
+      "semantic_owner": "PromptOps evaluation",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "CR-01",
+      "wave": 2,
+      "depends_on": [
+        "BF-01"
+      ],
+      "owner_gates": [],
+      "semantic_owner": "P01 ingestion",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "CR-03",
+      "wave": 2,
+      "depends_on": [
+        "BF-01"
+      ],
+      "owner_gates": [],
+      "semantic_owner": "M06/M01 source policy",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "OB-01",
+      "wave": 2,
+      "depends_on": [
+        "BF-01",
+        "VA-00"
+      ],
+      "owner_gates": [
+        "U01",
+        "U06"
+      ],
+      "semantic_owner": "P01/PromptOps",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "CR-02",
+      "wave": 3,
+      "depends_on": [
+        "CR-01"
+      ],
+      "owner_gates": [],
+      "semantic_owner": "P01 provenance",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "OB-02",
+      "wave": 3,
+      "depends_on": [
+        "OB-01"
+      ],
+      "owner_gates": [
+        "U01",
+        "U02"
+      ],
+      "semantic_owner": "P01 observation",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "VA-01",
+      "wave": 3,
+      "depends_on": [
+        "VA-00",
+        "OB-01",
+        "BF-01"
+      ],
+      "owner_gates": [
+        "U01",
+        "U06"
+      ],
+      "semantic_owner": "Evaluation",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "OB-03",
+      "wave": 4,
+      "depends_on": [
+        "CR-02",
+        "OB-02"
+      ],
+      "owner_gates": [
+        "U02",
+        "U03"
+      ],
+      "semantic_owner": "P01/M05",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "HS-01",
+      "wave": 5,
+      "depends_on": [
+        "OB-03",
+        "BF-00"
+      ],
+      "owner_gates": [
+        "U03"
+      ],
+      "semantic_owner": "M05/P01 history",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "HS-02",
+      "wave": 6,
+      "depends_on": [
+        "HS-01",
+        "BF-00"
+      ],
+      "owner_gates": [
+        "U03",
+        "U06"
+      ],
+      "semantic_owner": "M02/M05/M10",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "TM-01",
+      "wave": 6,
+      "depends_on": [
+        "HS-01"
+      ],
+      "owner_gates": [
+        "U04"
+      ],
+      "semantic_owner": "M17",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "DU-01",
+      "wave": 7,
+      "depends_on": [
+        "OB-03",
+        "HS-01",
+        "TM-01",
+        "HS-02"
+      ],
+      "owner_gates": [
+        "U05"
+      ],
+      "semantic_owner": "M04",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "IV-01",
+      "wave": 7,
+      "depends_on": [
+        "HS-02"
+      ],
+      "owner_gates": [
+        "U03",
+        "U10"
+      ],
+      "semantic_owner": "M05/M10/M11",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "AN-01",
+      "wave": 8,
+      "depends_on": [
+        "HS-02",
+        "OB-01",
+        "IV-01"
+      ],
+      "owner_gates": [
+        "U03",
+        "U06",
+        "U08"
+      ],
+      "semantic_owner": "Provider/PromptOps",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "CR-04",
+      "wave": 8,
+      "depends_on": [
+        "CR-02",
+        "OB-01",
+        "OB-03",
+        "HS-02",
+        "IV-01"
+      ],
+      "owner_gates": [
+        "U01",
+        "U02",
+        "U03",
+        "U06"
+      ],
+      "semantic_owner": "P01 Monitor",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "TM-02",
+      "wave": 8,
+      "depends_on": [
+        "TM-01",
+        "HS-02",
+        "IV-01"
+      ],
+      "owner_gates": [
+        "U03",
+        "U04"
+      ],
+      "semantic_owner": "M17",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "AN-02",
+      "wave": 9,
+      "depends_on": [
+        "AN-01",
+        "TM-02",
+        "VA-01"
+      ],
+      "owner_gates": [
+        "U03",
+        "U06"
+      ],
+      "semantic_owner": "M06/M01 history",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "AQ-01",
+      "wave": 9,
+      "depends_on": [
+        "DU-01",
+        "TM-02",
+        "IV-01"
+      ],
+      "owner_gates": [
+        "U05",
+        "U08"
+      ],
+      "semantic_owner": "Schedule/job",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "UI-01",
+      "wave": 9,
+      "depends_on": [
+        "OB-02",
+        "HS-01",
+        "TM-02",
+        "DU-01",
+        "IV-01"
+      ],
+      "owner_gates": [
+        "U01",
+        "U03",
+        "U09"
+      ],
+      "semantic_owner": "Console/M02",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "AN-03",
+      "wave": 10,
+      "depends_on": [
+        "AN-02",
+        "IV-01"
+      ],
+      "owner_gates": [
+        "U03",
+        "U06",
+        "U07"
+      ],
+      "semantic_owner": "P01/M10/M16",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "AN-04",
+      "wave": 11,
+      "depends_on": [
+        "AN-03",
+        "TM-02",
+        "IV-01"
+      ],
+      "owner_gates": [
+        "U03",
+        "U07",
+        "U10"
+      ],
+      "semantic_owner": "Domain/M10",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "AQ-02",
+      "wave": 12,
+      "depends_on": [
+        "AQ-01",
+        "AN-03",
+        "AN-04"
+      ],
+      "owner_gates": [
+        "U07",
+        "U09"
+      ],
+      "semantic_owner": "P04/M16/M12",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "UI-02",
+      "wave": 13,
+      "depends_on": [
+        "UI-01",
+        "AN-02",
+        "AN-03",
+        "AQ-02",
+        "AN-04"
+      ],
+      "owner_gates": [
+        "U03",
+        "U06",
+        "U07",
+        "U09"
+      ],
+      "semantic_owner": "Console commands",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "VA-02",
+      "wave": 13,
+      "depends_on": [
+        "TM-02",
+        "DU-01",
+        "AN-04",
+        "AQ-02"
+      ],
+      "owner_gates": [],
+      "semantic_owner": "M11",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "VA-03",
+      "wave": 13,
+      "depends_on": [
+        "TM-02",
+        "AN-04",
+        "AQ-01",
+        "AQ-02",
+        "HS-02"
+      ],
+      "owner_gates": [],
+      "semantic_owner": "Recovery/P11",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "RT-01",
+      "wave": 14,
+      "depends_on": [
+        "OB-02",
+        "OB-03",
+        "HS-01",
+        "TM-02",
+        "DU-01",
+        "AQ-01",
+        "AN-01",
+        "AN-02",
+        "AN-03",
+        "AN-04",
+        "AQ-02",
+        "VA-03",
+        "HS-02",
+        "IV-01"
+      ],
+      "owner_gates": [
+        "U01",
+        "U02",
+        "U03",
+        "U04",
+        "U05",
+        "U06",
+        "U07",
+        "U08",
+        "U09",
+        "U10"
+      ],
+      "semantic_owner": "Schema steward",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    },
+    {
+      "id": "RT-02",
+      "wave": 15,
+      "depends_on": [
+        "CR-03",
+        "CR-04",
+        "UI-02",
+        "VA-01",
+        "VA-02",
+        "RT-01",
+        "BF-01",
+        "VA-00"
+      ],
+      "owner_gates": [],
+      "semantic_owner": "Integration freeze",
+      "build_status": "NOT_STARTED",
+      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "candidate_factory_binding": "NOT_REGISTERED",
+      "native_permission": false,
+      "customer_visibility": false,
+      "production_activation": false,
+      "live_migration": false,
+      "external_effects": false
+    }
+  ]
+}
