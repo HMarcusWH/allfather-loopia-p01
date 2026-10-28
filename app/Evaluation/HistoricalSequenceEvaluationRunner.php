@@ -77,6 +77,9 @@ final class HistoricalSequenceEvaluationRunner
             $payload['fixture_bytes_sha256'] = hash('sha256', $bytes);
             $payload['fixture_path'] = self::FIXTURE_PATH;
             $payload['fixture_origin'] = 'LOCAL_SOURCE_ONLY_NOT_PROVIDER';
+            // The final digest binds the FULL exported object, not an
+            // intermediate report_digest left over from Report::build().
+            unset($payload['report_digest']);
             $payload['report_digest'] = Digest::canonicalDigest($payload);
             return Outcome::ok($payload);
         } catch (\Throwable) {
