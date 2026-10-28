@@ -40,7 +40,7 @@ final class ObservationAssessment
     public static function fromLegacy(array $bound, array $historyRow): Outcome
     {
         if (($bound['schema_version'] ?? null) !== CompetitorScope::VERSION
-            || ($bound['question_id'] ?? 'NOT_NULL') !== null
+            || (!array_key_exists('question_id', $bound) || $bound['question_id'] !== null)
             || ($bound['question_identity'] ?? null) !== CompetitorScope::QUESTION_UNKNOWN
             || ($bound['source_rights_readback'] ?? null) !== 'CURRENT_OWNER_FILTERED_READ_ONLY'
             || ($bound['source_bytes_read_here'] ?? null) !== false
@@ -167,16 +167,16 @@ final class ObservationAssessment
     {
         if (($candidate['schema_version'] ?? null) !== self::VERSION
             || ($candidate['record_kind'] ?? null) !== 'LEGACY_METADATA_ONLY'
-            || ($candidate['question_id'] ?? 'BAD') !== null
+            || (!array_key_exists('question_id', $candidate) || $candidate['question_id'] !== null)
             || ($candidate['question_identity'] ?? null) !== CompetitorScope::QUESTION_UNKNOWN
             || ($candidate['assessment_status'] ?? null) !== 'NOT_ASSESSED'
             || ($candidate['business_significance'] ?? null) !== 'NOT_ASSESSED'
             || ($candidate['bytes_availability'] ?? null) !== 'NOT_INSPECTED'
-            || ($candidate['human_annotation_id'] ?? 'BAD') !== null
-            || ($candidate['known_at'] ?? 'BAD') !== null
-            || ($candidate['recorded_at'] ?? 'BAD') !== null
-            || ($candidate['run_id'] ?? 'BAD') !== null
-            || ($candidate['model_prompt_version'] ?? 'BAD') !== null
+            || (!array_key_exists('human_annotation_id', $candidate) || $candidate['human_annotation_id'] !== null)
+            || (!array_key_exists('known_at', $candidate) || $candidate['known_at'] !== null)
+            || (!array_key_exists('recorded_at', $candidate) || $candidate['recorded_at'] !== null)
+            || (!array_key_exists('run_id', $candidate) || $candidate['run_id'] !== null)
+            || (!array_key_exists('model_prompt_version', $candidate) || $candidate['model_prompt_version'] !== null)
             || ($candidate['source_rights_for_new_use_authorized'] ?? null) !== false
             || ($candidate['model_quality_verified'] ?? null) !== false
             || ($candidate['attention_or_notification_authorized'] ?? null) !== false
