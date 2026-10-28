@@ -13,7 +13,7 @@ $heldout = $bundle['heldout'];
 $legacy = $bundle['legacy'];
 $vectors = json_decode((string) file_get_contents($root . '/tests/fixtures/longitudinal/development/va00_contract_examples_v1.json'), true, 64, JSON_THROW_ON_ERROR);
 Assert::same('SYNTHETIC_DEVELOPMENT_ONLY', $vectors['status'], 'vectors never claim product evaluation');
-Assert::same(3, count($m['longitudinal']['baselines']) === 2 ? 3 : 0, 'two baseline definitions frozen with first source'); // two explicit comparators
+Assert::same(2, count($m['longitudinal']['baselines']), 'both comparison baselines frozen before tuning');
 foreach ($vectors['positive_inputs'] as $case) {
     $result = HistoricalEvaluationFreeze::checkDevelopmentCase($case, $dev, $m);
     Assert::same('DEVELOPMENT_SCHEMA_CHECKED', $result['outcome'], 'known development case validates without model execution: ' . $case['case_id']);
