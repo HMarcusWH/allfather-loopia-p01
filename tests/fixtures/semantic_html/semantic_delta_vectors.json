@@ -46,10 +46,9 @@
       "before_text": "Free trial available",
       "after_text": "Free trial not available",
       "type": "PRODUCT_SERVICE",
-      "expected_kind": "MULTIPLE_SENSITIVE_TOKENS_CHANGED",
+      "expected_kind": "NEGATION_CHANGED",
       "expected_sensitive": [
-        "NEGATION",
-        "OFFER"
+        "NEGATION"
       ],
       "before_html": "<!doctype html><html><body><section class=\"products\">Free trial available</section></body></html>",
       "after_html": "<!doctype html><html><body><section class=\"products\">Free trial not available</section></body></html>",
