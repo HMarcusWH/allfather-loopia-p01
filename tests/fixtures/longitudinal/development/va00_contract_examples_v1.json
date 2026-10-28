@@ -1,0 +1,114 @@
+{
+  "schema_version": "allfather.va00.development.examples.v1",
+  "status": "SYNTHETIC_DEVELOPMENT_ONLY",
+  "baseline_source_manifest_sha256": "52bc6093d70dcbcd7dd8f37115609d361d6564dd46d9e969ec2d9113ca1a550b",
+  "contract_version": "historical-evaluation-candidate-2026-10-28.v1",
+  "positive_inputs": [
+    {
+      "case_id": "menu-reorder-quiet",
+      "split": "DEVELOPMENT",
+      "category": "NONMATERIAL_NAVIGATION",
+      "knowledge_cut": "2026-10-10T12:00:00Z",
+      "source_fixture_ref": "tests/fixtures/historical_review_development_cases.json#menu-reorder-quiet",
+      "source_fixture_sha256": "52bc6093d70dcbcd7dd8f37115609d361d6564dd46d9e969ec2d9113ca1a550b",
+      "comparison_baseline": "EXISTING_PER_DIFF_V1",
+      "scope": "SYNTHETIC_ONLY",
+      "expectation_basis": "EXISTING_DEVELOPMENT_CASE"
+    },
+    {
+      "case_id": "one-event-many-copies",
+      "split": "DEVELOPMENT",
+      "category": "CORRELATED_COPIES",
+      "knowledge_cut": "2026-10-10T12:00:00Z",
+      "source_fixture_ref": "tests/fixtures/historical_review_development_cases.json#one-event-many-copies",
+      "source_fixture_sha256": "52bc6093d70dcbcd7dd8f37115609d361d6564dd46d9e969ec2d9113ca1a550b",
+      "comparison_baseline": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
+      "scope": "SYNTHETIC_ONLY",
+      "expectation_basis": "EXISTING_DEVELOPMENT_CASE"
+    }
+  ],
+  "heldout_public_slots": [
+    {
+      "case_id": "heldout-01",
+      "category": "NOISE_VS_FACT",
+      "payload": "NOT_SUPPLIED",
+      "oracle": "NOT_SUPPLIED",
+      "human_score": "NOT_ASSESSED"
+    },
+    {
+      "case_id": "heldout-02",
+      "category": "TIME_CUT_DELAY",
+      "payload": "NOT_SUPPLIED",
+      "oracle": "NOT_SUPPLIED",
+      "human_score": "NOT_ASSESSED"
+    },
+    {
+      "case_id": "heldout-03",
+      "category": "SOURCE_RIGHTS",
+      "payload": "NOT_SUPPLIED",
+      "oracle": "NOT_SUPPLIED",
+      "human_score": "NOT_ASSESSED"
+    },
+    {
+      "case_id": "heldout-04",
+      "category": "FALSE_CORROBORATION",
+      "payload": "NOT_SUPPLIED",
+      "oracle": "NOT_SUPPLIED",
+      "human_score": "NOT_ASSESSED"
+    },
+    {
+      "case_id": "heldout-05",
+      "category": "CONTRADICTION",
+      "payload": "NOT_SUPPLIED",
+      "oracle": "NOT_SUPPLIED",
+      "human_score": "NOT_ASSESSED"
+    },
+    {
+      "case_id": "heldout-06",
+      "category": "ALERT_DEDUPLICATION",
+      "payload": "NOT_SUPPLIED",
+      "oracle": "NOT_SUPPLIED",
+      "human_score": "NOT_ASSESSED"
+    }
+  ],
+  "human_score_placeholder": {
+    "case_id": "UNASSIGNED",
+    "model_attempt_id": null,
+    "candidate_digest": null,
+    "assessor_identity": null,
+    "independent_role_attestation": null,
+    "dimension": "GROUNDING",
+    "verdict": null,
+    "notes_digest": null,
+    "assessed_at": null,
+    "status": "NOT_ASSESSED"
+  },
+  "expected_refusals": [
+    {
+      "case_id": "heldout-01",
+      "reason": "VA00_HELDOUT_UNFROZEN"
+    },
+    {
+      "case_id": "imaginary-development-case",
+      "reason": "VA00_CASE_NOT_IN_PINNED_DEVELOPMENT"
+    },
+    {
+      "case_id": "menu-reorder-quiet",
+      "tweak": "claimed source fixture different SHA256",
+      "reason": "VA00_SOURCE_MANIFEST_IDENTITY"
+    },
+    {
+      "case_id": "menu-reorder-quiet",
+      "tweak": "write approval flag",
+      "reason": "VA00_CASE_EXTRA_FIELD"
+    },
+    {
+      "case_id": "zero denominator",
+      "reason": "VA00_INCOMPLETE_DENOMINATOR"
+    },
+    {
+      "case_id": "model self grade",
+      "reason": "VA00_HUMAN_NOT_AUTHENTICATED"
+    }
+  ]
+}

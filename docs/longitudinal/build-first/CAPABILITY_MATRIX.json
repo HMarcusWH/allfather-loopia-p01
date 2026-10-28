@@ -85,7 +85,7 @@
       ],
       "owner_gates": [],
       "semantic_owner": "PromptOps evaluation",
-      "build_status": "NOT_STARTED",
+      "build_status": "BUILT_INERT",
       "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
       "candidate_factory_binding": "NOT_REGISTERED",
       "native_permission": false,

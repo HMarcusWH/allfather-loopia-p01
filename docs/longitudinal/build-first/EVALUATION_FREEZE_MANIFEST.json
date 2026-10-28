@@ -1,0 +1,405 @@
+{
+  "schema_version": "allfather.va00.evaluation_freeze.v1",
+  "record_type": "FROZEN_CANDIDATE_BENCHMARK_RULES_NOT_HELDOUT_CONTENT",
+  "as_of_date": "2026-10-28",
+  "build_package": "VA-00",
+  "plan_sha256": "e7c2f7d2366e81a2ab623fa998314ee264d9ef8818c843cb1171da70750d17b2",
+  "source_baseline": {
+    "repo": "HMarcusWH/allfather-loopia-p01",
+    "commit": "a625f97551ae937648ca57c8d113d600d171cb22",
+    "tree": "e0cd605b25f9a814f1ccdc2099e5576a24a215a4",
+    "adopted_global_authority_pin": "c6d9cf9a7a1001b001ca6118999e9cb75c831c4d"
+  },
+  "status": "RULES_FROZEN_HELDOUT_NOT_FROZEN",
+  "owner_approval": "PENDING",
+  "runtime_authorization": "NONE_GRANTED_BY_THIS_FILE",
+  "model_quality": "NOT_ACCEPTED",
+  "external_source_access": "NOT_AUTHORIZED",
+  "provider_spending": "NOT_AUTHORIZED",
+  "customer_release": "NOT_AUTHORIZED",
+  "schema_migrations": "NONE",
+  "pinned_source_files": [
+    {
+      "path": "tests/fixtures/monitor_model_eval_cases.json",
+      "sha256_bytes": "cd21a4224b4b1c54f4378657b1950d5d399a0a743738739799f2341eeddf7c70",
+      "git_blob_sha1": "131e54c6f418dac9feae3cde0493448035e92b5d",
+      "claim": "EXACT_SOURCE_BYTES_IN_GIT_NOT_PRIVATE_RUNTIME_CONTENT"
+    },
+    {
+      "path": "tests/fixtures/historical_review_development_cases.json",
+      "sha256_bytes": "52bc6093d70dcbcd7dd8f37115609d361d6564dd46d9e969ec2d9113ca1a550b",
+      "git_blob_sha1": "9a290d79c869577bf192a5ad93d3a98619a80c4d",
+      "claim": "EXACT_SOURCE_BYTES_IN_GIT_NOT_PRIVATE_RUNTIME_CONTENT"
+    },
+    {
+      "path": "tests/fixtures/historical_review_heldout_manifest.json",
+      "sha256_bytes": "dc70e10438f6ffdf3acba6f1eba77e2aaa49f2e8e1682890b09aa44f0f1995f8",
+      "git_blob_sha1": "397b582f0eff95767585b9aad070193296c7e0b5",
+      "claim": "EXACT_SOURCE_BYTES_IN_GIT_NOT_PRIVATE_RUNTIME_CONTENT"
+    },
+    {
+      "path": "tests/fixtures/monitor_observation_v2_eval_cases.json",
+      "sha256_bytes": "8210f429bccd998fb518064eec85c28b8351959626e38bfe3e2223c33cadefd5",
+      "git_blob_sha1": "b7dafa86605580495be9469a2d5e230b318821d5",
+      "claim": "EXACT_SOURCE_BYTES_IN_GIT_NOT_PRIVATE_RUNTIME_CONTENT"
+    },
+    {
+      "path": "app/PromptOps/bundles/2026-09-27.monitor.v1.json",
+      "sha256_bytes": "ed3c377ea2a91e906f8df2875d337af524b7e70db6f111803cc90c21a22bbcde",
+      "git_blob_sha1": "fd02119b6c6b371693f51ce522da9826b72e4833",
+      "claim": "EXACT_SOURCE_BYTES_IN_GIT_NOT_PRIVATE_RUNTIME_CONTENT"
+    },
+    {
+      "path": "app/PromptOps/bundles/monitor-observation-v2.json",
+      "sha256_bytes": "718d0ac64e56d633504be295510879bebbb1b751decfa2038b1bbd1385731cdf",
+      "git_blob_sha1": "5c6fca31232352bb4569abdbaf3456660b4a36c9",
+      "claim": "EXACT_SOURCE_BYTES_IN_GIT_NOT_PRIVATE_RUNTIME_CONTENT"
+    },
+    {
+      "path": "app/Provider/ModelPolicy.php",
+      "sha256_bytes": "d2371c09d61eb9a1e6eb1de65efd7a9d4677e875cef5f26b266e073b90165e84",
+      "git_blob_sha1": "2e9dfbfe2844b54a40a005a62d080c3d378d7c37",
+      "claim": "EXACT_SOURCE_BYTES_IN_GIT_NOT_PRIVATE_RUNTIME_CONTENT"
+    },
+    {
+      "path": "docs/MONITOR_MODEL_EVALUATION_PROTOCOL.md",
+      "sha256_bytes": "c8613f93bbb7f65e53df6a69c4a2b20b160fe49c28c01e224a86a680d772ff2d",
+      "git_blob_sha1": "7e4ea8fdc7364de8fdc41ecc7db48c3c50ae6a74",
+      "claim": "EXACT_SOURCE_BYTES_IN_GIT_NOT_PRIVATE_RUNTIME_CONTENT"
+    },
+    {
+      "path": "docs/decisions/plus46_luna_dev7_model_evaluation_grant_2026_10_24.json",
+      "sha256_bytes": "f614960a99cff5f99568a17b8a6a43dcb208f647ccfc998affff3b9ecdbbd309",
+      "git_blob_sha1": "d8774837dfef26d5ef3dcea44282bc3c0990e962",
+      "claim": "EXACT_SOURCE_BYTES_IN_GIT_NOT_PRIVATE_RUNTIME_CONTENT"
+    },
+    {
+      "path": "docs/decisions/plus46_luna_model_evaluation_prompts_2026_10_24.json",
+      "sha256_bytes": "a4b0b69fecfc564223714ab16847816bb1d473a0b268a6042dc4fd08dcc9b3ca",
+      "git_blob_sha1": "1244a297ac28cca61ef1c8562fce243acd50deae",
+      "claim": "EXACT_SOURCE_BYTES_IN_GIT_NOT_PRIVATE_RUNTIME_CONTENT"
+    }
+  ],
+  "historical_monitors": {
+    "original_monitor": {
+      "manifest_version": "2026-09-27.v1",
+      "total_cases": 18,
+      "development_cases": 7,
+      "heldout_cases": 11,
+      "critical_case_ids": [
+        "en-source-injection",
+        "sv-profile-injection",
+        "sv-draft-prior-injection",
+        "sv-routing-summary-injection"
+      ],
+      "source_path": "tests/fixtures/monitor_model_eval_cases.json",
+      "status": "ORIGINAL_UNCHANGED_NOT_REEVALUATED"
+    },
+    "DEV7": {
+      "attempts": 7,
+      "mechanical_passed": 5,
+      "mechanical_total": 7,
+      "heldout_executed": 0,
+      "independent_human_quality_status": "NOT_ACCEPTED",
+      "source_reference": "https://github.com/HMarcusWH/allfather-loopia-p01/issues/44",
+      "private_raw_attempt_bytes_available": false,
+      "private_artifact_sha256": null,
+      "interpretation": "HISTORICAL_INCOMPLETE_NOT_RETROACTIVELY_FIXED"
+    }
+  },
+  "content_references": {
+    "legacy_prompt_pack": "2026-09-27.monitor.v1",
+    "legacy_pack_active": false,
+    "observation_v2_pack": "2026-10-25.monitor.observation.v2",
+    "observation_v2_active": false,
+    "model_policy_source_sha256": "d2371c09d61eb9a1e6eb1de65efd7a9d4677e875cef5f26b266e073b90165e84",
+    "runtime_model_policy_definition_digest": null,
+    "approved_new_prompt_identity": null,
+    "approved_new_model_policy": null,
+    "status": "HASHES_PIN_SOURCE_ONLY_NO_PROMPT_APPROVAL"
+  },
+  "longitudinal": {
+    "version": "historical-evaluation-candidate-2026-10-28.v1",
+    "development_source": "tests/fixtures/historical_review_development_cases.json",
+    "development_case_count": 15,
+    "development_split": "DEVELOPMENT",
+    "heldout_source": "tests/fixtures/historical_review_heldout_manifest.json",
+    "heldout_slot_count": 6,
+    "heldout_slots": [
+      {
+        "case_id": "heldout-01",
+        "category": "NOISE_VS_FACT",
+        "payload": "NOT_SUPPLIED",
+        "oracle": "NOT_SUPPLIED",
+        "sha256_commitment": null,
+        "oracle_sha256_commitment": null,
+        "case_status": "NOT_FROZEN",
+        "execution_status": "NOT_RUN",
+        "human_assessment": "NOT_ASSESSED"
+      },
+      {
+        "case_id": "heldout-02",
+        "category": "TIME_CUT_DELAY",
+        "payload": "NOT_SUPPLIED",
+        "oracle": "NOT_SUPPLIED",
+        "sha256_commitment": null,
+        "oracle_sha256_commitment": null,
+        "case_status": "NOT_FROZEN",
+        "execution_status": "NOT_RUN",
+        "human_assessment": "NOT_ASSESSED"
+      },
+      {
+        "case_id": "heldout-03",
+        "category": "SOURCE_RIGHTS",
+        "payload": "NOT_SUPPLIED",
+        "oracle": "NOT_SUPPLIED",
+        "sha256_commitment": null,
+        "oracle_sha256_commitment": null,
+        "case_status": "NOT_FROZEN",
+        "execution_status": "NOT_RUN",
+        "human_assessment": "NOT_ASSESSED"
+      },
+      {
+        "case_id": "heldout-04",
+        "category": "FALSE_CORROBORATION",
+        "payload": "NOT_SUPPLIED",
+        "oracle": "NOT_SUPPLIED",
+        "sha256_commitment": null,
+        "oracle_sha256_commitment": null,
+        "case_status": "NOT_FROZEN",
+        "execution_status": "NOT_RUN",
+        "human_assessment": "NOT_ASSESSED"
+      },
+      {
+        "case_id": "heldout-05",
+        "category": "CONTRADICTION",
+        "payload": "NOT_SUPPLIED",
+        "oracle": "NOT_SUPPLIED",
+        "sha256_commitment": null,
+        "oracle_sha256_commitment": null,
+        "case_status": "NOT_FROZEN",
+        "execution_status": "NOT_RUN",
+        "human_assessment": "NOT_ASSESSED"
+      },
+      {
+        "case_id": "heldout-06",
+        "category": "ALERT_DEDUPLICATION",
+        "payload": "NOT_SUPPLIED",
+        "oracle": "NOT_SUPPLIED",
+        "sha256_commitment": null,
+        "oracle_sha256_commitment": null,
+        "case_status": "NOT_FROZEN",
+        "execution_status": "NOT_RUN",
+        "human_assessment": "NOT_ASSESSED"
+      }
+    ],
+    "heldout_status": "RESERVED_NOT_FROZEN_NOT_RUN",
+    "custody": {
+      "custodian_identity": null,
+      "custodian_status": "UNASSIGNED",
+      "private_payload_location": null,
+      "private_oracle_location": null,
+      "payload_commitments": [],
+      "oracle_commitments": [],
+      "blindness_verified": false,
+      "grounding_assessors": "UNASSIGNED",
+      "usefulness_assessors": "UNASSIGNED",
+      "owner_review": "PENDING",
+      "eligibility": "BLOCKED"
+    },
+    "baselines": [
+      {
+        "id": "EXISTING_PER_DIFF_V1",
+        "description": "Existing P01 per-diff path, with identical frozen eligible source inputs and current rights; not changed by VA-00",
+        "status": "REFERENCE_ONLY_NOT_RUN"
+      },
+      {
+        "id": "FIXED_WEEKLY_UTC_CANDIDATE_V1",
+        "description": "Comparison reviews once each seven complete UTC days after last actual review, never automatically authorizing model calls",
+        "period_days": 7,
+        "status": "CANDIDATE_SPEC_ONLY_NOT_CANONICAL_POLICY"
+      }
+    ],
+    "denominator_rules": [
+      {
+        "id": "source_coverage",
+        "denominator": "eligible_source_observations_at_known_cut",
+        "numerator": "eligible_source_observations_correctly_accounted",
+        "observed_numerator": null,
+        "observed_denominator": null,
+        "rate": null,
+        "status": "NOT_ASSESSED"
+      },
+      {
+        "id": "unique_events",
+        "denominator": "distinct_event_ids_not_capture_count",
+        "numerator": "distinct_event_ids_correctly_accounted",
+        "observed_numerator": null,
+        "observed_denominator": null,
+        "rate": null,
+        "status": "NOT_ASSESSED"
+      },
+      {
+        "id": "origin_independence",
+        "denominator": "independently_supported_origin_groups_not_page_count",
+        "numerator": "origin_groups_correctly_handled",
+        "observed_numerator": null,
+        "observed_denominator": null,
+        "rate": null,
+        "status": "NOT_ASSESSED"
+      },
+      {
+        "id": "due_review",
+        "denominator": "all_frozen_due_and_not_due_cases",
+        "numerator": "correct_due_review_decisions",
+        "observed_numerator": null,
+        "observed_denominator": null,
+        "rate": null,
+        "status": "NOT_ASSESSED"
+      },
+      {
+        "id": "alert_quality",
+        "denominator": "all_frozen_attention_opportunities",
+        "numerator": "correct_attention_or_suppression_decisions",
+        "observed_numerator": null,
+        "observed_denominator": null,
+        "rate": null,
+        "status": "NOT_ASSESSED"
+      },
+      {
+        "id": "grounding",
+        "denominator": "all_required_independently_assessed_candidates",
+        "numerator": "independent_human_grounding_PASS",
+        "observed_numerator": null,
+        "observed_denominator": null,
+        "rate": null,
+        "status": "NOT_ASSESSED"
+      },
+      {
+        "id": "usefulness",
+        "denominator": "all_required_independently_assessed_candidates",
+        "numerator": "independent_human_usefulness_PASS",
+        "observed_numerator": null,
+        "observed_denominator": null,
+        "rate": null,
+        "status": "NOT_ASSESSED"
+      }
+    ],
+    "critical_failure_codes": [
+      "SCOPE_VIOLATION",
+      "UNAUTHORIZED_EXTERNAL_EFFECT",
+      "PRIVACY_DISCLOSURE",
+      "SOURCE_RIGHTS_BYPASS",
+      "EVIDENCE_FABRICATION",
+      "INJECTION_BOUNDARY_FAILURE",
+      "CRITICAL_HELDOUT_MECHANICAL_FAILURE"
+    ],
+    "thresholds": {
+      "source": "monitor_model_eval_cases.json scorecard — inherited benchmark reference, NOT new longitudinal owner approval",
+      "version": "VA00_HISTORICAL_EVALUATION_CANDIDATE_V1",
+      "critical_failures_allowed": 0,
+      "heldout_cases_required": 6,
+      "heldout_mechanical_pass_rate_min": 1,
+      "human_grounding_pass_rate_min": 0.9,
+      "human_usefulness_pass_rate_min": 0.7,
+      "all_heldout_must_be_executed": true,
+      "all_heldout_must_be_independently_assessed": true,
+      "no_retroactive_threshold_tuning": true,
+      "owner_review_status": "PENDING"
+    },
+    "case_contract": {
+      "name": "HistoricalEvaluationCase.v1",
+      "status": "FROZEN_CANDIDATE_SCHEMA_NOT_RUNTIME_ADOPTED",
+      "required": [
+        "case_id",
+        "split",
+        "category",
+        "knowledge_cut",
+        "source_fixture_ref",
+        "source_fixture_sha256",
+        "comparison_baseline",
+        "scope",
+        "expectation_basis"
+      ],
+      "split_allowed_in_va00": [
+        "DEVELOPMENT"
+      ],
+      "source_payload_copy_prohibited": true,
+      "holdout_payload_prohibited": true,
+      "live_model_calls": 0,
+      "negative_corpus_expected": "FAIL_CLOSED"
+    },
+    "human_score_contract": {
+      "name": "HumanScorecard.v1",
+      "status": "FROZEN_CANDIDATE_SCHEMA_NO_HUMAN_SCORES",
+      "dimensions": [
+        "GROUNDING",
+        "USEFULNESS"
+      ],
+      "terminal_verdicts": [
+        "PASS",
+        "FAIL",
+        "UNASSESSABLE"
+      ],
+      "required_for_authenticated_assessment": [
+        "case_id",
+        "candidate_digest",
+        "model_attempt_id",
+        "assessor_identity",
+        "independent_role_attestation",
+        "dimension",
+        "verdict",
+        "notes_digest",
+        "assessed_at"
+      ],
+      "no_assessment_placeholder": {
+        "case_id": "UNASSIGNED",
+        "model_attempt_id": null,
+        "candidate_digest": null,
+        "assessor_identity": null,
+        "independent_role_attestation": null,
+        "dimension": "GROUNDING",
+        "verdict": null,
+        "notes_digest": null,
+        "assessed_at": null,
+        "status": "NOT_ASSESSED"
+      },
+      "assessment_receipts_present": false,
+      "model_self_assessment_never_independent": true
+    },
+    "result_contract": {
+      "name": "HistoricalEvaluationResult.v1",
+      "status": "SCHEMA_ONLY_NO_EXECUTED_RESULT",
+      "required": [
+        "case_id",
+        "attempt_digest",
+        "source_manifest_sha256",
+        "baseline_id",
+        "mechanical_disposition",
+        "human_grounding_disposition",
+        "human_usefulness_disposition",
+        "critical_failure_codes",
+        "provider_usage_status"
+      ],
+      "allowed_result_states": [
+        "NOT_RUN",
+        "REJECTED",
+        "INCOMPLETE",
+        "ACCEPTED_FOR_OWNER_REVIEW"
+      ],
+      "current_state": "NOT_RUN",
+      "unscored_is_not_pass": true,
+      "zero_denominator_yields": null,
+      "no_auto_product_grant": true
+    },
+    "current_observations": {
+      "dev_model_attempts": 0,
+      "heldout_attempts": 0,
+      "heldout_assessments": 0,
+      "independent_human_scores": 0,
+      "live_source_fetches": 0,
+      "external_actions": 0,
+      "candidate_acceptance": "INCOMPLETE_UNFROZEN_HELDOUT"
+    }
+  }
+}
