@@ -1,0 +1,201 @@
+{
+  "schema_version": "cr02.semantic-delta-vectors.v1",
+  "scope": "SYNTHETIC_PRIVATE_FIXTURE_ONLY",
+  "algorithm_version": "cr02.same-selector-unique-content-alignment.v1",
+  "semantic_materiality": "NOT_ASSESSED",
+  "case_count": 11,
+  "cases": [
+    {
+      "id": "navigation-reorder",
+      "before_text": "Products Pricing",
+      "after_text": "Pricing Products",
+      "type": "NAVIGATION",
+      "expected_kind": "ORDER_ONLY",
+      "before_nav": [
+        "Products",
+        "Pricing"
+      ],
+      "after_nav": [
+        "Pricing",
+        "Products"
+      ],
+      "expected_structural": "ORDER_ONLY",
+      "before_html": "<!doctype html><html><body><nav><a>Products</a><a>Pricing</a></nav></body></html>",
+      "after_html": "<!doctype html><html><body><nav><a>Pricing</a><a>Products</a></nav></body></html>",
+      "before_selector": "html[1]/body[1]/nav[1]",
+      "after_selector": "html[1]/body[1]/nav[1]"
+    },
+    {
+      "id": "price-one-digit",
+      "before_text": "Plan costs 449 SEK",
+      "after_text": "Plan costs 499 SEK",
+      "type": "PRICING",
+      "expected_kind": "PRICE_CHANGED",
+      "expected_sensitive": [
+        "PRICE"
+      ],
+      "before_html": "<!doctype html><html><body><section class=\"pricing\">Plan costs 449 SEK</section></body></html>",
+      "after_html": "<!doctype html><html><body><section class=\"pricing\">Plan costs 499 SEK</section></body></html>",
+      "before_selector": "html[1]/body[1]/section[1]",
+      "after_selector": "html[1]/body[1]/section[1]",
+      "before_nav": [],
+      "after_nav": []
+    },
+    {
+      "id": "negation-flipped",
+      "before_text": "Free trial available",
+      "after_text": "Free trial not available",
+      "type": "PRODUCT_SERVICE",
+      "expected_kind": "MULTIPLE_SENSITIVE_TOKENS_CHANGED",
+      "expected_sensitive": [
+        "NEGATION",
+        "OFFER"
+      ],
+      "before_html": "<!doctype html><html><body><section class=\"products\">Free trial available</section></body></html>",
+      "after_html": "<!doctype html><html><body><section class=\"products\">Free trial not available</section></body></html>",
+      "before_selector": "html[1]/body[1]/section[1]",
+      "after_selector": "html[1]/body[1]/section[1]",
+      "before_nav": [],
+      "after_nav": []
+    },
+    {
+      "id": "offer-availability",
+      "before_text": "Trial available",
+      "after_text": "Trial unavailable",
+      "type": "PRODUCT_SERVICE",
+      "expected_kind": "OFFER_CHANGED",
+      "expected_sensitive": [
+        "OFFER"
+      ],
+      "before_html": "<!doctype html><html><body><section class=\"products\">Trial available</section></body></html>",
+      "after_html": "<!doctype html><html><body><section class=\"products\">Trial unavailable</section></body></html>",
+      "before_selector": "html[1]/body[1]/section[1]",
+      "after_selector": "html[1]/body[1]/section[1]",
+      "before_nav": [],
+      "after_nav": []
+    },
+    {
+      "id": "contract-change",
+      "before_text": "Contract 12 months",
+      "after_text": "Agreement 24 months",
+      "type": "PRICING",
+      "expected_kind": "CONTRACT_CHANGED",
+      "expected_sensitive": [
+        "CONTRACT"
+      ],
+      "before_html": "<!doctype html><html><body><section class=\"pricing\">Contract 12 months</section></body></html>",
+      "after_html": "<!doctype html><html><body><section class=\"pricing\">Agreement 24 months</section></body></html>",
+      "before_selector": "html[1]/body[1]/section[1]",
+      "after_selector": "html[1]/body[1]/section[1]",
+      "before_nav": [],
+      "after_nav": []
+    },
+    {
+      "id": "schedule-date-change",
+      "before_text": "Launch November 12",
+      "after_text": "Launch December 12",
+      "type": "NEWS_PRESS",
+      "expected_kind": "DATE_CHANGED",
+      "expected_sensitive": [
+        "DATE"
+      ],
+      "before_html": "<!doctype html><html><body><article>Launch November 12</article></body></html>",
+      "after_html": "<!doctype html><html><body><article>Launch December 12</article></body></html>",
+      "before_selector": "html[1]/body[1]/article[1]",
+      "after_selector": "html[1]/body[1]/article[1]",
+      "before_nav": [],
+      "after_nav": []
+    },
+    {
+      "id": "same-content-path-moved",
+      "before_text": "Plan costs 449 SEK",
+      "after_text": "Plan costs 449 SEK",
+      "type": "PRICING",
+      "expected_kind": "POSSIBLE_SECTION_MOVE",
+      "before_selector": "html[1]/body[1]/main[1]/section[1]",
+      "after_selector": "html[1]/body[1]/main[1]/div[1]/section[1]",
+      "expected_structural": "TYPED_CHANGE",
+      "before_html": "<!doctype html><html><body><main><section class=\"pricing\">Plan costs 449 SEK</section></main></body></html>",
+      "after_html": "<!doctype html><html><body><main><div><section class=\"pricing\">Plan costs 449 SEK</section></div></main></body></html>",
+      "before_nav": [],
+      "after_nav": []
+    },
+    {
+      "id": "navigation-added-item",
+      "before_text": "Products Pricing",
+      "after_text": "Products Pricing Contact",
+      "type": "NAVIGATION",
+      "expected_kind": "NAV_ITEMS_CHANGED",
+      "before_nav": [
+        "Products",
+        "Pricing"
+      ],
+      "after_nav": [
+        "Products",
+        "Pricing",
+        "Contact"
+      ],
+      "before_html": "<!doctype html><html><body><nav><a>Products</a><a>Pricing</a></nav></body></html>",
+      "after_html": "<!doctype html><html><body><nav><a>Products</a><a>Pricing</a><a>Contact</a></nav></body></html>",
+      "before_selector": "html[1]/body[1]/nav[1]",
+      "after_selector": "html[1]/body[1]/nav[1]"
+    },
+    {
+      "id": "raw-only-script",
+      "before_text": "Products Pricing",
+      "after_text": "Products Pricing",
+      "type": "NAVIGATION",
+      "expected_kind": "SECTION_UNCHANGED",
+      "before_nav": [
+        "Products",
+        "Pricing"
+      ],
+      "after_nav": [
+        "Products",
+        "Pricing"
+      ],
+      "expected_structural": "NO_TYPED_CHANGE",
+      "before_html": "<!doctype html><html><body><nav><a>Products</a><a>Pricing</a></nav><script>var internal = 1;</script></body></html>",
+      "after_html": "<!doctype html><html><body><nav><a>Products</a><a>Pricing</a></nav><script>var internal = 2;</script></body></html>",
+      "before_selector": "html[1]/body[1]/nav[1]",
+      "after_selector": "html[1]/body[1]/nav[1]"
+    },
+    {
+      "id": "excerpt-hidden-price",
+      "before_text": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA Price 449 SEK",
+      "after_text": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA Price 499 SEK",
+      "type": "PRICING",
+      "expected_kind": "TEXT_CHANGED",
+      "expected_partial": true,
+      "expected_structural": "TYPED_CHANGE",
+      "before_html": "<!doctype html><html><body><section class=\"pricing\">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA Price 449 SEK</section></body></html>",
+      "after_html": "<!doctype html><html><body><section class=\"pricing\">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA Price 499 SEK</section></body></html>",
+      "before_selector": "html[1]/body[1]/section[1]",
+      "after_selector": "html[1]/body[1]/section[1]",
+      "before_nav": [],
+      "after_nav": []
+    },
+    {
+      "id": "missing-added-section",
+      "before_text": "Plan costs 449 SEK",
+      "after_text": "Plan costs 449 SEK",
+      "type": "PRICING",
+      "expected_kind": "SECTION_UNCHANGED",
+      "extra_after_sections": [
+        {
+          "type": "CAREERS",
+          "text": "We are hiring engineers",
+          "selector": "html[1]/body[1]/section[2]"
+        }
+      ],
+      "expected_unpaired_after": 1,
+      "expected_structural": "UNKNOWN_ALIGNMENT",
+      "before_html": "<!doctype html><html><body><section class=\"pricing\">Plan costs 449 SEK</section></body></html>",
+      "after_html": "<!doctype html><html><body><section class=\"pricing\">Plan costs 449 SEK</section><section class=\"careers\">We are hiring engineers</section></body></html>",
+      "before_selector": "html[1]/body[1]/section[1]",
+      "after_selector": "html[1]/body[1]/section[1]",
+      "before_nav": [],
+      "after_nav": []
+    }
+  ]
+}
