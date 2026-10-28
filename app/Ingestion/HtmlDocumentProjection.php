@@ -100,10 +100,10 @@ final class HtmlDocumentProjection
 
         $startedNs = hrtime(true);
         try {
-            // The HTML5 living-standard parser processes a string in memory.
-            // NONET is defence-in-depth, not a claim that a network-backed
-            // parser would be safe. No resource loading/exec paths exist here.
-            $doc = \Dom\HTMLDocument::createFromString($rawBytes, LIBXML_NONET, 'UTF-8');
+            // Native HTML5 parsing is in-memory and never reaches the network.
+            // LIBXML_NONET is not an accepted option for this API (ValueError);
+            // it is unnecessary because the HTML5 factory does no network I/O.
+            $doc = \Dom\HTMLDocument::createFromString($rawBytes, 0, 'UTF-8');
         } catch (\Throwable) {
             return Outcome::refuse('CR01_HTML5_PARSER_REFUSED');
         }

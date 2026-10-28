@@ -36,7 +36,7 @@ jobs:
         run: |
           php -v
           php -r 'if (PHP_VERSION_ID < 80400 || !extension_loaded("dom") || !class_exists("Dom\\HTMLDocument") || !extension_loaded("mbstring")) { fwrite(STDERR, "CR01_HTML5_PARSER_CAPABILITY_UNSUPPORTED\n"); exit(1); }'
-          php -r '$d = Dom\HTMLDocument::createFromString("<!doctype html><html><body><nav>real HTML5 native</nav></body></html>", LIBXML_NONET, "UTF-8"); if (!$d instanceof Dom\HTMLDocument) exit(1);'
+          php -r '$d = Dom\HTMLDocument::createFromString("<!doctype html><html><body><nav>real HTML5 native</nav></body></html>", 0, "UTF-8"); if (!$d instanceof Dom\HTMLDocument) exit(1);'
 
       - name: Lint exact CR01 source and tests
         run: |
