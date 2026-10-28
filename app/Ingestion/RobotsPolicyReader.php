@@ -455,6 +455,205 @@ final class RobotsPolicyReader
             }
             $cursor = $pos + strlen($literal);
         }
+        // A trailing '*' can always consume the remainder, even when a '
+    private static function normalizePath(string $path, bool $pattern): ?string
+    {
+        $out = '';
+        for ($i = 0, $n = strlen($path); $i < $n; $i++) {
+            $c = $path[$i];
+            $byte = ord($c);
+            if ($c === '%') {
+                if ($i + 2 >= $n || !ctype_xdigit($path[$i + 1]) || !ctype_xdigit($path[$i + 2])) {
+                    return null;
+                }
+                $hex = strtoupper(substr($path, $i + 1, 2));
+                $raw = chr(hexdec($hex));
+                $out .= self::isUnreserved($raw) ? $raw : '%' . $hex;
+                $i += 2;
+            } elseif ($byte < 32 || $byte === 127) {
+                return null;
+            } elseif ($byte >= 128) {
+                $out .= '%' . strtoupper(bin2hex($c));
+            } elseif (($c === '*' || $c === '$') && !$pattern) {
+                $out .= '%' . strtoupper(bin2hex($c));
+            } elseif (self::isUnreserved($c) || $c === '/' || $c === '?'
+                || $c === '=' || $c === '&' || ($pattern && $c === '*')) {
+                $out .= $c;
+            } else {
+                $out .= '%' . strtoupper(bin2hex($c));
+            }
+            if (strlen($out) > self::MAX_PATH_BYTES) {
+                return null;
+            }
+        }
+        return $out;
+    }
+
+    private static function specificity(string $pattern): int
+    {
+        $octets = 0;
+        for ($i = 0, $n = strlen($pattern); $i < $n; $i++) {
+            if ($pattern[$i] === '*') {
+                continue;
+            }
+            if ($pattern[$i] === '%') {
+                $i += 2;
+            }
+            $octets++;
+        }
+        return $octets;
+    }
+
+    private static function isUnreserved(string $c): bool
+    {
+        return preg_match('/^[A-Za-z0-9._~-]$/D', $c) === 1;
+    }
+
+    private static function origin(string $url): ?string
+    {
+        if (!is_string($url) || trim($url) !== $url || strlen($url) > self::MAX_PATH_BYTES
+            || preg_match('/[\x00-\x20\x7f]/', $url) === 1) {
+            return null;
+        }
+        $parts = parse_url($url);
+        if (!is_array($parts) || strtolower((string) ($parts['scheme'] ?? '')) !== 'https'
+            || ($parts['host'] ?? '') === '' || isset($parts['user'], $parts['pass'])
+            || isset($parts['user']) || isset($parts['fragment'])) {
+            return null;
+        }
+        $host = strtolower((string) $parts['host']);
+        if (str_contains($host, '[') || str_contains($host, ']')
+            || !preg_match('/^[a-z0-9.-]+$/D', $host)) {
+            return null; // intentionally no IPv6 literal in offline candidate interface
+        }
+        $port = $parts['port'] ?? 443;
+        if (!is_int($port) || $port < 1 || $port > 65535) {
+            return null;
+        }
+        return 'https://' . $host . ($port === 443 ? '' : ':' . $port);
+    }
+
+    private static function targetPath(string $url): ?string
+    {
+        $parts = parse_url($url);
+        if ($parts === false || isset($parts['fragment'])) {
+            return null;
+        }
+        $path = (string) ($parts['path'] ?? '/');
+        return $path . (isset($parts['query']) ? '?' . $parts['query'] : '');
+    }
+
+    private static function isSafeTarget(string $url): bool
+    {
+        $path = self::targetPath($url);
+        if ($path === null || strlen($path) > self::MAX_PATH_BYTES) {
+            return false;
+        }
+        return self::normalizePath($path, false) !== null;
+    }
+}
+
+        // anchor follows it. '/pricing*
+    private static function normalizePath(string $path, bool $pattern): ?string
+    {
+        $out = '';
+        for ($i = 0, $n = strlen($path); $i < $n; $i++) {
+            $c = $path[$i];
+            $byte = ord($c);
+            if ($c === '%') {
+                if ($i + 2 >= $n || !ctype_xdigit($path[$i + 1]) || !ctype_xdigit($path[$i + 2])) {
+                    return null;
+                }
+                $hex = strtoupper(substr($path, $i + 1, 2));
+                $raw = chr(hexdec($hex));
+                $out .= self::isUnreserved($raw) ? $raw : '%' . $hex;
+                $i += 2;
+            } elseif ($byte < 32 || $byte === 127) {
+                return null;
+            } elseif ($byte >= 128) {
+                $out .= '%' . strtoupper(bin2hex($c));
+            } elseif (($c === '*' || $c === '$') && !$pattern) {
+                $out .= '%' . strtoupper(bin2hex($c));
+            } elseif (self::isUnreserved($c) || $c === '/' || $c === '?'
+                || $c === '=' || $c === '&' || ($pattern && $c === '*')) {
+                $out .= $c;
+            } else {
+                $out .= '%' . strtoupper(bin2hex($c));
+            }
+            if (strlen($out) > self::MAX_PATH_BYTES) {
+                return null;
+            }
+        }
+        return $out;
+    }
+
+    private static function specificity(string $pattern): int
+    {
+        $octets = 0;
+        for ($i = 0, $n = strlen($pattern); $i < $n; $i++) {
+            if ($pattern[$i] === '*') {
+                continue;
+            }
+            if ($pattern[$i] === '%') {
+                $i += 2;
+            }
+            $octets++;
+        }
+        return $octets;
+    }
+
+    private static function isUnreserved(string $c): bool
+    {
+        return preg_match('/^[A-Za-z0-9._~-]$/D', $c) === 1;
+    }
+
+    private static function origin(string $url): ?string
+    {
+        if (!is_string($url) || trim($url) !== $url || strlen($url) > self::MAX_PATH_BYTES
+            || preg_match('/[\x00-\x20\x7f]/', $url) === 1) {
+            return null;
+        }
+        $parts = parse_url($url);
+        if (!is_array($parts) || strtolower((string) ($parts['scheme'] ?? '')) !== 'https'
+            || ($parts['host'] ?? '') === '' || isset($parts['user'], $parts['pass'])
+            || isset($parts['user']) || isset($parts['fragment'])) {
+            return null;
+        }
+        $host = strtolower((string) $parts['host']);
+        if (str_contains($host, '[') || str_contains($host, ']')
+            || !preg_match('/^[a-z0-9.-]+$/D', $host)) {
+            return null; // intentionally no IPv6 literal in offline candidate interface
+        }
+        $port = $parts['port'] ?? 443;
+        if (!is_int($port) || $port < 1 || $port > 65535) {
+            return null;
+        }
+        return 'https://' . $host . ($port === 443 ? '' : ':' . $port);
+    }
+
+    private static function targetPath(string $url): ?string
+    {
+        $parts = parse_url($url);
+        if ($parts === false || isset($parts['fragment'])) {
+            return null;
+        }
+        $path = (string) ($parts['path'] ?? '/');
+        return $path . (isset($parts['query']) ? '?' . $parts['query'] : '');
+    }
+
+    private static function isSafeTarget(string $url): bool
+    {
+        $path = self::targetPath($url);
+        if ($path === null || strlen($path) > self::MAX_PATH_BYTES) {
+            return false;
+        }
+        return self::normalizePath($path, false) !== null;
+    }
+}
+ matches '/pricing/other' too.
+        if ($anchored && count($tokens) > 1 && $tokens[count($tokens) - 1] === '') {
+            return true;
+        }
         return !$anchored || $cursor === strlen($target);
     }
 
