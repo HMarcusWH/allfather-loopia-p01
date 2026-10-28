@@ -17,8 +17,8 @@ RUN npm install -g npm@10.9.2 \
 
 FROM php:8.5.12-apache-bookworm
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates libonig-dev libcurl4-openssl-dev mariadb-client \
-    && docker-php-ext-install -j"$(nproc)" pdo_mysql mbstring curl \
+    && apt-get install -y --no-install-recommends ca-certificates libonig-dev libcurl4-openssl-dev libxml2-dev mariadb-client \
+    && docker-php-ext-install -j"$(nproc)" pdo_mysql mbstring curl dom \
     && a2dismod -f mpm_event mpm_worker \
     && a2enmod mpm_prefork rewrite headers \
     && rm -rf /var/lib/apt/lists/*
@@ -27,6 +27,13 @@ WORKDIR /srv/allfather
 COPY . /srv/allfather
 # This repository has no hosted CI minutes: qualify the session-security patch on the actual PHP 8.5 runtime.
 # The DB-backed end-to-end test remains a separate disposable MariaDB gate.
+# CR-01 native HTML5 parser is an explicit Railway host capability. PHP 8.2
+# remains a supported code/syntax floor but MUST refuse native HTML5 parsing.
+# Do not silently use legacy DOMDocument::loadHTML.
+RUN php -r 'if (!extension_loaded("dom") || !class_exists("Dom\\HTMLDocument") || !extension_loaded("mbstring")) { fwrite(STDERR, "CR01 native HTML5 capability missing\\n"); exit(1); }' \
+    && php tests/run.php --layer=unit --filter=cr01_html5_projection --strict \
+    && php tests/run.php --layer=security --filter=cr01_html5_security --strict
+
 RUN php -l ops/railway/render-private-env.php \
     && php -l tests/foundation/railway_versioned_key_bridge.php \
     && php tests/run.php --layer=foundation --filter=railway_versioned_key_bridge --strict \
