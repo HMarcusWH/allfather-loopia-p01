@@ -1,0 +1,56 @@
+name: CR02 Native Semantic Delta
+
+on:
+  pull_request:
+    branches:
+      - build/allfather-php-feature-complete-v2
+    paths:
+      - app/Product/P01/SectionFingerprint.php
+      - app/Product/P01/SemanticDelta.php
+      - app/Ingestion/HtmlDocumentProjection.php
+      - app/Product/P01/HtmlSectionExtractor.php
+      - app/Product/P01/DocumentProjectionContract.php
+      - tests/fixtures/semantic_html/semantic_delta_vectors.json
+      - tests/support/Cr02Fixture.php
+      - tests/unit/cr02_semantic_delta.php
+      - tests/unit/cr02_delta_native.php
+      - tests/security/cr02_semantic_delta_refusals.php
+      - tests/foundation/cr02_semantic_boundary.php
+      - .github/workflows/cr02-semantic-native.yml
+
+permissions:
+  contents: read
+
+jobs:
+  native-cr01-to-cr02-php85:
+    name: native CR01-to-CR02 PHP 8.5
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
+        with:
+          php-version: '8.5'
+          extensions: dom, mbstring, libxml, json
+          coverage: none
+      - name: Native parser and PHP version must be available
+        run: |
+          php -v
+          php -r 'if (PHP_VERSION_ID < 80400 || !extension_loaded("dom") || !class_exists("Dom\\HTMLDocument") || !extension_loaded("mbstring")) { fwrite(STDERR, "CR02_NATIVE_HTML5_CAPABILITY_MISSING\n"); exit(1); }'
+      - name: Lint CR02 and fixture files
+        run: |
+          php -l app/Product/P01/SectionFingerprint.php
+          php -l app/Product/P01/SemanticDelta.php
+          php -l tests/support/Cr02Fixture.php
+          php -l tests/unit/cr02_semantic_delta.php
+          php -l tests/unit/cr02_delta_native.php
+          php -l tests/security/cr02_semantic_delta_refusals.php
+          php -l tests/foundation/cr02_semantic_boundary.php
+      - name: CR02 pure semantic delta golden vectors
+        run: php tests/run.php --layer=unit --filter=cr02_semantic_delta --strict
+      - name: Real native CR01 HTML5 projection through CR02
+        run: php tests/run.php --layer=unit --filter=cr02_delta_native --strict
+      - name: CR02 negative provenance and authority checks
+        run: php tests/run.php --layer=security --filter=cr02_semantic_delta_refusals --strict
+      - name: No-egress and legacy owner fingerprints
+        run: php tests/run.php --layer=foundation --filter=cr02_semantic_boundary --strict
