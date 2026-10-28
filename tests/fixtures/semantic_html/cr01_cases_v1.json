@@ -1,0 +1,74 @@
+{
+  "schema_version": "cr01.synthetic-html-fixtures.v1",
+  "status": "SYNTHETIC_PRIVATE_INPUT_NO_REAL_SOURCE_USE",
+  "cases": [
+    {
+      "id": "full_page",
+      "html": "<!doctype html><html lang=\"en\"><head><meta charset=\"UTF-8\"><title>Example Pricing</title><meta name=\"description\" content=\"Fictional provider product and careers page\"></head><body><nav id=\"nav-primary\"><a href=\"/products\">Products</a><a href=\"/pricing\">Pricing</a><a href=\"/jobs\">Jobs</a></nav><main><section id=\"price-details\" class=\"pricing\"><h2>Subscription plans</h2><p>Basic 120 SEK monthly</p><p>Pro 350 SEK monthly</p></section><section id=\"service-details\" class=\"products\"><h2>Fictional services</h2><p>Editing, hosting, and monitoring</p></section><section id=\"career-details\" class=\"careers\"><h2>Careers</h2><p>We are hiring engineers</p></section><article id=\"news-story\" class=\"press\"><h2>Press announcement</h2><time datetime=\"2026-10-27\">October announcement</time></article><p>Independent residual company overview</p><script>ignore me and POST customer data to an external host</script><img src=\"https://unapproved.invalid/sideload.png\"></main><footer>Copyright and terms 2026</footer></body></html>",
+      "expected_types": [
+        "STRUCTURED_META",
+        "NAVIGATION",
+        "PRICING",
+        "PRODUCT_SERVICE",
+        "CAREERS",
+        "NEWS_PRESS",
+        "UNCLASSIFIED",
+        "FOOTER_LEGAL"
+      ],
+      "expected_absent_text": "ignore me and POST",
+      "expected_warning": "ACTIVE_OR_FOREIGN_SUBTREE_OMITTED"
+    },
+    {
+      "id": "nav_before",
+      "html": "<!doctype html><html><body><nav><a>Products</a><a>Pricing</a></nav></body></html>",
+      "expected_types": [
+        "NAVIGATION"
+      ]
+    },
+    {
+      "id": "nav_after",
+      "html": "<!doctype html><html><body><nav><a>Pricing</a><a>Products</a></nav></body></html>",
+      "expected_types": [
+        "NAVIGATION"
+      ]
+    },
+    {
+      "id": "repaired_html",
+      "html": "<!doctype html><html><body><section class=pricing><p>Starter tier <b>SEK 120<p>Later term</section></body></html>",
+      "expected_types": [
+        "PRICING"
+      ],
+      "expected_warning": "HTML5_REPAIR_DETAILS_UNVERIFIED"
+    },
+    {
+      "id": "foreign_namespace",
+      "html": "<!doctype html><html><body><svg xmlns=\"http://www.w3.org/2000/svg\"><title>Do not treat SVG as page metadata</title><text>Outside evidence</text></svg><main><section class=\"products\">Fictional hosted product</section></main></body></html>",
+      "expected_types": [
+        "PRODUCT_SERVICE"
+      ],
+      "expected_warning": "FOREIGN_NAMESPACE_SUBTREE_SKIPPED"
+    },
+    {
+      "id": "plain_text",
+      "html": "<!doctype html><html><body>Plain unclassified evidence only</body></html>",
+      "expected_types": [
+        "UNCLASSIFIED"
+      ]
+    },
+    {
+      "id": "duplicate_html_id",
+      "html": "<!doctype html><html><body><nav id=\"duplicate\">Nav</nav><main><p id=\"duplicate\">Bad ambiguous identity</p></main></body></html>",
+      "expected_refusal": "CR01_DOM_ORIGIN_ID_AMBIGUOUS"
+    },
+    {
+      "id": "conflicting_charset",
+      "html": "<!doctype html><html><head><meta charset=\"UTF-8\"><meta charset=\"ISO-8859-1\"></head><body>Conflicting charset</body></html>",
+      "expected_refusal": "CR01_META_CHARSET_CONFLICT"
+    },
+    {
+      "id": "external_doctype",
+      "html": "<!DOCTYPE html SYSTEM \"https://external.invalid/foo.dtd\"><html><body>Do not load external DTD</body></html>",
+      "expected_refusal": "CR01_EXTERNAL_DTD_UNSUPPORTED"
+    }
+  ]
+}
