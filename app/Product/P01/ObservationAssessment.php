@@ -72,13 +72,6 @@ final class ObservationAssessment
             || count($diffs) > self::MAX_DIFF_REFERENCES) {
             return Outcome::refuse('OB02_COMPARISON_COVERAGE_INVALID');
         }
-        if (($coverage === 'BASELINE' || $coverage === 'COMPARISON_UNAVAILABLE'
-                || $coverage === 'STRUCTURALLY_UNCHANGED' && count($diffs) !== 1)
-            && $diffs !== []) {
-            if ($coverage !== 'STRUCTURALLY_UNCHANGED') {
-                return Outcome::refuse('OB02_COVERAGE_COMPARISON_INCONSISTENT');
-            }
-        }
         if (($coverage === 'BASELINE' || $coverage === 'COMPARISON_UNAVAILABLE') && $diffs !== []
             || $coverage === 'STRUCTURALLY_UNCHANGED' && count($diffs) !== 1
             || $coverage === 'STRUCTURAL_CHANGE_RECORDED' && count($diffs) !== 1

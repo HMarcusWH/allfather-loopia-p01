@@ -78,8 +78,11 @@ final class ObservationAssessmentStore
             || $page['competitor_id'] !== $competitorId
             || $page['tenant_id'] !== $actor['tenant_id']
             || $page['workspace_id'] !== $actor['workspace_id']
-            || count($preview['records']) !== $page['record_lineage_digests']
-                && !is_array($page['record_lineage_digests'])) {
+            || !is_array($page['record_lineage_digests'] ?? null)
+            || !is_array($page['snapshot_ids'] ?? null)
+            || count($preview['records']) !== count($page['record_lineage_digests'])
+            || array_column($preview['records'], 'lineage_digest') !== $page['record_lineage_digests']
+            || array_column($preview['records'], 'source_snapshot_id') !== $page['snapshot_ids']) {
             return Outcome::refuse('OB02_CURSOR_LEDGER_UNTRUSTED');
         }
         $key = Digest::canonicalDigest([
