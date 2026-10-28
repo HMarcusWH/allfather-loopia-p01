@@ -1,93 +1,109 @@
-# LI-18 — Longitudinal sequence evaluation protocol (fixture-first proposal)
+# VA-01 — Offline historical-sequence evaluation and failure-analysis protocol
 
-**Version 2026-10-25.dev1. Status: offline development fixtures only.** The original 18-case Monitor manifest and DEV7 records are immutable and are **not** modified. This PR contains no new model calls, live source transport, scheduling, evaluator grant, persistent observation owner or release route.
+**Package:** BUILD-09 / VA-01, Wave 03, prepared 2026-10-29.
+**Dependencies:** VA-00, OB-01, BF-01. **Source trace:** LI-18, LI-02, R14.
+**Authority:** BUILT_INERT. U01/U06 remain unadopted; no funded execution, model quality approval or release.
 
-## Available deterministic development evidence
-The 15 synthetic, fictional sequences in `tests/fixtures/historical_review_development_cases.json` freeze event/observed/known-at dates, distinct event identities, uncertain common origin, source rights at review time, knowledge-cut selection, unchanged/unavailable coverage, and requirement to keep materiality and attention separate. They include menu-only noise, tiny price change, correlated copies, late evidence, rights withdrawal, coverage gap, contradicting sources, untrusted historical prompt-injection text, slow drift, backpressure, repeated alert, high-consequence claim, unknown event date, post-withdrawal evidence and ambiguous origin independence.
+## Actual positive path
 
-A deterministic fixture validator (`tests/unit/historical_sequence_fixture_freeze.php`) proves syntax, no duplicate identities, eligibility under explicit known-at cuts, distinct event/origin groups and that these fixtures grant zero provider/model/release authority. **This is fixture correctness, not proof of model skill or implemented temporal runtime.**
+HistoricalSequenceEvaluationRunner implements a deterministic offline
+EvaluationHarness.v1 against source-verified VA-00 development material.
+It scores 15 publicly supplied historical DEVELOPMENT sequences under each
+of the two VA-00 frozen baseline names, producing **30 explicit case records**.
+SUBMITTED, ABSTAINED, REFUSED, INVALID and NOT_RUN all remain in denominators.
+A missing response creates NOT_RUN, never an implicit pass or omitted case.
+The old DEV7 Monitor evaluation and 18-case Monitor split remain unchanged.
 
-## Held-out truth
-`tests/fixtures/historical_review_heldout_manifest.json` reserves six independent scenario categories but **does not claim the payload or oracle is frozen**. It is explicitly `RESERVED_NOT_FROZEN_NOT_RUN`. Before any prompt tuning or model-quality evaluation, an independent owner must freeze complete held-out payloads, SHA-256 commitments, private answer keys, contamination protections and human scoring rubric under U01/U06. **Until that happens: no held-out pass, scorecard approval or evaluation-backed deployment claim.**
+The new versioned input is
+tests/fixtures/longitudinal/development/va01_sequence_responses_v1.json.
+All responses in it were constructed from **PUBLIC DEVELOPMENT EXPECTATIONS**
+for a mechanical smoke test; they are NOT outputs of the historical baseline
+runtimes, actual trained models, or independently heldout oracles. Some deliberately
+overcount duplicate events or include a later-known observation, to verify
+failure detection. The runner records these synthetic diagnostics but never
+claims observed baseline model performance or actual critical incidents.
 
-## Future scorecard (requires U01/U05/U06 policy owners)
-Separate denominators and reports for:
-observation retention/retrieval; eligibility and coverage; unique events vs captured pages vs common-origin groups; due-review precision/timing; false reviews; grounding; preserved contradictions; alert precision/recall/dedup; time and operator burden; actual provider usage and unknowns. Do not average hard failures away. Compare against current per-diff flow and simple calendar review. Missing/rate-limited cases remain in the denominator. Model verdicts do not self-adjudicate, and a due timestamp never creates a grant.
+The test CLI command is:
 
-## Boundaries
-The fixture time-cut evaluator only selects *illustrative packets*; real M05 rights checks, tenant scope, current quarantine, authorization of historical provider disclosure and owner-reviewed U01–U10 contracts are still required for runtime semantics. No schema migration, no history backfill, no customer release, no inference activation.
+    php ops/evaluation/history.php --offline-development
 
-**Next:** settle U01 and independently freeze protected held-out material, then implement a proper historical sequence runner with separate independent human-quality assessment and exact grant/budget review.
+It prints machine-inspectable JSON, no external calls, credentials, database
+or customer output. The input is retrieved through a CLI-only
+HistoricalSequenceFixtureTransport with exactly one readback and zero network
+attempts. Other CLI commands besides --help and --status fail closed.
 
----
+The report is HistoricalSequenceReport.v1, with exact VA-00 manifest
+canonical digest, 15-case development SHA-256, heldout manifest digest,
+local response fixture byte SHA-256, report digest and all 30 attempt digests.
 
-## VA-00 — Frozen candidate benchmark specification (28 October 2026)
+## Denominators and independent quality
 
-**Build identity:** VA-00 / BUILD-03, after BF-00. The exact byte commitments, benchmark
-definitions, scoring denominators and independent-custody restrictions are in
-[`EVALUATION_FREEZE_MANIFEST.json`](longitudinal/build-first/EVALUATION_FREEZE_MANIFEST.json).
-This supplement does **not** rewrite the original 18-case Monitor manifest, the historical
-DEV7 result, the 15 existing development sequences or the six reserved held-out slots.
+Both baselines have 15 source cases, grouped by lineage_rights_time,
+quiet_noise_coverage, origin_dedup, contradiction_injection and
+sequence_backpressure, with named failure codes and explicit counts for
+eligible/blocked/future-known source refs, unique expected event labels,
+candidate origin-group labels, refusals, abstentions and missing responses.
+The source eligibility and unique-event label exactness rates use a visible
+15-case denominator and are marked PUBLIC_DEV_FIXTURE_CASE_EXACTNESS,
+not authenticated model source coverage.
 
-### What is frozen now, and what explicitly is not
+VA-00's seven metric IDs (source_coverage, unique_events, origin_independence,
+due_review, alert_quality, grounding and usefulness) are preserved.
+Independent origin corroboration, due-review correctness, alert quality,
+human grounding, human usefulness and ALL authoritative rates remain NULL.
+ZERO human assessor denominators yield NULL, never a perfect rate.
+A source-origin group name is not independently authenticated provenance.
+Both baselines are **fixture comparison labels only**: EXISTING_PER_DIFF_V1
+is not executed here and FIXED_WEEKLY_UTC_CANDIDATE_V1 does not schedule
+reviews or grant a seven-day policy. No model attempt is performed.
 
-The frozen `HistoricalEvaluationCase.v1` contract references the existing source fixture by
-its immutable SHA-256 and case ID. Development inputs can be validated without copying original
-untrusted source text into a new corpus. The 15 historical sequences remain **DEVELOPMENT ONLY**.
-The six held-out slots remain **RESERVED_NOT_FROZEN_NOT_RUN**. Their payloads, answer keys,
-private oracle commitments, independent custodian and human assessor identities are all absent.
-A real independent custodian must create and protect new payloads/oracles and commitments in a
-separate authorized, blinded process before any hold-out run. An unassigned custodian or assessor
-is **UNASSIGNED**, never an automatic model-generated role.
+Provider model attempts and network calls are observed ZERO.
+Provider input/output token counts and cost are UNKNOWN / NULL,
+not invented or estimated from strings. No human PASS or confidence band
+is fabricated. Commercial significance remains NOT_ASSESSED.
+Source rights, customer release, model funding, notifications, M10 action
+and source re-use authority are explicitly false.
 
-The historical 18-case Monitor manifest retains its original 7 development + 11 held-out split
-and original thresholds. DEV7 remains **5/7 development mechanical PASS, quality INCOMPLETE**;
-its original private rejected critic payload cannot be reconstructed by this build.
-No new paid model call or held-out adjudication was carried out to prepare these contracts.
+## Heldout and old-evidence freeze
 
-### Versioned evaluation input and result contracts
+The six longitudinal HELD_OUT slots are RESERVED_NOT_FROZEN_NOT_RUN.
+They have no payload, oracle, independent custodian, accepted human assessor
+or unblinding. A request naming a heldout ID refuses; no model output,
+mechanical pass or heldout rate is generated. Overall model quality is
+always INCOMPLETE_UNFROZEN_HELDOUT, regardless of development fixture echo.
 
-- **HistoricalEvaluationCase.v1:** `case_id`, `split`, `category`, exact UTC `knowledge_cut`,
-  `source_fixture_ref`, `source_fixture_sha256`, `comparison_baseline`, synthetic `scope`,
-  `expectation_basis`. VA-00 accepts development-only references; hidden answers and grant fields
-  are forbidden. A schema-valid candidate does not imply current M05 source-use rights.
-- **HistoricalEvaluationResult.v1:** case/attempt/manifest/baseline references; separate mechanical,
-  grounding and usefulness dispositions, critical-failure codes, and actual provider usage or
-  explicit UNKNOWN. No candidate result can approve its own prompts or release intelligence.
-- **HumanScorecard.v1:** independent human assessor, genuine candidate/attempt digest, one dimension
-  (`GROUNDING` or `USEFULNESS`), verdict, assessment provenance, immutable note digest and time.
-  The published example is **NOT_ASSESSED** with no assessor. VA-00 cannot authenticate humans or
-  import scores; the future governed evaluator must verify those identities separately.
+The VA-00 pinned historical development file remains SHA-256:
+52bc6093d70dcbcd7dd8f37115609d361d6564dd46d9e969ec2d9113ca1a550b.
+The heldout registry stays:
+dc70e10438f6ffdf3acba6f1eba77e2aaa49f2e8e1682890b09aa44f0f1995f8.
+The older 18-case Monitor file stays:
+cd21a4224b4b1c54f4378657b1950d5d399a0a743738739799f2341eeddf7c70.
+Historical DEV7 5/7 development evidence and independence/quality gaps are
+unmodified; no retroactive new evaluation has been asserted.
 
-### Comparator and denominator discipline
+## Future funded path — explicitly disabled
 
-Two candidate comparators are declared *before tuning*: the existing per-diff P01 workflow,
-and a clearly **proposed**, non-canonical seven-complete-UTC-day calendar review. Neither
-baseline authorizes provider calls, source fetches, or external notifications.
+HistoricalSequenceModelExecutionPort names a future typed funded-model
+evaluation seam. DisabledHistoricalSequenceModelPort is the only implementation
+in VA-01. It ALWAYS refuses VA01_FUNDED_EXECUTION_U01_U06_NOT_ADOPTED,
+even when passed forged U01/U06 approvals, a fake MODEL_EVALUATION grant or
+a purported heldout payload. No ModelExecutor, provider transport, M06/M01
+call or paid request can be constructed by this source-build candidate.
 
-Measure separately: source-eligible coverage, unique event IDs (not captures), independent
-origin groups (not copies), due-review correctness, attention/suppression correctness, and
-independent human grounding/usefulness. Preserve omissions and unknown source dates.
-A denominator of zero yields **null / NOT_ASSESSED**, never a 100% pass.
-Hard failures are reported separately and cannot be averaged away.
+Any later implementation requires a separate reviewed owner decision,
+current M02/M03/M06/M01 grant, model/budget source-use approvals, frozen
+prompt/schema, independent heldout custody and authenticated human scoring.
+This is a Phase V/V05 activity after integration freeze, not part of VA-01
+source CI. No production, main/Railway, host or new schema effects.
 
-The **inherited Monitor benchmark thresholds** are carried forward as the candidate floor,
-not represented as already adopted longitudinal owner policy: zero critical safety failures;
-all six newly frozen held-out cases must eventually be executed and independently assessed;
-100% held-out mechanical pass; at least 90% independent human grounding and 70% usefulness.
-Changing any criterion requires a new versioned owner decision. A passing scorecard later
-would be `ACCEPTED_FOR_OWNER_REVIEW` at most, not execution authority.
+## Focused checks
 
-### Reproducible build-hygiene checks
+    php tests/run.php --layer=unit --filter=va01_historical_sequence_runner --strict
+    php tests/run.php --layer=security --filter=va01_historical_sequence_refusals --strict
+    php tests/run.php --layer=foundation --filter=va01_evaluation_boundary --strict
+    php ops/evaluation/history.php --status
+    php ops/evaluation/history.php --offline-development
 
-```sh
-php ops/evaluation/verify-historical-freeze.php
-php tests/run.php --layer=foundation --filter=va00 --strict
-php tests/run.php --layer=unit --filter=va00 --strict
-```
-
-These are source-byte verification, deterministic example checks, and mandatory negative
-tripwires—not model-quality, host, browser or customer-acceptance results. The normal five
-GitHub CI jobs remain required, and V05 is the later independent quality campaign.
-The CLI prints only sanitized identities and statuses; it does not access private held-out
-answers, accept a CLI override for source identities, or call external providers.
+A merge requires all five standard exact-head CI jobs SUCCESS on real
+MariaDB 10.6 and 10.11, with zero failures or skipped assertions.
+This is build hygiene, not V05, production GO or customer acceptance.
