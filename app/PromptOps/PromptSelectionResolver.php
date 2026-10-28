@@ -51,6 +51,27 @@ final class PromptSelectionResolver
     }
 
     /**
+     * Exact-version selection contract. The current governed runtime is v1 only.
+     * v2 is available through contentVersioned() for offline inspection, but
+     * an unadopted U01 draft must NEVER be selected, even when a caller supplies
+     * what looks like a grant/approval. There is no "latest" fallback.
+     *
+     * A future U01/U06 owner adoption requires a separate reviewed change to
+     * this gate, PreparedModelRequest, PromptApprovalStore and runtime admission.
+     */
+    public function selectVersioned(string $role, string $packVersion, ?array $grant): Outcome
+    {
+        if ($packVersion === PromptBundleRegistry::OBSERVATION_V2_PACK) {
+            return Outcome::refuse('PROMPT_OBSERVATION_V2_U01_NOT_ADOPTED');
+        }
+        if ($packVersion !== ProductPromptPack::PACK_VERSION) {
+            return Outcome::refuse('PROMPT_BUNDLE_VERSION_NOT_REGISTERED');
+        }
+
+        return $this->select($role, $grant);
+    }
+
+    /**
      * The prompt as it may execute under this admitted grant, or its inert content when there is
      * no grant. Admission — status, window, budget, principal — is ExecutionAdmission's question;
      * this answers only whether the grant names a current approval for exactly this content.
