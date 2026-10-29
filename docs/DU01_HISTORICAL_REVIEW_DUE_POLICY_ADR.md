@@ -18,7 +18,7 @@ A changed state repeated at the exact same policy/basis/tick identity conflicts.
 
 ## Operator commands and security
 
-ops/history/policy.php and ops/history/due.php accept --help, --status and a guarded --synthetic-development mode requiring ALLFATHER_DU01_SYNTHETIC_TEST=1. They expose no arbitrary source URL, actor-impersonation flag, secrets or customer data; the positive path computes only over the repository-fixed synthetic fixture.
+ops/history/policy.php and ops/history/review-due-candidate.php accept --help, --status and a guarded --synthetic-development mode requiring ALLFATHER_DU01_SYNTHETIC_TEST=1. They expose no arbitrary source URL, actor-impersonation flag, secrets or customer data; the positive path computes only over the repository-fixed synthetic fixture.
 
 All results set U03/U05, model, source acquisition, scheduler action, notification and customer output authority false. Caller-supplied OWNER_METADATA_READ_TEST_ONLY is explicitly a synthetic processing posture, not M02/M05 owner authentication. Later owner-admitted scheduler and review activation require separate written approvals.
 

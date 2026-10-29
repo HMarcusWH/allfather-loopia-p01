@@ -3,7 +3,10 @@
 declare(strict_types=1);
 
 /** DU-01: source-only inspect; NOT an owner policy configuration command. */
-if(PHP_SAPI!=='cli'){http_response_code(403);exit;}
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit;
+}
 require_once dirname(__DIR__,2).'/app/autoload.php';
 
 use Allfather\Loopia\Workflow\HistoryReviewPolicy;
