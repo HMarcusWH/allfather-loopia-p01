@@ -57,7 +57,8 @@ final class HistoryInvalidation
             || ($cause['version']??null)!==self::VERSION
             || ($cause['provisional_cause_only']??null)!==true
             || ($cause['rights_currently_verified']??null)!==false
-            || ($cause['retention_or_purge_authorized']??null)!==false) {
+            || ($cause['retention_or_purge_authorized']??null)!==false
+            || ($cause['owner_cause_authenticated']??null)!==false) {
             return Outcome::refuse('IV01_CAUSE_NOT_AUTHENTICATED');
         }
         $input=[];
