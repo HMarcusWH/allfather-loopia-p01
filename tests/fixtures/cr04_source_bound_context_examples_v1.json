@@ -1,0 +1,34 @@
+{
+  "schema_version": "cr04.source_bound_observation_context.v1",
+  "input": "SYNTHETIC_OB03_CR02_PROJECTIONS_ONLY",
+  "boundaries": {
+    "max_delta_rows": 128,
+    "max_json_bytes": 16384,
+    "raw_html_bytes_exported": false,
+    "dom_selectors_exported": false,
+    "model_context_authorized": false,
+    "token_estimate": null
+  },
+  "examples": [
+    {
+      "case_id": "navigation_reorder",
+      "expected_structural": "ORDER_ONLY",
+      "expected_origin_count": null,
+      "expected_provider_permission": false
+    },
+    {
+      "case_id": "changed_source_card",
+      "expected": "SOURCE_CARD_OR_PROJECTION_REFUSAL"
+    },
+    {
+      "case_id": "injected_html_instruction",
+      "expected": "UNTRUSTED_SOURCE_DATA_NOT_ROLES"
+    },
+    {
+      "case_id": "self_hashed_provider_grant",
+      "expected": "CR04_CONTEXT_AUTHORITY_FORGED"
+    }
+  ],
+  "current_source_owner_authenticated": false,
+  "customer_release_authorized": false
+}
