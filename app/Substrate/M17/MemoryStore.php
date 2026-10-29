@@ -299,8 +299,21 @@ final class MemoryStore
         try {
             $row=$this->db->one(
                 'SELECT m.temporal_memory_id,m.content_digest,m.candidate_state,
+                        m.memory_class,m.output_ordinal,
+                        m.question_id AS memory_question_id,
+                        m.data_class AS memory_data_class,
+                        m.period_start_utc AS memory_period_start,
+                        m.period_end_utc AS memory_period_end,
                         r.derivation_identity_digest,r.frozen_inputs_json,
+                        r.window_json,r.profile_json,
                         r.input_digest,r.profile_digest,r.engine_version,
+                        r.subject_kind AS run_subject_kind,
+                        r.subject_id AS run_subject_id,
+                        r.question_id AS run_question_id,
+                        r.data_class AS run_data_class,
+                        r.window_kind AS run_window_kind,
+                        r.period_start_utc AS run_period_start,
+                        r.period_end_utc AS run_period_end,
                         rr.rollup_json,rr.rollup_digest
                  FROM temporal_memories m
                  JOIN temporal_compression_runs r
@@ -330,6 +343,21 @@ final class MemoryStore
                 || $row['input_digest']!==$v2->value()['run_identity']['input_digest']
                 || $row['profile_digest']!==$v2->value()['run_identity']['resolved_profile_digest']
                 || $row['engine_version']!==$v2->value()['run_identity']['engine_version']
+                || $row['run_subject_kind']!=='P01_COMPETITOR'
+                || $row['run_subject_id']!==$scope['competitor_id']
+                || $row['run_question_id']!==$scope['question_id']
+                || $row['memory_question_id']!==$scope['question_id']
+                || $row['run_data_class']!==$v2->value()['run_identity']['data_class']
+                || $row['memory_data_class']!==$v2->value()['run_identity']['data_class']
+                || $row['run_window_kind']!==$v2->value()['run_identity']['window_kind']
+                || $row['run_period_start']!==$v2->value()['run_identity']['period_start_utc']
+                || $row['run_period_end']!==$v2->value()['run_identity']['period_end_utc']
+                || $row['memory_period_start']!==$v2->value()['run_identity']['period_start_utc']
+                || $row['memory_period_end']!==$v2->value()['run_identity']['period_end_utc']
+                || $row['memory_class']!=='PERIOD_SUMMARY'
+                || (int)$row['output_ordinal']!==0
+                || $row['window_json']!==self::json($inputs['window'])
+                || $row['profile_json']!==self::json($inputs['profile_candidate'])
                 || $inputs['input_set']['scope']!==$scope) {
                 return Outcome::refuse('TM02_V2_DERIVATION_MISMATCH');
             }
