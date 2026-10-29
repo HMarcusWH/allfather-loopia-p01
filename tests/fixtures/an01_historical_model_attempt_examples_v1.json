@@ -1,0 +1,43 @@
+{
+  "schema_version": "an01.history-review-candidate.examples.v1",
+  "authority_state": "UNATTESTED_CANDIDATE_NO_LIVE_GRANT",
+  "purposes": {
+    "candidate": "HISTORICAL_REVIEW_MANUAL_UNADOPTED",
+    "live_provider_purpose": false
+  },
+  "cases": [
+    {
+      "case_id": "synthetic_reserve",
+      "parent_cap": 3,
+      "review_cap": 2,
+      "expected": "DISPOSABLE_ATTEMPT_CANDIDATE_RESERVED",
+      "model_calls": 0
+    },
+    {
+      "case_id": "same_attempt",
+      "expected": "EXACT_ATTEMPT_REPLAY_NO_WRITE"
+    },
+    {
+      "case_id": "blind_retry",
+      "expected": "AN01_REQUEST_ALREADY_RESERVED_WITH_DIFFERENT_ATTEMPT"
+    },
+    {
+      "case_id": "parent_limit",
+      "expected": "AN01_CANDIDATE_PARENT_OR_REVIEW_CAP_EXHAUSTED"
+    },
+    {
+      "case_id": "unknown_transport",
+      "expected": "UNKNOWN_OUTCOME_NO_REDISPATCH_HOLD",
+      "usage": "UNKNOWN",
+      "refund": false
+    },
+    {
+      "case_id": "runtime_factory",
+      "expected": "AN01_U03_U06_U08_RUNTIME_MODEL_ADMISSION_NOT_ADOPTED"
+    }
+  ],
+  "candidate_schema_family": "310_NOT_ADOPTED",
+  "source_bytes_exported": false,
+  "provider_calls": 0,
+  "customer_release": false
+}
