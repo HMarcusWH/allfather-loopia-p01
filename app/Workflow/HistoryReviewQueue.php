@@ -129,6 +129,14 @@ final class HistoryReviewQueue
             else $new[]=$member['member_id'];
             $members[]=$row;
         }
+        // Every previously pending member must be present in the complete
+        // input list. A caller cannot silently abandon old pending work
+        // while claiming to coalesce it with a new due candidate.
+        foreach($pending as $priorId=>$_){
+            if(!isset($seen[$priorId])){
+                return Outcome::refuse('AQ01_PENDING_MEMBER_WOULD_BE_DROPPED');
+            }
+        }
         // Coalescing never removes members or converts duplicates to
         // independent real-world events. Critical/invalidation references
         // retain highest priority, regardless of existing queue age.
@@ -144,6 +152,8 @@ final class HistoryReviewQueue
             $disposition='HOLD_FROZEN_CUTOFF_EXCEEDED';
         }elseif($due['status']!=='DUE_CANDIDATE_HUMAN_REVIEW_ONLY'){
             $disposition='HOLD_DUE_NOT_ADMITTED_OR_DEFERRED';
+        }elseif($state['pending_reviews']>=$policy['max_pending_work']){
+            $disposition='DEFERRED_BACKPRESSURE_HOLD';
         }elseif($state['pending_reviews']>0){
             $disposition='COALESCE_PENDING_HUMAN_CANDIDATE_ONLY';
         }else{
