@@ -393,8 +393,8 @@
         "U04"
       ],
       "semantic_owner": "M17",
-      "build_status": "NOT_STARTED",
-      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "build_status": "BUILT_INERT",
+      "source_basis": "TM02_V2_P01_RUN_BOUND_IDENTITY_APPEND_ONLY_280_DISPOSABLE_REPLAY_FORK_HOLD_RUNTIME_FACTORY_DENIED_PENDING_IV01",
       "candidate_factory_binding": "NOT_REGISTERED",
       "native_permission": false,
       "customer_visibility": false,

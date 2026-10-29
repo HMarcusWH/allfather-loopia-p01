@@ -1,0 +1,30 @@
+{
+  "schema_version": "tm02.p01-memory-v2.examples.v1",
+  "origin": "SYNTHETIC_ONLY",
+  "run_identity": "tm01.p01-window-profile.v2",
+  "cases": [
+    {
+      "case_id": "identical_inputs",
+      "expected": "EXACT_REPLAY_NO_WRITE"
+    },
+    {
+      "case_id": "late_known_input",
+      "expected": "ADDITIVE_LATE_INPUT_CANDIDATE"
+    },
+    {
+      "case_id": "same_parent_forks",
+      "expected": "AMBIGUOUS_HEAD_HOLD"
+    },
+    {
+      "case_id": "missing_ref",
+      "expected": "NOT_REPLAYABLE"
+    },
+    {
+      "case_id": "runtime_factory",
+      "expected": "TM02_U03_U04_RUNTIME_FACTORY_NOT_ADOPTED"
+    }
+  ],
+  "source_bytes_copied": false,
+  "provider_calls": 0,
+  "customer_output": false
+}
