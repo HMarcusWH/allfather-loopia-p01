@@ -177,4 +177,9 @@ final class P01WindowProfileV2
         }
         return Outcome::ok(['integrity'=>'OFFLINE_CANDIDATE_ONLY','runtime_admitted'=>false]);
     }
+    private static function hex(mixed $value): bool
+    {
+        return is_string($value) && preg_match('/^[a-f0-9]{64}$/D', $value) === 1;
+    }
+
 }
