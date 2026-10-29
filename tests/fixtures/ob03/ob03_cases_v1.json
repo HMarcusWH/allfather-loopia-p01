@@ -1,0 +1,58 @@
+{
+  "schema_version": "ob03.synthetic-feature-coverage.v1",
+  "classification": "DEVELOPMENT_ONLY_NOT_M05_OR_U02_U03_ADMITTED",
+  "prepared_date": "2026-10-29",
+  "cases": [
+    {
+      "id": "ten-byte-identical-syndication",
+      "cr02_case": "navigation-reorder",
+      "captures": 10,
+      "expected_byte_classes": 1,
+      "expected_exact_repeats": 9,
+      "expected_change": "ORDER_ONLY",
+      "expected_crosswalk": "CONCORDANT_BOUNDED_TOKEN_CLASSES",
+      "independent_origins": null
+    },
+    {
+      "id": "one-digit-price",
+      "cr02_case": "price-one-digit",
+      "captures": 1,
+      "expected_byte_classes": 1,
+      "expected_exact_repeats": 0,
+      "expected_change": "PRICE_CHANGED",
+      "expected_crosswalk": "CONCORDANT_BOUNDED_TOKEN_CLASSES",
+      "independent_origins": null
+    },
+    {
+      "id": "negation-token",
+      "cr02_case": "negation-flipped",
+      "captures": 1,
+      "expected_byte_classes": 1,
+      "expected_exact_repeats": 0,
+      "expected_change": "NEGATION_CHANGED",
+      "expected_crosswalk": "CONCORDANT_BOUNDED_TOKEN_CLASSES",
+      "independent_origins": null
+    },
+    {
+      "id": "date-text",
+      "cr02_case": "schedule-date-change",
+      "captures": 1,
+      "expected_byte_classes": 1,
+      "expected_exact_repeats": 0,
+      "expected_change": "DATE_CHANGED",
+      "expected_crosswalk": "NO_BOUNDED_FEATURE_TO_CONFIRM",
+      "independent_origins": null
+    },
+    {
+      "id": "unseen-excerpt-price",
+      "cr02_case": "excerpt-hidden-price",
+      "captures": 1,
+      "expected_byte_classes": 1,
+      "expected_exact_repeats": 0,
+      "expected_change": "TEXT_CHANGED",
+      "expected_crosswalk": "DISAGREEMENT_HELD",
+      "independent_origins": null
+    }
+  ],
+  "note": "The corpus tests structural and input-contract diagnostics only. Captured page hashes, UUIDs, source labels and U02 publisher claims are synthetic and do not authorize a provider or customer output."
+}
