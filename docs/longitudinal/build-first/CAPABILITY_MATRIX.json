@@ -302,8 +302,8 @@
         "U05"
       ],
       "semantic_owner": "M04",
-      "build_status": "NOT_STARTED",
-      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "build_status": "BUILT_INERT",
+      "source_basis": "DU01_HISTORY_REVIEW_POLICY_V2_QUIET_TIME_DUE_FIXED_KNOWLEDGE_WATERMARKS_290_DISPOSABLE_ONLY_NO_U05_GRANT",
       "candidate_factory_binding": "NOT_REGISTERED",
       "native_permission": false,
       "customer_visibility": false,
