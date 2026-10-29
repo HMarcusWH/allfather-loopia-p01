@@ -209,6 +209,7 @@ final class DerivedSectionEvidence
             || !is_array($value['source_count_distinctions'])
             || !is_array($value['untrusted_input_flags'])
             || !is_array($value['unknown_dimensions'])
+            || !array_is_list($value['unknown_dimensions'])
             || !is_array($value['observations'])
             || !array_is_list($value['observations'])
             || count($value['observations'])>self::MAX_ROWS
@@ -327,6 +328,14 @@ final class DerivedSectionEvidence
                 || !in_array($row['alignment'],[
                     'EXACT_DERIVED_SELECTOR','WEAK_UNIQUE_TYPE_AND_BODY','UNPAIRED',
                 ],true)
+                || ($row['before_type']!==null
+                    && !in_array($row['before_type'],DocumentProjectionContract::TYPES,true))
+                || ($row['after_type']!==null
+                    && !in_array($row['after_type'],DocumentProjectionContract::TYPES,true))
+                || ($row['before_ordinal']!==null
+                    && (!is_int($row['before_ordinal'])||$row['before_ordinal']<0))
+                || ($row['after_ordinal']!==null
+                    && (!is_int($row['after_ordinal'])||$row['after_ordinal']<0))
                 || !is_array($row['sensitive_token_kinds'])
                 || !array_is_list($row['sensitive_token_kinds'])
                 || count($row['sensitive_token_kinds'])>16
