@@ -164,6 +164,32 @@ try{
         $store->replayP01V2Candidate($scope,$legacy->value()['memory_id'])->reasonCode(),
         'new typed v2 replay never silently rewrites an original v1 identity');
 
+    // Attempt a genuinely distinct v2 run with an unversioned v1 parent.
+    // The new input must be distinct from both previously stored v2 heads,
+    // so the predecessor check executes rather than the identical-run check.
+    $newInput=$late;
+    $additional=$v['rows'][2];
+    $additional['ref_id']='ref_new_v1_parent_attack';
+    $additional['evidence_id']='evidence_new_v1_parent_attack';
+    $additional['snapshot_id']='snapshot_new_v1_parent_attack';
+    $additional['source_ref_id']='source_new_v1_parent_attack';
+    $additional['assessment_id']=null;
+    $additional['analyzed_at']=null;
+    $additional['observed_at']='2026-03-09T00:00:00Z';
+    $additional['recorded_at']='2026-03-09T00:00:00Z';
+    $additional['known_at']='2026-03-10T00:00:00Z';
+    $newInput['rows'][]=$additional;
+    $withV1Parent=$freeze($newInput,$original['basis']['basis_digest']);
+    $refusedParent=$store->persistP01V2Candidate(
+        $withV1Parent['bridge']['frozen_m17_inputs'],
+        $legacy->value()['memory_id'],
+    );
+    Assert::same('TM02_V2_PREDECESSOR_VERSION_MISMATCH',
+        $refusedParent->reasonCode(),
+        'an original v1 memory must not be silently recast as a v2 predecessor');
+    Assert::same(4,(int)$db->scalar('SELECT COUNT(*) FROM temporal_memories'),
+        'rejected v1-to-v2 successor wrote no additional output');
+
     try{
         $db->run('UPDATE temporal_memories SET candidate_state=? WHERE temporal_memory_id=?',
             ['ADMITTED',$memoryId]);
