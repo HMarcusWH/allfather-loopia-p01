@@ -1,0 +1,43 @@
+{
+  "schema_version": "aq01.inert-history-review-work.v1",
+  "max_members": 64,
+  "max_json_bytes": 32768,
+  "sources": "DU01_POLICY_DUE_AND_OPTIONAL_IV01_GRAPH",
+  "cases": [
+    {
+      "case_id": "quiet_due",
+      "status": "HUMAN_REVIEW_CANDIDATE_ONLY",
+      "job_reserved": false
+    },
+    {
+      "case_id": "pending_coalesce",
+      "status": "COALESCE_PENDING_HUMAN_CANDIDATE_ONLY",
+      "members_discarded": 0
+    },
+    {
+      "case_id": "rights_invalidation",
+      "status": "HOLD_CRITICAL_SOURCE_OR_INVALIDATION_REVIEW",
+      "critical_first": true
+    },
+    {
+      "case_id": "late_known_reference",
+      "status": "HOLD_FROZEN_CUTOFF_EXCEEDED",
+      "source_cutoff_bypassed": false
+    },
+    {
+      "case_id": "duplicate_tick",
+      "expected": "EXACT_WORK_REPLAY_NO_WRITE"
+    },
+    {
+      "case_id": "different_fixture_claim",
+      "expected": "AQ01_DIFFERENT_CLAIM_REJECTED"
+    },
+    {
+      "case_id": "scheduler_activation",
+      "expected": "AQ01_U05_U08_REVIEW_DUE_SCHEDULER_NOT_ADOPTED"
+    }
+  ],
+  "independent_events": null,
+  "provider_calls": 0,
+  "customer_release": false
+}
