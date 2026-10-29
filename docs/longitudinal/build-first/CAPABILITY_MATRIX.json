@@ -462,8 +462,8 @@
         "U09"
       ],
       "semantic_owner": "Console/M02",
-      "build_status": "NOT_STARTED",
-      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "build_status": "BUILT_INERT",
+      "source_basis": "UI01_CLOSED_M02_SESSION_TEMPORAL_MEMORY_METADATA_REVIEW_DUE_REACT_PREVIEW_UNREGISTERED_NO_U01_U03_U09",
       "candidate_factory_binding": "NOT_REGISTERED",
       "native_permission": false,
       "customer_visibility": false,

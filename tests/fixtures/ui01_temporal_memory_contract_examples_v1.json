@@ -1,0 +1,34 @@
+{
+  "schema_version": "ui01.temporal-memory-metadata.v1",
+  "input": "M02_OWNER_READ_CANDIDATE_ONLY",
+  "accepted_visibility": "VISIBLE_CANDIDATE_ONLY",
+  "rights": "U03_NOT_ADOPTED",
+  "cases": [
+    {
+      "case_id": "one_memory",
+      "head": "AMBIGUOUS_HEAD_HOLD",
+      "replay": "MATCH_METADATA_ONLY",
+      "customer_visible": false
+    },
+    {
+      "case_id": "source_revoked",
+      "expected": "UNAVAILABLE_OR_DENIED",
+      "no_new_fetch": true
+    },
+    {
+      "case_id": "empty",
+      "expected": "EMPTY_NOT_NO_CHANGE"
+    },
+    {
+      "case_id": "foreign_cursor",
+      "expected": "UNAVAILABLE"
+    },
+    {
+      "case_id": "forged_customer_release",
+      "expected": "UNAVAILABLE"
+    }
+  ],
+  "active_navigation": false,
+  "model_calls": 0,
+  "source_body_exported": false
+}
