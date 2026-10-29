@@ -32,4 +32,28 @@ final class HistoricalEvidenceEligibility
             'offline_metadata_candidate' => $state === 'UNASSESSED',
         ]);
     }
+    /**
+     * HS-02: distinguish historical-analysis *purposes* before any attempted
+     * use. No one of these categories inherits permissions from another.
+     */
+    public static function purposePosture(string $purpose): Outcome
+    {
+        if (!in_array($purpose, HistoryReviewRightsGateway::PURPOSES, true)) {
+            return Outcome::refuse('HS02_HISTORICAL_USE_PURPOSE_UNKNOWN');
+        }
+        return Outcome::ok([
+            'version'=>'hs02.purpose-posture.v1',
+            'purpose'=>$purpose,
+            'original_li05_disposition_owner'=>'HistoricalEvidenceEligibility.v1',
+            'current_native_scope_read_possible'=>true,
+            'historical_source_use_admitted'=>false,
+            'model_analysis_admitted'=>false,
+            'external_provider_byte_disclosure_admitted'=>false,
+            'm10_current_reliance_verified'=>false,
+            'u03_contract_hash'=>null,
+            'u03_owner_ratification'=>'PENDING',
+            'decision'=>'HOLD',
+        ]);
+    }
+
 }

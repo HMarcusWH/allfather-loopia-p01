@@ -36,6 +36,48 @@ final class HistoryReviewContext implements ModelContextAuthority
         ]);
     }
 
+    /**
+     * HS-02: detached point-in-time metadata preview, no source body or model
+     * grant. Existing LI-05C v1 preview and ModelContextAuthority refusal
+     * semantics remain byte-for-byte unchanged.
+     */
+    public function previewPointInTime(array $manifest): Outcome
+    {
+        if (!PointInTimeHistoricalBasis::verify($manifest)->isOk()) {
+            return Outcome::refuse('HS02_POINT_IN_TIME_BASIS_UNVERIFIED');
+        }
+        return Outcome::ok([
+            'schema_version'=>'hs02.inert-history-context-preview.v1',
+            'basis_digest'=>$manifest['basis_digest'],
+            'period'=>$manifest['period'],
+            'knowledge_cutoff_utc'=>$manifest['knowledge_cutoff_utc'],
+            'review_at_utc'=>$manifest['review_at_utc'],
+            'selected_count'=>$manifest['selected_count'],
+            'excluded_counts_by_reason'=>$manifest['excluded_counts_by_reason'],
+            'selection_integrity'=>$manifest['selection_integrity'],
+            'rights_disposition'=>'U03_NOT_ADOPTED',
+            'scope_derived_from_owner_session'=>false,
+            'historical_reuse_admitted'=>false,
+            'model_context_authorized'=>false,
+            'customer_output_authorized'=>false,
+        ]);
+    }
+
+    /**
+     * A current-owner readback is evidence for a future owner decision,
+     * not a dispatch-time ModelContextAuthority permit.
+     */
+    public function inspectCurrentUse(
+        HistoryReviewRightsGateway $gateway,
+        array $actor,
+        array $basis,
+        string $purpose,
+        string $stage = 'PRE_DISPATCH',
+        ?string $priorOwnerFingerprint = null,
+    ): Outcome {
+        return $gateway->inspect($actor,$basis,$purpose,$stage,$priorOwnerFingerprint);
+    }
+
     /** @param array<string,mixed> $context */
     public function revalidate(array $context): Outcome
     {
