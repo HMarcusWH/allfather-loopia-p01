@@ -1,0 +1,48 @@
+{
+  "schema_version": "hs01.source_only_contract_examples.v1",
+  "cases": [
+    {
+      "case_id": "earlier_cutoff",
+      "input_fixture": "tests/fixtures/li05_offline_basis_vectors.json",
+      "calendar": "UTC_PROLEPTIC_GREGORIAN_SECONDS_V1",
+      "knowledge_cutoff_utc": "2026-03-15T00:00:00Z",
+      "review_at_utc": "2026-03-16T00:00:00Z",
+      "selection_policy": "CONTRARY_FIRST_BOUNDED_V1",
+      "expected_selected": [
+        "ref_a",
+        "ref_b"
+      ],
+      "expected_excluded_late_count": 1,
+      "rights_admitted": false
+    },
+    {
+      "case_id": "capped_contrary",
+      "same_fixture": true,
+      "max_references": 1,
+      "expected_selected": [
+        "ref_b"
+      ],
+      "expected_integrity": "INSUFFICIENT_BASIS",
+      "rights_admitted": false
+    },
+    {
+      "case_id": "later_successor",
+      "same_fixture": true,
+      "knowledge_cutoff_utc": "2026-03-20T00:00:00Z",
+      "review_at_utc": "2026-03-21T00:00:00Z",
+      "expected_selected": [
+        "ref_a",
+        "ref_b",
+        "ref_late"
+      ],
+      "requires_new_basis_digest": true,
+      "rights_admitted": false
+    }
+  ],
+  "nonclaims": [
+    "No owner verification",
+    "No historical source-use grant",
+    "No live tables",
+    "No customer output"
+  ]
+}
