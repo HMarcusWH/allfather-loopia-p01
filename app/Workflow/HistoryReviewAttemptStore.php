@@ -109,7 +109,7 @@ final class HistoryReviewAttemptStore
                 );
                 if($duplicate!==null)return Outcome::refuse('AN01_REQUEST_ALREADY_RESERVED_WITH_DIFFERENT_ATTEMPT');
                 $reviewPolicy=$tx->one(
-                    'SELECT review_max_attempts FROM history_review_attempt_candidates
+                    'SELECT review_max_attempts,request_json FROM history_review_attempt_candidates
                      WHERE history_review_budget_candidate_id=? AND review_id=?
                      ORDER BY history_review_attempt_candidate_id LIMIT 1 FOR UPDATE',
                     [$parentId,$candidate['review_id']],
@@ -117,6 +117,16 @@ final class HistoryReviewAttemptStore
                 if($reviewPolicy!==null
                     && (int)$reviewPolicy['review_max_attempts']!==$candidate['review_max_attempts']){
                     return Outcome::refuse('AN01_REVIEW_LIMIT_VERSION_CONFLICT');
+                }
+                if($reviewPolicy!==null){
+                    $frozen=json_decode((string)$reviewPolicy['request_json'],true,64,JSON_THROW_ON_ERROR);
+                    if(!is_array($frozen)
+                        || !HistoryReviewAdmission::verify($frozen)->isOk()
+                        || $frozen['scope']!==$candidate['scope']
+                        || $frozen['basis_digest']!==$candidate['basis_digest']
+                        || $frozen['question_digest']!==$candidate['question_digest']){
+                        return Outcome::refuse('AN01_REVIEW_SCOPE_BASIS_OR_QUESTION_CHANGED');
+                    }
                 }
                 $parentUsed=(int)$tx->scalar(
                     'SELECT COUNT(*) FROM history_review_attempt_candidates
@@ -224,6 +234,19 @@ final class HistoryReviewAttemptStore
                         'history_review_reconciliation_candidate_id'=>$old['history_review_reconciliation_candidate_id'],
                         'provider_response_admitted'=>false,
                     ]);
+                }
+                // A caller cannot submit mutually contradictory outcome
+                // reports for the same attempt. The first exact report is
+                // immutable; changed metadata is held for native provider
+                // owner investigation rather than silently superseded.
+                $earlier=$tx->one(
+                    'SELECT reconciliation_digest FROM history_review_reconciliation_candidates
+                     WHERE history_review_attempt_candidate_id=?
+                     ORDER BY history_review_reconciliation_candidate_id LIMIT 1 FOR UPDATE',
+                    [$attemptCandidateId],
+                );
+                if($earlier!==null){
+                    return Outcome::refuse('AN01_RECONCILIATION_CONFLICTING_OUTCOME_HOLD');
                 }
                 $id=Ids::new();
                 $tx->insert('history_review_reconciliation_candidates',[
