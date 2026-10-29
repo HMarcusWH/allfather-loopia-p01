@@ -322,8 +322,8 @@
         "U10"
       ],
       "semantic_owner": "M05/M10/M11",
-      "build_status": "NOT_STARTED",
-      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "build_status": "BUILT_INERT",
+      "source_basis": "TYPE_SCOPED_DEPENDENCY_DAG_BOUNDED_REPLAYABLE_INVALIDATION_HOLDS_DISPOSABLE_350_NO_OWNER_ERASURE_OR_U03_U10_ADOPTION",
       "candidate_factory_binding": "NOT_REGISTERED",
       "native_permission": false,
       "customer_visibility": false,

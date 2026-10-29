@@ -1,0 +1,60 @@
+{
+  "schema_version": "iv01.history_invalidation.examples.v1",
+  "scope": "synthetic scoped tenant/workspace/competitor/question",
+  "graph_kinds": [
+    "CAPTURE",
+    "SECTION_DERIVATIVE",
+    "ASSESSMENT",
+    "HISTORICAL_BASIS",
+    "TEMPORAL_MEMORY",
+    "ANALYSIS",
+    "FINDING",
+    "ATTENTION"
+  ],
+  "max_nodes": 256,
+  "max_edges": 512,
+  "max_direct_fanout": 64,
+  "max_batch": 32,
+  "cases": [
+    {
+      "case_id": "source_revoke",
+      "root": "CAPTURE",
+      "cause": "SOURCE_RIGHTS_REVOKED",
+      "affected": 8,
+      "batches": [
+        3,
+        3,
+        2
+      ],
+      "read_use_decision": "HOLD",
+      "purge_executed": false
+    },
+    {
+      "case_id": "same_exact_cursor",
+      "expected": "EXACT_RECEIPT_REPLAY_NO_WRITE",
+      "provider_spend": false
+    },
+    {
+      "case_id": "skipped_cursor",
+      "expected": "IV01_RESUME_PREFIX_MISMATCH"
+    },
+    {
+      "case_id": "cycle",
+      "expected": "HOLD_CYCLE",
+      "recursion": false
+    },
+    {
+      "case_id": "oversized_fanout",
+      "expected": "HOLD_EXCESS_FANOUT",
+      "current_authority": false
+    },
+    {
+      "case_id": "lawful_erasure",
+      "expected": "CANDIDATE_ONLY_HOLD",
+      "retention_owner_decision_required": true
+    }
+  ],
+  "native_migration": false,
+  "customer_output_authorized": false,
+  "source_bytes_exported": false
+}
