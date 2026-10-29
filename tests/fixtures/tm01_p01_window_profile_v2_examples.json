@@ -1,0 +1,43 @@
+{
+  "schema_version": "tm01.p01_window_profile.contract_examples.v1",
+  "basis": "tests/fixtures/li05_offline_basis_vectors.json",
+  "cases": [
+    {
+      "case_id": "first_cut_month",
+      "data_class": "SOURCE_DIFF",
+      "window_kind": "MONTH",
+      "month_start": "2026-03-01T00:00:00Z",
+      "month_end": "2026-04-01T00:00:00Z",
+      "expected_refs": [
+        "ref_a",
+        "ref_b"
+      ],
+      "expected_contrary": 1,
+      "run_id": null,
+      "source_use_authorized": false
+    },
+    {
+      "case_id": "later_known_cutoff",
+      "data_class": "SOURCE_DIFF",
+      "window_kind": "MONTH",
+      "knowledge_cutoff_utc": "2026-03-20T00:00:00Z",
+      "expected_refs": [
+        "ref_a",
+        "ref_b",
+        "ref_late"
+      ],
+      "same_month_new_derivation": true,
+      "profile_stable": true,
+      "run_id": null,
+      "source_use_authorized": false
+    },
+    {
+      "case_id": "reject_local_new_window",
+      "calendar_timezone": "Europe/Stockholm",
+      "expected": "TM01_P01_SCOPE_CALENDAR_PROFILE_NOT_SUPPORTED"
+    }
+  ],
+  "runtime_migration": false,
+  "provider_calls": 0,
+  "customer_release": false
+}
