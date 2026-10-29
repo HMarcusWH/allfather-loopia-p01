@@ -21,6 +21,18 @@ final class MemoryStore
 
     private function __construct(private readonly Database $db, private readonly Clock $clock) {}
 
+    /**
+     * TM-02 explicit governed runtime construction boundary.
+     * Candidate source/DDL is not authority to install 280, create a
+     * model context or read retained M05 bytes. Before a separate U03/U04
+     * adoption and an exact signed owner factory, refusal is unconditional
+     * and occurs BEFORE ANY SQL lookup.
+     */
+    public static function forRuntime(Database $db, Clock $clock, array $ownerAdmission = []): Outcome
+    {
+        return Outcome::refuse('TM02_U03_U04_RUNTIME_FACTORY_NOT_ADOPTED');
+    }
+
     /** A deliberate TEST-ONLY bootstrap. No production factory exists before U04. */
     public static function forDisposableTest(Database $db, Clock $clock): Outcome
     {
@@ -79,15 +91,53 @@ final class MemoryStore
      */
     public function persistCandidate(array $frozenInputs, ?string $priorMemoryId = null): Outcome
     {
+        // Original v1 entrypoint, semantic identity and stable digests unchanged.
+        return $this->persistByIdentity($frozenInputs, $priorMemoryId, null);
+    }
+
+    /**
+     * TM-02: same disposable 280 owner and transaction law, but a separately
+     * versioned U04 Option A P01 run identity. Never export as production
+     * constructor, and never let the caller choose a run digest.
+     */
+    public function persistP01V2Candidate(array $frozenInputs, ?string $priorMemoryId = null): Outcome
+    {
+        $v2 = P01WindowProfileV2::freeze($frozenInputs);
+        if (!$v2->isOk()) {
+            return Outcome::refuse('TM02_V2_FROZEN_INPUTS_NOT_REPLAYABLE');
+        }
+        return $this->persistByIdentity($frozenInputs, $priorMemoryId, $v2->value());
+    }
+
+    /** @param ?array<string,mixed> $v2 Exactly rederived, never caller-assigned. */
+    private function persistByIdentity(
+        array $frozenInputs, ?string $priorMemoryId, ?array $v2,
+    ): Outcome {
         $candidate = self::preview($frozenInputs);
         if (!$candidate->isOk()) return $candidate;
         $v = $candidate->value();
+        // V2 only changes the immutable run derivation key; the original
+        // seven-table 280 FK topology, v1 rollup and stored reference rows
+        // retain their old physical shapes for independent replay.
+        if ($v2 !== null) {
+            $fresh = P01WindowProfileV2::freeze($frozenInputs);
+            if (!$fresh->isOk()
+                || $fresh->value() !== $v2
+                || !P01WindowProfileV2::verify($v2)->isOk()
+                || $v2['v1_rollup_digest'] !== $v['rollup']['rollup_digest']
+                || $v2['run_identity']['input_digest'] !== $v['identity']['input_digest']
+                || $v2['run_identity']['resolved_profile_digest'] !== $v['identity']['profile_digest']
+                || $v2['run_identity']['engine_version'] !== $v['identity']['engine_version']) {
+                return Outcome::refuse('TM02_V2_DERIVATION_IDENTITY_MISMATCH');
+            }
+            $v['derivation_identity_digest'] = $v2['derivation_identity_digest'];
+        }
         $id = $v['identity'];
         if ($priorMemoryId !== null && !Ids::isValid($priorMemoryId)) {
             return Outcome::refuse('M17_PREDECESSOR_ID_INVALID');
         }
         try {
-            return $this->db->transaction(function (Database $tx) use ($v, $id, $priorMemoryId, $frozenInputs): Outcome {
+            return $this->db->transaction(function (Database $tx) use ($v, $id, $priorMemoryId, $frozenInputs, $v2): Outcome {
                 $existing = $tx->one(
                     'SELECT m.temporal_memory_id,m.supersedes_memory_id,r.rollup_digest
                      FROM temporal_compression_runs cr
@@ -109,9 +159,11 @@ final class MemoryStore
                 }
                 if ($priorMemoryId !== null) {
                     $prior = $tx->one(
-                        'SELECT m.temporal_memory_id,r.rollup_json
+                        'SELECT m.temporal_memory_id,r.rollup_json,
+                                cr.derivation_identity_digest,cr.frozen_inputs_json
                          FROM temporal_memories m
                          JOIN temporal_rollups r ON r.temporal_rollup_id=m.temporal_rollup_id
+                         JOIN temporal_compression_runs cr ON cr.compression_run_id=m.compression_run_id
                          WHERE m.temporal_memory_id=? AND m.tenant_id=? AND m.workspace_id=?
                            AND m.subject_kind=? AND m.subject_id=? AND m.data_class=?
                            AND m.memory_class=? FOR UPDATE',
@@ -119,6 +171,13 @@ final class MemoryStore
                             $id['subject_id'],$id['data_class'],'PERIOD_SUMMARY'],
                     );
                     if ($prior === null) return Outcome::refuse('M17_PREDECESSOR_NOT_AVAILABLE');
+                    if ($v2 !== null) {
+                        $oldInputs=json_decode((string)$prior['frozen_inputs_json'],true,64,JSON_THROW_ON_ERROR);
+                        $oldV2=is_array($oldInputs) ? P01WindowProfileV2::freeze($oldInputs) : Outcome::refuse('TM02_PREDECESSOR_INPUT_INVALID');
+                        if (!$oldV2->isOk() || $oldV2->value()['derivation_identity_digest']!==$prior['derivation_identity_digest']) {
+                            return Outcome::refuse('TM02_V2_PREDECESSOR_VERSION_MISMATCH');
+                        }
+                    }
                     $original = json_decode((string)$prior['rollup_json'], true, 64, JSON_THROW_ON_ERROR);
                     $successor = Lineage::proposeLateSuccessor($original, $v['rollup']);
                     if (!$successor->isOk()) return $successor;
@@ -217,6 +276,110 @@ final class MemoryStore
                 'exception_file' => basename($error->getFile()),
                 'exception_line' => $error->getLine(),
             ]);
+        }
+    }
+
+    /**
+     * TM-02: scoped readback verifies the stored U04 P01 v2 run key, its
+     * original deterministic v1 frozen derivation and EVERY selected
+     * reference/contrary flag in the existing 280 lineage table.
+     * Reported unavailable refs produce the underlying typed NOT_REPLAYABLE,
+     * never a source refetch or reconstructed primary evidence.
+     *
+     * @param list<string> $unavailableRefIds Explicit caller-described missing input, not M05 admission
+     */
+    public function replayP01V2Candidate(
+        array $scope, string $memoryId, array $unavailableRefIds = [],
+    ): Outcome {
+        if (!Vocabulary::scope($scope) || !Ids::isValid($memoryId)
+            || !array_is_list($unavailableRefIds)
+            || count($unavailableRefIds) > InputSet::MAX_REFS) {
+            return Outcome::refuse('TM02_V2_REPLAY_SELECTOR_INVALID');
+        }
+        try {
+            $row=$this->db->one(
+                'SELECT m.temporal_memory_id,m.content_digest,m.candidate_state,
+                        r.derivation_identity_digest,r.frozen_inputs_json,
+                        r.input_digest,r.profile_digest,r.engine_version,
+                        rr.rollup_json,rr.rollup_digest
+                 FROM temporal_memories m
+                 JOIN temporal_compression_runs r
+                   ON r.compression_run_id=m.compression_run_id
+                 JOIN temporal_rollups rr
+                   ON rr.temporal_rollup_id=m.temporal_rollup_id
+                 WHERE m.temporal_memory_id=? AND m.tenant_id=? AND m.workspace_id=?
+                   AND m.subject_kind=? AND m.subject_id=? AND r.question_id=?
+                   AND m.candidate_state=? AND r.candidate_state=?',
+                [$memoryId,$scope['tenant_id'],$scope['workspace_id'],
+                 'P01_COMPETITOR',$scope['competitor_id'],$scope['question_id'],
+                 'NOT_ADMITTED','NOT_ADMITTED'],
+            );
+            if ($row===null) return Outcome::refuse('TM02_V2_MEMORY_NOT_IN_SCOPE');
+            $inputs=json_decode((string)$row['frozen_inputs_json'],true,64,JSON_THROW_ON_ERROR);
+            $expected=json_decode((string)$row['rollup_json'],true,64,JSON_THROW_ON_ERROR);
+            if(!is_array($inputs) || !is_array($expected)
+                || !RollupEngine::verify($expected)->isOk()) {
+                return Outcome::refuse('TM02_V2_STORED_INPUTS_INVALID');
+            }
+            $v2=P01WindowProfileV2::freeze($inputs);
+            if(!$v2->isOk()
+                || $v2->value()['derivation_identity_digest']!==$row['derivation_identity_digest']
+                || $v2->value()['v1_rollup_digest']!==$row['rollup_digest']
+                || $expected['rollup_digest']!==$row['rollup_digest']
+                || $row['content_digest']!==$row['rollup_digest']
+                || $row['input_digest']!==$v2->value()['run_identity']['input_digest']
+                || $row['profile_digest']!==$v2->value()['run_identity']['resolved_profile_digest']
+                || $row['engine_version']!==$v2->value()['run_identity']['engine_version']
+                || $inputs['input_set']['scope']!==$scope) {
+                return Outcome::refuse('TM02_V2_DERIVATION_MISMATCH');
+            }
+            $refs=$this->db->all(
+                'SELECT ref_type,ref_id,source_ref_id,observed_at_utc,
+                        payload_sha256,polarity,conflict_flag,diagnostic_flag
+                 FROM compression_lineage_links
+                 WHERE temporal_memory_id=? AND tenant_id=? AND workspace_id=?
+                 ORDER BY reference_ordinal',
+                [$memoryId,$scope['tenant_id'],$scope['workspace_id']],
+            );
+            $selected=$expected['lineage']['selected_refs'];
+            if(count($refs)!==count($selected)) {
+                return Outcome::refuse('TM02_V2_LINEAGE_COUNT_MISMATCH');
+            }
+            foreach($refs as $ordinal=>$record){
+                $ref=$selected[$ordinal];
+                foreach(['ref_type','ref_id','source_ref_id','observed_at_utc',
+                         'payload_sha256','polarity'] as $field) {
+                    if($record[$field]!==$ref[$field]){
+                        return Outcome::refuse('TM02_V2_LINEAGE_REFERENCE_MISMATCH');
+                    }
+                }
+                if((int)$record['conflict_flag']!==($ref['conflict_flag']?1:0)
+                    || (int)$record['diagnostic_flag']!==($ref['diagnostic_flag']?1:0)){
+                    return Outcome::refuse('TM02_V2_LINEAGE_REFERENCE_MISMATCH');
+                }
+            }
+            $replayed=Replay::check([
+                'expected_rollup'=>$expected,
+                'frozen_inputs'=>$inputs,
+                'reported_unavailable_ref_ids'=>$unavailableRefIds,
+            ]);
+            if(!$replayed->isOk())return $replayed;
+            return Outcome::ok([
+                'version'=>'tm02.p01-memory-v2-readback.v1',
+                'candidate_state'=>'NOT_ADMITTED',
+                'identity_version'=>P01WindowProfileV2::VERSION,
+                'derivation_identity_digest'=>$v2->value()['derivation_identity_digest'],
+                'exact_rollup_digest'=>$expected['rollup_digest'],
+                'selected_reference_count'=>count($refs),
+                'contrary_reference_count'=>count($expected['lineage']['contrary_or_conflict_ref_ids']),
+                'replay'=>$replayed->value(),
+                'source_bytes_verified'=>false,
+                'current_source_rights_verified'=>false,
+                'historical_reuse_admitted'=>false,
+                'model_or_customer_output_authorized'=>false,
+            ]);
+        } catch (\Throwable) {
+            return Outcome::failure('TM02_V2_DISPOSABLE_REPLAY_FAILED');
         }
     }
 
