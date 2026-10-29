@@ -119,6 +119,20 @@ try {
     Assert::same('AN01_PARENT_BUDGET_VERSION_CONFLICT',
         $store->reserveCandidate($make($widen))->reasonCode(),
         'changing the same parent digest cannot increase its budget');
+    $changedBasis=$second;
+    $changedBasis['attempt_id']='an01_attempt_changed_basis';
+    $changedBasis['request_digest']=str_repeat('7',64);
+    $changedBasis['basis_digest']=str_repeat('8',64);
+    Assert::same('AN01_REVIEW_SCOPE_BASIS_OR_QUESTION_CHANGED',
+        $store->reserveCandidate($make($changedBasis))->reasonCode(),
+        'same review cannot change basis without a successor review identity');
+    $changedQuestion=$second;
+    $changedQuestion['attempt_id']='an01_attempt_changed_question';
+    $changedQuestion['request_digest']=str_repeat('9',64);
+    $changedQuestion['question_digest']=str_repeat('0',64);
+    Assert::same('AN01_REVIEW_SCOPE_BASIS_OR_QUESTION_CHANGED',
+        $store->reserveCandidate($make($changedQuestion))->reasonCode(),
+        'same review cannot relabel a different question');
     $extend=$input;$extend['attempt_id']='an01_different_limit';
     $extend['request_digest']=str_repeat('6',64);
     $extend['review_max_attempts']=4;
@@ -152,6 +166,17 @@ try {
         $store->recordReconciliationCandidate($scope,
             $first->value()['history_review_attempt_candidate_id'],$unknown)->value()['action'],
         'identical lost-worker report does not write twice');
+    $conflictOutcome=$unknown;
+    $conflictOutcome['attempt_receipt']['receipt_kind']='NOT_SENT_CONFIRMED';
+    $conflictOutcome['attempt_receipt']['transmitted_at_utc']=null;
+    $conflictOutcome['attempt_receipt']['usage_disposition']='KNOWN_ZERO';
+    Assert::same('AN01_RECONCILIATION_CONFLICTING_OUTCOME_HOLD',
+        $store->recordReconciliationCandidate($scope,
+            $first->value()['history_review_attempt_candidate_id'],
+            $conflictOutcome)->reasonCode(),
+        'same attempt cannot be both transmitted-unknown and affirmatively not sent');
+    Assert::same(1,(int)$db->scalar('SELECT COUNT(*) FROM history_review_reconciliation_candidates'),
+        'conflicting report cannot append a new history or refund');
     $foreign=$scope;
     $foreign['tenant_id']=$other['tenant_id'];
     $foreign['workspace_id']=$other['workspace_id'];
