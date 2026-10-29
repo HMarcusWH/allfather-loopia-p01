@@ -371,8 +371,8 @@
         "U06"
       ],
       "semantic_owner": "P01 Monitor",
-      "build_status": "NOT_STARTED",
-      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "build_status": "BUILT_INERT",
+      "source_basis": "CR04_SOURCE_LINKED_CR02_OB03_BOUNDED_DERIVED_OBSERVATION_CONTEXT_NO_NATIVE_U01_U02_U03_U06_ADMISSION",
       "candidate_factory_binding": "NOT_REGISTERED",
       "native_permission": false,
       "customer_visibility": false,

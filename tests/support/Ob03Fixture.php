@@ -120,6 +120,9 @@ final class Ob03Fixture
         return [
             'assessment'=>$assessment,
             'delta'=>$delta->value(),
+            // CR-04 fixture-only readback; never stored or returned by app.
+            'before_projection'=>$docs['before'],
+            'after_projection'=>$docs['after'],
             'captures'=>$captures,
             'bounded_input'=>$input,
             'result'=>$feature->value(),
