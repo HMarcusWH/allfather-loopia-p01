@@ -56,6 +56,20 @@ final class HistoryReviewAttemptStore
             return $this->db->transaction(function(Database $tx)use(
                 $candidate,$scope,$json
             ):Outcome{
+                // Two individually real UUIDs do not prove one owned scope.
+                // A candidate tenant/workspace/P01 competitor must already
+                // exist in native identity tables before allocating rows.
+                if($tx->one(
+                    'SELECT 1 FROM workspaces WHERE workspace_id=? AND tenant_id=?',
+                    [$scope['workspace_id'],$scope['tenant_id']],
+                )===null
+                    || $tx->one(
+                        'SELECT 1 FROM competitors
+                         WHERE competitor_id=? AND tenant_id=? AND workspace_id=?',
+                        [$scope['competitor_id'],$scope['tenant_id'],$scope['workspace_id']],
+                    )===null){
+                    return Outcome::refuse('AN01_CANDIDATE_OWNER_SCOPE_NOT_AVAILABLE');
+                }
                 $parent=$tx->one(
                     'SELECT history_review_budget_candidate_id,parent_max_attempts
                      FROM history_review_budget_candidates
