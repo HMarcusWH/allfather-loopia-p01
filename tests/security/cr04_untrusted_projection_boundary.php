@@ -29,7 +29,7 @@ foreach(['model_context_authorized','source_excerpt_exported','source_bytes_expo
     $fake['context_digest']=Digest::canonicalDigest($unsigned);
     Assert::same('CR04_CONTEXT_AUTHORITY_FORGED',
         DerivedSectionEvidence::verify($fake)->reasonCode(),
-        'rehashing '+$flag+' cannot generate new U03/U06 authority');
+        'rehashing '.$flag.' cannot generate new U03/U06 authority');
 }
 $fake=$v;$fake['provider_token_estimate']=4;
 $unsigned=$fake;unset($unsigned['context_digest']);
