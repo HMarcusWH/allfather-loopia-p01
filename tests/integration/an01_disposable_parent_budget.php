@@ -135,7 +135,7 @@ try {
         'same review cannot relabel a different question');
     $extend=$input;$extend['attempt_id']='an01_different_limit';
     $extend['request_digest']=str_repeat('6',64);
-    $extend['review_max_attempts']=4;
+    $extend['review_max_attempts']=3;
     Assert::same('AN01_REVIEW_LIMIT_VERSION_CONFLICT',
         $store->reserveCandidate($make($extend))->reasonCode(),
         'existing review budget limit cannot be raised in a later attempt');
