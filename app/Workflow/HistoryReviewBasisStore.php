@@ -42,7 +42,7 @@ final class HistoryReviewBasisStore
         $scope=$manifest['scope'];
         $digest=$v2?$manifest['basis_digest']:$manifest['manifest_digest'];
         try {
-            return $this->db->transaction(function(Database $tx)use($scope,$manifest,$digest):Outcome {
+            return $this->db->transaction(function(Database $tx)use($scope,$manifest,$digest,$v2):Outcome {
                 $prior=$tx->one(
                     'SELECT history_review_basis_id,manifest_json FROM history_review_bases
                      WHERE tenant_id=? AND workspace_id=? AND competitor_id=?
