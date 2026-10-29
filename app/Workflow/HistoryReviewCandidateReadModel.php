@@ -112,7 +112,7 @@ final class HistoryReviewCandidateReadModel
                     $sqlScope,$record['history_review_basis_id']);
                 if (!$basis->isOk()) return self::unavailable();
                 $manifest=$basis->value()['manifest'];
-                if ($manifest['manifest_digest']!==$record['basis_digest']) return self::unavailable();
+                if (($manifest['basis_digest']??$manifest['manifest_digest']??null)!==$record['basis_digest']) return self::unavailable();
                 $heads=$memoryStore->value()->headCandidates(
                     $sqlScope,'SOURCE_DIFF','MONTH',
                     $manifest['period']['start_inclusive_utc'],

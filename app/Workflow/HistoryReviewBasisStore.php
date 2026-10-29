@@ -31,7 +31,8 @@ final class HistoryReviewBasisStore
     /** @param array<string,mixed> $manifest */
     public function recordCandidate(array $manifest): Outcome
     {
-        $verified=HistoryReviewBasis::verify($manifest);
+        $v2=($manifest['schema_version']??null)===PointInTimeHistoricalBasis::VERSION;
+        $verified=$v2 ? PointInTimeHistoricalBasis::verify($manifest) : HistoryReviewBasis::verify($manifest);
         if (!$verified->isOk()) return Outcome::refuse('LI05C_BASIS_MANIFEST_INVALID');
         // Source eligibility never becomes true merely by writing metadata.
         if ($manifest['historical_reuse_admitted']!==false
@@ -39,9 +40,9 @@ final class HistoryReviewBasisStore
             return Outcome::refuse('LI05C_SOURCE_AUTHORITY_UNAVAILABLE');
         }
         $scope=$manifest['scope'];
-        $digest=$manifest['manifest_digest'];
+        $digest=$v2?$manifest['basis_digest']:$manifest['manifest_digest'];
         try {
-            return $this->db->transaction(function(Database $tx)use($scope,$manifest,$digest):Outcome {
+            return $this->db->transaction(function(Database $tx)use($scope,$manifest,$digest,$v2):Outcome {
                 $prior=$tx->one(
                     'SELECT history_review_basis_id,manifest_json FROM history_review_bases
                      WHERE tenant_id=? AND workspace_id=? AND competitor_id=?
@@ -75,7 +76,7 @@ final class HistoryReviewBasisStore
                     'candidate_state'=>'TEST_ONLY_NOT_ADMITTED',
                     'created_at'=>$this->clock->now(),
                 ]);
-                foreach ($manifest['references'] as $ordinal=>$ref) {
+                foreach (($v2?$manifest['selected_references']:$manifest['references']) as $ordinal=>$ref) {
                     $tx->insert('history_review_basis_refs',[
                         'history_review_basis_ref_id'=>Ids::new(),
                         'history_review_basis_id'=>$id,
@@ -129,10 +130,12 @@ final class HistoryReviewBasisStore
             if ($row===null) return Outcome::refuse('LI05C_BASIS_NOT_FOUND');
             $manifest=json_decode($row['manifest_json'],true,64,JSON_THROW_ON_ERROR);
             if (!is_array($manifest)
-                || ($manifest['manifest_digest']??null)!==$row['basis_digest']
+                || (($manifest['basis_digest']??$manifest['manifest_digest']??null)!==$row['basis_digest'])
                 || ($manifest['selected_count']??null)!==(int)$row['selected_count']
                 || $manifest['scope']!==$scope
-                || !HistoryReviewBasis::verify($manifest)->isOk()) {
+                || !(($manifest['schema_version']??null)===PointInTimeHistoricalBasis::VERSION
+                    ? PointInTimeHistoricalBasis::verify($manifest)
+                    : HistoryReviewBasis::verify($manifest))->isOk()) {
                 return Outcome::refuse('LI05C_BASIS_REPLAY_MISMATCH');
             }
             $refs=$this->db->all(
@@ -147,7 +150,9 @@ final class HistoryReviewBasisStore
                 return Outcome::refuse('LI05C_BASIS_REPLAY_REF_COUNT_MISMATCH');
             }
             foreach ($refs as $ordinal=>$rowRef) {
-                $ref=$manifest['references'][$ordinal]??null;
+                $referenceRows=($manifest['schema_version']??null)===PointInTimeHistoricalBasis::VERSION
+                    ? $manifest['selected_references'] : $manifest['references'];
+                $ref=$referenceRows[$ordinal]??null;
                 if ($ref===null
                     || $rowRef['ref_id']!==$ref['ref_id']
                     || $rowRef['source_ref_id']!==$ref['source_ref_id']
