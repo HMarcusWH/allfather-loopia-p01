@@ -1,0 +1,39 @@
+{
+  "schema_version": "hs02.historical_source_use.example.v1",
+  "claims": "SYNTHETIC_ONLY_NOT_AUTHORITY",
+  "purposes": [
+    {
+      "purpose": "DETERMINISTIC_INTERNAL_REVIEW",
+      "owner_native_proof": "CURRENT_M02_P01_M05_VERIFIED",
+      "production_decision": "HOLD_U03_HISTORICAL_USE_NOT_RATIFIED",
+      "fixture_arithmetic": "PERMITTED_TEST_ONLY",
+      "real_source_use": false
+    },
+    {
+      "purpose": "MODEL_ASSISTED_HISTORICAL_ANALYSIS",
+      "owner_native_proof": "CURRENT_M02_P01_M05_VERIFIED",
+      "production_decision": "HOLD_U03_HISTORICAL_USE_NOT_RATIFIED",
+      "fixture_arithmetic": "REFUSED",
+      "real_model_dispatch": false
+    },
+    {
+      "purpose": "EXTERNAL_PROVIDER_BYTE_DISCLOSURE",
+      "owner_native_proof": "CURRENT_M02_P01_M05_VERIFIED",
+      "production_decision": "HOLD_U03_HISTORICAL_USE_NOT_RATIFIED",
+      "fixture_arithmetic": "REFUSED",
+      "real_provider_byte_disclosure": false
+    }
+  ],
+  "stage_fingerprint": "EXACT_BASIS_ACTOR_PURPOSE_SOURCE_TERMS_AND_M05",
+  "stages": [
+    "PRE_DISPATCH",
+    "POST_RETURN",
+    "PRE_RELEASE"
+  ],
+  "missing_terms": "HS02_CURRENT_OWNER_SOURCE_HOLD",
+  "changed_rights": "HS02_OWNER_PROVENANCE_CHANGED_HOLD_OR_CURRENT_OWNER_SOURCE_HOLD",
+  "m10_current_reliance_verified": false,
+  "u03_owner_ratified": false,
+  "customer_release_authorized": false,
+  "source_bytes_in_report": false
+}
