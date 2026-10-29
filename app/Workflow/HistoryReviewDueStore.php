@@ -190,6 +190,109 @@ final class HistoryReviewDueStore
         }
     }
 
+
+    /**
+     * DU-01: versioned v2 historical policy + HS-01 candidate, using the same
+     * append-only family-290 DDL as LI-08C v1. No new production factory.
+     *
+     * @param array<string,string> $scope
+     * @param array<string,mixed> $watermarks Caller-described, NEVER owner rights.
+     */
+    public function recordDueV2Candidate(
+        array $scope,string $policyId,string $basisId,array $watermarks,string $atUtc,
+    ):Outcome {
+        if(!Vocabulary::scope($scope)||!Ids::isValid($policyId)
+            || !Ids::isValid($basisId)||!Vocabulary::utc($atUtc)) {
+            return Outcome::refuse('DU01_DUE_STORE_SELECTOR_INVALID');
+        }
+        try {
+            $row=$this->db->one(
+                'SELECT policy_json,policy_digest
+                 FROM history_review_policies WHERE history_review_policy_id=?
+                   AND tenant_id=? AND workspace_id=? AND competitor_id=?
+                   AND question_id=? AND candidate_state=?',
+                [$policyId,$scope['tenant_id'],$scope['workspace_id'],
+                 $scope['competitor_id'],$scope['question_id'],'TEST_ONLY_NOT_ADMITTED'],
+            );
+            if($row===null)return Outcome::refuse('DU01_POLICY_OR_BASIS_NOT_FOUND');
+            $policy=json_decode((string)$row['policy_json'],true,64,JSON_THROW_ON_ERROR);
+            if(!is_array($policy)||!HistoryReviewPolicy::verify($policy)->isOk()
+                || ($policy['scope']??null)!==$scope
+                || !hash_equals((string)$row['policy_digest'],Digest::canonicalDigest($policy))) {
+                return Outcome::refuse('DU01_POLICY_NOT_REPLAYABLE');
+            }
+            $basisStore=HistoryReviewBasisStore::forDisposableTest($this->db,$this->clock);
+            if(!$basisStore->isOk())return Outcome::refuse('DU01_BASIS_STORE_NOT_ADOPTED');
+            $replayed=$basisStore->value()->replayCandidate($scope,$basisId);
+            if(!$replayed->isOk())return Outcome::refuse('DU01_POLICY_OR_BASIS_NOT_FOUND');
+            $basis=$replayed->value()['manifest'];
+            if(($basis['schema_version']??null)!==PointInTimeHistoricalBasis::VERSION
+                || !PointInTimeHistoricalBasis::verify($basis)->isOk()) {
+                return Outcome::refuse('DU01_HS01_BASIS_REQUIRED');
+            }
+            $calc=HistoryReviewDue::assess([
+                'policy'=>$policy,'basis'=>$basis,
+                'state'=>$watermarks,'at_utc'=>$atUtc,
+            ]);
+            if(!$calc->isOk())return $calc;
+            $decision=$calc->value();
+            $basisDigest=$basis['basis_digest'];
+            return $this->db->transaction(function(Database $tx)use(
+                $scope,$policyId,$basisId,$basisDigest,$atUtc,$decision
+            ):Outcome {
+                $old=$tx->one(
+                    'SELECT history_review_due_check_id,candidate_digest
+                     FROM history_review_due_checks
+                     WHERE history_review_policy_id=? AND history_review_basis_id=?
+                       AND evaluated_at_utc=? FOR UPDATE',
+                    [$policyId,$basisId,$atUtc],
+                );
+                if($old!==null){
+                    if(!hash_equals((string)$old['candidate_digest'],$decision['candidate_digest'])){
+                        return Outcome::refuse('DU01_DUE_SAME_TICK_STATE_CONFLICT');
+                    }
+                    return Outcome::ok([
+                        'action'=>'EXACT_DUE_REPLAY_NO_WRITE',
+                        'history_review_due_check_id'=>$old['history_review_due_check_id'],
+                        'disposition'=>$decision['status'],
+                        'U05_policy_adopted'=>false,
+                        'model_call_authorized'=>false,
+                    ]);
+                }
+                $id=Ids::new();
+                $tx->insert('history_review_due_checks',[
+                    'history_review_due_check_id'=>$id,
+                    'history_review_policy_id'=>$policyId,
+                    'history_review_basis_id'=>$basisId,
+                    'tenant_id'=>$scope['tenant_id'],'workspace_id'=>$scope['workspace_id'],
+                    'evaluated_at_utc'=>$atUtc,
+                    'basis_digest'=>$basisDigest,
+                    'candidate_digest'=>$decision['candidate_digest'],
+                    'disposition'=>$decision['status'],
+                    'due_json'=>json_encode($decision,JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES),
+                    'candidate_state'=>'TEST_ONLY_NOT_ADMITTED',
+                    'created_at'=>$this->clock->now(),
+                ]);
+                return Outcome::ok([
+                    'action'=>'DISPOSABLE_DUE_RECORDED',
+                    'history_review_due_check_id'=>$id,
+                    'disposition'=>$decision['status'],
+                    'basis_digest'=>$basisDigest,
+                    'candidate_digest'=>$decision['candidate_digest'],
+                    'U05_policy_adopted'=>false,
+                    'U03_historical_reuse_admitted'=>false,
+                    'model_call_authorized'=>false,
+                    'scheduler_action_authorized'=>false,
+                    'notification_authorized'=>false,
+                ]);
+            });
+        }catch(\PDOException $e){
+            return Database::classify($e,'DU01_DUE_RACE_REFUSED');
+        }catch(\Throwable){
+            return Outcome::failure('DU01_DUE_STORE_UNAVAILABLE');
+        }
+    }
+
     /**
      * Test-only, read-only internal metadata. A later HTTP owner must perform
      * M02 authorization separately and must NOT install this factory in runtime.
@@ -222,6 +325,10 @@ final class HistoryReviewDueStore
 
     private static function policyValid(array $scope,array $policy):bool
     {
+        if(($policy['version']??null)===HistoryReviewPolicy::VERSION){
+            return ($policy['scope']??null)===$scope
+                && HistoryReviewPolicy::verify($policy)->isOk();
+        }
         if(!Vocabulary::exactKeys($policy,[
             'version','cadence_seconds','maximum_wait_seconds','cooldown_seconds','max_pending_work',
         ]))return false;

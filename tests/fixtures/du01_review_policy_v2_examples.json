@@ -1,0 +1,46 @@
+{
+  "schema_version": "du01.historical_review_policy_examples.v2",
+  "source": "SYNTHETIC_ONLY",
+  "required_source_scope": "tenant/workspace/competitor/question + listed source refs",
+  "review_clocks": [
+    "observed",
+    "available",
+    "queued",
+    "analysed",
+    "human_reviewed",
+    "considered"
+  ],
+  "cases": [
+    {
+      "case_id": "quiet_time_due",
+      "basis_same_as_last_considered": true,
+      "elapsed_seconds": 172800,
+      "cadence_seconds": 86400,
+      "owner_posture": "OWNER_METADATA_READ_TEST_ONLY",
+      "expected_status": "DUE_CANDIDATE_HUMAN_REVIEW_ONLY",
+      "expected_reason": "QUIET_REVIEW_CLOCK",
+      "grants_model": false
+    },
+    {
+      "case_id": "no_current_rights",
+      "owner_posture": "UNKNOWN",
+      "expected_status": "HOLD_CURRENT_RIGHTS",
+      "grants_model": false
+    },
+    {
+      "case_id": "human_queue_full",
+      "pending_work": 3,
+      "max_pending_work": 3,
+      "expected_status": "DEFERRED_BACKPRESSURE",
+      "grants_notification": false
+    },
+    {
+      "case_id": "unknown_real_world_event_threshold",
+      "unique_event_threshold": 10,
+      "expected_refusal": "DU01_UNRATIFIED_SEMANTIC_TRIGGER"
+    }
+  ],
+  "provider_calls": 0,
+  "live_sql_migrations": 0,
+  "customer_release": false
+}
