@@ -132,6 +132,25 @@ Assert::same(['capture_1'],$r->value()['member_ids_reused_from_pending'],
     'existing member preserved exactly');
 Assert::same(['quiet_clock'],$r->value()['member_ids_new'],
     'quiet-review candidate still present, not discarded');
+$lost=$coalesce;
+$lost['queue_state']['pending_member_ids']=['missing_pending'];
+Assert::same('AQ01_PENDING_MEMBER_WOULD_BE_DROPPED',
+    HistoryReviewQueue::freeze($lost)->reasonCode(),
+    'coalescing must carry every previously queued member, not hide a source event');
+$full=$coalesce;
+$full['members'][]=[
+    'member_id'=>'capture_2',
+    'member_kind'=>'OBSERVATION',
+    'reference_digest'=>str_repeat('d',64),
+    'known_at_utc'=>'2026-03-15T00:00:00Z',
+    'recorded_at_utc'=>'2026-03-05T00:00:00Z',
+];
+$full['queue_state']['pending_reviews']=3;
+$full['queue_state']['pending_member_ids']=['capture_1','quiet_clock','capture_2'];
+Assert::same('DEFERRED_BACKPRESSURE_HOLD',
+    HistoryReviewQueue::freeze($full)->value()['status'],
+    'U05-configured maximum pending review work is never silently bypassed');
+
 $critical=$input;
 $critical['members'][]=[
     'member_id'=>'invalidated_ref',
