@@ -136,7 +136,6 @@ final class ObservationFeatureSet
         $featureRows = [];
         $deduplicated = [];
         $semanticKinds = [];
-        $materialityUnassessed = true;
         foreach ($sections as $d) {
             if (!is_array($d)
                 || !is_string($d['change_kind'] ?? null)
@@ -259,7 +258,8 @@ final class ObservationFeatureSet
             || ($candidate['business_materiality'] ?? null) !== 'NOT_ASSESSED'
             || ($candidate['u02_u03_owner_adopted'] ?? null) !== false
             || ($candidate['runtime_persistence_authorized'] ?? null) !== false
-            || ($candidate['independent_corroboration_count'] ?? 'BAD') !== null
+            || (!array_key_exists('independent_corroboration_count', $candidate)
+                || $candidate['independent_corroboration_count'] !== null)
             || ($candidate['customer_release_authorized'] ?? null) !== false
             || !is_string($candidate['feature_digest'] ?? null)
             || preg_match(self::HEX, $candidate['feature_digest']) !== 1) {
