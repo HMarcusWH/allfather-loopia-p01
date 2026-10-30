@@ -1,4 +1,4 @@
-name: V01 frozen image build and runtime inspection (NO DEPLOY)
+name: V01 PHP85 Dockerfile DOM repair candidate (NO DEPLOY)
 
 on:
   push:
@@ -31,12 +31,40 @@ jobs:
           test "$(cat frozen/frontend/console/.node-version)" = "22.16.0"
           test -f frozen/docs/BUILD_FREEZE_MANIFEST.json
 
-      - name: Build frozen staging Dockerfile only on disposable CI runner
+      - name: Probe official PHP 8.5 base DOM before any patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --entrypoint php \
+            php:8.5.12-apache-bookworm \
+            -r 'echo "base=",PHP_VERSION," dom=",extension_loaded("dom")?"yes":"no",
+               " html5=",class_exists("Dom\\HTMLDocument")?"yes":"no","\\n";
+               if (!extension_loaded("dom") || !class_exists("Dom\\HTMLDocument")) exit(3);'
+
+      - name: Prepare one-line Dockerfile correction outside frozen checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os,pathlib
+          source=pathlib.Path("frozen/Dockerfile")
+          text=source.read_text(encoding="utf-8")
+          before='docker-php-ext-install -j"$(nproc)" pdo_mysql mbstring curl dom'
+          after='docker-php-ext-install -j"$(nproc)" pdo_mysql mbstring curl'
+          if text.count(before)!=1:
+              raise RuntimeError("V01_DOCKERFILE_PATCH_EXPECTED_ONE_EXACT_LINE")
+          output=pathlib.Path(os.environ["RUNNER_TEMP"])/"Dockerfile.v01-lexbor-avoidance"
+          output.write_text(text.replace(before,after),encoding="utf-8")
+          print("V01_DOCKERFILE_OVERLAY_ONLY_OMITS_REDUNDANT_DOM_REBUILD")
+          PY
+          test -z "$(git -C frozen status --porcelain --untracked-files=no)"
+
+      - name: Build disposable candidate image with uncommitted Dockerfile overlay
         shell: bash
         run: |
           set -euo pipefail
           docker build --pull --progress=plain \
-            --file frozen/Dockerfile \
+            --file "$RUNNER_TEMP/Dockerfile.v01-lexbor-avoidance" \
             --tag allfather-v01-frozen:18457c305f93 \
             frozen
 
@@ -70,7 +98,7 @@ jobs:
           root=pathlib.Path(os.environ["RUNNER_TEMP"])/"v01-image"
           result={
               "version":"v01.frozen-source-container-build-receipt.v1",
-              "state":"DISPOSABLE_CI_IMAGE_BUILT_NOT_DEPLOYED",
+              "state":"CANDIDATE_DOCKERFILE_OVERLAY_BUILT_NOT_DEPLOYED",
               "git_commit":"18457c305f93ccee0875fadbd738d2ae017cff2d",
               "git_tree":"0a8ac9ad77894a1699a8f79f93f26e88249f9662",
               "declared_frontend_node":"22.16.0",
@@ -90,6 +118,9 @@ jobs:
               "owner_permission_admitted":False,
               "customer_visibility_authorized":False,
               "staging_host_verified":False,
+              "unmodified_frozen_Dockerfile_built":False,
+              "temporary_Dockerfile_dom_rebuild_removed":True,
+              "source_refreeze_required_before_V01_host_acceptance":True,
               "v01_formal_host_gate":"NOT_VERIFIED_NO_GO"
           }
           (root/"v01-frozen-image-build-receipt.json").write_text(
