@@ -1,0 +1,74 @@
+{
+  "schema_version": "an02.synthetic-review-run.examples.v1",
+  "purpose": "BUILD_21_LOCAL_NOT_ADMITTED",
+  "inputs": [
+    "AttemptReservation_AN01",
+    "MemoryCandidate_TM02",
+    "HistoricalBasis_HS01"
+  ],
+  "events": [
+    "REQUEST_INSPECTION_REQUIRED",
+    "SYNTHETIC_REQUEST_INSPECTED_NO_GRANT",
+    "ANALYST_CANDIDATE_RETAINED",
+    "CRITIC_CHALLENGE_RETAINED",
+    "HUMAN_REVIEW_REQUIRED"
+  ],
+  "positive": {
+    "scenario": "bounded_descriptive_pattern",
+    "observed_ref_ids": [
+      "ref_a",
+      "ref_b"
+    ],
+    "support_ref_ids": [
+      "ref_a"
+    ],
+    "contrary_ref_ids": [
+      "ref_b"
+    ],
+    "alternative_codes": [
+      "ROUTINE_MAINTENANCE",
+      "NONCAUSAL_CORRELATION",
+      "UNKNOWN_EXTERNAL_EXPLANATION"
+    ],
+    "limitations": [
+      "CURRENT_SOURCE_USE_UNADMITTED",
+      "ORIGIN_INDEPENDENCE_UNKNOWN",
+      "CAUSALITY_NOT_ESTABLISHED"
+    ],
+    "final_state": "HUMAN_REVIEW_REQUIRED",
+    "human_factual_release": false,
+    "human_delivery": false,
+    "model_calls": 0
+  },
+  "refusals": [
+    {
+      "scenario": "critic_block",
+      "final_state": "BLOCK_HOLD"
+    },
+    {
+      "scenario": "critic_revision",
+      "final_state": "REVISE_HOLD"
+    },
+    {
+      "scenario": "quiet_no_new_insight",
+      "final_state": "NO_NEW_INSIGHT"
+    },
+    {
+      "scenario": "incomplete_supplied_coverage",
+      "final_state": "INSUFFICIENT_EVIDENCE_HOLD"
+    },
+    {
+      "scenario": "uncertain_provider_return",
+      "final_state": "UNKNOWN_OUTCOME_HOLD",
+      "retry": false
+    },
+    {
+      "scenario": "forged_human_release",
+      "expected": "AN02_ANALYST_CANDIDATE_NOT_REPLAYABLE"
+    }
+  ],
+  "candidate_ddl": "320_history_review_runs_CANDIDATE.sql",
+  "live_provider_purpose": false,
+  "original_source_bytes": false,
+  "customer_release": false
+}

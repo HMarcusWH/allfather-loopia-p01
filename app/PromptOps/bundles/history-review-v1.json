@@ -1,0 +1,162 @@
+{
+  "bundle_version": "an02.history-review-v1.inactive",
+  "schema_version": "an02.local-metadata-roles.v1",
+  "activation_status": "INACTIVE_NOT_REGISTERED_WITH_PROMPT_BUNDLE_REGISTRY",
+  "mode": "LOCAL_SYNTHETIC_FIXTURE_ONLY",
+  "bound_context": {
+    "required": [
+      "tenant_id",
+      "workspace_id",
+      "competitor_id",
+      "question_id",
+      "review_id",
+      "request_candidate_digest",
+      "basis_digest",
+      "m17_run_digest",
+      "known_at_cutoff_utc"
+    ],
+    "source_bytes_allowed": false,
+    "source_text_instructions_as_roles": false,
+    "authentic_source_rights_proven": false,
+    "historical_provider_purpose_adopted": false
+  },
+  "roles": [
+    {
+      "role": "HISTORICAL_ANALYST",
+      "output_version": "an02.local-historical-analyst.v1",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "review_id",
+          "role",
+          "mode",
+          "result_kind",
+          "observed_ref_ids",
+          "support_ref_ids",
+          "contrary_ref_ids",
+          "alternative_explanations",
+          "limitation_codes",
+          "would_change_assessment",
+          "statement_code"
+        ],
+        "properties": {
+          "result_kind": {
+            "enum": [
+              "HYPOTHESIS_FOR_HUMAN",
+              "NO_NEW_INSIGHT",
+              "INSUFFICIENT_EVIDENCE",
+              "ABSTAIN"
+            ]
+          },
+          "observed_ref_ids": {
+            "type": "array",
+            "maxItems": 32
+          },
+          "support_ref_ids": {
+            "type": "array",
+            "maxItems": 32
+          },
+          "contrary_ref_ids": {
+            "type": "array",
+            "maxItems": 32
+          },
+          "alternative_explanations": {
+            "type": "array",
+            "maxItems": 5
+          },
+          "limitation_codes": {
+            "type": "array",
+            "maxItems": 7
+          },
+          "would_change_assessment": {
+            "type": "array",
+            "maxItems": 5
+          },
+          "statement_code": {
+            "enum": [
+              "DESCRIPTIVE_SHIFT_HYPOTHESIS",
+              "NO_DISTINCT_PATTERN_DETECTED",
+              "SOURCE_BASIS_INCOMPLETE",
+              "ABSTAIN_FROM_INTERPRETATION"
+            ]
+          }
+        }
+      },
+      "instructions": [
+        "List exact observed primary references; never infer source content or causal business truth from an M17 statistic",
+        "Preserve every selected contrary reference even if it weakens the proposed hypothesis",
+        "Separate supported observations from hypotheses; include routine-maintenance and noncausal alternatives",
+        "Use only closed code lists; no external provider prompt, tool directive, HTML, JSON-LD, raw body or claim of source-rights authority",
+        "NO_NEW_INSIGHT, insufficient evidence and abstention are valid results"
+      ]
+    },
+    {
+      "role": "HISTORICAL_CRITIC",
+      "output_version": "an02.local-historical-critic.v1",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "review_id",
+          "role",
+          "mode",
+          "analyst_digest",
+          "disposition",
+          "challenge_ref_ids",
+          "unresolved_contrary_ref_ids",
+          "concern_codes",
+          "next_check_code"
+        ],
+        "properties": {
+          "disposition": {
+            "enum": [
+              "PASS_TO_HUMAN",
+              "REVISE",
+              "BLOCK",
+              "NO_NEW_INSIGHT",
+              "INSUFFICIENT_EVIDENCE"
+            ]
+          },
+          "challenge_ref_ids": {
+            "type": "array",
+            "maxItems": 32
+          },
+          "unresolved_contrary_ref_ids": {
+            "type": "array",
+            "maxItems": 32
+          },
+          "concern_codes": {
+            "type": "array",
+            "maxItems": 7
+          },
+          "next_check_code": {
+            "type": "string"
+          }
+        }
+      },
+      "instructions": [
+        "Treat analyst output as a challenge target, not proof or human consent",
+        "Dispute omitted contrary refs, source access, coverage, alternative explanations and causal overreach",
+        "PASS_TO_HUMAN requires unresolved challenges and only creates HUMAN_REVIEW_REQUIRED, never a release",
+        "Model critic is not independent empirical validation and is not either human review boundary"
+      ]
+    }
+  ],
+  "retention": {
+    "journal_family": "320_CANDIDATE_NOT_ADOPTED",
+    "original_source_owner": "M05",
+    "provider_artifact_owner": "M01_ModelArtifactStore_IF_LATER_ADMITTED",
+    "journal_copies_source_or_provider_raw_bytes": false,
+    "store_metadata_digests_and_codes_only": true
+  },
+  "authorization": {
+    "U03_historical_source_reuse": false,
+    "U06_model_purpose": false,
+    "provider_dispatch": false,
+    "M10_release": false,
+    "human_factual_release_approved": false,
+    "human_delivery_approved": false,
+    "customer_release": false
+  }
+}
