@@ -1,0 +1,180 @@
+name: V03 exact-source security, crawler and authority preflight (NO DEPLOY)
+
+on:
+  push:
+    branches:
+      - verification/v03-security-preflight-20261030
+
+permissions:
+  contents: read
+
+jobs:
+  source-security:
+    name: PHP ${{ matrix.php }} and MariaDB ${{ matrix.mariadb }} strict source security
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2','8.5']
+        mariadb: ['10.6','10.11']
+    services:
+      mariadb:
+        image: mariadb:${{ matrix.mariadb }}
+        env:
+          MARIADB_ROOT_PASSWORD: v03_disposable_root_only
+          MARIADB_DATABASE: allfather_test
+          MARIADB_USER: allfather
+          MARIADB_PASSWORD: v03_disposable_ci_only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - name: Checkout immutable repaired source without git credentials
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: 50d2c12b16830b11ef1628bf524c373e2666cb4a
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Verify exact source identity and no tracked changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "50d2c12b16830b11ef1628bf524c373e2666cb4a"
+          test "$(git rev-parse 'HEAD^{tree}')" = "21edeb7a8f551242dde35b4f2093267c977552ae"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          test -f docs/BUILD_FREEZE_MANIFEST.json
+
+      - name: Set up independently selected PHP and extensions
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2 2.37.2
+        with:
+          php-version: '${{ matrix.php }}'
+          extensions: pdo, pdo_mysql, curl, openssl, mbstring, json, dom
+          coverage: none
+
+      - name: Verify actual PHP/DB engine and ephemeral test credential scope
+        shell: bash
+        env:
+          V03_PHP_MAJOR: '${{ matrix.php }}'
+        run: |
+          set -euo pipefail
+          php -v
+          php -r 'foreach (["pdo","pdo_mysql","curl","openssl","mbstring","json","hash"] as $ext) { if (!extension_loaded($ext)) exit(2); }'
+          test "$(php -r 'echo PHP_MAJOR_VERSION,".",PHP_MINOR_VERSION;')" = "$V03_PHP_MAJOR"
+          cat > .env.testing <<'ENVEOF'
+          APP_ENV=testing
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_NAME=allfather_test
+          DB_USER=allfather
+          DB_PASSWORD=v03_disposable_ci_only
+          ENVEOF
+          chmod 0600 .env.testing
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+      - name: Strict security layer on exact source
+        shell: bash
+        env:
+          TEST_ENV_FILE: .env.testing
+          APP_ENV: testing
+        run: |
+          set -euo pipefail
+          php tests/run.php --layer=security --strict \
+            --report-json="$RUNNER_TEMP/v03-security-report.json"
+
+      - name: Strict native conformance layer on exact source
+        shell: bash
+        env:
+          TEST_ENV_FILE: .env.testing
+          APP_ENV: testing
+        run: |
+          set -euo pipefail
+          php tests/run.php --layer=conformance --strict \
+            --report-json="$RUNNER_TEMP/v03-conformance-report.json"
+
+      - name: Strict source authority and privacy foundation invariants
+        shell: bash
+        env:
+          TEST_ENV_FILE: .env.testing
+          APP_ENV: testing
+        run: |
+          set -euo pipefail
+          php tests/run.php --layer=foundation --strict \
+            --report-json="$RUNNER_TEMP/v03-foundation-report.json"
+
+      - name: Verify bounded machine receipts and source-tree non-mutation
+        shell: bash
+        env:
+          V03_PHP_MAJOR: '${{ matrix.php }}'
+          V03_DB_MAJOR: '${{ matrix.mariadb }}'
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "50d2c12b16830b11ef1628bf524c373e2666cb4a"
+          test "$(git rev-parse 'HEAD^{tree}')" = "21edeb7a8f551242dde35b4f2093267c977552ae"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          python3 - <<'PY'
+          import json,os,pathlib
+          root=pathlib.Path(os.environ["RUNNER_TEMP"])
+          names=("security","conformance","foundation")
+          totals={"pass":0,"fail":0,"skip":0}
+          lanes={}
+          for name in names:
+              d=json.loads((root/f"v03-{name}-report.json").read_text(encoding="utf-8"))
+              if (d.get("strict") is not True or d.get("complete") is not False
+                  or d.get("layer_filter")!=name or d.get("file_filter") is not None
+                  or d.get("total",{}).get("fail")!=0
+                  or d.get("total",{}).get("skip")!=0):
+                  raise RuntimeError("V03_STRICT_LAYER_REPORT_NOT_QUALIFIED")
+              version=d.get("php_version") or ""
+              if not version.startswith(os.environ["V03_PHP_MAJOR"]+"."):
+                  raise RuntimeError("V03_WRONG_PHP_RUNTIME")
+              db=d.get("database_server_version")
+              if db is not None and not db.startswith(os.environ["V03_DB_MAJOR"]+"."):
+                  raise RuntimeError("V03_WRONG_DATABASE_RUNTIME")
+              count=d["total"]["pass"]
+              if not isinstance(count,int) or count<1:
+                  raise RuntimeError("V03_EMPTY_OR_INVALID_LAYER")
+              lanes[name]={"pass":count,"fail":0,"skip":0,
+                           "database_server_version":db}
+              for key in totals:totals[key]+=d["total"][key]
+          report={
+              "schema_version":"v03.source-security-preflight.v1",
+              "state":"SOURCE_SECURITY_MATRIX_ONLY_NO_HOST_ACCEPTANCE",
+              "source_commit":"50d2c12b16830b11ef1628bf524c373e2666cb4a",
+              "source_tree":"21edeb7a8f551242dde35b4f2093267c977552ae",
+              "php_lane":os.environ["V03_PHP_MAJOR"],
+              "mariadb_lane":os.environ["V03_DB_MAJOR"],
+              "layer_results":lanes,"totals":totals,
+              "all_layers_strict_zero_fail_skip":True,
+              "only_disposable_database":"allfather_test",
+              "live_source_or_model_calls_authorized":False,
+              "real_source_rights_authenticated":False,
+              "human_or_customer_release_authorized":False,
+              "staging_deployed":False,
+              "independent_host_sec_test_run":False,
+              "v03_formal_acceptance":"BLOCKED_V01_HOST_AND_ADVERSARIAL_OWNER_REVIEW"
+          }
+          (root/"v03-bounded-preflight-receipt.json").write_text(
+              json.dumps(report,indent=2,sort_keys=True)+"\n",encoding="utf-8")
+          print(json.dumps(report,sort_keys=True))
+          PY
+
+      - name: Preserve only bounded source layer receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: v03-source-security-php${{ matrix.php }}-db${{ matrix.mariadb }}-50d2c12b1683
+          path: |
+            ${{ runner.temp }}/v03-security-report.json
+            ${{ runner.temp }}/v03-conformance-report.json
+            ${{ runner.temp }}/v03-foundation-report.json
+            ${{ runner.temp }}/v03-bounded-preflight-receipt.json
+          if-no-files-found: warn
+          retention-days: 21
+          compression-level: 0
