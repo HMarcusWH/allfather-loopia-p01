@@ -1,0 +1,51 @@
+{
+  "schema_version": "va02.history-assurance-scorecard.v1",
+  "classification": "SYNTHETIC_METADATA_ONLY_NO_M11_HOST_PROOF",
+  "input_types": [
+    "NativeReleaseProposal",
+    "OutcomeAnnotation",
+    "InternalAttention",
+    "HistoryReviewQueue",
+    "Coverage",
+    "Cost",
+    "Recovery"
+  ],
+  "cases": [
+    {
+      "name": "reported_two_sources_with_contrary",
+      "positive": true,
+      "selected": 2,
+      "contrary": 1
+    },
+    {
+      "name": "provider_outcome_unknown",
+      "cost_status": "UNKNOWN_PROVIDER_OUTCOME",
+      "reserved_units": null,
+      "spent_units": null
+    },
+    {
+      "name": "coverage_not_verified",
+      "status": "NOT_VERIFIED",
+      "gap_count": null
+    },
+    {
+      "name": "host_recovery_not_verified",
+      "status": "NOT_VERIFIED_HOST"
+    },
+    {
+      "name": "unknown_cost_is_not_zero",
+      "refusal": "VA02_UNKNOWN_PROVIDER_COST_CANNOT_BE_ZERO"
+    },
+    {
+      "name": "source_authentication_forgery",
+      "refusal": "VA02_PROVENANCE_FORGED_AUTHORITY"
+    },
+    {
+      "name": "M11_case_still_owner",
+      "actual_m11_incident_written": false
+    }
+  ],
+  "live_telemetry_installed": false,
+  "live_migrations": false,
+  "external_effects": false
+}
