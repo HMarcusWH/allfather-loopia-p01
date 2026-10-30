@@ -555,8 +555,8 @@
         "U09"
       ],
       "semantic_owner": "Console commands",
-      "build_status": "NOT_STARTED",
-      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "build_status": "BUILT_INERT",
+      "source_basis": "UI02_SEALED_SCOPED_HISTORY_METADATA_OWNER_FIXTURE_REVISION_CSRF_COMMAND_REACT_AND_PLUS46_P01_P05_M10_READ_JOURNEY_NO_NATIVE_ROUTE_OR_OWNER_GRANT",
       "candidate_factory_binding": "NOT_REGISTERED",
       "native_permission": false,
       "customer_visibility": false,
