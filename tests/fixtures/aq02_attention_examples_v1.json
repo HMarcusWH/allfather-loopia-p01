@@ -1,0 +1,62 @@
+{
+  "schema_version": "aq02.internal-attention-candidate.v1",
+  "classification": "SYNTHETIC_ONLY_NO_ACTUAL_M10_OR_SOURCE_RIGHTS",
+  "owners": [
+    "P04",
+    "M10",
+    "M16"
+  ],
+  "inputs": [
+    "NativeReleaseProposal",
+    "OutcomeAnnotation",
+    "QueueWatermarks",
+    "SyntheticReleasedOutputRef"
+  ],
+  "cases": [
+    {
+      "scenario": "fixture_current_role_and_rights",
+      "status": "ATTENTION_CANDIDATE_INTERNAL_ONLY",
+      "sent": false
+    },
+    {
+      "scenario": "stale_current_reliance",
+      "status": "SUPPRESSED_STALE_M10_RELIANCE"
+    },
+    {
+      "scenario": "source_rights_revoked",
+      "status": "SUPPRESSED_SOURCE_RIGHTS_HOLD"
+    },
+    {
+      "scenario": "redaction_or_role_denied",
+      "status": "SUPPRESSED_ROLE_OR_REDACTION"
+    },
+    {
+      "scenario": "duplicate_attention",
+      "status": "SUPPRESSED_DUPLICATE_COOLDOWN"
+    },
+    {
+      "scenario": "human_defer",
+      "status": "DEFERRED_BY_HUMAN_CANDIDATE"
+    },
+    {
+      "scenario": "renderer_reliance_changes",
+      "refusal": "AQ02_RENDER_CURRENT_OWNER_HOLD"
+    },
+    {
+      "scenario": "historical_candidate_not_released",
+      "refusal": "AQ02_ATTENTION_INPUT_OR_SOURCE_INVALID"
+    }
+  ],
+  "digest": {
+    "version": "aq02.inert-internal-digest.v1",
+    "max_input": 64,
+    "max_members": 16,
+    "records_suppression": true,
+    "current_reliance_rechecked_at_render": true,
+    "automatic_delivery": false
+  },
+  "schema": "340_internal_attention_CANDIDATE.sql",
+  "live_migration": false,
+  "external_delivery_authorized": false,
+  "customer_visibility_authorized": false
+}

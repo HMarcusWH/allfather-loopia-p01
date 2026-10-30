@@ -529,8 +529,8 @@
         "U09"
       ],
       "semantic_owner": "P04/M16/M12",
-      "build_status": "NOT_STARTED",
-      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "build_status": "BUILT_INERT",
+      "source_basis": "AQ02_P04_M10_M16_CANDIDATE_POLICY_FIXTURE_OWNER_CURRENT_RELIANCE_RENDER_CHECK_ROLE_DIGEST_SUPPRESSION_FAMILY340_NO_NATIVE_U07_U09_OR_DELIVERY",
       "candidate_factory_binding": "NOT_REGISTERED",
       "native_permission": false,
       "customer_visibility": false,
