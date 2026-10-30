@@ -185,3 +185,20 @@ A visual-only defect belongs in P09, followed by:
 5. repeat the affected desktop/mobile journey.
 
 Never loosen an authority test to make a browser defect disappear.
+
+
+## UI-02 / BUILD-25 owner-route and Plus46 acceptance extension (not yet executed)
+
+UI-02 source introduces a candidate-only history-review adapter and safe scriptless / React previews. Its history owner route remains intentionally unregistered until U03/U06/U07/U09 adoption; this is a **missing live acceptance precondition**, not a GREEN browser test.
+
+After an authorized staging adoption, perform a signed-in desktop and mobile P01–P05/M10 read journey using existing Plus46 TEST tenant data: own-company/ICP/offers, candidate watchlist versus released P01 findings, role briefs, internal drafts and M10 decision provenance. Every unavailable, empty, denied, suspended and no-workspace surface must display a distinct grounded state rather than fake success or imply no change.
+
+Confirm a second separately authorized TEST operator can first-login, select its own workspace, and cannot retrieve the first operator's tenant/question/history, without provisioning or changing memberships from this test. Validate the scope and entitlements at each existing native owner read. Do not dump private profile bytes or account emails into the acceptance artifact.
+
+For the newly adopted history route, capture:
+- GET review: exact as-of cutoff, source IDs, support/contrary polarity, analyst/critic, owner HOLD, due/suppression; no business-state mutation, no model attempt.
+- POST plan: valid session CSRF, exact actor/scope, expected review revision, selected action/reason and plan digest; no source or production mutation.
+- POST proposal: fresh digest yields an owner-admitted *review work* command only, not human factual or delivery approval; stale digest/foreign scope/missing CSRF denied with no effects.
+- Widths 1280×720 and 390×844; keyboard focus/labelled controls, bounded pagination, escaped HTML and DOM, no horizontal layout overflow.
+
+Evidence must record tested source SHA, exact deployed frontend manifest digest, host, browser/viewport, scoped refusal codes and minimal sanitized support references. No screenshot or log may include passwords, CSRF cookie tokens, profile text, raw source captures or model prompts. No Wave 13 source CI claims P09, second-account acceptance, M10 release, or live beta GO.

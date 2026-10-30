@@ -1,0 +1,49 @@
+{
+  "schema_version": "ui02.history-review-workbench.v1",
+  "classification": "INERT_FIXTURE_ONLY_NO_U03_U06_U07_U09",
+  "sources": [
+    "AN03_NATIVE_PROPOSAL",
+    "AN04_OUTCOME",
+    "AQ02_ATTENTION"
+  ],
+  "cases": [
+    {
+      "case": "same_scope_human_hold",
+      "state": "VISIBLE",
+      "contrary_refs": 1,
+      "human_approval": false
+    },
+    {
+      "case": "stale_review_revision",
+      "refusal": "UI02_REVIEW_REVISION_STALE_OR_NOT_SCOPED"
+    },
+    {
+      "case": "wrong_plan_digest",
+      "refusal": "UI02_REVIEW_PLAN_STALE_OR_FORGED"
+    },
+    {
+      "case": "missing_csrf",
+      "http_status": 403
+    },
+    {
+      "case": "foreign_workspace",
+      "state": "DENIED"
+    },
+    {
+      "case": "unknown_selector",
+      "state": "NOT_FOUND"
+    },
+    {
+      "case": "no_live_owner",
+      "state": "UNAVAILABLE"
+    }
+  ],
+  "paths": [
+    "GET /console/history-review",
+    "POST /console/history-review"
+  ],
+  "runtime_routes_registered": false,
+  "actual_m07_m10_writes": 0,
+  "native_customer_release": false,
+  "live_deployment": false
+}

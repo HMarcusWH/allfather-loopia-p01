@@ -73,3 +73,5 @@ export function HistoricalReviewPreview({
     </BoundaryNote>
   </section>;
 }
+
+export { HistoryReviewWorkbenchPreview } from "./history-review-workbench.jsx";
