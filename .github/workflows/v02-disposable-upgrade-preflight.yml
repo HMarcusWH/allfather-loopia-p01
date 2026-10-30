@@ -1,4 +1,4 @@
-name: V02 disposable populated upgrade preflight (NO DEPLOY)
+name: V02 disposable populated upgrade and DDL interruption (NO DEPLOY)
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   populated-upgrade-preflight:
-    name: disposable MariaDB ${{ matrix.mariadb }} upgrade
+    name: disposable MariaDB ${{ matrix.mariadb }} upgrade and fault injection
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -72,8 +72,12 @@ jobs:
           chmod 0600 frozen/.env.testing
           cp verifier/verification/v02_upgrade_preservation.php \
              frozen/tests/integration/v02_upgrade_preservation.php
+          cp verifier/verification/v02_interrupted_schema_recovery.php \
+             frozen/tests/integration/v02_interrupted_schema_recovery.php
           php -l frozen/tests/integration/v02_upgrade_preservation.php
+          php -l frozen/tests/integration/v02_interrupted_schema_recovery.php
           sha256sum verifier/verification/v02_upgrade_preservation.php
+          sha256sum verifier/verification/v02_interrupted_schema_recovery.php
 
       - name: Execute populated native-record preservation and candidate FK/trigger test
         shell: bash
@@ -86,12 +90,16 @@ jobs:
           cd frozen
           php tests/run.php --layer=integration --filter=v02_upgrade_preservation \
             --strict --report-json="$RUNNER_TEMP/v02-populated-upgrade-report.json"
+          php tests/run.php --layer=integration --filter=v02_interrupted_schema_recovery \
+            --strict --report-json="$RUNNER_TEMP/v02-interrupted-schema-report.json"
 
       - name: Upload bounded verification count and actual engine receipts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: v02-preflight-${{ matrix.mariadb }}-source-18457c305f93
-          path: ${{ runner.temp }}/v02-populated-upgrade-report.json
+          path: |
+            ${{ runner.temp }}/v02-populated-upgrade-report.json
+            ${{ runner.temp }}/v02-interrupted-schema-report.json
           if-no-files-found: warn
           retention-days: 21
