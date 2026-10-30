@@ -1,0 +1,97 @@
+name: V02 disposable populated upgrade preflight (NO DEPLOY)
+
+on:
+  push:
+    branches:
+      - verification/v02-disposable-upgrade-20261030
+
+permissions:
+  contents: read
+
+jobs:
+  populated-upgrade-preflight:
+    name: disposable MariaDB ${{ matrix.mariadb }} upgrade
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        mariadb: ['10.6', '10.11']
+    services:
+      mariadb:
+        image: mariadb:${{ matrix.mariadb }}
+        env:
+          MARIADB_ROOT_PASSWORD: verification_root_only
+          MARIADB_DATABASE: allfather_test
+          MARIADB_USER: allfather
+          MARIADB_PASSWORD: verification_ci_only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - name: Checkout verifier scripts separately from frozen source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+          path: verifier
+          persist-credentials: false
+
+      - name: Checkout exact immutable 29-package source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: 18457c305f93ccee0875fadbd738d2ae017cff2d
+          path: frozen
+          persist-credentials: false
+
+      - name: Set up PHP 8.2 and MariaDB connection extensions
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2 2.37.2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql, openssl, curl, mbstring, json
+          coverage: none
+
+      - name: Prepare only ephemeral allfather_test database and verification overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C frozen rev-parse HEAD)" = "18457c305f93ccee0875fadbd738d2ae017cff2d"
+          test "$(git -C frozen rev-parse 'HEAD^{tree}')" = "0a8ac9ad77894a1699a8f79f93f26e88249f9662"
+          test "$(git -C verifier rev-parse HEAD)" = "${{ github.sha }}"
+          cat > frozen/.env.testing <<'ENVEOF'
+          APP_ENV=testing
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_NAME=allfather_test
+          DB_USER=allfather
+          DB_PASSWORD=verification_ci_only
+          ENVEOF
+          chmod 0600 frozen/.env.testing
+          cp verifier/verification/v02_upgrade_preservation.php \
+             frozen/tests/integration/v02_upgrade_preservation.php
+          php -l frozen/tests/integration/v02_upgrade_preservation.php
+          sha256sum verifier/verification/v02_upgrade_preservation.php
+
+      - name: Execute populated native-record preservation and candidate FK/trigger test
+        shell: bash
+        env:
+          TEST_ENV_FILE: .env.testing
+          APP_ENV: testing
+          V02_DB_MAJOR: ${{ matrix.mariadb }}
+        run: |
+          set -euo pipefail
+          cd frozen
+          php tests/run.php --layer=integration --filter=v02_upgrade_preservation \
+            --strict --report-json="$RUNNER_TEMP/v02-populated-upgrade-report.json"
+
+      - name: Upload bounded verification count and actual engine receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: v02-preflight-${{ matrix.mariadb }}-source-18457c305f93
+          path: ${{ runner.temp }}/v02-populated-upgrade-report.json
+          if-no-files-found: warn
+          retention-days: 21
