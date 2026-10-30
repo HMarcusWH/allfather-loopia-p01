@@ -23,3 +23,14 @@ Disposable-only family 330 proposes three tables and six append-only triggers: o
 Positive tests use actual HS-01/AN-01/TM-02/AN-02 synthetic source contracts. Negative tests cover missing/broken review chain, contrary-as-support, rehashed owner/release claims, changed dependency hashes and the forbidden single-diff route. The guarded CLI fixture preview exports only safe counts and hashes.
 
 **Deferred:** actual owner U03/U06/U07 adoption, live schema and M10 native path, human factual and delivery approvals, original M05 source authentication, real model quality, RT-01/RT-02, final V01–V11 and deployment. No source CI green result grants those rights.
+
+
+## NativeReleaseProposal v1 and synthetic owner handoff
+
+AN-03 now prepares a separately versioned `NativeReleaseProposal` from a verified historical finding. It preserves the exact finding, all selected M05 metadata references, claim/support and contrary mappings, as-of cutoff, review-chain digests and IV-01 lineage. Proposal verification reconstructs the canonical candidate, so a caller cannot rehash an altered authorization flag or omit contrary references.
+
+`HistoricalFindingReleaseOwnerPort` defines eight explicit future owner stages: current M05 source-use check, factual human decision, M04 multi-evidence proposal, M07 independent review, M08 admissibility, M10 current-reliance candidate, separate delivery human decision and M16 internal representation candidate. `HistoryReviewRelease::exerciseFixtureOwnerPath()` invokes every stage through the same port interface, verifies scope, proposal and basis binding, all reference IDs, predecessor receipts and distinct purpose-bound human-fixture decision digests.
+
+The sole executable port in this revision is `tests/support/An03FixtureReleaseOwner.php`. It requires CLI, an explicit test-only process marker, the exact test implementation class and source file, and it performs no source fetch, model call, M10 write or customer activation. Its positive outcome is `FIXTURE_OWNER_SEQUENCE_PASS_NO_LIVE_RELEASE`, **not** a real release or human approval.
+
+**Native owner adoption remains CONTRACT_BLOCKED_U03_U06_U07.** The existing P01 single-diff CompanySignal route and P04 lifecycle are unchanged. Runtime release, actual source-use/paid model rights, current M10 reliance, live family 330 DDL, P02 changes and customer visibility remain refused. Future adoption requires a separately reviewed native multi-evidence owner contract and real owner-side checks. A passing fixture test does not establish the post-build V01-V11 gates.

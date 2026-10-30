@@ -485,7 +485,7 @@
       ],
       "semantic_owner": "P01/M10/M16",
       "build_status": "BUILT_INERT",
-      "source_basis": "AN03_COMPLETE_HS01_MULTI_REFERENCE_AN02_CRITIC_HUMAN_HOLD_IV01_DEPENDENCY_330_DISPOSABLE_ONLY_U03_U06_U07_NO_RELEASE",
+      "source_basis": "AN03_HS01_MULTI_REFERENCE_AN02_CRITIC_IV01_330_DISPOSABLE_NATIVE_RELEASE_PROPOSAL_EIGHT_STAGE_CLI_FIXTURE_U03_U06_U07_CONTRACT_BLOCKED",
       "candidate_factory_binding": "NOT_REGISTERED",
       "native_permission": false,
       "customer_visibility": false,

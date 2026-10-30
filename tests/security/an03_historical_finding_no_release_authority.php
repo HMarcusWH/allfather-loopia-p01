@@ -73,7 +73,7 @@ foreach([
     $bad['finding_digest']=Digest::canonicalDigest($copy);
     Assert::same('AN03_FINDING_FORGED_AUTHORITY',
         HistoricalFindingAdapter::verify($bad)->reasonCode(),
-        'rehashed '+$key+' cannot widen an owner grant');
+        'rehashed '.$key.' cannot widen an owner grant');
 }
 foreach($c['primary_references'] as $ref){
     Assert::same(false,$ref['m05_original_bytes_read'],

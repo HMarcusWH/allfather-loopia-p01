@@ -9,24 +9,22 @@ use Allfather\Loopia\Product\P01\HistoricalFindingAdapter;
 use Allfather\Loopia\Substrate\M17\Vocabulary;
 
 /**
- * AN-03: explicit HOLD between a descriptive historical candidate and
- * genuine M02/M05/M07/M08/M10/M16, P02, P04 native release owners.
- *
- * There is NO CompanySignals single-diff fallback, synthetic diff ID,
- * customer-visible projection, recipient write or source-use override.
+ * AN-03: explicit HOLD between historical evidence and genuine product release.
+ * Only CLI test fixtures can exercise the ordered candidate-to-owner handshake.
+ * No production factory or release grant is registered here.
  */
 final class HistoryReviewRelease
 {
     public const VERSION='an03.provisional-multi-evidence-release-hold.v1';
     public const STAGES=['PROPOSAL','POST_REVIEW','PRE_RELEASE'];
+    public const FIXTURE_STAGE_VERSION='an03.fixture-owner-stage.v1';
+    public const OWNER_STAGES=[
+        'M05_SOURCE_USE','HUMAN_FACTUAL','M04_PROPOSAL','M07_REVIEW',
+        'M08_ADMISSIBILITY','M10_CANDIDATE','HUMAN_DELIVERY','M16_CANDIDATE',
+    ];
+    public const FIXTURE_OWNER_STAGES=self::OWNER_STAGES;
 
-    /**
-     * Accept optional native HS-02 owner inspection for SAFETY DIAGNOSTICS
-     * only. Even a real native M02/P01/M05 current-use check remains
-     * HOLD_U03, not permission to historically reuse bytes.
-     *
-     * Self-reported human approval or M10 verdict is never accepted here.
-     */
+    /** Inspect metadata only. A well-shaped source-owner HOLD remains HOLD. */
     public static function inspect(
         array $finding,string $stage='PRE_RELEASE',
         ?array $sourceOwnerInspection=null,
@@ -53,9 +51,6 @@ final class HistoryReviewRelease
                     $sourceOwnerInspection['current_owner_fingerprint'])!==1){
                 return Outcome::refuse('AN03_UNTRUSTED_OR_NONHOLD_OWNER_ASSERTION');
             }
-            // This is a caller-supplied shape check, not a native adapter
-            // invocation or permission. The actual owner must independently
-            // re-read M05/source policies at genuine release time.
             $sourcePosture='SHAPE_CHECKED_HS02_HOLD_NOT_AUTHENTICATED_BY_THIS_CLASS';
             $ownerFingerprint=$sourceOwnerInspection['current_owner_fingerprint'];
         }
@@ -84,10 +79,150 @@ final class HistoryReviewRelease
         return Outcome::ok($v);
     }
 
-    /** No caller data, role, configured policy or synthetic proof grants release. */
-    public static function release(
-        array $finding,array $callerClaims=[],
+    /** Typed native-owner input; creating it grants no owner approval. */
+    public static function prepareOwnerProposal(array $finding): Outcome
+    {
+        return NativeReleaseProposal::fromFinding($finding);
+    }
+
+    /**
+     * Execute the *real ordered owner-interface calls* against the one reviewed
+     * CLI-only fixture implementation. Never dispatch an actual source/provider,
+     * insert a real M10 record, or create a customer-visible artifact.
+     *
+     * Refuses all other ports and every non-test entrypoint. This is not a
+     * general public DI entrypoint for caller-supplied M10-like authority.
+     */
+    public static function exerciseFixtureOwnerPath(
+        array $proposal,HistoricalFindingReleaseOwnerPort $port,
     ):Outcome {
+        $expectedFixture=realpath(dirname(__DIR__,2).'/tests/support/An03FixtureReleaseOwner.php');
+        $actualFixture=(new \ReflectionClass($port))->getFileName();
+        if(PHP_SAPI!=='cli'
+            || !defined('ALLFATHER_AN03_FIXTURE_OWNER_TEST')
+            || constant('ALLFATHER_AN03_FIXTURE_OWNER_TEST')!==true
+            || $port::class!=='Allfather\\Loopia\\Tests\\An03FixtureReleaseOwner'
+            || $expectedFixture===false || $actualFixture!==$expectedFixture){
+            return Outcome::refuse('AN03_NATIVE_OWNER_PORT_NOT_ADOPTED');
+        }
+        if(!NativeReleaseProposal::verify($proposal)->isOk()){
+            return Outcome::refuse('AN03_OWNER_PROPOSAL_INVALID');
+        }
+        $methods=[
+            'M05_SOURCE_USE'=>'recheckCurrentSourceUse',
+            'HUMAN_FACTUAL'=>'readFactualHumanDecision',
+            'M04_PROPOSAL'=>'submitM04MultiEvidenceProposal',
+            'M07_REVIEW'=>'recordM07IndependentReview',
+            'M08_ADMISSIBILITY'=>'evaluateM08Admissibility',
+            'M10_CANDIDATE'=>'prepareM10CurrentRelianceRecord',
+            'HUMAN_DELIVERY'=>'readDeliveryHumanDecision',
+            'M16_CANDIDATE'=>'prepareM16InternalRepresentation',
+        ];
+        $prior=null;$receipts=[];$human=[];$humanTimes=[];
+        foreach($methods as $stage=>$method){
+            $result=$port->{$method}($proposal,$prior);
+            if(!$result->isOk())return $result;
+            if(!is_array($result->value())){
+                return Outcome::refuse('AN03_FIXTURE_OWNER_RECEIPT_NOT_OBJECT');
+            }
+            $receipt=$result->value();
+            $valid=self::verifyFixtureStage($proposal,$receipt,$stage,$prior);
+            if(!$valid->isOk())return $valid;
+            if($receipt['human_decision']!==null){
+                $human[$stage]=$receipt['human_decision']['decision_digest'];
+                $humanTimes[$stage]=$receipt['human_decision']['decided_at_utc'];
+            }
+            $receipts[]=$receipt['receipt_digest'];
+            $prior=$receipt;
+        }
+        if(!isset($human['HUMAN_FACTUAL'],$human['HUMAN_DELIVERY'])
+            || $human['HUMAN_FACTUAL']===$human['HUMAN_DELIVERY']
+            || $humanTimes['HUMAN_FACTUAL']>$humanTimes['HUMAN_DELIVERY']){
+            return Outcome::refuse('AN03_DISTINCT_HUMAN_REVIEW_PURPOSES_REQUIRED');
+        }
+        $v=[
+            'version'=>'an03.fixture-owner-composition.v1',
+            'status'=>'FIXTURE_OWNER_SEQUENCE_PASS_NO_LIVE_RELEASE',
+            'proposal_digest'=>$proposal['proposal_digest'],
+            'basis_digest'=>$proposal['basis_digest'],
+            'owner_stage_sequence'=>array_keys($methods),
+            'stage_receipt_digests'=>$receipts,
+            'human_factual_decision_digest'=>$human['HUMAN_FACTUAL'],
+            'human_delivery_decision_digest'=>$human['HUMAN_DELIVERY'],
+            'native_owner_adoption'=>'CONTRACT_BLOCKED_U03_U06_U07',
+            'source_rights_authenticated'=>false,
+            'actual_human_decisions_authenticated'=>false,
+            'native_m10_record_written'=>false,
+            'customer_visibility_authorized'=>false,
+            'p02_mutation_authorized'=>false,
+            'p04_distribution_authorized'=>false,
+        ];
+        $v['receipt_digest']=Digest::canonicalDigest($v);
+        return Outcome::ok($v);
+    }
+
+    private static function verifyFixtureStage(
+        array $proposal,array $receipt,string $stage,?array $prior,
+    ):Outcome {
+        if(!Vocabulary::exactKeys($receipt,[
+            'version','stage','proposal_digest','basis_digest','scope',
+            'source_ref_ids','prior_receipt_digest','result','human_decision',
+            'fixture_only','actual_owner_authorization','actual_m10_record_written',
+            'receipt_digest',
+        ]) || ($receipt['version']??null)!==self::FIXTURE_STAGE_VERSION
+            || ($receipt['stage']??null)!==$stage
+            || ($receipt['proposal_digest']??null)!==$proposal['proposal_digest']
+            || ($receipt['basis_digest']??null)!==$proposal['basis_digest']
+            || ($receipt['scope']??null)!==$proposal['scope']
+            || ($receipt['source_ref_ids']??null)!==array_column($proposal['primary_references'],'ref_id')
+            || ($receipt['prior_receipt_digest']??null)!==($prior['receipt_digest']??null)
+            || ($receipt['result']??null)!=='SYNTHETIC_STAGE_ACCEPTED'
+            || ($receipt['fixture_only']??null)!==true
+            || ($receipt['actual_owner_authorization']??null)!==false
+            || ($receipt['actual_m10_record_written']??null)!==false
+            || !is_string($receipt['receipt_digest']??null)){
+            return Outcome::refuse('AN03_FIXTURE_OWNER_STAGE_BINDING_INVALID');
+        }
+        $copy=$receipt;unset($copy['receipt_digest']);
+        if(!hash_equals($receipt['receipt_digest'],Digest::canonicalDigest($copy))){
+            return Outcome::refuse('AN03_FIXTURE_OWNER_STAGE_DIGEST_INVALID');
+        }
+        $purpose=match($stage){
+            'HUMAN_FACTUAL'=>'FACTUAL_REVIEW',
+            'HUMAN_DELIVERY'=>'DELIVERY_REVIEW',
+            default=>null,
+        };
+        $decision=$receipt['human_decision'];
+        if($purpose===null){
+            return $decision===null?Outcome::ok():
+                Outcome::refuse('AN03_NONHUMAN_STAGE_CLAIMS_REVIEW');
+        }
+        if(!is_array($decision)||!Vocabulary::exactKeys($decision,[
+            'actor_type','actor_id','purpose','decision','finding_digest',
+            'basis_digest','proposal_digest','scope','decided_at_utc','decision_digest',
+        ]) || ($decision['actor_type']??null)!=='HUMAN_FIXTURE'
+            || !Vocabulary::id($decision['actor_id']??null)
+            || ($decision['purpose']??null)!==$purpose
+            || ($decision['decision']??null)!=='APPROVE_SYNTHETIC_ONLY'
+            || ($decision['finding_digest']??null)!==$proposal['finding_digest']
+            || ($decision['basis_digest']??null)!==$proposal['basis_digest']
+            || ($decision['proposal_digest']??null)!==$proposal['proposal_digest']
+            || ($decision['scope']??null)!==$proposal['scope']
+            || !Vocabulary::utc($decision['decided_at_utc']??null)
+            || $decision['decided_at_utc']<$proposal['known_at_cutoff_utc']
+            || !is_string($decision['decision_digest']??null)){
+            return Outcome::refuse('AN03_FIXTURE_HUMAN_DECISION_UNBOUND');
+        }
+        $h=$decision;unset($h['decision_digest']);
+        if(!hash_equals($decision['decision_digest'],Digest::canonicalDigest($h))){
+            return Outcome::refuse('AN03_FIXTURE_HUMAN_DECISION_DIGEST_INVALID');
+        }
+        return Outcome::ok();
+    }
+
+    /** No caller data, role, configured policy or synthetic proof grants release. */
+    public static function release(array $finding,array $callerClaims=[]):Outcome
+    {
         return Outcome::refuse('AN03_U03_U06_U07_M10_HISTORICAL_RELEASE_NOT_ADOPTED');
     }
 }

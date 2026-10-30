@@ -50,5 +50,31 @@
   "sql": "330_historical_finding_bindings_CANDIDATE.sql",
   "live_migration": false,
   "paid_provider_calls": 0,
-  "customer_output": false
+  "customer_output": false,
+  "native_owner_fixture": {
+    "version": "an03.native-multi-evidence-release-proposal.v1",
+    "status": "SYNTHETIC_ONLY_NOT_AUTHORIZED",
+    "expected_stages": [
+      "M05_SOURCE_USE",
+      "HUMAN_FACTUAL",
+      "M04_PROPOSAL",
+      "M07_REVIEW",
+      "M08_ADMISSIBILITY",
+      "M10_CANDIDATE",
+      "HUMAN_DELIVERY",
+      "M16_CANDIDATE"
+    ],
+    "support_ref_ids": [
+      "ref_a"
+    ],
+    "contrary_ref_ids": [
+      "ref_b"
+    ],
+    "positive": "FIXTURE_OWNER_SEQUENCE_PASS_NO_LIVE_RELEASE",
+    "denial": "AN03_FIXTURE_OWNER_M05_SOURCE_USE_HOLD",
+    "native_owner_adoption": "CONTRACT_BLOCKED_U03_U06_U07",
+    "writes_real_m10": false,
+    "changes_p02_or_p04": false,
+    "customer_output": false
+  }
 }
