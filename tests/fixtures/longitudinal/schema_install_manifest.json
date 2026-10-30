@@ -1,0 +1,45 @@
+{
+  "schema_version": "rt01.schema-install-fixture.v1",
+  "source_manifest": "docs/longitudinal/proposals/260_350_schema_contracts/INSTALL_MANIFEST.json",
+  "positive": {
+    "scope": "CLI_EXPLICIT_DISPOSABLE_MARIADB_TEST_ONLY",
+    "result": "FULL_12_FAMILY_DISPOSABLE_SCHEMA_INSTALLED_ONLY",
+    "table_count": 38,
+    "trigger_count": 76,
+    "legacy_900_rerun": false,
+    "migrator_ledger_change": false,
+    "runtime_authority": false
+  },
+  "negative": [
+    {
+      "scenario": "partial_ddl_one_table_no_trigger",
+      "status": "HOLD_PARTIAL_NONTRANSACTIONAL_DDL"
+    },
+    {
+      "scenario": "source_sha_changed",
+      "refusal": "RT01_PHYSICAL_SCHEMA_PLAN_STALE_OR_FORGED"
+    },
+    {
+      "scenario": "foreign_key_dependency_missing",
+      "refusal": "RT01_UNRECONCILED_FK_PARENT"
+    },
+    {
+      "scenario": "duplicate physical table",
+      "refusal": "RT01_DUPLICATE_PHYSICAL_TABLE"
+    },
+    {
+      "scenario": "runtime_db_or_no_fixture_marker",
+      "refusal": "RT01_RUNTIME_OR_PLAN_NOT_DISPOSABLE"
+    },
+    {
+      "scenario": "repeat_install",
+      "refusal": "RT01_DISPOSABLE_INSTALL_REQUIRES_EMPTY_SCHEMA"
+    },
+    {
+      "scenario": "missing_trigger",
+      "status": "HOLD_PARTIAL_NONTRANSACTIONAL_DDL"
+    }
+  ],
+  "customer_visibility_authorized": false,
+  "live_migrations_applied": false
+}

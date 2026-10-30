@@ -26,6 +26,89 @@ final class HistoryReviewFactory
         return Outcome::refuse('AN02_U03_U06_PROVIDER_AND_HUMAN_RUNTIME_NOT_ADOPTED');
     }
 
+    /**
+     * RT-01: fixture-only composition of the actual typed history contracts.
+     * A positive source build is deliberately not a positive runtime grant.
+     */
+    public static function composeFullCandidate(string $root,array $parts):Outcome
+    {
+        if(PHP_SAPI!=='cli'
+            || !defined('ALLFATHER_RT01_DISPOSABLE_SCHEMA_TEST')
+            || constant('ALLFATHER_RT01_DISPOSABLE_SCHEMA_TEST')!==true){
+            return Outcome::refuse('RT01_NATIVE_HISTORY_FACTORY_NOT_ADOPTED');
+        }
+        if(!\Allfather\Loopia\Substrate\M17\Vocabulary::exactKeys($parts,[
+            'schema_plan','historical_finding','native_release_proposal',
+            'outcome_annotation','internal_attention',
+        ]) || !is_array($parts['schema_plan'])
+            || !\Allfather\Loopia\Ops\HistorySchemaPlan::verify($root,$parts['schema_plan'])->isOk()
+            || !\Allfather\Loopia\Product\P01\HistoricalFindingAdapter::verify(
+                $parts['historical_finding'])->isOk()
+            || !\Allfather\Loopia\Workflow\NativeReleaseProposal::verify(
+                $parts['native_release_proposal'])->isOk()
+            || !\Allfather\Loopia\Workflow\HistoryReviewOutcomes::verify(
+                $parts['outcome_annotation'])->isOk()
+            || !\Allfather\Loopia\Product\P04\InternalAttention::verify(
+                $parts['internal_attention'])->isOk()){
+            return Outcome::refuse('RT01_CANDIDATE_SOURCE_CONTRACT_NOT_REPLAYABLE');
+        }
+        $finding=$parts['historical_finding'];
+        $native=$parts['native_release_proposal'];
+        $outcome=$parts['outcome_annotation'];
+        $attention=$parts['internal_attention'];
+        if($finding['scope']!==$native['scope']
+            || $finding['scope']!==$outcome['scope']
+            || $finding['scope']!==$attention['scope']
+            || $finding['finding_digest']!==$native['finding_digest']
+            || $finding['finding_digest']!==$outcome['finding_digest']
+            || $finding['finding_digest']!==$attention['historical_finding_digest']
+            || $outcome['annotation_digest']!==$attention['outcome_annotation_digest']){
+            return Outcome::refuse('RT01_COMPOSITION_SCOPE_OR_LINEAGE_MISMATCH');
+        }
+        $owners=[
+            \Allfather\Loopia\Workflow\PointInTimeHistoricalBasis::class,
+            \Allfather\Loopia\Workflow\HistoryReviewDue::class,
+            \Allfather\Loopia\Workflow\HistoryDependencyIndex::class,
+            \Allfather\Loopia\Workflow\HistoryReviewQueue::class,
+            \Allfather\Loopia\Workflow\HistoryReviewAdmission::class,
+            \Allfather\Loopia\Workflow\HistoryReviewService::class,
+            \Allfather\Loopia\Workflow\NativeReleaseProposal::class,
+            \Allfather\Loopia\Workflow\HistoryReviewOutcomes::class,
+            \Allfather\Loopia\Workflow\HistoryReviewFollowUp::class,
+            \Allfather\Loopia\Product\P04\InternalAttention::class,
+            \Allfather\Loopia\Product\P04\InternalDigest::class,
+            \Allfather\Loopia\Workflow\HistoryReviewAssurance::class,
+            \Allfather\Loopia\Ops\HistoryRecoveryManifest::class,
+            \Allfather\Loopia\Workflow\HistoryReviewCommandCandidate::class,
+        ];
+        foreach($owners as $owner){
+            if(!class_exists($owner)){
+                return Outcome::refuse('RT01_COMPOSITION_MODULE_SOURCE_MISSING');
+            }
+        }
+        $v=[
+            'version'=>'rt01.inert-source-composition.v1',
+            'status'=>'COMPLETE_SYNTHETIC_SOURCE_GRAPH_NO_RUNTIME_PERMISSION',
+            'scope'=>$finding['scope'],
+            'schema_plan_digest'=>$parts['schema_plan']['plan_digest'],
+            'finding_digest'=>$finding['finding_digest'],
+            'outcome_digest'=>$outcome['annotation_digest'],
+            'attention_digest'=>$attention['attention_digest'],
+            'source_module_count'=>count($owners),
+            'source_module_identifiers'=>$owners,
+            'owner_gate_states'=>array_fill_keys(
+                \Allfather\Loopia\Ops\BuildFirstRegistry::GATES,'NOT_ADOPTED'),
+            'provider_executed'=>false,
+            'new_source_captured'=>false,
+            'runtime_migration_applied'=>false,
+            'native_m10_record_written'=>false,
+            'p04_notification_sent'=>false,
+            'customer_visibility_authorized'=>false,
+        ];
+        $v['composition_digest']=\Allfather\Loopia\Core\Digest::canonicalDigest($v);
+        return Outcome::ok($v);
+    }
+
     /** @return Outcome<array<string,mixed>> */
     public static function mockAnalyst(
         array $request,array $basis,array $memory,string $resultKind='HYPOTHESIS_FOR_HUMAN',

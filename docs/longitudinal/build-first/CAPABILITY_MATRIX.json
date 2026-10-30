@@ -637,8 +637,8 @@
         "U10"
       ],
       "semantic_owner": "Schema steward",
-      "build_status": "NOT_STARTED",
-      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "build_status": "BUILT_INERT",
+      "source_basis": "RT01_12_FAMILIES_38_PHYSICAL_TABLES_76_TRIGGERS_LEGACY_900_PIN_TOPOLOGICAL_SOURCE_MANIFEST_DISPOSABLE_TEST_INSTALL_TYPED_NO_LIVE_OWNER_GRANTS",
       "candidate_factory_binding": "NOT_REGISTERED",
       "native_permission": false,
       "customer_visibility": false,
