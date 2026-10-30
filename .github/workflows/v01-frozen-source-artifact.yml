@@ -86,7 +86,7 @@ jobs:
                   blob=tar.extractfile(member).read()
                   recorded=hashlib.sha1(b"blob "+str(len(blob)).encode()+b"\0"+blob).hexdigest()
                   sha,mode=git_files[name]
-                  if recorded!=sha or (member.mode & 0o777)!=mode:
+                  if recorded!=sha or (member.mode & 0o777)!=(0o775 if mode==0o755 else 0o664):
                       raise RuntimeError("V01_ARCHIVE_BYTE_OR_MODE_MISMATCH")
                   actual[name]=recorded
                   source_bytes+=len(blob)
@@ -105,7 +105,10 @@ jobs:
               "uncompressed_tracked_bytes":source_bytes,
               "archive_sha256":digest,
               "archive_name":archive.name,
-              "git_blob_and_mode_parity":True,
+              "git_blob_parity":True,
+              "git_archive_tar_modes_verified":True,
+              "git_archive_100644_tar_mode":"0664",
+              "git_archive_100755_tar_mode":"0775",
               "source_archive_only":True,
               "runtime_host_qualified":False,
               "live_schema_migrated":False,
