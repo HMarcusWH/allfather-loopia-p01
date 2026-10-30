@@ -161,3 +161,14 @@ note pointing here rather than being rewritten:
 | P02 "web surface not included" | `LOOPIA_CAPABILITY_REPORT.md` §1 | corrected in place |
 | "Nothing has run on Loopia", the canary "has never been run on a real host", the probe "has only ever run in CI" | `LOOPIA_HOST_MODEL.md` §5 | historical as of 2026-09-06; PR13–PR16 ran all three on Loopia |
 | MariaDB 10.6 "verified in CI, on every commit" | `LOOPIA_HOST_MODEL.md` §5 | historical interruption: hosted CI was unavailable through PR25; main `2ada973c` is directly hosted-qualified on both 10.6 and 10.11; actual-host evidence is filed separately |
+
+
+## 30 October 2026 — Build-first v2 RT-02 source-freeze candidate (not a deployment)
+
+The isolated build train has **28 of 29 packages merged** through RT-01 `f55f18b5ce1b4875663ecbe7283ea3b4cb4e33b8`; RT-02 is being prepared separately and is **not yet merged or CI-qualified** in this source notice. This note does not replace historical October staging/CI/owner decisions above.
+
+The prepared [build freeze manifest](BUILD_FREEZE_MANIFEST.json) and [final acceptance protocol](LONGITUDINAL_RELEASE_ACCEPTANCE.md) distinguish source implementation, exact Git SHA/tree qualification, host/owner admission, and customer release. Every U01–U10 expansion remains NOT_ADOPTED in the local source register; current runtime/host authority must be queried independently before V-phase. The proposed 12 family/38 table/76 trigger DDL is **not installed** in normal startup and RT-01's CLI-only disposable installer never touches staging or production.
+
+The RT-02 source archive procedure packages only explicitly allowlisted tracked files in a private off-repo directory, with SHA-256 receipts. No archive was produced or deployed by this documentation. The 64 generic BF-01 contract carriers are not all authenticated native producers merely because their positive/refusal examples pass.
+
+**Still NOT RUN:** full V01–V11 qualification, actual source/provider and model-quality evaluation, first/second TEST-account deployed browser acceptance, independent populated restore, Railway host migration, genuine historical human decisions, scheduled paid inference, public/customer launch and production review. A future successful RT-02 source CI/merge would establish only BUILD_INERT source completeness.
