@@ -38,14 +38,22 @@ if(is_file($workflowFile) && !is_link($workflowFile)){
     Assert::true(str_contains($workflow,'host_runtime_acceptance'),
         'CI image build must expressly disclaim staging-host acceptance');
 } else {
-    // The qualification runner deliberately rsyncs a CLOSED release projection
-    // into <temporary>/qualification/rsync-contract-target; .github is not
-    // distributed there. Do not accept the missing workflow anywhere else.
+    // The qualification runner stages a CLOSED release projection into
+    // <temporary>/qualification/rsync-contract-target. It retains the tracked
+    // ci.yml but deliberately EXCLUDES all other workflow files. The host's
+    // own .git/.github sentinels are protected from rsync deletion.
+    // Only this exact synthetic shape may omit the Docker build workflow.
+    $hostWorkflow=$root.'/.github/workflows/host-only.yml';
+    $hostGit=$root.'/.git/config';
     Assert::true(
         basename($root)==='rsync-contract-target'
             && basename(dirname($root))==='qualification'
-            && !is_dir($root.'/.github')
-            && !is_dir($root.'/.git'),
-        'only the disposable CI rsync release rehearsal may omit .github');
+            && is_file($root.'/.github/workflows/ci.yml')
+            && is_file($hostWorkflow)
+            && trim((string)file_get_contents($hostWorkflow))==='HOST_GITHUB_SENTINEL'
+            && is_file($hostGit)
+            && trim((string)file_get_contents($hostGit))==='HOST_GIT_SENTINEL'
+            && !file_exists($workflowFile),
+        'only the CI rsync rehearsal with exact protected host sentinels may omit CR01');
 }
 
