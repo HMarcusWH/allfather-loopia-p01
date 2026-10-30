@@ -1,0 +1,144 @@
+{
+  "schema_version": "rt01.physical-candidate-schema-manifest.v1",
+  "status": "CANDIDATE_SOURCE_ONLY_NOT_INSTALLED",
+  "source_schema_registry": "docs/longitudinal/build-first/SCHEMA_FAMILY_REGISTRY.json",
+  "immutable_900_path": "database/migrations/900_deferred_foreign_keys.sql",
+  "immutable_900_handling": "DO_NOT_EDIT_OR_RERUN",
+  "physical_families": [
+    {
+      "family": "260",
+      "path": "docs/longitudinal/proposals/260_competitor_assessments_CANDIDATE.sql",
+      "expected_tables": 3,
+      "expected_triggers": 6,
+      "depends_on": [],
+      "source_sha256": "RECOMPUTE_FROM_CURRENT_EXACT_SOURCE_AT_PREPARE",
+      "live_install_authorized": false
+    },
+    {
+      "family": "265",
+      "path": "docs/longitudinal/proposals/265_observation_features_CANDIDATE.sql",
+      "expected_tables": 2,
+      "expected_triggers": 4,
+      "depends_on": [
+        "260"
+      ],
+      "source_sha256": "RECOMPUTE_FROM_CURRENT_EXACT_SOURCE_AT_PREPARE",
+      "live_install_authorized": false
+    },
+    {
+      "family": "270",
+      "path": "docs/longitudinal/proposals/270_history_review_bases_CANDIDATE_NOT_ADOPTED.sql",
+      "expected_tables": 2,
+      "expected_triggers": 4,
+      "depends_on": [],
+      "source_sha256": "RECOMPUTE_FROM_CURRENT_EXACT_SOURCE_AT_PREPARE",
+      "live_install_authorized": false
+    },
+    {
+      "family": "280",
+      "path": "docs/longitudinal/proposals/280_m17_temporal_memory_CANDIDATE_NOT_ADOPTED.sql",
+      "expected_tables": 7,
+      "expected_triggers": 14,
+      "depends_on": [],
+      "source_sha256": "RECOMPUTE_FROM_CURRENT_EXACT_SOURCE_AT_PREPARE",
+      "live_install_authorized": false
+    },
+    {
+      "family": "290",
+      "path": "docs/longitudinal/proposals/290_history_review_policy_CANDIDATE_NOT_ADOPTED.sql",
+      "expected_tables": 3,
+      "expected_triggers": 6,
+      "depends_on": [
+        "270"
+      ],
+      "source_sha256": "RECOMPUTE_FROM_CURRENT_EXACT_SOURCE_AT_PREPARE",
+      "live_install_authorized": false
+    },
+    {
+      "family": "300",
+      "path": "docs/longitudinal/proposals/300_history_review_queue_jobs_CANDIDATE.sql",
+      "expected_tables": 3,
+      "expected_triggers": 6,
+      "depends_on": [],
+      "source_sha256": "RECOMPUTE_FROM_CURRENT_EXACT_SOURCE_AT_PREPARE",
+      "live_install_authorized": false
+    },
+    {
+      "family": "310",
+      "path": "docs/longitudinal/proposals/310_history_review_execution_CANDIDATE.sql",
+      "expected_tables": 3,
+      "expected_triggers": 6,
+      "depends_on": [],
+      "source_sha256": "RECOMPUTE_FROM_CURRENT_EXACT_SOURCE_AT_PREPARE",
+      "live_install_authorized": false
+    },
+    {
+      "family": "320",
+      "path": "docs/longitudinal/proposals/320_history_review_runs_CANDIDATE.sql",
+      "expected_tables": 3,
+      "expected_triggers": 6,
+      "depends_on": [],
+      "source_sha256": "RECOMPUTE_FROM_CURRENT_EXACT_SOURCE_AT_PREPARE",
+      "live_install_authorized": false
+    },
+    {
+      "family": "330",
+      "path": "docs/longitudinal/proposals/330_historical_finding_bindings_CANDIDATE.sql",
+      "expected_tables": 3,
+      "expected_triggers": 6,
+      "depends_on": [],
+      "source_sha256": "RECOMPUTE_FROM_CURRENT_EXACT_SOURCE_AT_PREPARE",
+      "live_install_authorized": false
+    },
+    {
+      "family": "340",
+      "path": "docs/longitudinal/proposals/340_internal_attention_CANDIDATE.sql",
+      "expected_tables": 4,
+      "expected_triggers": 8,
+      "depends_on": [],
+      "source_sha256": "RECOMPUTE_FROM_CURRENT_EXACT_SOURCE_AT_PREPARE",
+      "live_install_authorized": false
+    },
+    {
+      "family": "345",
+      "path": "docs/longitudinal/proposals/345_history_review_outcomes_CANDIDATE.sql",
+      "expected_tables": 2,
+      "expected_triggers": 4,
+      "depends_on": [
+        "330"
+      ],
+      "source_sha256": "RECOMPUTE_FROM_CURRENT_EXACT_SOURCE_AT_PREPARE",
+      "live_install_authorized": false
+    },
+    {
+      "family": "350",
+      "path": "docs/longitudinal/proposals/350_history_dependencies_CANDIDATE.sql",
+      "expected_tables": 3,
+      "expected_triggers": 6,
+      "depends_on": [],
+      "source_sha256": "RECOMPUTE_FROM_CURRENT_EXACT_SOURCE_AT_PREPARE",
+      "live_install_authorized": false
+    }
+  ],
+  "totals": {
+    "families": 12,
+    "physical_tables": 38,
+    "append_only_triggers": 76,
+    "sql_statements": 114
+  },
+  "provisional_registry_known_divergences": [
+    "260",
+    "300",
+    "310",
+    "330",
+    "340",
+    "350"
+  ],
+  "physical_fk_order": "TOPOLOGICALLY_DERIVED_FROM_ALL_FOREIGN_KEY_REFERENCES",
+  "partial_ddl_rule": "HOLD_AND_MANUAL_DISPOSABLE_RECONSTRUCTION_NO_AUTOMATIC_ROLLBACK",
+  "fixture_only_install": true,
+  "live_auto_migration": false,
+  "external_effects": false,
+  "source_or_provider_admitted": false,
+  "customer_visibility": false
+}

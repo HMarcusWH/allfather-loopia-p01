@@ -27,6 +27,28 @@ final class RuntimeInvariantProbe
     ) {
     }
 
+    /**
+     * RT-01: no-DB candidate packaging posture, separate from the existing
+     * runtime invariant probe which exercises migrated native controls.
+     */
+    public static function candidateSchemaStatus(string $root): \Allfather\Loopia\Core\Outcome
+    {
+        $plan=HistorySchemaPlan::inspect($root);
+        if(!$plan->isOk())return $plan;
+        return \Allfather\Loopia\Core\Outcome::ok([
+            'version'=>'rt01.runtime-candidate-posture.v1',
+            'status'=>'CANDIDATE_SCHEMA_PRESENT_RUNTIME_HARD_DISABLED',
+            'plan_digest'=>$plan->value()['plan_digest'],
+            'expected_physical_tables'=>$plan->value()['table_count'],
+            'expected_append_only_triggers'=>$plan->value()['trigger_count'],
+            'current_native_database_verified'=>false,
+            'candidate_tables_installed_on_runtime'=>false,
+            'u01_through_u10_owner_adopted'=>false,
+            'provider_source_scheduler_enabled'=>false,
+            'customer_visibility_authorized'=>false,
+        ]);
+    }
+
     /** @return array<string, mixed> */
     public function run(string $tenantKey, string $workspaceKey): array
     {
