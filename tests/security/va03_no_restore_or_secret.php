@@ -46,9 +46,13 @@ foreach([
     Assert::false(str_contains($serialized,$secret),
         'the index contains digests rather than secret/source bytes');
 }
-Assert::same('VA03_PRIVATE_READ_RUNTIME_NOT_ADOPTED',
-    HistoryRecoveryManifest::verifyPrivateFixtureBytes($manifest,$root)->reasonCode(),
-    'normal CLI without marker cannot read even synthetic private payloads');
+$privateRead=HistoryRecoveryManifest::verifyPrivateFixtureBytes($manifest,$root);
+Assert::false($privateRead->isOk(),
+    'the repository root is never a private disposable M05 fixture store');
+Assert::true(str_contains(
+    (string)file_get_contents($root.'/app/Ops/HistoryRecoveryManifest.php'),
+    'ALLFATHER_VA03_PRIVATE_FIXTURE_TEST'),
+    'fixture-only private byte verification cannot be called by ordinary runtime');
 $bad=$manifest;
 $bad['private_artifacts'][0]['embedded_bytes']=true;
 $copy=$bad;unset($copy['manifest_digest']);
