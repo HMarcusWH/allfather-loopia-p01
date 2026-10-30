@@ -115,21 +115,21 @@ final class HistorySchemaPlan
             $dep=[];
             foreach($entry['fk_reference_targets'] as $target){
                 if(isset($owners[$target])){
-                    if($owners[$target]!==$family)$dep[$owners[$target]]=true;
+                    if($owners[$target] !== (string)$family)$dep[$owners[$target]]=true;
                 }elseif(!in_array($target,self::EXISTING_OWNER_PARENTS,true)){
                     return Outcome::refuse('RT01_UNRECONCILED_FK_PARENT');
                 }
             }
-            $depends[$family]=array_keys($dep);sort($depends[$family],SORT_STRING);
+            $depends[$family]=array_map('strval',array_keys($dep));sort($depends[$family],SORT_STRING);
             foreach($depends[$family] as $required){
-                $edges[]=['before'=>$required,'after'=>$family];
+                $edges[]=['before'=>$required,'after'=>(string)$family];
             }
         }
         $order=[];$remaining=$depends;
         while($remaining!==[]){
             $ready=[];
             foreach($remaining as $name=>$deps){
-                if(array_diff($deps,$order)===[])$ready[]=$name;
+                if(array_diff($deps,$order)===[])$ready[]=(string)$name;
             }
             sort($ready,SORT_STRING);
             if($ready===[])return Outcome::refuse('RT01_FK_TOPOLOGICAL_CYCLE');

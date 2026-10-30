@@ -23,6 +23,16 @@ Assert::true(HistorySchemaPlan::verify($root,$p)->isOk(),
 Assert::same(12,$p['family_count'],'all twelve frozen schema families present');
 Assert::same(38,$p['table_count'],'38 physical candidate tables across 12 SQL families');
 Assert::same(76,$p['trigger_count'],'76 append-only candidate triggers');
+Assert::same([
+    ['before'=>'260','after'=>'265'],
+    ['before'=>'270','after'=>'290'],
+    ['before'=>'330','after'=>'345'],
+],$p['fk_dependency_edges'],
+    'numeric-looking family keys never become false FK self-edges');
+foreach($p['fk_dependency_edges'] as $edge){
+    Assert::false($edge['before']===$edge['after'],
+        'same-family FK references stay internal rather than cyclic');
+}
 Assert::same(false,$p['legacy_900_modified_or_rerun'],
     'older 900 migration source is protected, never replayed');
 Assert::same(false,$p['live_schema_installed'],
