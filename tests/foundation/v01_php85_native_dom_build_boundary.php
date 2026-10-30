@@ -24,14 +24,28 @@ Assert::true(str_contains($docker,"extension_loaded(\"dom\")"),
     'DOM extension itself remains an explicit host capability requirement');
 Assert::true(str_contains($docker,'apache2ctl -t'),
     'Apache configuration is still checked during image build');
-$workflow=(string)file_get_contents(dirname(__DIR__,2).
-    '/.github/workflows/cr01-html5-native.yml');
-Assert::true(str_contains($workflow,'staging-image-build:'),
-    'CR01 pull request workflow now must build the actual staging Docker image');
-Assert::true(str_contains($workflow,'docker build --pull --progress=plain'),
-    'source-only PHP lint is not a substitute for the PHP8.5 staging Docker build');
-Assert::true(str_contains($workflow,'--network none --entrypoint php'),
-    'image capabilities are inspected without running the app or network');
-Assert::true(str_contains($workflow,'host_runtime_acceptance'),
-    'CI image build must expressly disclaim staging-host acceptance');
+$root=dirname(__DIR__,2);
+$workflowFile=$root.'/.github/workflows/cr01-html5-native.yml';
+if(is_file($workflowFile) && !is_link($workflowFile)){
+    // Source checkout: the actual PR CI definition is mandatory.
+    $workflow=(string)file_get_contents($workflowFile);
+    Assert::true(str_contains($workflow,'staging-image-build:'),
+        'CR01 pull request workflow must build the actual staging Docker image');
+    Assert::true(str_contains($workflow,'docker build --pull --progress=plain'),
+        'PHP lint cannot substitute for a real PHP8.5 staging Docker build');
+    Assert::true(str_contains($workflow,'--network none --entrypoint php'),
+        'image capabilities must be inspected without app start or network');
+    Assert::true(str_contains($workflow,'host_runtime_acceptance'),
+        'CI image build must expressly disclaim staging-host acceptance');
+} else {
+    // The qualification runner deliberately rsyncs a CLOSED release projection
+    // into <temporary>/qualification/rsync-contract-target; .github is not
+    // distributed there. Do not accept the missing workflow anywhere else.
+    Assert::true(
+        basename($root)==='rsync-contract-target'
+            && basename(dirname($root))==='qualification'
+            && !is_dir($root.'/.github')
+            && !is_dir($root.'/.git'),
+        'only the disposable CI rsync release rehearsal may omit .github');
+}
 
