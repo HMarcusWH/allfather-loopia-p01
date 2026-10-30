@@ -1,0 +1,62 @@
+{
+  "schema_version": "va03.full-restore-manifest.vNext-candidate",
+  "classification": "SYNTHETIC_ONLY_NO_REAL_P10_R5_P11_RESTORE",
+  "families": [
+    260,
+    265,
+    270,
+    280,
+    290,
+    300,
+    310,
+    320,
+    330,
+    340,
+    345,
+    350
+  ],
+  "private_kinds": [
+    "M05_PRIVATE_CAPTURE",
+    "HISTORICAL_ANALYST_ARTIFACT",
+    "ATTEMPT_BEFORE_CURSOR",
+    "REQUEST_LOG_PREFIX"
+  ],
+  "tests": [
+    {
+      "case": "complete_source_family_index",
+      "outcome": "PROPOSAL_FILE_HASHES_VERIFIED_OFFLINE"
+    },
+    {
+      "case": "missing_private_blob",
+      "refusal": "VA03_PRIVATE_REFERENCED_BLOB_MISSING"
+    },
+    {
+      "case": "tampered_private_bytes",
+      "refusal": "VA03_PRIVATE_BLOB_DIGEST_OR_LENGTH_INVALID"
+    },
+    {
+      "case": "wrong_source_cutoff",
+      "refusal": "VA03_RECOVERY_MANIFEST_REHASH_OR_AUTHORITY_FORGED"
+    },
+    {
+      "case": "R5_backup_pair_claimed_restored",
+      "refusal": "VA03_R5_INVENTORY_NOT_RESTORE_EVIDENCE"
+    },
+    {
+      "case": "P11_rewrap_claimed",
+      "refusal": "VA03_RECOVERY_CREDENTIAL_CUTOVERS_NOT_PROVEN"
+    },
+    {
+      "case": "actual_restore_attempt",
+      "refusal": "VA03_RESTORE_REQUIRES_SEPARATE_P10_P11_OWNER_APPROVAL"
+    }
+  ],
+  "recovery_levels": [
+    "EXISTING_LIVE_SOURCE",
+    "ISOLATED_FULL_CANDIDATE",
+    "POPULATED_POST_MIGRATION"
+  ],
+  "all_actual_restores_performed": false,
+  "live_migration": false,
+  "customer_visibility": false
+}
