@@ -247,6 +247,7 @@ final class HistoryRecoveryManifest
         $root=realpath($privateRoot);
         if($root===false||!is_dir($root)||is_link($privateRoot)
             || str_contains($root,'/public_html/')
+            || str_ends_with($root,'/public_html')
             || (fileperms($root)&0077)!==0){
             return Outcome::refuse('VA03_PRIVATE_FIXTURE_ROOT_INVALID');
         }

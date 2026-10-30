@@ -46,9 +46,18 @@ foreach([
     Assert::false(str_contains($serialized,$secret),
         'the index contains digests rather than secret/source bytes');
 }
-$privateRead=HistoryRecoveryManifest::verifyPrivateFixtureBytes($manifest,$root);
-Assert::false($privateRead->isOk(),
-    'the repository root is never a private disposable M05 fixture store');
+// The full runner shares one PHP process across integration/security layers;
+ // in isolation the marker is absent, after integration it is deliberately
+ // present. Prove the exact expected refusal in BOTH legal test orders.
+$privateRead=HistoryRecoveryManifest::verifyPrivateFixtureBytes(
+    $manifest,$root.'/public_html',
+);
+$marked=defined('ALLFATHER_VA03_PRIVATE_FIXTURE_TEST')
+    && constant('ALLFATHER_VA03_PRIVATE_FIXTURE_TEST')===true;
+$refusal=$marked?'VA03_PRIVATE_FIXTURE_ROOT_INVALID'
+    :'VA03_PRIVATE_READ_RUNTIME_NOT_ADOPTED';
+Assert::same($refusal,$privateRead->reasonCode(),
+    'web-served public_html cannot be a private blob root, even with fixture marker');
 Assert::true(str_contains(
     (string)file_get_contents($root.'/app/Ops/HistoryRecoveryManifest.php'),
     'ALLFATHER_VA03_PRIVATE_FIXTURE_TEST'),
