@@ -1,0 +1,80 @@
+{
+  "schema_version": "an03.provisional-multi-reference-historical-finding.v1",
+  "classification": "SYNTHETIC_CANDIDATE_ONLY_U03_U06_U07_HELD",
+  "example": {
+    "primary_ref_ids": [
+      "ref_a",
+      "ref_b"
+    ],
+    "support_ref_ids": [
+      "ref_a"
+    ],
+    "contrary_ref_ids": [
+      "ref_b"
+    ],
+    "independent_publisher_count": null,
+    "real_world_event_count": null,
+    "events": [
+      "SYNTHETIC_REQUEST_INSPECTED_NO_GRANT",
+      "ANALYST_CANDIDATE_RETAINED",
+      "CRITIC_CHALLENGE_RETAINED"
+    ],
+    "status": "PROVISIONAL_MULTI_REFERENCE_HUMAN_REVIEW_HOLD",
+    "release_disposition": "HOLD_U03_U06_U07_NATIVE_MULTI_EVIDENCE_ROUTE_NOT_ADOPTED",
+    "m10_release_authorized": false,
+    "p02_twin_mutation": false,
+    "p04_distribution": false
+  },
+  "refusal_cases": [
+    {
+      "case": "missing_critic",
+      "status": "AN03_REVIEW_BASIS_OR_ARTIFACT_UNVERIFIED"
+    },
+    {
+      "case": "broken_chain",
+      "status": "AN03_REVIEW_CHAIN_NOT_A_HUMAN_HOLD"
+    },
+    {
+      "case": "contrary_as_support",
+      "status": "AN03_SUPPORT_OR_CONTRARY_BUNDLE_INVALID"
+    },
+    {
+      "case": "forged_release",
+      "status": "AN03_FINDING_FORGED_AUTHORITY"
+    },
+    {
+      "case": "altered_source_dag",
+      "status": "AN03_FINDING_DEPENDENCY_GRAPH_REWRITTEN"
+    }
+  ],
+  "sql": "330_historical_finding_bindings_CANDIDATE.sql",
+  "live_migration": false,
+  "paid_provider_calls": 0,
+  "customer_output": false,
+  "native_owner_fixture": {
+    "version": "an03.native-multi-evidence-release-proposal.v1",
+    "status": "SYNTHETIC_ONLY_NOT_AUTHORIZED",
+    "expected_stages": [
+      "M05_SOURCE_USE",
+      "HUMAN_FACTUAL",
+      "M04_PROPOSAL",
+      "M07_REVIEW",
+      "M08_ADMISSIBILITY",
+      "M10_CANDIDATE",
+      "HUMAN_DELIVERY",
+      "M16_CANDIDATE"
+    ],
+    "support_ref_ids": [
+      "ref_a"
+    ],
+    "contrary_ref_ids": [
+      "ref_b"
+    ],
+    "positive": "FIXTURE_OWNER_SEQUENCE_PASS_NO_LIVE_RELEASE",
+    "denial": "AN03_FIXTURE_OWNER_M05_SOURCE_USE_HOLD",
+    "native_owner_adoption": "CONTRACT_BLOCKED_U03_U06_U07",
+    "writes_real_m10": false,
+    "changes_p02_or_p04": false,
+    "customer_output": false
+  }
+}
