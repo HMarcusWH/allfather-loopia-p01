@@ -6,7 +6,7 @@ declare(strict_types=1);
  * AQ-02 source-only status/fixture preview. Never a browser, schedule, sender,
  * M10 recorder, database migrator or customer-facing delivery entrypoint.
  */
-if(PHP_SAPI!=='cli'){
+if (PHP_SAPI !== 'cli') {
     http_response_code(403);
     exit(2);
 }

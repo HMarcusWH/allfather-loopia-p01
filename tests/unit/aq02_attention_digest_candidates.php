@@ -31,7 +31,7 @@ Assert::true(InternalAttention::verify($a)->isOk(),
 Assert::same(['PREPARE'],$owner->stages,
     'initial attention checks owner read once');
 Assert::same('ATTENTION_CANDIDATE_INTERNAL_ONLY',$a['status'],
-    'no action permitted even when fixture's M10 state is CURRENT');
+    'no action permitted even when the synthetic M10 state is CURRENT');
 Assert::same('SALES',$a['target_org_role'],'explicit P04 role preserved');
 Assert::same(false,$a['customer_visibility_authorized'],
     'internal attention candidate cannot publish to a customer');
