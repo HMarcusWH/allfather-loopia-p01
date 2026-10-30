@@ -55,14 +55,14 @@ Assert::same('NOT_FOUND',
 Assert::same(0,$fixture->receiptCount(),'all GET reads leave business work untouched');
 
 $command=new HistoryReviewCommandCandidate($adapter);
-$plan=$command->plan($session,$competitor,$question,$row['revision'],
+$plan=$command->reviewPlan($session,$competitor,$question,$row['revision'],
     'REQUEST_HUMAN_REVIEW','CONTRARY_EVIDENCE_UNRESOLVED');
 Assert::true($plan->isOk(),'exact scoped reviewed command plan runs in fixture');
 if(!$plan->isOk())return;
 Assert::same(false,$plan->value()['human_decision_authenticated'],
     'plan is not a real human decision');
 Assert::same('UI02_REVIEW_REVISION_STALE_OR_NOT_SCOPED',
-    $command->plan($session,$competitor,$question,str_repeat('a',64),
+    $command->reviewPlan($session,$competitor,$question,str_repeat('a',64),
        'REQUEST_HUMAN_REVIEW','CONTRARY_EVIDENCE_UNRESOLVED')->reasonCode(),
     'wrong review revision cannot act');
 Assert::same('UI02_REVIEW_PLAN_STALE_OR_FORGED',

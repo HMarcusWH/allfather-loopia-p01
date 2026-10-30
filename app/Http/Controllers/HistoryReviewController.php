@@ -55,7 +55,7 @@ final class HistoryReviewController
             ],409);
         }
         $out=$mode==='plan'
-            ?$this->commands->plan($session,$competitor,$question,$revision,$action,$reason)
+            ?$this->commands->reviewPlan($session,$competitor,$question,$revision,$action,$reason)
             :$this->commands->submit($session,$competitor,$question,$revision,$action,
                 $reason,$request->body('plan_digest'));
         $read=$this->reader->list($session,$competitor,$question);

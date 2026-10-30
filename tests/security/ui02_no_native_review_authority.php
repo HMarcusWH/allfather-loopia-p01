@@ -64,7 +64,7 @@ $bad=$body;$bad['csrf_token']='forged';
 Assert::same(403,$ctl->submit($post($bad),$session)->status,
     'forged form token cannot enter a review command');
 
-$planned=$commands->plan($session,$competitor,$question,$revision,
+$planned=$commands->reviewPlan($session,$competitor,$question,$revision,
     'REQUEST_HUMAN_REVIEW','CONTRARY_EVIDENCE_UNRESOLVED');
 Assert::true($planned->isOk(),'fixture plan available for replay/stale tests');
 if(!$planned->isOk())return;

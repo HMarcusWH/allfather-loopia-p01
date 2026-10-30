@@ -57,7 +57,7 @@ Assert::same(200,$ctl->show($get,$session)->status,
     'GET metadata reads only scoped synthetic owner fixtures');
 Assert::same(0,$fixture->receiptCount(),'GET creates no review proposal');
 $revision=$adapter->list($session,$competitor,$question)['data']['rows'][0]['revision'];
-$plan=$commands->plan($session,$competitor,$question,$revision,
+$plan=$commands->reviewPlan($session,$competitor,$question,$revision,
     'REQUEST_HUMAN_REVIEW','OPERATOR_REVIEW_REQUESTED');
 Assert::true($plan->isOk(),'valid bounded plan can be reviewed');
 if(!$plan->isOk())return;

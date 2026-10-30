@@ -26,7 +26,7 @@ final class HistoryReviewCommandCandidate
 
     public function __construct(private readonly HistoryReviewAdapter $reader){}
 
-    public function plan(?array $session,string $competitor,string $question,
+    public function reviewPlan(?array $session,string $competitor,string $question,
                          string $revision,string $action,string $reason):Outcome
     {
         if(!HistoryReviewAdapter::sessionScope($session)
@@ -77,7 +77,7 @@ final class HistoryReviewCommandCandidate
             || preg_match('/^[a-f0-9]{64}$/D',$expectedPlanDigest)!==1){
             return Outcome::refuse('UI02_EXACT_PLAN_DIGEST_REQUIRED');
         }
-        $plan=$this->plan($session,$competitor,$question,$revision,$action,$reason);
+        $plan=$this->reviewPlan($session,$competitor,$question,$revision,$action,$reason);
         if(!$plan->isOk())return $plan;
         if(!hash_equals($plan->value()['plan_digest'],$expectedPlanDigest)){
             return Outcome::refuse('UI02_REVIEW_PLAN_STALE_OR_FORGED');
