@@ -15,7 +15,7 @@ use Allfather\Loopia\Tests\{Assert,Aq02MockAttention,Aq02FixtureAttentionOwner};
 
 $root=dirname(__DIR__,2);
 $plan=HistorySchemaPlan::inspect($root);
-Assert::true($plan->isOk(),'RT01 source SQL and immutable registry reconcile');
+Assert::true($plan->isOk(),'RT01 source SQL and immutable registry reconcile: '.($plan->isOk()?'OK':$plan->reasonCode()));
 if(!$plan->isOk())return;
 $p=$plan->value();
 Assert::true(HistorySchemaPlan::verify($root,$p)->isOk(),
