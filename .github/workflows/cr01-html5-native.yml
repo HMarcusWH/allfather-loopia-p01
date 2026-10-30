@@ -55,3 +55,94 @@ jobs:
 
       - name: No-egress and capability invariants
         run: php tests/run.php --layer=foundation --filter=cr01_html5_boundary --strict
+
+  staging-image-build:
+    name: actual PHP 8.5 Docker image build (no deploy)
+    needs: native-html5-php85
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact PR test-merge Git tree
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Confirm exact checkout and clean tracked tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git rev-parse 'HEAD^{tree}'
+
+      - name: Build actual staging Dockerfile without publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull --progress=plain \
+            --file Dockerfile \
+            --tag allfather-php85-cr01-ci:local \
+            .
+
+      - name: Inspect built image with no network and no app entrypoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cr01-image"
+          image_id="$(docker image inspect --format '{{ .Id }}' allfather-php85-cr01-ci:local)"
+          test -n "$image_id"
+          actual_php="$(docker run --rm --network none --entrypoint php \
+            allfather-php85-cr01-ci:local \
+            -r 'echo PHP_VERSION;')"
+          test "$actual_php" = "8.5.12"
+          docker run --rm --network none --entrypoint php \
+            allfather-php85-cr01-ci:local \
+            -r 'foreach (["pdo","pdo_mysql","curl","openssl","json","mbstring","hash","dom"] as $ext) {
+                   if (!extension_loaded($ext)) exit(3);
+                 }
+                 if (!class_exists("Dom\\HTMLDocument")) exit(4);
+                 if (!is_dir("/srv/allfather/public_html/assets/operator-console")) exit(5);
+                 if (!is_file("/srv/allfather/docs/BUILD_FREEZE_MANIFEST.json")) exit(6);
+                 echo "CR01_BUILT_IMAGE_NATIVE_HTML5_AND_ASSETS_PRESENT\n";'
+          local_sha="$(sha256sum docs/BUILD_FREEZE_MANIFEST.json | cut -d' ' -f1)"
+          image_sha="$(docker run --rm --network none --entrypoint php \
+            allfather-php85-cr01-ci:local \
+            -r 'echo hash_file("sha256","/srv/allfather/docs/BUILD_FREEZE_MANIFEST.json");')"
+          test "$local_sha" = "$image_sha"
+          IMAGE_ID="$image_id" PHP_VERSION="$actual_php" GIT_COMMIT="$GITHUB_SHA" \
+            GIT_TREE="$(git rev-parse 'HEAD^{tree}')" \
+            MANIFEST_HASH="$image_sha" \
+            python3 - <<'PY'
+          import json,os,pathlib
+          data={
+              "schema_version":"cr01.native-php85-container-ci.v1",
+              "state":"DISPOSABLE_IMAGE_BUILD_PASSED_NO_DEPLOY",
+              "pr_test_merge_sha":os.environ["GIT_COMMIT"],
+              "pr_test_merge_tree":os.environ["GIT_TREE"],
+              "php_version":os.environ["PHP_VERSION"],
+              "built_image_id":os.environ["IMAGE_ID"],
+              "manifest_sha256":os.environ["MANIFEST_HASH"],
+              "native_dom_html5_verified":True,
+              "required_extensions_verified":True,
+              "frontend_assets_present":True,
+              "network_at_runtime_inspection":False,
+              "entrypoint_executed":False,
+              "deploy_performed":False,
+              "railway_modified":False,
+              "database_touched":False,
+              "customer_visibility_authorized":False,
+              "host_runtime_acceptance":"NOT_YET_VERIFIED"
+          }
+          p=pathlib.Path(os.environ["RUNNER_TEMP"])/"cr01-image"/"receipt.json"
+          p.write_text(json.dumps(data,sort_keys=True,indent=2)+"\n",encoding="utf-8")
+          print(json.dumps(data,sort_keys=True))
+          PY
+
+      - name: Preserve bounded image build receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cr01-php85-built-image-proof
+          path: ${{ runner.temp }}/cr01-image/receipt.json
+          if-no-files-found: warn
+          retention-days: 21

@@ -24,3 +24,14 @@ Assert::true(str_contains($docker,"extension_loaded(\"dom\")"),
     'DOM extension itself remains an explicit host capability requirement');
 Assert::true(str_contains($docker,'apache2ctl -t'),
     'Apache configuration is still checked during image build');
+$workflow=(string)file_get_contents(dirname(__DIR__,2).
+    '/.github/workflows/cr01-html5-native.yml');
+Assert::true(str_contains($workflow,'staging-image-build:'),
+    'CR01 pull request workflow now must build the actual staging Docker image');
+Assert::true(str_contains($workflow,'docker build --pull --progress=plain'),
+    'source-only PHP lint is not a substitute for the PHP8.5 staging Docker build');
+Assert::true(str_contains($workflow,'--network none --entrypoint php'),
+    'image capabilities are inspected without running the app or network');
+Assert::true(str_contains($workflow,'host_runtime_acceptance'),
+    'CI image build must expressly disclaim staging-host acceptance');
+
