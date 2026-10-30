@@ -1388,4 +1388,18 @@ final class BackupManifest
             $digest,
         );
     }
+
+    /**
+     * VA-03 extension seam: offline source-family index verification only.
+     * The v1 P10 encrypted full-backup format and native restore gates are
+     * unchanged. Candidate families must never be silently installed.
+     */
+    public static function inspectUnadoptedHistoryIndex(
+        array $candidate,string $repositoryRoot,
+    ):Outcome {
+        return HistoryRecoveryManifest::verifyProposalFiles(
+            $candidate,$repositoryRoot,
+        );
+    }
+
 }
