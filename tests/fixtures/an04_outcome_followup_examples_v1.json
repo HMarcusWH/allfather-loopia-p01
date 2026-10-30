@@ -1,0 +1,68 @@
+{
+  "schema_version": "an04.provisional-later-outcomes.v2",
+  "origin": "SYNTHETIC_AN03_CANDIDATE_ONLY",
+  "statuses": [
+    "STILL_UNRESOLVED",
+    "REPORTED_CONFIRMED_IN_SCOPE",
+    "REPORTED_CONTRADICTED",
+    "COVERAGE_INSUFFICIENT",
+    "REPORTED_SUPERSEDED"
+  ],
+  "cases": [
+    {
+      "scenario": "later_support",
+      "outcome": "REPORTED_CONFIRMED_IN_SCOPE",
+      "adjudicated": false
+    },
+    {
+      "scenario": "later_contrary",
+      "outcome": "REPORTED_CONTRADICTED",
+      "adjudicated": false,
+      "old_digest_unchanged": true
+    },
+    {
+      "scenario": "two_outcome_forks",
+      "heads": "AMBIGUOUS_OUTCOME_HEAD_HOLD"
+    },
+    {
+      "scenario": "backdated_known_at",
+      "refused": true
+    },
+    {
+      "scenario": "invented_M11_reliability",
+      "refused": true
+    },
+    {
+      "scenario": "followup_dispatch",
+      "refusal": "AN04_U03_U07_U10_SOURCE_OR_MODEL_ACTION_NOT_ADOPTED"
+    },
+    {
+      "scenario": "unrelated_source_followup_target",
+      "refusal": "AN04_FOLLOWUP_TARGET_OUTSIDE_EVIDENCE_LINEAGE"
+    },
+    {
+      "scenario": "reported_observer_missing",
+      "refusal": "AN04_OUTCOME_INPUT_OR_SCOPE_INVALID"
+    },
+    {
+      "scenario": "rehash_successor_business_success",
+      "refusal": "AN04_ASSESSMENT_SUCCESSOR_REHASH_OR_AUTHORITY_FORGERY"
+    }
+  ],
+  "proposed_schema": "345_history_review_outcomes_CANDIDATE.sql",
+  "source_reuse_admitted": false,
+  "model_spending_authorized": false,
+  "automatic_prompt_or_schedule_updates": false,
+  "customer_release": false,
+  "attribution": {
+    "actor_type": "SYNTHETIC_FIXTURE",
+    "actor_id": "an04_reporter",
+    "identity_authenticated": false
+  },
+  "assessment_successor": {
+    "version": "an04.assessment-successor-candidate.v1",
+    "status": "ASSESSMENT_SUCCESSOR_CANDIDATE_NOT_ADJUDICATED",
+    "iv01_invalidation_executed": false,
+    "m10_correction_written": false
+  }
+}

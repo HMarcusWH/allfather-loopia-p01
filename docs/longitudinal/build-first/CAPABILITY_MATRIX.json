@@ -507,8 +507,8 @@
         "U10"
       ],
       "semantic_owner": "Domain/M10",
-      "build_status": "NOT_STARTED",
-      "source_basis": "REUSE_EXISTING_CODE_AFTER_PER_PACKAGE_AUDIT",
+      "build_status": "BUILT_INERT",
+      "source_basis": "AN04_V2_ATTRIBUTED_LATER_OUTCOMES_SCOPED_SOURCE_TARGETS_IMMUTABLE_ASSESSMENT_SUCCESSOR_IV01_GRAPH_NO_RUNTIME_OR_M10_AUTHORITY",
       "candidate_factory_binding": "NOT_REGISTERED",
       "native_permission": false,
       "customer_visibility": false,
