@@ -121,7 +121,7 @@ jobs:
           print(json.dumps(receipt,sort_keys=True))
           PY
 
-      - name: Upload proof: exact Git source archive + SHA + byte-for-byte receipt
+      - name: Upload exact Git source archive and SHA receipt
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: v01-frozen-source-archive-18457c305f93
