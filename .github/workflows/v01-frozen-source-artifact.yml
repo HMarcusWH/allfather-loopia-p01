@@ -1,0 +1,134 @@
+name: V01 frozen source archive verification (NO DEPLOY)
+
+on:
+  push:
+    branches:
+      - verification/v01-frozen-source-archive-20261030
+
+permissions:
+  contents: read
+
+jobs:
+  verify-source-artifact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact RT-02 frozen source (never the verification branch)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: 18457c305f93ccee0875fadbd738d2ae017cff2d
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Assert exact source SHA/tree and build guarded private archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_commit=18457c305f93ccee0875fadbd738d2ae017cff2d
+          expected_tree=0a8ac9ad77894a1699a8f79f93f26e88249f9662
+          test "$(git rev-parse HEAD)" = "$expected_commit"
+          test "$(git rev-parse 'HEAD^{tree}')" = "$expected_tree"
+          root="$RUNNER_TEMP/v01-frozen-source"
+          mkdir -m 0700 "$root"
+          chmod 0700 "$root"
+          bash ops/history/package-source.sh --output="$root/allfather-source-frozen.tar.gz"
+          (
+            cd "$root"
+            sha256sum -c allfather-source-frozen.tar.gz.sha256
+          )
+
+      - name: Independently verify EVERY archived byte against frozen Git blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import subprocess
+          import tarfile
+
+          expected_commit="18457c305f93ccee0875fadbd738d2ae017cff2d"
+          expected_tree="0a8ac9ad77894a1699a8f79f93f26e88249f9662"
+          path=pathlib.Path(os.environ["RUNNER_TEMP"])/"v01-frozen-source"
+          archive=path/"allfather-source-frozen.tar.gz"
+          if subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip()!=expected_commit:
+              raise RuntimeError("V01_SOURCE_COMMIT_MISMATCH")
+          if subprocess.check_output(["git","rev-parse","HEAD^{tree}"],text=True).strip()!=expected_tree:
+              raise RuntimeError("V01_SOURCE_TREE_MISMATCH")
+          records=subprocess.check_output(["git","ls-tree","-rz","HEAD"]).split(b"\0")
+          git_files={}
+          for rec in records:
+              if not rec:
+                  continue
+              meta,raw_name=rec.split(b"\t",1)
+              mode,kind,sha=meta.split()
+              if kind!=b"blob" or mode not in (b"100644",b"100755"):
+                  raise RuntimeError("V01_UNEXPECTED_GIT_ENTRY_KIND")
+              name=raw_name.decode("utf-8")
+              if name in git_files:
+                  raise RuntimeError("V01_DUPLICATE_GIT_PATH")
+              git_files[name]=(sha.decode("ascii"),int(mode[-3:],8))
+          if len(git_files)!=1264:
+              raise RuntimeError("V01_FROZEN_GIT_FILE_COUNT_DRIFT")
+          actual={}
+          source_bytes=0
+          with tarfile.open(archive,"r:gz") as tar:
+              for member in tar:
+                  if member.isdir():
+                      continue
+                  if not member.isfile() or not member.name.startswith("allfather-source/"):
+                      raise RuntimeError("V01_ARCHIVE_TYPE_OR_PREFIX_INVALID")
+                  name=member.name[len("allfather-source/"):]
+                  if name in actual or name not in git_files:
+                      raise RuntimeError("V01_ARCHIVE_EXTRA_OR_DUPLICATE")
+                  blob=tar.extractfile(member).read()
+                  recorded=hashlib.sha1(b"blob "+str(len(blob)).encode()+b"\0"+blob).hexdigest()
+                  sha,mode=git_files[name]
+                  if recorded!=sha or (member.mode & 0o777)!=mode:
+                      raise RuntimeError("V01_ARCHIVE_BYTE_OR_MODE_MISMATCH")
+                  actual[name]=recorded
+                  source_bytes+=len(blob)
+          if set(actual)!=set(git_files):
+              raise RuntimeError("V01_ARCHIVE_MISSING_GIT_FILES")
+          if source_bytes!=13062324:
+              raise RuntimeError("V01_SOURCE_BYTE_COUNT_CHANGED")
+          digest=hashlib.sha256(archive.read_bytes()).hexdigest()
+          receipt={
+              "schema_version":"v01.frozen-source-archive-byte-verification.v1",
+              "status":"EXACT_FROZEN_GIT_ARCHIVE_BYTES_VERIFIED_NO_HOST_DEPLOY",
+              "repository":"HMarcusWH/allfather-loopia-p01",
+              "source_commit":expected_commit,
+              "source_git_tree":expected_tree,
+              "tracked_blob_count":len(git_files),
+              "uncompressed_tracked_bytes":source_bytes,
+              "archive_sha256":digest,
+              "archive_name":archive.name,
+              "git_blob_and_mode_parity":True,
+              "source_archive_only":True,
+              "runtime_host_qualified":False,
+              "live_schema_migrated":False,
+              "model_or_source_calls":0,
+              "owner_grant":False,
+              "customer_release":False,
+              "v01_host_gate":"BLOCKED_OLDER_MAIN_DEPLOYED",
+              "remaining_verifications":"V01_HOST_AND_V02_V11_NOT_RUN",
+          }
+          dest=path/"v01-archive-verification-receipt.json"
+          dest.write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n",encoding="utf-8")
+          dest.chmod(0o600)
+          print(json.dumps(receipt,sort_keys=True))
+          PY
+
+      - name: Upload proof: exact Git source archive + SHA + byte-for-byte receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: v01-frozen-source-archive-18457c305f93
+          path: |
+            ${{ runner.temp }}/v01-frozen-source/allfather-source-frozen.tar.gz
+            ${{ runner.temp }}/v01-frozen-source/allfather-source-frozen.tar.gz.sha256
+            ${{ runner.temp }}/v01-frozen-source/v01-archive-verification-receipt.json
+          if-no-files-found: error
+          retention-days: 21
+          compression-level: 0
