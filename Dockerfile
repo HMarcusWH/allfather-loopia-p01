@@ -16,9 +16,11 @@ RUN npm install -g npm@10.9.2 \
     && npm run stage
 
 FROM php:8.5.12-apache-bookworm
+# PHP 8.5 base provides native DOM/Lexbor; rebuilding DOM without Lexbor headers
+# fails on Bookworm. Keep the explicit Dom\\HTMLDocument capability assertion below.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates libonig-dev libcurl4-openssl-dev libxml2-dev mariadb-client \
-    && docker-php-ext-install -j"$(nproc)" pdo_mysql mbstring curl dom \
+    && docker-php-ext-install -j"$(nproc)" pdo_mysql mbstring curl \
     && a2dismod -f mpm_event mpm_worker \
     && a2enmod mpm_prefork rewrite headers \
     && rm -rf /var/lib/apt/lists/*
