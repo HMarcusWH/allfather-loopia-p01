@@ -1,0 +1,13 @@
+# BUILD-29 / RT-02 — Final source freeze candidate receipt
+
+Prepared 30 October 2026. **STATE: SOURCE_IMPLEMENTED_CANDIDATE / EXACT_HOSTED_CI_PENDING / NO_PRODUCTION_OR_OWNER_GRANT**.
+
+Base: RT-01 merged `f55f18b5ce1b4875663ecbe7283ea3b4cb4e33b8`; source tree `8c02041c6753a9c675b01b9602f24b852c580209`. This receipt is NOT the Git SHA of its own eventual merge. The exact final tested SHA/tree is recorded externally after the PR completes its five-check CI, and confirmed against the actual integration merge tree.
+
+The package comprises `BuildFreezeInspector` (29 package source positions, 64 generic candidate contracts and 14 primary typed contract carriers, all U01–U10 off, pinned 12-family/38-table/76-trigger source schema, immutable 900 and safe SHA-256 file inventory); `docs/BUILD_FREEZE_MANIFEST.json` (explicit final SHA identity handoff); `docs/BUILD_LICENSE_SBOM_EVIDENCE.json` (declared proprietary PHP project and pinned npm source, independent license review not done); `ops/history/package-source.sh` (Git-only source archive to owner-only off-repo output); `ops/history/shadow-report.php` (fixed offline source and candidate history pipeline); and `ops/road-test/export-history-review-evidence.php` (sanitized source-only evidence manifest, NOT the authorized real road-test exporter).
+
+Positive path must execute fixed BF-01 EgressGuard fixture, refuse out-of-scope redirect, verify AN-03 finding/AN-04 outcome/AQ-02 attention, RT-01 typed inert composition, VA-02 assurance, VA-03 source recovery and zero real model calls. Negative path refuses production source/paid model, human factual/delivery authority, real restore, M10/M16 release, outbound messages and customer visibility. Unit, foundation, security, integration, CLI syntax/source safety and ordinary five-check hosted CI are required, with zero fails/skips.
+
+**No unverified claims:** a generic candidate carrier is not a native consumer; 29 BUILT_INERT source statuses are not semantic U01–U10 adoption; UI-02 live history route and genuine historical owner release are not active; no independent legal audit, SBOM certification, actual on-host archive, authenticated second TEST operator journey, live source rights, real provider/model quality, encrypted/populated physical restore, Railway/Loopia migration, V01–V11 acceptance or production/customer GO has occurred.
+
+On successful merge, append final integration commit, Git tree and exact GitHub CI receipt to issue #105. A later source security patch creates a new immutable freeze and a new V01 baseline, never overwrites a historical PASS/FAIL. Do not modify protected main or Railway from this package.

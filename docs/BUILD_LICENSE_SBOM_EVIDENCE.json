@@ -1,0 +1,34 @@
+{
+  "schema_version": "rt02.source-license-and-lock-evidence.v1",
+  "status": "SOURCE_METADATA_PRESENT_THIRD_PARTY_LICENSE_AUDIT_PENDING",
+  "project_license": {
+    "source": "composer.json",
+    "declared": "proprietary",
+    "source_git_blob_sha1": "4e84f2a3d11bc72eb386fa1c4f2fc07a87565aaf",
+    "separate_license_file_seen": false,
+    "independent_legal_review": false
+  },
+  "php_dependencies": {
+    "source": "composer.json",
+    "lockfile_present": false,
+    "require_php_extension_resolution": "BUILD_CI_ONLY_NOT_PRODUCTION_HOST"
+  },
+  "frontend_dependencies": {
+    "source": "frontend/console/package-lock.json",
+    "lockfile_version": 3,
+    "source_git_blob_sha1": "848260be0bcbcdddb5f17b44ba4f494e50ebeaac",
+    "pins_source_packages": true,
+    "license_audit_per_dependency": false
+  },
+  "sbom": {
+    "candidate_material": "EXACT_COMPOSER_AND_NPM_SOURCE_LOCK_METADATA",
+    "full_cyclonedx_or_spdx_independent_audit": false,
+    "source_archive_release_sha": "EXTERNAL_POST_MERGE_GIT_TREE_RECEIPT_REQUIRED"
+  },
+  "claims": {
+    "private_runtime_secrets_included": false,
+    "customer_data_included": false,
+    "production_disclosure_approved": false,
+    "legal_audit_complete": false
+  }
+}

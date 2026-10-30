@@ -1,0 +1,110 @@
+{
+  "schema_version": "rt02.synthetic-source-freeze.v1",
+  "predecessor_rt01_commit": "f55f18b5ce1b4875663ecbe7283ea3b4cb4e33b8",
+  "predecessor_rt01_tree": "8c02041c6753a9c675b01b9602f24b852c580209",
+  "final_rt02_merge_identity": "VERIFY_EXTERNAL_AFTER_CI_AND_MERGE",
+  "required_packages": 29,
+  "indexed_contract_carriers": 64,
+  "primary_contract_carriers": 14,
+  "schema": {
+    "families": 12,
+    "candidate_tables": 38,
+    "append_only_triggers": 76,
+    "legacy_900_unchanged": true,
+    "live_migration": false
+  },
+  "synthetic_source_path": {
+    "fixture": "LongitudinalBuildHarness::forCase(allowed)",
+    "expected_fetch": "FETCHED",
+    "redirect_refusal": "REFUSED",
+    "model_calls": 0
+  },
+  "synthetic_composition": {
+    "path": "HistoryReviewFactory::composeFullCandidate",
+    "outcome": "COMPLETE_SYNTHETIC_SOURCE_GRAPH_NO_RUNTIME_PERMISSION",
+    "includes": [
+      "AN03",
+      "AN04",
+      "AQ02",
+      "VA02",
+      "VA03",
+      "RT01"
+    ],
+    "native_m10_release": false,
+    "p04_customer_distribution": false,
+    "real_restore": false
+  },
+  "negative_examples": [
+    {
+      "case": "runtime model inference",
+      "result": "AN02_U03_U06_PROVIDER_AND_HUMAN_RUNTIME_NOT_ADOPTED"
+    },
+    {
+      "case": "human review command",
+      "result": "UI02_U03_U06_U07_U09_NATIVE_COMMAND_NOT_ADOPTED"
+    },
+    {
+      "case": "real host restore",
+      "result": "VA03_RESTORE_REQUEST_NOT_ADOPTED"
+    },
+    {
+      "case": "invalid source inventory",
+      "result": "RT02_FREEZE_SOURCE_RECEIPT_FORGED_OR_STALE"
+    }
+  ],
+  "artifacts": {
+    "source_script": "ops/history/package-source.sh",
+    "allowlisted_git_only": true,
+    "output_owner_only_outside_repo": true,
+    "archive_actually_created": false,
+    "third_party_license_audit_complete": false
+  },
+  "verification": {
+    "current_source_hygiene": "CI_REQUIRED",
+    "V01_V11": "NOT_RUN"
+  },
+  "owner_gates": [
+    {
+      "id": "U01",
+      "status": "NOT_ADOPTED"
+    },
+    {
+      "id": "U02",
+      "status": "NOT_ADOPTED"
+    },
+    {
+      "id": "U03",
+      "status": "NOT_ADOPTED"
+    },
+    {
+      "id": "U04",
+      "status": "NOT_ADOPTED"
+    },
+    {
+      "id": "U05",
+      "status": "NOT_ADOPTED"
+    },
+    {
+      "id": "U06",
+      "status": "NOT_ADOPTED"
+    },
+    {
+      "id": "U07",
+      "status": "NOT_ADOPTED"
+    },
+    {
+      "id": "U08",
+      "status": "NOT_ADOPTED"
+    },
+    {
+      "id": "U09",
+      "status": "NOT_ADOPTED"
+    },
+    {
+      "id": "U10",
+      "status": "NOT_ADOPTED"
+    }
+  ],
+  "production_admission": false,
+  "customer_visibility": false
+}
